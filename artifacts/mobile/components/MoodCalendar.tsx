@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { DailyRecord } from '@/contexts/AppContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MascotFace, MoodLevel } from '@/components/MascotFace';
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -26,9 +27,6 @@ const MOOD_LABELS: Record<number, string> = {
   5: '最高 🌟',
 };
 
-const MOOD_EMOJI: Record<number, string> = {
-  1: '😢', 2: '😞', 3: '😐', 4: '😊', 5: '🌟',
-};
 
 function toYMD(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -123,9 +121,12 @@ export function MoodCalendar({ records }: Props) {
             </View>
             {avgMood !== null && (
               <View style={[styles.statChip, { backgroundColor: MOOD_COLORS[Math.round(avgMood)] + '22' }]}>
-                <Text style={[styles.statChipVal, { color: MOOD_COLORS[Math.round(avgMood)] }]}>
-                  {MOOD_EMOJI[Math.round(avgMood)]} {avgMood.toFixed(1)}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <MascotFace mood={Math.round(avgMood) as MoodLevel} size={22} />
+                  <Text style={[styles.statChipVal, { color: MOOD_COLORS[Math.round(avgMood)] }]}>
+                    {avgMood.toFixed(1)}
+                  </Text>
+                </View>
                 <Text style={[styles.statChipLbl, { color: colors.mutedForeground }]}>平均気分</Text>
               </View>
             )}
@@ -172,13 +173,14 @@ export function MoodCalendar({ records }: Props) {
                     style={[
                       styles.dayCircle,
                       moodColor
-                        ? { backgroundColor: moodColor + '22', borderColor: moodColor + '80', borderWidth: 1.5 }
+                        ? { backgroundColor: moodColor + '18', borderColor: moodColor + '70', borderWidth: 1.5 }
                         : { backgroundColor: colors.muted },
-                      isToday && styles.todayBorder,
+                      isToday && !rec && styles.todayBorder,
+                      isToday && !!rec && { borderColor: '#7C4DCC', borderWidth: 2.5 },
                     ]}
                   >
                     {rec ? (
-                      <Text style={styles.moodEmoji}>{MOOD_EMOJI[rec.mood]}</Text>
+                      <MascotFace mood={rec.mood as MoodLevel} size={30} />
                     ) : (
                       <Text
                         style={[
@@ -200,9 +202,7 @@ export function MoodCalendar({ records }: Props) {
                     )}
                   </View>
                   {rec && (
-                    <Text
-                      style={[styles.dayNumSmall, { color: moodColor! }]}
-                    >
+                    <Text style={[styles.dayNumSmall, { color: moodColor! }]}>
                       {day}
                     </Text>
                   )}
@@ -214,9 +214,9 @@ export function MoodCalendar({ records }: Props) {
 
         {/* Legend */}
         <View style={styles.legend}>
-          {[1, 2, 3, 4, 5].map((m) => (
+          {([1, 2, 3, 4, 5] as MoodLevel[]).map((m) => (
             <View key={m} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: MOOD_COLORS[m] }]} />
+              <MascotFace mood={m} size={20} />
               <Text style={[styles.legendText, { color: colors.mutedForeground }]}>{MOOD_LABELS[m].split(' ')[0]}</Text>
             </View>
           ))}
@@ -253,7 +253,7 @@ export function MoodCalendar({ records }: Props) {
 
               {/* Mood */}
               <View style={[styles.detailMoodRow, { backgroundColor: MOOD_COLORS[selected.mood] + '18' }]}>
-                <Text style={styles.detailEmoji}>{MOOD_EMOJI[selected.mood]}</Text>
+                <MascotFace mood={selected.mood as MoodLevel} size={56} />
                 <View>
                   <Text style={[styles.detailMoodLabel, { color: MOOD_COLORS[selected.mood] }]}>
                     {MOOD_LABELS[selected.mood]}
