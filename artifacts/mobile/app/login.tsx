@@ -5,11 +5,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, API_BASE } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useRouter } from 'expo-router';
 import { Mascot } from '@/components/Mascot';
 import { Ionicons } from '@expo/vector-icons';
+
+const IS_NETWORK_ERROR = (msg: string) =>
+  msg.includes('ネットワーク') || msg.includes('Network') || msg.includes('fetch');
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -108,7 +111,26 @@ export default function LoginScreen() {
               placeholderTextColor="#BBA8D8"
             />
 
-            {!!error && <Text style={styles.error}>{error}</Text>}
+            {!!error && (
+              <View style={styles.errorBox}>
+                <Ionicons
+                  name={IS_NETWORK_ERROR(error) ? 'wifi-outline' : 'alert-circle-outline'}
+                  size={16}
+                  color={IS_NETWORK_ERROR(error) ? '#F97316' : '#EF4444'}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.error, IS_NETWORK_ERROR(error) && { color: '#F97316' }]}>
+                    {error}
+                  </Text>
+                  {IS_NETWORK_ERROR(error) && (
+                    <Text style={styles.errorSub}>
+                      接続先: {API_BASE}{'\n'}
+                      Wi-Fi または通信環境を確認してください
+                    </Text>
+                  )}
+                </View>
+              </View>
+            )}
 
             <TouchableOpacity
               style={styles.button}
@@ -213,11 +235,27 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#DDD0F5',
   },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
   error: {
     color: '#EF4444',
     fontSize: 13,
-    marginTop: 12,
-    textAlign: 'center',
+    flexShrink: 1,
+  },
+  errorSub: {
+    color: '#F97316',
+    fontSize: 11,
+    marginTop: 4,
+    lineHeight: 16,
   },
   button: {
     backgroundColor: '#7C4DCC',

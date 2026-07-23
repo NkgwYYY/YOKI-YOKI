@@ -28,12 +28,13 @@ function AuthGate() {
 
   useEffect(() => {
     if (isLoading) return;
-    const inTabs = segments[0] === '(tabs)';
-    const inLogin = segments[0] === 'login';
+    // Public routes that don't require authentication
+    const isPublicRoute = segments[0] === 'login' || segments[0] === 'forgot-password';
 
-    if (!token && !inLogin) {
+    if (!token && !isPublicRoute) {
       router.replace('/login');
-    } else if (token && inLogin) {
+    } else if (token && segments[0] === 'login') {
+      // Only auto-redirect to tabs from the login screen, not forgot-password
       router.replace('/(tabs)');
     }
   }, [token, isLoading, segments]);
