@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useColors } from '@/hooks/useColors';
 import { Mascot } from '@/components/Mascot';
 import { getMascotStage } from '@/utils/mascotUtils';
+import { Analytics } from '@/utils/analytics';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const SCENE_DURATION = 10_000; // 10 seconds
@@ -295,13 +296,14 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
   const outroBubble = useSharedOpacity();
 
   useEffect(() => {
-    if (visible) { setPhase('choose'); setTimeLeft(SCENE_DURATION / 1000); }
+    if (visible) { setPhase('choose'); setTimeLeft(SCENE_DURATION / 1000); Analytics.restEventShown(); }
     return () => clearInterval(timerRef.current!);
   }, [visible]);
 
   const startScene = (s: Scene) => {
     setScene(s);
     setPhase('playing');
+    Analytics.restEventScene(s);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setTimeLeft(SCENE_DURATION / 1000);
     timerRef.current = setInterval(() => {
@@ -372,13 +374,13 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
               <View style={m.outroRow}>
                 <TouchableOpacity
                   style={[m.outroBtn, { backgroundColor: '#7C3AED' }]}
-                  onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); onClose(); }}
+                  onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); Analytics.restEventCompleted(true); onClose(); }}
                 >
                   <Text style={m.outroBtnText}>うん 😊</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[m.outroBtn, { backgroundColor: '#374151' }]}
-                  onPress={onClose}
+                  onPress={() => { Analytics.restEventCompleted(false); onClose(); }}
                 >
                   <Text style={m.outroBtnText}>まだかな…</Text>
                 </TouchableOpacity>

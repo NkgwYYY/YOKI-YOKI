@@ -4,6 +4,7 @@ import {
   FlatList, Platform, useColorScheme,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -229,6 +230,7 @@ export default function ChatScreen() {
         content: data.content || 'うん、聞いてるよ！',
       };
       setMessages(prev => [...prev, assistantMsg]);
+      Analytics.chatMessageSent();
       if (data.restEvent) {
         setTimeout(() => setShowRestEvent(true), 1200);
       }

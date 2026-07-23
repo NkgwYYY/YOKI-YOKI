@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColors } from '@/hooks/useColors';
 import { GameSlot, getSlotConfig } from '@/utils/miniGameUtils';
+import { Analytics } from '@/utils/analytics';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const GAME_DURATION = 10; // seconds
@@ -199,7 +200,7 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
   const cfg = getSlotConfig(slot);
 
   useEffect(() => {
-    if (visible) setPhase('intro');
+    if (visible) { setPhase('intro'); Analytics.miniGameStarted(slot); }
   }, [visible]);
 
   const handleMorningFinish = (score: number) => {
@@ -208,12 +209,14 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
     setReward(r);
     setPhase('result');
     onReward({ fp });
+    Analytics.miniGameCompleted('morning', score);
   };
 
   const handleNoonFinish = (r: Reward) => {
     setReward(r);
     setPhase('result');
     onReward({ fp: r.fp, xp: r.xp });
+    Analytics.miniGameCompleted('noon', (r.fp ?? 0) + (r.xp ?? 0));
   };
 
   const handleNightFinish = (score: number) => {
@@ -222,6 +225,7 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
     setReward(r);
     setPhase('result');
     onReward({ xp });
+    Analytics.miniGameCompleted('night', score);
   };
 
   return (

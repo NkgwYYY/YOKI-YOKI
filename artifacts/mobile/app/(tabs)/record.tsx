@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Analytics } from '@/utils/analytics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -117,6 +118,7 @@ export default function RecordScreen() {
     setIsSaving(true);
     try {
       await saveRecord(mood, sleep, behaviors, notes);
+      Analytics.moodRecorded(mood);
       setSaved(true);
       setTimeout(() => setSaved(false), 2200);
     } finally {

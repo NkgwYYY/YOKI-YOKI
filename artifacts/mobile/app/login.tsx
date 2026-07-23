@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Analytics } from '@/utils/analytics';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
@@ -212,6 +213,7 @@ export default function LoginScreen() {
       if (result.error) {
         setError(result.error);
       } else {
+        tab === 'login' ? Analytics.login() : Analytics.signUp();
         router.replace('/(tabs)');
       }
     } finally {
