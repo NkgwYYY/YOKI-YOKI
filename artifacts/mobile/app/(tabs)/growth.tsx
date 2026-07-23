@@ -16,8 +16,9 @@ import Animated, {
   withDelay,
   withTiming,
   withSpring,
-  Easing,
 } from 'react-native-reanimated';
+
+const easeOut = (t: number) => t * (2 - t);
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
 import { GrowthChart } from '@/components/GrowthChart';
@@ -42,7 +43,7 @@ function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
 function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
   const w = useSharedValue(0);
   useEffect(() => {
-    w.value = withDelay(400, withTiming(pct, { duration: 1100, easing: Easing.out(Easing.quad) }));
+    w.value = withDelay(400, withTiming(pct, { duration: 1100, easing: easeOut }));
   }, [pct]);
   const style = useAnimatedStyle(() => ({ width: `${w.value}%` as any }));
   return (

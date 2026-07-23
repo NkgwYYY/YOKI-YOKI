@@ -8,8 +8,10 @@ import Animated, {
   withDelay,
   withRepeat,
   withSequence,
-  Easing,
 } from 'react-native-reanimated';
+
+const easeBezier = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
 import Svg, { Circle, G, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { useColors } from '@/hooks/useColors';
 
@@ -38,7 +40,7 @@ export function MentalMeter({ percentage, level, experience }: MentalMeterProps)
       350,
       withTiming(percentage, {
         duration: 1400,
-        easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
+        easing: easeBezier,
       })
     );
   }, [percentage]);
@@ -52,8 +54,8 @@ export function MentalMeter({ percentage, level, experience }: MentalMeterProps)
   useEffect(() => {
     glowOpacity.value = withRepeat(
       withSequence(
-        withTiming(0.55, { duration: 1800, easing: Easing.inOut(Easing.sine) }),
-        withTiming(0.25, { duration: 1800, easing: Easing.inOut(Easing.sine) })
+        withTiming(0.55, { duration: 1800, easing: easeInOutSine }),
+        withTiming(0.25, { duration: 1800, easing: easeInOutSine })
       ),
       -1,
       false

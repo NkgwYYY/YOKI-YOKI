@@ -22,8 +22,10 @@ import Animated, {
   withSequence,
   withTiming,
   withDelay,
-  Easing,
 } from 'react-native-reanimated';
+
+const easeOut = (t: number) => t * (2 - t);
+const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
 import { ChecklistItemRow } from '@/components/ChecklistItemRow';
@@ -97,8 +99,8 @@ function CompleteBanner() {
   useEffect(() => {
     glow.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.sine) }),
-        withTiming(0.6, { duration: 900, easing: Easing.inOut(Easing.sine) })
+        withTiming(1, { duration: 900, easing: easeInOutSine }),
+        withTiming(0.6, { duration: 900, easing: easeInOutSine })
       ),
       -1,
       false
@@ -183,7 +185,7 @@ export default function CheckScreen() {
   // Animated progress bar
   const barW = useSharedValue(0);
   useEffect(() => {
-    barW.value = withTiming(progressPct, { duration: 500, easing: Easing.out(Easing.quad) });
+    barW.value = withTiming(progressPct, { duration: 500, easing: easeOut });
   }, [progressPct]);
   const barStyle = useAnimatedStyle(() => ({ width: `${barW.value}%` as any }));
 
