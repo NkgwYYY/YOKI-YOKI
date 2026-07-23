@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  FlatList, KeyboardAvoidingView, Platform, useColorScheme,
+  FlatList, Platform, useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,9 @@ import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
+// Tab bar height constants (matches _layout.tsx)
+const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 84 : 0;
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -26,81 +29,106 @@ interface Message {
 /* ── Typing dots ── */
 function TypingDots() {
   const colors = useColors();
-  const dots = [
-    useSharedValue(0),
-    useSharedValue(0),
-    useSharedValue(0),
-  ];
+  const d0 = useSharedValue(0);
+  const d1 = useSharedValue(0);
+  const d2 = useSharedValue(0);
+
   useEffect(() => {
-    dots.forEach((d, i) => {
-      d.value = withDelay(i * 160,
-        withRepeat(
-          withSequence(
-            withTiming(-5, { duration: 300 }),
-            withTiming(0,  { duration: 300 }),
-          ), -1, false
-        )
+    const anim = (v: typeof d0, delay: number) => {
+      v.value = withDelay(delay,
+        withRepeat(withSequence(
+          withTiming(-5, { duration: 300 }),
+          withTiming(0, { duration: 300 }),
+        ), -1, false)
       );
-    });
+    };
+    anim(d0, 0);
+    anim(d1, 160);
+    anim(d2, 320);
   }, []);
+
+  const s0 = useAnimatedStyle(() => ({ transform: [{ translateY: d0.value }] }));
+  const s1 = useAnimatedStyle(() => ({ transform: [{ translateY: d1.value }] }));
+  const s2 = useAnimatedStyle(() => ({ transform: [{ translateY: d2.value }] }));
+
   return (
-    <View style={typingStyles.row}>
-      {dots.map((d, i) => {
-        // eslint-disable-next-line react-hooks/rules-of-hooks
-        const style = useAnimatedStyle(() => ({ transform: [{ translateY: d.value }] }));
-        return (
-          <Animated.View key={i} style={[typingStyles.dot, { backgroundColor: colors.mutedForeground }, style]} />
-        );
-      })}
+    <View style={dotStyles.row}>
+      <Animated.View style={[dotStyles.dot, { backgroundColor: colors.mutedForeground }, s0]} />
+      <Animated.View style={[dotStyles.dot, { backgroundColor: colors.mutedForeground }, s1]} />
+      <Animated.View style={[dotStyles.dot, { backgroundColor: colors.mutedForeground }, s2]} />
     </View>
   );
 }
-
-const typingStyles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 5, alignItems: 'center', paddingHorizontal: 4, paddingVertical: 2 },
+const dotStyles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 5, alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4 },
   dot: { width: 7, height: 7, borderRadius: 3.5 },
 });
 
-/* ── Single message bubble ── */
-function MessageBubble({ msg, mascotStage, mascotMood, colors, isDark }: {
+/* ── Message bubble ── */
+function MessageBubble({ msg, mascotStage, mascotMood, colors }: {
   msg: Message;
   mascotStage: ReturnType<typeof getMascotStage>;
   mascotMood: ReturnType<typeof getMascotMood>;
   colors: ReturnType<typeof useColors>;
-  isDark: boolean;
 }) {
   const isUser = msg.role === 'user';
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(8);
+  const ty = useSharedValue(10);
   useEffect(() => {
-    opacity.value = withTiming(1, { duration: 280 });
-    translateY.value = withSpring(0, { damping: 20, stiffness: 200 });
+    opacity.value = withTiming(1, { duration: 260 });
+    ty.value = withSpring(0, { damping: 20, stiffness: 220 });
   }, []);
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: ty.value }],
   }));
 
   if (isUser) {
     return (
-      <Animated.View style={[styles.rowUser, style]}>
-        <View style={[styles.bubbleUser, { backgroundColor: colors.primary }]}>
-          <Text style={styles.bubbleUserText}>{msg.content}</Text>
+      <Animated.View style={[bubbleStyles.rowUser, style]}>
+        <View style={[bubbleStyles.bubbleUser, { backgroundColor: colors.primary }]}>
+          <Text style={bubbleStyles.userText}>{msg.content}</Text>
         </View>
       </Animated.View>
     );
   }
   return (
-    <Animated.View style={[styles.rowMascot, style]}>
-      <View style={styles.mascotAvatar}>
-        <Mascot stage={mascotStage} mood={mascotMood} size={44} />
+    <Animated.View style={[bubbleStyles.rowMascot, style]}>
+      <View style={bubbleStyles.avatar}>
+        <Mascot stage={mascotStage} mood={mascotMood} size={42} />
       </View>
-      <View style={[styles.bubbleMascot, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.bubbleMascotText, { color: colors.foreground }]}>{msg.content}</Text>
+      <View style={[bubbleStyles.bubbleMascot, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[bubbleStyles.mascotText, { color: colors.foreground }]}>{msg.content}</Text>
       </View>
     </Animated.View>
   );
 }
+const bubbleStyles = StyleSheet.create({
+  rowUser: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16 },
+  rowMascot: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 16 },
+  avatar: { marginBottom: 2, flexShrink: 0 },
+  bubbleUser: { maxWidth: '72%', padding: 13, borderRadius: 20, borderBottomRightRadius: 4 },
+  userText: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_400Regular', lineHeight: 22 },
+  bubbleMascot: { maxWidth: '72%', padding: 13, borderRadius: 20, borderBottomLeftRadius: 4, borderWidth: 1 },
+  mascotText: { fontSize: 15, fontFamily: 'Inter_400Regular', lineHeight: 22 },
+});
+
+/* ── Suggestion chip ── */
+function Chip({ label, onPress, colors }: { label: string; onPress: () => void; colors: ReturnType<typeof useColors> }) {
+  return (
+    <TouchableOpacity
+      style={[chipStyles.chip, { backgroundColor: colors.muted, borderColor: colors.border }]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <Text style={[chipStyles.text, { color: colors.foreground }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+const chipStyles = StyleSheet.create({
+  chip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 18, borderWidth: 1 },
+  text: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+});
 
 /* ── Main screen ── */
 export default function ChatScreen() {
@@ -118,11 +146,7 @@ export default function ChatScreen() {
   const displayName = mascotName || 'こころん';
 
   const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `やあ！${displayName}だよ✨ なんでも話しかけてね！`,
-    },
+    { id: 'welcome', role: 'assistant', content: `やあ！${displayName}だよ✨ なんでも話しかけてね！` },
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -130,17 +154,17 @@ export default function ChatScreen() {
   const sendScale = useSharedValue(1);
 
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
 
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
-    if (!text || isLoading) return;
-
+  const sendMessage = useCallback(async (text?: string) => {
+    const msg = (text ?? input).trim();
+    if (!msg || isLoading) return;
     setInput('');
-    const userMsg: Message = { id: `u_${Date.now()}`, role: 'user', content: text };
-    const nextMessages = [...messages, userMsg];
-    setMessages(nextMessages);
+
+    const userMsg: Message = { id: `u_${Date.now()}`, role: 'user', content: msg };
+    const next = [...messages, userMsg];
+    setMessages(next);
     scrollToBottom();
     setIsLoading(true);
 
@@ -150,29 +174,22 @@ export default function ChatScreen() {
     );
 
     try {
-      const history = nextMessages
+      const history = next
         .filter(m => m.id !== 'welcome')
-        .slice(-12) // keep last 12 messages for context window
+        .slice(-12)
         .map(m => ({ role: m.role, content: m.content }));
 
       const res = await fetch(`${API_BASE}/chat/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: history,
-          mascotName: displayName,
-          mascotStage,
-        }),
+        body: JSON.stringify({ messages: history, mascotName: displayName, mascotStage }),
       });
-
       const data = await res.json();
-      const assistantMsg: Message = {
+      setMessages(prev => [...prev, {
         id: `a_${Date.now()}`,
         role: 'assistant',
-        content: data.content ?? 'うん、聞いてるよ！',
-      };
-      setMessages(prev => [...prev, assistantMsg]);
-      scrollToBottom();
+        content: data.content || 'うん、聞いてるよ！',
+      }]);
     } catch {
       setMessages(prev => [...prev, {
         id: `err_${Date.now()}`,
@@ -181,26 +198,26 @@ export default function ChatScreen() {
       }]);
     } finally {
       setIsLoading(false);
+      scrollToBottom();
     }
   }, [input, isLoading, messages, displayName, mascotStage, scrollToBottom]);
 
   const sendBtnStyle = useAnimatedStyle(() => ({ transform: [{ scale: sendScale.value }] }));
 
-  const bgColors = isDark
-    ? (['#0E0A1C', '#130D28'] as const)
-    : (['#FAF7FF', '#F0F5FF'] as const);
-
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const bottomPad = Platform.OS === 'web' ? 90 : insets.bottom + 90;
+  const bgColors = isDark ? ['#0E0A1C', '#130D28'] as const : ['#FAF7FF', '#F0F5FF'] as const;
+
+  const showChips = messages.length <= 1;
+  const CHIPS = ['今日あったこと話したい', '少し落ち込んでる', 'がんばった！聞いて', '雑談しよう'];
 
   return (
-    <View style={styles.flex}>
+    <View style={styles.root}>
       <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 12, borderBottomColor: colors.border }]}>
-        <View style={styles.headerMascot}>
-          <Mascot stage={mascotStage} mood={mascotMood} size={48} />
+      <View style={[styles.header, { paddingTop: topPad + 10, borderBottomColor: colors.border }]}>
+        <View style={styles.headerAvatar}>
+          <Mascot stage={mascotStage} mood={mascotMood} size={46} />
         </View>
         <View>
           <Text style={[styles.headerName, { color: colors.foreground }]}>{displayName}</Text>
@@ -211,142 +228,127 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
-        {/* Message list */}
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={m => m.id}
-          contentContainerStyle={[styles.listContent, { paddingBottom: 16 }]}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={scrollToBottom}
-          renderItem={({ item }) => (
-            <MessageBubble
-              msg={item}
-              mascotStage={mascotStage}
-              mascotMood={mascotMood}
-              colors={colors}
-              isDark={isDark}
-            />
-          )}
-          ListFooterComponent={isLoading ? (
-            <View style={styles.rowMascot}>
-              <View style={styles.mascotAvatar}>
-                <Mascot stage={mascotStage} mood="happy" size={44} />
-              </View>
-              <View style={[styles.bubbleMascot, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <TypingDots />
-              </View>
+      {/* Messages */}
+      <FlatList
+        ref={listRef}
+        data={messages}
+        keyExtractor={m => m.id}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={scrollToBottom}
+        renderItem={({ item }) => (
+          <MessageBubble
+            msg={item}
+            mascotStage={mascotStage}
+            mascotMood={mascotMood}
+            colors={colors}
+          />
+        )}
+        ListFooterComponent={isLoading ? (
+          <View style={[bubbleStyles.rowMascot, { paddingHorizontal: 16 }]}>
+            <View style={bubbleStyles.avatar}>
+              <Mascot stage={mascotStage} mood="happy" size={42} />
             </View>
-          ) : null}
-        />
-
-        {/* Input bar */}
-        <View style={[
-          styles.inputBar,
-          {
-            backgroundColor: colors.card,
-            borderTopColor: colors.border,
-            paddingBottom: Platform.OS === 'web' ? 16 : insets.bottom + 12,
-          }
-        ]}>
-          {/* Suggestion chips (only when no messages yet) */}
-          {messages.length <= 1 && (
-            <View style={styles.chips}>
-              {['今日あったこと話したい', '少し落ち込んでる', 'がんばった！聞いて', '雑談しよう'].map(t => (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.chip, { backgroundColor: colors.muted, borderColor: colors.border }]}
-                  onPress={() => setInput(t)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.chipText, { color: colors.foreground }]}>{t}</Text>
-                </TouchableOpacity>
-              ))}
+            <View style={[bubbleStyles.bubbleMascot, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <TypingDots />
             </View>
-          )}
-
-          <View style={styles.inputRow}>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground }]}
-              placeholder={`${displayName}に話しかける…`}
-              placeholderTextColor={colors.mutedForeground}
-              value={input}
-              onChangeText={setInput}
-              multiline
-              maxLength={300}
-              returnKeyType="default"
-            />
-            <Animated.View style={sendBtnStyle}>
-              <TouchableOpacity
-                style={[styles.sendBtn, { backgroundColor: input.trim() && !isLoading ? colors.primary : colors.muted }]}
-                onPress={sendMessage}
-                disabled={!input.trim() || isLoading}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name="send"
-                  size={18}
-                  color={input.trim() && !isLoading ? '#FFF' : colors.mutedForeground}
-                />
-              </TouchableOpacity>
-            </Animated.View>
           </View>
+        ) : null}
+      />
+
+      {/* Input area — sits above the tab bar */}
+      <View style={[
+        styles.inputArea,
+        {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+          paddingBottom: TAB_BAR_HEIGHT + (Platform.OS === 'ios' ? insets.bottom : 8),
+        },
+      ]}>
+        {/* Chips */}
+        {showChips && (
+          <View style={styles.chips}>
+            {CHIPS.map(c => (
+              <Chip key={c} label={c} onPress={() => sendMessage(c)} colors={colors} />
+            ))}
+          </View>
+        )}
+
+        {/* Input row */}
+        <View style={[styles.inputRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <TextInput
+            style={[styles.input, { color: colors.foreground }]}
+            placeholder={`${displayName}に話しかける…`}
+            placeholderTextColor={colors.mutedForeground}
+            value={input}
+            onChangeText={setInput}
+            multiline
+            maxLength={400}
+            onSubmitEditing={() => sendMessage()}
+          />
+          <Animated.View style={sendBtnStyle}>
+            <TouchableOpacity
+              style={[
+                styles.sendBtn,
+                { backgroundColor: input.trim() && !isLoading ? colors.primary : colors.border },
+              ]}
+              onPress={() => sendMessage()}
+              disabled={!input.trim() || isLoading}
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name="send"
+                size={17}
+                color={input.trim() && !isLoading ? '#FFF' : colors.mutedForeground}
+              />
+            </TouchableOpacity>
+          </Animated.View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  root: { flex: 1 },
 
-  /* header */
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 18, paddingBottom: 12,
-    borderBottomWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 18, paddingBottom: 12, borderBottomWidth: 1,
   },
-  headerMascot: { marginBottom: -4 },
+  headerAvatar: { marginBottom: -4 },
   headerName: { fontSize: 17, fontFamily: 'Inter_700Bold' },
   onlineRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
   onlineDot: { width: 6, height: 6, borderRadius: 3 },
   onlineText: { fontSize: 11, fontFamily: 'Inter_400Regular' },
 
-  /* list */
-  listContent: { paddingHorizontal: 16, paddingTop: 16, gap: 12 },
+  list: { flex: 1 },
+  listContent: { paddingVertical: 16, gap: 12 },
 
-  /* bubbles */
-  rowUser: { flexDirection: 'row', justifyContent: 'flex-end' },
-  rowMascot: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  mascotAvatar: { marginBottom: 2 },
-  bubbleUser: {
-    maxWidth: '75%', padding: 13, borderRadius: 20,
-    borderBottomRightRadius: 4,
+  inputArea: {
+    borderTopWidth: 1,
+    paddingTop: 10,
+    paddingHorizontal: 14,
+    gap: 10,
   },
-  bubbleUserText: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_400Regular', lineHeight: 22 },
-  bubbleMascot: {
-    maxWidth: '75%', padding: 13, borderRadius: 20,
-    borderBottomLeftRadius: 4, borderWidth: 1,
-  },
-  bubbleMascotText: { fontSize: 15, fontFamily: 'Inter_400Regular', lineHeight: 22 },
-
-  /* input */
-  inputBar: { borderTopWidth: 1, paddingTop: 10, paddingHorizontal: 14, gap: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1 },
-  chipText: { fontSize: 12, fontFamily: 'Inter_400Regular' },
-  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+
+  inputRow: {
+    flexDirection: 'row', alignItems: 'flex-end',
+    borderRadius: 26, borderWidth: 1,
+    paddingLeft: 16, paddingRight: 6, paddingVertical: 6,
+    gap: 6,
+  },
   input: {
-    flex: 1, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 11,
-    fontSize: 15, fontFamily: 'Inter_400Regular', maxHeight: 110, lineHeight: 21,
+    flex: 1,
+    fontSize: 15, fontFamily: 'Inter_400Regular',
+    maxHeight: 120, lineHeight: 22,
+    paddingVertical: 4,
   },
   sendBtn: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 38, height: 38, borderRadius: 19,
     alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   },
 });
