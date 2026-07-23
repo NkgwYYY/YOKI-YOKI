@@ -3,11 +3,9 @@ previewPath = "/"
 title = "メントレ"
 version = "1.0.0"
 id = "artifacts/mobile"
-router = "expo-domain"
 
 [[services]]
 name = "expo"
-ensurePreviewReachable = "/status"
 paths = [ "/" ]
 localPort = 18115
 
