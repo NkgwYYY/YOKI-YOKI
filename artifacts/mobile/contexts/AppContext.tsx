@@ -53,6 +53,7 @@ const KEYS = {
   CHECKED_STATE: '@mentore/checked_state_v2',
   CUSTOM_ITEMS: '@mentore/custom_items_v2',
   BADGES: '@mentore/badges_v2',
+  MASCOT_NAME: '@mentore/mascot_name_v1',
 };
 
 interface AppContextType {
@@ -63,6 +64,7 @@ interface AppContextType {
   unlockedBadges: UnlockedBadge[];
   isLoading: boolean;
   newlyUnlockedBadge: string | null;
+  mascotName: string;
   clearNewBadge: () => void;
   toggleCheckItem: (id: string) => Promise<void>;
   addCustomItem: (text: string) => Promise<void>;
@@ -70,6 +72,7 @@ interface AppContextType {
   getTodayRecord: () => DailyRecord | undefined;
   getCompletedCount: () => number;
   getTotalCheckCount: () => number;
+  setMascotName: (name: string) => Promise<void>;
 }
 
 const defaultProgress: UserProgress = {
@@ -95,6 +98,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [unlockedBadges, setUnlockedBadges] = useState<UnlockedBadge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<string | null>(null);
+  const [mascotName, setMascotNameState] = useState('');
 
   useEffect(() => {
     loadAll();
@@ -112,12 +116,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, customStr, badgesStr] = await Promise.all([
+      const [progressStr, recordsStr, checkedStr, customStr, badgesStr, nameStr] = await Promise.all([
         AsyncStorage.getItem(KEYS.PROGRESS),
         AsyncStorage.getItem(KEYS.RECORDS),
         AsyncStorage.getItem(KEYS.CHECKED_STATE),
         AsyncStorage.getItem(KEYS.CUSTOM_ITEMS),
         AsyncStorage.getItem(KEYS.BADGES),
+        AsyncStorage.getItem(KEYS.MASCOT_NAME),
       ]);
 
       const today = getTodayDate();
@@ -126,6 +131,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (progressStr) setProgress(JSON.parse(progressStr));
       if (recordsStr) setRecords(JSON.parse(recordsStr));
       if (badgesStr) setUnlockedBadges(JSON.parse(badgesStr));
+      if (nameStr) setMascotNameState(nameStr);
       setCustomItems(loadedCustom);
 
       if (checkedStr) {
@@ -340,6 +346,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearNewBadge = useCallback(() => setNewlyUnlockedBadge(null), []);
 
+  const setMascotName = useCallback(async (name: string) => {
+    setMascotNameState(name);
+    await AsyncStorage.setItem(KEYS.MASCOT_NAME, name);
+  }, []);
+
   return (
     <AppContext.Provider
       value={{
@@ -350,6 +361,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         unlockedBadges,
         isLoading,
         newlyUnlockedBadge,
+        mascotName,
         clearNewBadge,
         toggleCheckItem,
         addCustomItem,
@@ -357,6 +369,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getTodayRecord,
         getCompletedCount,
         getTotalCheckCount,
+        setMascotName,
       }}
     >
       {children}

@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   Platform,
   useColorScheme,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -88,7 +91,7 @@ export default function HomeScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { progress, getTodayRecord, getCompletedCount, getTotalCheckCount } = useApp();
+  const { progress, getTodayRecord, getCompletedCount, getTotalCheckCount, mascotName, setMascotName } = useApp();
 
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
@@ -99,6 +102,8 @@ export default function HomeScreen() {
   const status = calcStatus(todayRecord, completedCount, totalCount, progress.streak);
 
   const [msgIndex, setMsgIndex] = useState(0);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [nameInput, setNameInput] = useState('');
   const msgs = React.useMemo(() => {
     const m = getMascotMessage(mood);
     return [m, ...['タップしてみてね！', '一緒に頑張ろう！', '今日も来てくれたね♪']];
@@ -187,6 +192,29 @@ export default function HomeScreen() {
                 onPress={() => setMsgIndex((i) => i + 1)}
               />
             </View>
+
+            {/* Name display */}
+            <TouchableOpacity
+              style={styles.nameRow}
+              onPress={() => { setNameInput(mascotName); setShowNameModal(true); }}
+              activeOpacity={0.75}
+            >
+              {mascotName ? (
+                <>
+                  <Text style={[styles.mascotNameText, { color: colors.foreground }]}>
+                    {mascotName}
+                  </Text>
+                  <Ionicons name="pencil" size={13} color={colors.mutedForeground} />
+                </>
+              ) : (
+                <>
+                  <Ionicons name="add-circle-outline" size={15} color={colors.primary} />
+                  <Text style={[styles.namePrompt, { color: colors.primary }]}>
+                    名前をつけよう！
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
 
             {/* Stage desc */}
             <Text style={[styles.stageDesc, { color: colors.mutedForeground }]}>
@@ -326,6 +354,90 @@ export default function HomeScreen() {
           )}
         </FadeIn>
       </ScrollView>
+
+      {/* ── Naming Modal ── */}
+      <Modal visible={showNameModal} transparent animationType="slide" onRequestClose={() => setShowNameModal(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setShowNameModal(false)} />
+          <View style={[styles.sheet, { backgroundColor: colors.card }]}>
+            <View style={[styles.handle, { backgroundColor: colors.border }]} />
+
+            {/* Sheet header */}
+            <View style={styles.sheetHeader}>
+              <Mascot stage={stage} mood="happy" size={72} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
+                  {mascotName ? '名前を変更する' : '名前をつけよう！'}
+                </Text>
+                <Text style={[styles.sheetSub, { color: colors.mutedForeground }]}>
+                  キャラクターに名前をつけてね
+                </Text>
+              </View>
+            </View>
+
+            {/* Input */}
+            <TextInput
+              style={[styles.nameInput, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              placeholder="なまえを入力（例：こころん）"
+              placeholderTextColor={colors.mutedForeground}
+              value={nameInput}
+              onChangeText={setNameInput}
+              maxLength={12}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (nameInput.trim()) { setMascotName(nameInput.trim()); setShowNameModal(false); }
+              }}
+            />
+            <Text style={[styles.charCount, { color: colors.mutedForeground }]}>
+              {nameInput.length} / 12
+            </Text>
+
+            {/* Preset suggestions */}
+            <Text style={[styles.presetLabel, { color: colors.mutedForeground }]}>提案</Text>
+            <View style={styles.presetRow}>
+              {['こころん', 'みらい', 'ひかり', 'ほのか', 'そら', 'なな'].map((n) => (
+                <TouchableOpacity
+                  key={n}
+                  style={[
+                    styles.presetChip,
+                    {
+                      backgroundColor: nameInput === n ? colors.primary + '22' : colors.muted,
+                      borderColor: nameInput === n ? colors.primary : 'transparent',
+                      borderWidth: nameInput === n ? 1.5 : 0,
+                    },
+                  ]}
+                  onPress={() => setNameInput(n)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.presetText, { color: nameInput === n ? colors.primary : colors.foreground }]}>
+                    {n}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Confirm button */}
+            <TouchableOpacity
+              style={[styles.confirmBtn, { backgroundColor: nameInput.trim() ? colors.primary : colors.muted }]}
+              disabled={!nameInput.trim()}
+              onPress={() => {
+                if (nameInput.trim()) {
+                  setMascotName(nameInput.trim());
+                  setShowNameModal(false);
+                }
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.confirmText, { color: nameInput.trim() ? '#FFF' : colors.mutedForeground }]}>
+                {nameInput.trim() ? `「${nameInput}」に決める！` : '名前を入力してください'}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={{ height: Platform.OS === 'web' ? 16 : insets.bottom + 4 }} />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -392,4 +504,26 @@ const styles = StyleSheet.create({
   quickPctText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
   doneDot: { width: 7, height: 7, borderRadius: 3.5 },
   doneLabel: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+
+  /* name row */
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  mascotNameText: { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
+  namePrompt: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+
+  /* naming modal */
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, gap: 14 },
+  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 6 },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  sheetTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+  sheetSub: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 3 },
+  nameInput: { padding: 15, borderRadius: 14, fontSize: 16, fontFamily: 'Inter_400Regular', borderWidth: 1 },
+  charCount: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'right', marginTop: -8 },
+  presetLabel: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  presetRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  presetChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  presetText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  confirmBtn: { padding: 17, borderRadius: 16, alignItems: 'center' },
+  confirmText: { fontSize: 15, fontFamily: 'Inter_700Bold' },
 });
