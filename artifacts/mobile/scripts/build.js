@@ -521,8 +521,59 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log('Manifests updated');
 }
 
+async function buildWeb(domain) {
+  return new Promise((resolve, reject) => {
+    const webBuildDir = path.join(projectRoot, 'static-build', 'web');
+    fs.mkdirSync(webBuildDir, { recursive: true });
+
+    console.log('Building web version...');
+    const proc = spawn(
+      'pnpm',
+      ['exec', 'expo', 'export', '--platform', 'web', '--output-dir', webBuildDir],
+      {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: projectRoot,
+        env: {
+          ...process.env,
+          EXPO_PUBLIC_DOMAIN: domain,
+          NODE_ENV: 'production',
+        },
+      },
+    );
+
+    if (proc.stdout) {
+      proc.stdout.on('data', (d) => {
+        const line = d.toString().trim();
+        if (line) console.log(`[Web] ${line}`);
+      });
+    }
+    if (proc.stderr) {
+      proc.stderr.on('data', (d) => {
+        const line = d.toString().trim();
+        if (line) console.error(`[Web Error] ${line}`);
+      });
+    }
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        console.log('Web build complete');
+        resolve();
+      } else {
+        // Web build failure is non-fatal — native will still work
+        console.warn(`Web build exited with code ${code} — skipping web output`);
+        resolve();
+      }
+    });
+
+    proc.on('error', (err) => {
+      console.warn('Web build error (non-fatal):', err.message);
+      resolve();
+    });
+  });
+}
+
 async function main() {
-  console.log('Building static Expo Go deployment...');
+  console.log('Building static Expo deployment (web + native)...');
 
   setupSignalHandlers();
 
@@ -533,6 +584,9 @@ async function main() {
 
   prepareDirectories(timestamp);
   clearMetroCache();
+
+  // Build web version first (before Metro occupies port 8081)
+  await buildWeb(domain);
 
   await startMetro(domain, expoPublicReplId);
 

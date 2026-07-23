@@ -107,6 +107,34 @@ function serveStaticFile(urlPath, res) {
 const landingPageTemplate = fs.readFileSync(TEMPLATE_PATH, 'utf-8');
 const appName = getAppName();
 
+const WEB_ROOT = path.join(STATIC_ROOT, 'web');
+const hasWebBuild = () => fs.existsSync(path.join(WEB_ROOT, 'index.html'));
+
+function serveWebApp(pathname, res) {
+  // Try to serve a matching static file first (JS bundles, assets, etc.)
+  if (pathname !== '/') {
+    const filePath = path.join(WEB_ROOT, pathname);
+    const normalizedFilePath = path.normalize(filePath);
+    if (!normalizedFilePath.startsWith(WEB_ROOT)) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
+    if (fs.existsSync(normalizedFilePath) && !fs.statSync(normalizedFilePath).isDirectory()) {
+      const ext = path.extname(normalizedFilePath).toLowerCase();
+      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+      res.writeHead(200, { 'content-type': contentType });
+      res.end(fs.readFileSync(normalizedFilePath));
+      return;
+    }
+  }
+
+  // SPA fallback — all routes serve index.html
+  const indexPath = path.join(WEB_ROOT, 'index.html');
+  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  res.end(fs.readFileSync(indexPath));
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host}`);
   let pathname = url.pathname;
@@ -115,15 +143,23 @@ const server = http.createServer((req, res) => {
     pathname = pathname.slice(basePath.length) || '/';
   }
 
-  if (pathname === '/' || pathname === '/manifest') {
-    const platform = req.headers['expo-platform'];
-    if (platform === 'ios' || platform === 'android') {
+  const platform = req.headers['expo-platform'];
+
+  // Native Expo Go → serve manifest
+  if (platform === 'ios' || platform === 'android') {
+    if (pathname === '/' || pathname === '/manifest') {
       return serveManifest(platform, res);
     }
+  }
 
-    if (pathname === '/') {
-      return serveLandingPage(req, res, landingPageTemplate, appName);
-    }
+  // Browser → web build (SPA) if available
+  if (hasWebBuild()) {
+    return serveWebApp(pathname, res);
+  }
+
+  // Fallback: landing page / legacy static files
+  if (pathname === '/') {
+    return serveLandingPage(req, res, landingPageTemplate, appName);
   }
 
   serveStaticFile(pathname, res);
