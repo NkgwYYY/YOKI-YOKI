@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef } from '@/data/defaultChecklist';
@@ -18,6 +18,7 @@ import {
   FP_PER_MOOD_RECORD,
   SATIETY_DECAY_PER_HOUR,
 } from '@/data/foodItems';
+import { useAuth, API_BASE } from './AuthContext';
 
 export interface DailyRecord {
   id: string;
@@ -56,8 +57,8 @@ export interface UnlockedBadge {
 
 export interface FeedState {
   points: number;
-  lastFeedTime: string;   // ISO datetime of last feeding
-  satietyAtFeed: number;  // satiety value at time of last feeding (0-100)
+  lastFeedTime: string;
+  satietyAtFeed: number;
 }
 
 const KEYS = {
@@ -73,7 +74,7 @@ const KEYS = {
 
 /** Compute current satiety based on elapsed time since last feed */
 export function computeCurrentSatiety(feedState: FeedState): number {
-  if (!feedState.lastFeedTime) return 50; // default on first launch
+  if (!feedState.lastFeedTime) return 50;
   const hoursElapsed = (Date.now() - new Date(feedState.lastFeedTime).getTime()) / 3_600_000;
   return Math.max(0, Math.round(feedState.satietyAtFeed - hoursElapsed * SATIETY_DECAY_PER_HOUR));
 }
@@ -105,6 +106,7 @@ interface AppContextType {
   getTotalCheckCount: () => number;
   setMascotName: (name: string) => Promise<void>;
   feedMascot: (foodId: string) => Promise<{ success: boolean; message: string; newSatiety: number }>;
+  pushDataToCloud: () => Promise<void>;
 }
 
 const defaultProgress: UserProgress = {
@@ -125,6 +127,10 @@ const defaultFeedState: FeedState = {
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const { token } = useAuth();
+  const tokenRef = useRef(token);
+  useEffect(() => { tokenRef.current = token; }, [token]);
+
   const [progress, setProgress] = useState<UserProgress>(defaultProgress);
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [checkedState, setCheckedState] = useState<CheckedState>({ date: '', items: [], bonusEarned: false });
@@ -138,9 +144,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
+  // ─── Cloud sync helpers ───────────────────────────────────────────────
+  const pushDataToCloud = useCallback(async () => {
+    const t = tokenRef.current;
+    if (!t) return;
+    try {
+      const keys = Object.values(KEYS);
+      const values = await Promise.all(keys.map((k) => AsyncStorage.getItem(k)));
+      const data: Record<string, unknown> = {};
+      keys.forEach((k, i) => {
+        if (values[i] !== null) {
+          try { data[k] = JSON.parse(values[i]!); } catch { data[k] = values[i]; }
+        }
+      });
+      await fetch(`${API_BASE}/sync`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ data }),
+      });
+    } catch { /* fire-and-forget */ }
+  }, []);
+
+  const pullDataFromCloud = useCallback(async () => {
+    const t = tokenRef.current;
+    if (!t) return;
+    try {
+      const res = await fetch(`${API_BASE}/sync`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (!res.ok) return;
+      const { data } = await res.json() as { data: Record<string, unknown> };
+      // Write cloud data to AsyncStorage
+      await Promise.all(
+        Object.entries(data).map(([k, v]) =>
+          AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
+        )
+      );
+    } catch { /* ignore */ }
+  }, []);
+
+  // ─── Load all data from local storage (+ cloud on login) ─────────────
   useEffect(() => {
     loadAll();
   }, []);
+
+  // When token arrives (user logs in), pull cloud data and reload
+  const prevToken = useRef<string | null>(null);
+  useEffect(() => {
+    if (token && token !== prevToken.current) {
+      prevToken.current = token;
+      (async () => {
+        await pullDataFromCloud();
+        await loadAll();
+      })();
+    }
+    if (!token) prevToken.current = null;
+  }, [token]);
 
   const buildFreshCheckedState = (customs: ChecklistItemDef[]): CheckedState => {
     const today = getTodayDate();
@@ -166,12 +225,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.LAST_OPENED),
         ]);
 
-      // Compute inactivity before updating lastOpened
-      if (lastOpenedStr) {
-        setInactivityHours(computeInactivityHours(lastOpenedStr));
-      }
-
-      // Record this open
+      if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
       await AsyncStorage.setItem(KEYS.LAST_OPENED, new Date().toISOString());
 
       const today = getTodayDate();
@@ -311,7 +365,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newState));
 
-      // Award feed points when checking an item
       if (nowChecked && !currentItem.xpEarned) {
         let fpGain = FP_PER_CHECKLIST_ITEM;
         if (allDefaultChecked && !checkedState.bonusEarned) fpGain += FP_PER_FULL_DAY_BONUS;
@@ -323,8 +376,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const allChecked = newItems.every((i) => i.checked);
       await checkAndUnlockBadges(unlockedBadges, newProgress, records, allChecked);
+
+      // Sync to cloud (fire-and-forget)
+      pushDataToCloud();
     },
-    [checkedState, progress, unlockedBadges, records, feedState, checkAndUnlockBadges]
+    [checkedState, progress, unlockedBadges, records, feedState, checkAndUnlockBadges, pushDataToCloud]
   );
 
   const addCustomItem = useCallback(
@@ -340,8 +396,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setCheckedState(newChecked);
       await AsyncStorage.setItem(KEYS.CUSTOM_ITEMS, JSON.stringify(newCustom));
       await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newChecked));
+      pushDataToCloud();
     },
-    [customItems, checkedState]
+    [customItems, checkedState, pushDataToCloud]
   );
 
   const saveRecord = useCallback(
@@ -390,7 +447,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(KEYS.RECORDS, JSON.stringify(newRecords));
       await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
 
-      // Award feed points for recording mood
       if (isNew) {
         const nextFeed: FeedState = { ...feedState, points: feedState.points + FP_PER_MOOD_RECORD };
         await saveFeedState(nextFeed);
@@ -399,8 +455,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const allChecked = checkedState.items.every((i) => i.checked);
       await checkAndUnlockBadges(unlockedBadges, newProgress, newRecords, allChecked);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Sync to cloud (fire-and-forget)
+      pushDataToCloud();
     },
-    [records, progress, unlockedBadges, checkedState, feedState, checkAndUnlockBadges]
+    [records, progress, unlockedBadges, checkedState, feedState, checkAndUnlockBadges, pushDataToCloud]
   );
 
   const getTodayRecord = useCallback((): DailyRecord | undefined => {
@@ -415,7 +474,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setMascotName = useCallback(async (name: string) => {
     setMascotNameState(name);
     await AsyncStorage.setItem(KEYS.MASCOT_NAME, name);
-  }, []);
+    pushDataToCloud();
+  }, [pushDataToCloud]);
 
   return (
     <AppContext.Provider
@@ -440,6 +500,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getTotalCheckCount,
         setMascotName,
         feedMascot,
+        pushDataToCloud,
       }}
     >
       {children}
