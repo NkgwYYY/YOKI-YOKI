@@ -2,6 +2,7 @@ import { DailyRecord, UserProgress } from '@/contexts/AppContext';
 
 export type MascotStage = 'egg' | 'chick' | 'kokoron' | 'master';
 export type MascotMood = 'excited' | 'happy' | 'normal' | 'tired' | 'sleepy';
+export type IdleBehavior = 'rolling' | 'sleeping' | 'playing' | 'normal';
 
 export const STAGE_LEVEL_MAP: { stage: MascotStage; minLevel: number; name: string; desc: string }[] = [
   { stage: 'egg',     minLevel: 1,  name: 'たまご',   desc: 'まだ眠っている…' },
@@ -25,17 +26,51 @@ export function getNextStageLevel(level: number): number | null {
   return null;
 }
 
+/** Pick a random idle behavior for this app-open session */
+export function pickIdleBehavior(): IdleBehavior {
+  // Weighted: normal appears more often so it doesn't feel annoying
+  const options: IdleBehavior[] = [
+    'rolling', 'sleeping', 'playing',
+    'normal', 'normal', 'normal', 'normal',
+  ];
+  return options[Math.floor(Math.random() * options.length)];
+}
+
 export function getMascotMood(
   progress: UserProgress,
   todayRecord: DailyRecord | undefined,
   completedCount: number,
-  totalCount: number
+  totalCount: number,
+  extra?: {
+    inactivityHours?: number; // hours since last app open
+    satiety?: number;         // 0-100
+  }
 ): MascotMood {
   const hour = new Date().getHours();
+  const inactivity = extra?.inactivityHours ?? 0;
+  const satiety = extra?.satiety ?? 70;
+
+  // Night time → sleepy
   if (hour >= 22 || hour < 6) return 'sleepy';
-  if (totalCount > 0 && completedCount === totalCount) return 'excited';
-  if (todayRecord && todayRecord.mood >= 4 && progress.streak >= 3) return 'happy';
+
+  // Very long absence (24h+) → tired regardless of anything else
+  if (inactivity >= 24) return 'tired';
+
+  // Very hungry → tired
+  if (satiety <= 10) return 'tired';
+
+  // All tasks done AND reasonably full AND not absent too long → excited
+  if (totalCount > 0 && completedCount === totalCount && satiety > 30 && inactivity < 12) return 'excited';
+
+  // Good mood record AND streak going → happy (as long as not starving)
+  if (todayRecord && todayRecord.mood >= 4 && progress.streak >= 3 && satiety > 20) return 'happy';
+
+  // Moderate inactivity (8-24h) or quite hungry → tired
+  if (inactivity >= 8 || satiety <= 25) return 'tired';
+
+  // No record and no streak → tired
   if (!todayRecord && progress.streak === 0) return 'tired';
+
   return 'normal';
 }
 
@@ -56,9 +91,9 @@ export const MOOD_MESSAGES: Record<MascotMood, string[]> = {
     '小さな一歩が大きな変化を作るよ',
   ],
   tired: [
-    'ゆっくりでも大丈夫だよ',
-    '今日から始めれば大丈夫！',
-    '一緒に少しずつやっていこう',
+    'お腹すいたよ〜🥺',
+    'もっとかまってほしいな…',
+    'さみしかった…会いに来てくれてよかった',
   ],
   sleepy: [
     'おやすみ〜 ゆっくり休んでね',
@@ -74,9 +109,9 @@ export function getMascotMessage(mood: MascotMood): string {
 }
 
 export interface StatusParams {
-  vitality: number;   // 元気度 0-100
-  happiness: number;  // 幸福度 0-100
-  activity: number;   // 行動力 0-100
+  vitality: number;
+  happiness: number;
+  activity: number;
 }
 
 export function calcStatus(

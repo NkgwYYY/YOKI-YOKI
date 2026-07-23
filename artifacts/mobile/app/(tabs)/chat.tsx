@@ -141,8 +141,12 @@ export default function ChatScreen() {
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
   const totalCount = getTotalCheckCount();
+  const { currentSatiety, inactivityHours } = useApp();
   const mascotStage = getMascotStage(progress.level);
-  const mascotMood = getMascotMood(progress, todayRecord, completedCount, totalCount);
+  const mascotMood = getMascotMood(progress, todayRecord, completedCount, totalCount, {
+    inactivityHours,
+    satiety: currentSatiety,
+  });
   const displayName = mascotName || 'こころん';
 
   const [messages, setMessages] = useState<Message[]>([

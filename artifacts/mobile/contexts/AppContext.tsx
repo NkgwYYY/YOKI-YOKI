@@ -11,6 +11,13 @@ import {
   XP_FOR_MOOD_RECORD,
   XP_FULL_DAY_BONUS,
 } from '@/utils/gameLogic';
+import {
+  FOOD_ITEMS,
+  FP_PER_CHECKLIST_ITEM,
+  FP_PER_FULL_DAY_BONUS,
+  FP_PER_MOOD_RECORD,
+  SATIETY_DECAY_PER_HOUR,
+} from '@/data/foodItems';
 
 export interface DailyRecord {
   id: string;
@@ -47,6 +54,12 @@ export interface UnlockedBadge {
   unlockedAt: string;
 }
 
+export interface FeedState {
+  points: number;
+  lastFeedTime: string;   // ISO datetime of last feeding
+  satietyAtFeed: number;  // satiety value at time of last feeding (0-100)
+}
+
 const KEYS = {
   PROGRESS: '@mentore/progress_v2',
   RECORDS: '@mentore/records_v2',
@@ -54,7 +67,22 @@ const KEYS = {
   CUSTOM_ITEMS: '@mentore/custom_items_v2',
   BADGES: '@mentore/badges_v2',
   MASCOT_NAME: '@mentore/mascot_name_v1',
+  FEED_STATE: '@mentore/feed_state_v1',
+  LAST_OPENED: '@mentore/last_opened_v1',
 };
+
+/** Compute current satiety based on elapsed time since last feed */
+export function computeCurrentSatiety(feedState: FeedState): number {
+  if (!feedState.lastFeedTime) return 50; // default on first launch
+  const hoursElapsed = (Date.now() - new Date(feedState.lastFeedTime).getTime()) / 3_600_000;
+  return Math.max(0, Math.round(feedState.satietyAtFeed - hoursElapsed * SATIETY_DECAY_PER_HOUR));
+}
+
+/** Compute hours since last app open */
+export function computeInactivityHours(lastOpenedAt: string): number {
+  if (!lastOpenedAt) return 0;
+  return (Date.now() - new Date(lastOpenedAt).getTime()) / 3_600_000;
+}
 
 interface AppContextType {
   progress: UserProgress;
@@ -65,6 +93,9 @@ interface AppContextType {
   isLoading: boolean;
   newlyUnlockedBadge: string | null;
   mascotName: string;
+  feedState: FeedState;
+  currentSatiety: number;
+  inactivityHours: number;
   clearNewBadge: () => void;
   toggleCheckItem: (id: string) => Promise<void>;
   addCustomItem: (text: string) => Promise<void>;
@@ -73,6 +104,7 @@ interface AppContextType {
   getCompletedCount: () => number;
   getTotalCheckCount: () => number;
   setMascotName: (name: string) => Promise<void>;
+  feedMascot: (foodId: string) => Promise<{ success: boolean; message: string; newSatiety: number }>;
 }
 
 const defaultProgress: UserProgress = {
@@ -84,21 +116,27 @@ const defaultProgress: UserProgress = {
   lastRecordDate: '',
 };
 
+const defaultFeedState: FeedState = {
+  points: 0,
+  lastFeedTime: '',
+  satietyAtFeed: 50,
+};
+
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState<UserProgress>(defaultProgress);
   const [records, setRecords] = useState<DailyRecord[]>([]);
-  const [checkedState, setCheckedState] = useState<CheckedState>({
-    date: '',
-    items: [],
-    bonusEarned: false,
-  });
+  const [checkedState, setCheckedState] = useState<CheckedState>({ date: '', items: [], bonusEarned: false });
   const [customItems, setCustomItems] = useState<ChecklistItemDef[]>([]);
   const [unlockedBadges, setUnlockedBadges] = useState<UnlockedBadge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<string | null>(null);
   const [mascotName, setMascotNameState] = useState('');
+  const [feedState, setFeedState] = useState<FeedState>(defaultFeedState);
+  const [inactivityHours, setInactivityHours] = useState(0);
+
+  const currentSatiety = computeCurrentSatiety(feedState);
 
   useEffect(() => {
     loadAll();
@@ -116,14 +154,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, customStr, badgesStr, nameStr] = await Promise.all([
-        AsyncStorage.getItem(KEYS.PROGRESS),
-        AsyncStorage.getItem(KEYS.RECORDS),
-        AsyncStorage.getItem(KEYS.CHECKED_STATE),
-        AsyncStorage.getItem(KEYS.CUSTOM_ITEMS),
-        AsyncStorage.getItem(KEYS.BADGES),
-        AsyncStorage.getItem(KEYS.MASCOT_NAME),
-      ]);
+      const [progressStr, recordsStr, checkedStr, customStr, badgesStr, nameStr, feedStr, lastOpenedStr] =
+        await Promise.all([
+          AsyncStorage.getItem(KEYS.PROGRESS),
+          AsyncStorage.getItem(KEYS.RECORDS),
+          AsyncStorage.getItem(KEYS.CHECKED_STATE),
+          AsyncStorage.getItem(KEYS.CUSTOM_ITEMS),
+          AsyncStorage.getItem(KEYS.BADGES),
+          AsyncStorage.getItem(KEYS.MASCOT_NAME),
+          AsyncStorage.getItem(KEYS.FEED_STATE),
+          AsyncStorage.getItem(KEYS.LAST_OPENED),
+        ]);
+
+      // Compute inactivity before updating lastOpened
+      if (lastOpenedStr) {
+        setInactivityHours(computeInactivityHours(lastOpenedStr));
+      }
+
+      // Record this open
+      await AsyncStorage.setItem(KEYS.LAST_OPENED, new Date().toISOString());
 
       const today = getTodayDate();
       const loadedCustom: ChecklistItemDef[] = customStr ? JSON.parse(customStr) : [];
@@ -132,6 +181,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (recordsStr) setRecords(JSON.parse(recordsStr));
       if (badgesStr) setUnlockedBadges(JSON.parse(badgesStr));
       if (nameStr) setMascotNameState(nameStr);
+      if (feedStr) setFeedState(JSON.parse(feedStr));
       setCustomItems(loadedCustom);
 
       if (checkedStr) {
@@ -149,19 +199,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
       }
     } catch (e) {
-      // If load fails, use defaults
+      // use defaults on error
     } finally {
       setIsLoading(false);
     }
   };
 
+  const saveFeedState = async (next: FeedState) => {
+    setFeedState(next);
+    await AsyncStorage.setItem(KEYS.FEED_STATE, JSON.stringify(next));
+  };
+
+  const feedMascot = useCallback(
+    async (foodId: string): Promise<{ success: boolean; message: string; newSatiety: number }> => {
+      const food = FOOD_ITEMS.find((f) => f.id === foodId);
+      if (!food) return { success: false, message: 'Unknown food', newSatiety: currentSatiety };
+      if (feedState.points < food.cost) {
+        return { success: false, message: 'ポイントが足りないよ！', newSatiety: currentSatiety };
+      }
+
+      const baseSatiety = computeCurrentSatiety(feedState);
+      const newSatiety = Math.min(100, baseSatiety + food.satietyGain);
+      const next: FeedState = {
+        points: feedState.points - food.cost,
+        lastFeedTime: new Date().toISOString(),
+        satietyAtFeed: newSatiety,
+      };
+      await saveFeedState(next);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return { success: true, message: `${food.name}をあげたよ！`, newSatiety };
+    },
+    [feedState, currentSatiety]
+  );
+
   const checkAndUnlockBadges = useCallback(
-    async (
-      currentBadges: UnlockedBadge[],
-      newProgress: UserProgress,
-      newRecords: DailyRecord[],
-      allChecked: boolean
-    ) => {
+    async (currentBadges: UnlockedBadge[], newProgress: UserProgress, newRecords: DailyRecord[], allChecked: boolean) => {
       const unlocked = new Set(currentBadges.map((b) => b.id));
       const updated = [...currentBadges];
       let newest: string | null = null;
@@ -203,9 +275,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const nowChecked = !wasChecked;
 
       let xpGain = 0;
-      if (nowChecked && !currentItem.xpEarned) {
-        xpGain = XP_FOR_CHECKLIST_ITEM;
-      }
+      if (nowChecked && !currentItem.xpEarned) xpGain = XP_FOR_CHECKLIST_ITEM;
 
       const newItems = checkedState.items.map((i) =>
         i.id === id ? { ...i, checked: nowChecked, xpEarned: nowChecked ? true : i.xpEarned } : i
@@ -223,11 +293,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         newBonusEarned = true;
       }
 
-      const newState: CheckedState = {
-        ...checkedState,
-        items: newItems,
-        bonusEarned: newBonusEarned,
-      };
+      const newState: CheckedState = { ...checkedState, items: newItems, bonusEarned: newBonusEarned };
 
       const totalXpGain = xpGain + bonusXp;
       const newExp = progress.experience + totalXpGain;
@@ -245,31 +311,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newState));
 
-      if (nowChecked) {
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      // Award feed points when checking an item
+      if (nowChecked && !currentItem.xpEarned) {
+        let fpGain = FP_PER_CHECKLIST_ITEM;
+        if (allDefaultChecked && !checkedState.bonusEarned) fpGain += FP_PER_FULL_DAY_BONUS;
+        const nextFeed: FeedState = { ...feedState, points: feedState.points + fpGain };
+        await saveFeedState(nextFeed);
       }
+
+      if (nowChecked) await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
       const allChecked = newItems.every((i) => i.checked);
       await checkAndUnlockBadges(unlockedBadges, newProgress, records, allChecked);
     },
-    [checkedState, progress, unlockedBadges, records, checkAndUnlockBadges]
+    [checkedState, progress, unlockedBadges, records, feedState, checkAndUnlockBadges]
   );
 
   const addCustomItem = useCallback(
     async (text: string) => {
       const id = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-      const newItem: ChecklistItemDef = {
-        id,
-        text,
-        category: 'mind',
-        isDefault: false,
-      };
+      const newItem: ChecklistItemDef = { id, text, category: 'mind', isDefault: false };
       const newCustom = [...customItems, newItem];
       const newChecked: CheckedState = {
         ...checkedState,
         items: [...checkedState.items, { id, checked: false, xpEarned: false }],
       };
-
       setCustomItems(newCustom);
       setCheckedState(newChecked);
       await AsyncStorage.setItem(KEYS.CUSTOM_ITEMS, JSON.stringify(newCustom));
@@ -324,11 +390,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(KEYS.RECORDS, JSON.stringify(newRecords));
       await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
 
+      // Award feed points for recording mood
+      if (isNew) {
+        const nextFeed: FeedState = { ...feedState, points: feedState.points + FP_PER_MOOD_RECORD };
+        await saveFeedState(nextFeed);
+      }
+
       const allChecked = checkedState.items.every((i) => i.checked);
       await checkAndUnlockBadges(unlockedBadges, newProgress, newRecords, allChecked);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    [records, progress, unlockedBadges, checkedState, checkAndUnlockBadges]
+    [records, progress, unlockedBadges, checkedState, feedState, checkAndUnlockBadges]
   );
 
   const getTodayRecord = useCallback((): DailyRecord | undefined => {
@@ -336,14 +408,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return records.find((r) => r.date === today);
   }, [records]);
 
-  const getCompletedCount = useCallback((): number => {
-    return checkedState.items.filter((i) => i.checked).length;
-  }, [checkedState]);
-
-  const getTotalCheckCount = useCallback((): number => {
-    return checkedState.items.length;
-  }, [checkedState]);
-
+  const getCompletedCount = useCallback(() => checkedState.items.filter((i) => i.checked).length, [checkedState]);
+  const getTotalCheckCount = useCallback(() => checkedState.items.length, [checkedState]);
   const clearNewBadge = useCallback(() => setNewlyUnlockedBadge(null), []);
 
   const setMascotName = useCallback(async (name: string) => {
@@ -362,6 +428,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         newlyUnlockedBadge,
         mascotName,
+        feedState,
+        currentSatiety,
+        inactivityHours,
         clearNewBadge,
         toggleCheckItem,
         addCustomItem,
@@ -370,6 +439,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getCompletedCount,
         getTotalCheckCount,
         setMascotName,
+        feedMascot,
       }}
     >
       {children}
