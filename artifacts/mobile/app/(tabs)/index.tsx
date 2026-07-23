@@ -11,6 +11,8 @@ import {
   TextInput,
   KeyboardAvoidingView,
 } from 'react-native';
+import { MiniGameModal } from '@/components/MiniGameModal';
+import { getCurrentSlot, getSlotConfig, GameSlot } from '@/utils/miniGameUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -120,7 +122,12 @@ export default function HomeScreen() {
     progress, getTodayRecord, getCompletedCount, getTotalCheckCount,
     mascotName, setMascotName,
     currentSatiety, inactivityHours, feedState,
+    miniGameState, completeMiniGame,
   } = useApp();
+
+  const [showMiniGame, setShowMiniGame] = useState(false);
+  const currentSlot = getCurrentSlot();
+  const slotDone = currentSlot ? miniGameState[currentSlot] : true;
 
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
@@ -383,6 +390,42 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </FadeIn>
 
+        {/* ── Mini Game Banner ── */}
+        {currentSlot && (
+          <FadeIn delay={390}>
+            {slotDone ? (
+              <View style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: 0.6 }]}>
+                <View style={[styles.quickIcon, { backgroundColor: colors.muted }]}>
+                  <Text style={{ fontSize: 20 }}>{getSlotConfig(currentSlot).emoji}</Text>
+                </View>
+                <View style={styles.quickText}>
+                  <Text style={[styles.quickTitle, { color: colors.foreground }]}>{getSlotConfig(currentSlot).label}</Text>
+                  <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>今日はもう遊んだよ！また明日ね ✨</Text>
+                </View>
+                <View style={[styles.doneDot, { backgroundColor: colors.primary }]} />
+                <Text style={[styles.doneLabel, { color: colors.mutedForeground }]}>完了</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.miniGameBanner, { borderColor: getSlotConfig(currentSlot).color + '66' }]}
+                onPress={() => setShowMiniGame(true)}
+                activeOpacity={0.85}
+              >
+                <View style={[styles.miniGameIconWrap, { backgroundColor: getSlotConfig(currentSlot).color + '22' }]}>
+                  <Text style={{ fontSize: 22 }}>{getSlotConfig(currentSlot).emoji}</Text>
+                </View>
+                <View style={styles.quickText}>
+                  <Text style={[styles.quickTitle, { color: colors.foreground }]}>{getSlotConfig(currentSlot).label}</Text>
+                  <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>{getSlotConfig(currentSlot).rewardLabel}</Text>
+                </View>
+                <View style={[styles.playBtn, { backgroundColor: getSlotConfig(currentSlot).color }]}>
+                  <Text style={styles.playBtnText}>あそぶ</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </FadeIn>
+        )}
+
         {/* ── Mood quick-link ── */}
         <FadeIn delay={420}>
           {todayRecord ? (
@@ -494,6 +537,16 @@ export default function HomeScreen() {
 
       {/* ── Feed Modal ── */}
       <FeedModal visible={showFeedModal} onClose={() => setShowFeedModal(false)} />
+
+      {/* ── Mini Game Modal ── */}
+      {currentSlot && (
+        <MiniGameModal
+          visible={showMiniGame}
+          slot={currentSlot}
+          onClose={() => setShowMiniGame(false)}
+          onReward={(reward) => completeMiniGame(currentSlot, reward)}
+        />
+      )}
     </View>
   );
 }
@@ -572,6 +625,20 @@ const styles = StyleSheet.create({
   quickPctText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
   doneDot: { width: 7, height: 7, borderRadius: 3.5 },
   doneLabel: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+
+  miniGameBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16,
+    borderRadius: 18, borderWidth: 1.5,
+    backgroundColor: 'transparent',
+  },
+  miniGameIconWrap: {
+    width: 44, height: 44, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  playBtn: {
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12,
+  },
+  playBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#FFF' },
 
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   mascotNameText: { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },

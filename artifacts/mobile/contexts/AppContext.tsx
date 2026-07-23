@@ -19,6 +19,14 @@ import {
   SATIETY_DECAY_PER_HOUR,
 } from '@/data/foodItems';
 import { useAuth, API_BASE } from './AuthContext';
+import {
+  MiniGameState,
+  DEFAULT_MINI_GAME_STATE,
+  resolveMiniGameState,
+  GameSlot,
+} from '@/utils/miniGameUtils';
+
+export type { MiniGameState, GameSlot };
 
 export interface DailyRecord {
   id: string;
@@ -71,6 +79,7 @@ const KEYS = {
   MASCOT_NAME: '@mentore/mascot_name_v1',
   FEED_STATE: '@mentore/feed_state_v1',
   LAST_OPENED: '@mentore/last_opened_v1',
+  MINI_GAME: '@mentore/mini_game_v1',
 };
 
 /** Compute current satiety based on elapsed time since last feed */
@@ -98,6 +107,7 @@ interface AppContextType {
   feedState: FeedState;
   currentSatiety: number;
   inactivityHours: number;
+  miniGameState: MiniGameState;
   clearNewBadge: () => void;
   toggleCheckItem: (id: string) => Promise<void>;
   addChecklistItem: (text: string, category: ChecklistCategory) => Promise<void>;
@@ -109,6 +119,7 @@ interface AppContextType {
   getTotalCheckCount: () => number;
   setMascotName: (name: string) => Promise<void>;
   feedMascot: (foodId: string) => Promise<{ success: boolean; message: string; newSatiety: number }>;
+  completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number }) => Promise<void>;
   pushDataToCloud: () => Promise<void>;
 }
 
@@ -144,6 +155,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [mascotName, setMascotNameState] = useState('');
   const [feedState, setFeedState] = useState<FeedState>(defaultFeedState);
   const [inactivityHours, setInactivityHours] = useState(0);
+  const [miniGameState, setMiniGameState] = useState<MiniGameState>(DEFAULT_MINI_GAME_STATE);
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
@@ -215,7 +227,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr] =
+      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
           AsyncStorage.getItem(KEYS.RECORDS),
@@ -226,6 +238,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.MASCOT_NAME),
           AsyncStorage.getItem(KEYS.FEED_STATE),
           AsyncStorage.getItem(KEYS.LAST_OPENED),
+          AsyncStorage.getItem(KEYS.MINI_GAME),
         ]);
 
       if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
@@ -249,6 +262,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (badgesStr)   setUnlockedBadges(JSON.parse(badgesStr));
       if (nameStr)     setMascotNameState(nameStr);
       if (feedStr)     setFeedState(JSON.parse(feedStr));
+      setMiniGameState(resolveMiniGameState(miniGameStr ? JSON.parse(miniGameStr) : null));
       setChecklistItems(loadedItems);
 
       if (checkedStr) {
@@ -523,6 +537,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     pushDataToCloud();
   }, [pushDataToCloud]);
 
+  const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp?: number; xp?: number }) => {
+    // Mark slot as done
+    const next: MiniGameState = { ...miniGameState, [slot]: true };
+    setMiniGameState(next);
+    await AsyncStorage.setItem(KEYS.MINI_GAME, JSON.stringify(next));
+
+    // Apply FP reward
+    if (reward.fp) {
+      const nextFeed: FeedState = { ...feedState, points: feedState.points + reward.fp };
+      await saveFeedState(nextFeed);
+    }
+
+    // Apply XP reward
+    if (reward.xp) {
+      const newExp = progress.experience + reward.xp;
+      const newProgress: UserProgress = {
+        ...progress,
+        experience: newExp,
+        level: calculateLevel(newExp),
+        mentalMuscle: calculateMentalMuscle(newExp),
+      };
+      setProgress(newProgress);
+      await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
+    }
+
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    pushDataToCloud();
+  }, [miniGameState, feedState, progress, pushDataToCloud]);
+
   return (
     <AppContext.Provider
       value={{
@@ -537,6 +580,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         feedState,
         currentSatiety,
         inactivityHours,
+        miniGameState,
         clearNewBadge,
         toggleCheckItem,
         addChecklistItem,
@@ -548,6 +592,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         getTotalCheckCount,
         setMascotName,
         feedMascot,
+        completeMiniGame,
         pushDataToCloud,
       }}
     >
