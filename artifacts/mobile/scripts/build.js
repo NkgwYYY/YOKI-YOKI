@@ -573,7 +573,7 @@ async function buildWeb(domain) {
 }
 
 async function main() {
-  console.log('Building static Expo deployment (web + native)...');
+  console.log('Building static Expo deployment (web + native) v2...');
 
   setupSignalHandlers();
 
