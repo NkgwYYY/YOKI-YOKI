@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   FlatList, Platform, useColorScheme,
 } from 'react-native';
+import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -154,6 +155,7 @@ export default function ChatScreen() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showRestEvent, setShowRestEvent] = useState(false);
   const listRef = useRef<FlatList>(null);
   const sendScale = useSharedValue(1);
 
@@ -194,6 +196,9 @@ export default function ChatScreen() {
         role: 'assistant',
         content: data.content || 'うん、聞いてるよ！',
       }]);
+      if (data.restEvent) {
+        setTimeout(() => setShowRestEvent(true), 1200);
+      }
     } catch {
       setMessages(prev => [...prev, {
         id: `err_${Date.now()}`,
@@ -310,6 +315,13 @@ export default function ChatScreen() {
           </Animated.View>
         </View>
       </View>
+      {/* ── Rest Event Modal ── */}
+      <RestEventModal
+        visible={showRestEvent}
+        level={progress.level}
+        mascotName={displayName}
+        onClose={() => setShowRestEvent(false)}
+      />
     </View>
   );
 }

@@ -43,7 +43,8 @@ chatRouter.post("/chat/message", async (req, res) => {
 6. アドバイスは求められたときだけ、押しつけない
 7. 返答は自然な長さで（短いときは2〜3文、話が弾んでいるときはもう少し長くてもOK）
 8. 必ず日本語で返す
-9. 同じ言い回しを連続して使わない`;
+9. 同じ言い回しを連続して使わない
+10. 【重要】会話の中でユーザーが明らかに疲労・強いストレスを感じていると判断したとき（例：「疲れた」「しんどい」「もう限界」「つらい」「やる気でない」「眠れない」などの表現、または会話の流れから深い疲弊が読み取れるとき）、通常の返答の末尾に必ず [REST] というタグを追加する。このタグはユーザーには表示されない。疲れていないときは絶対に付けない。`;
 
     const chatMessages = [
       { role: "system" as const, content: systemPrompt },
@@ -56,9 +57,10 @@ chatRouter.post("/chat/message", async (req, res) => {
       messages: chatMessages,
     });
 
-    const raw = response.choices[0]?.message?.content;
-    const content = raw || "うん、聞いてるよ！";
-    res.json({ content });
+    const raw = response.choices[0]?.message?.content ?? "うん、聞いてるよ！";
+    const restEvent = raw.includes("[REST]");
+    const content = raw.replace(/\[REST\]/g, "").trim();
+    res.json({ content, restEvent });
   } catch (err) {
     console.error("Chat error:", err);
     res.status(500).json({ error: "チャットに失敗しました" });
