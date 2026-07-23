@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,9 @@ import {
   ScrollView,
   Platform,
   useColorScheme,
+  TouchableOpacity,
+  Alert,
+  Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +24,8 @@ import Animated, {
 const easeOut = (t: number) => t * (2 - t);
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
 import { GrowthChart } from '@/components/GrowthChart';
 import { BadgeCard } from '@/components/BadgeCard';
 import { MoodCalendar } from '@/components/MoodCalendar';
@@ -60,6 +65,15 @@ export default function GrowthScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { progress, records, unlockedBadges } = useApp();
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const [showLogout, setShowLogout] = useState(false);
+
+  const handleLogout = async () => {
+    setShowLogout(false);
+    await logout();
+    router.replace('/login');
+  };
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const xpInLevel = progress.experience % XP_PER_LEVEL;
@@ -91,11 +105,45 @@ export default function GrowthScreen() {
         showsVerticalScrollIndicator={false}
       >
         <FadeIn delay={0}>
-          <Text style={[styles.title, { color: colors.foreground }]}>メンタルの成長</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            あなたの積み重ねを見える化
-          </Text>
+          <View style={styles.titleRow}>
+            <View>
+              <Text style={[styles.title, { color: colors.foreground }]}>メンタルの成長</Text>
+              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+                あなたの積み重ねを見える化
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.accountBtn, { backgroundColor: colors.muted }]}
+              onPress={() => setShowLogout(true)}
+              hitSlop={8}
+            >
+              <Ionicons name="person-circle-outline" size={22} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
         </FadeIn>
+
+        {/* Logout modal */}
+        <Modal visible={showLogout} transparent animationType="fade" onRequestClose={() => setShowLogout(false)}>
+          <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowLogout(false)}>
+            <TouchableOpacity activeOpacity={1} style={[styles.logoutCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+              <Ionicons name="person-circle" size={40} color={colors.primary} style={{ marginBottom: 8 }} />
+              {user?.email && (
+                <Text style={[styles.logoutEmail, { color: colors.mutedForeground }]}>{user.email}</Text>
+              )}
+              <TouchableOpacity
+                style={styles.logoutBtn}
+                onPress={handleLogout}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="log-out-outline" size={18} color="#fff" />
+                <Text style={styles.logoutBtnText}>ログアウト</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowLogout(false)} style={{ marginTop: 12 }}>
+                <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>キャンセル</Text>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
 
         {/* Level Card */}
         <FadeIn delay={100}>
@@ -262,4 +310,20 @@ const styles = StyleSheet.create({
   badgeSection: { gap: 14 },
   badgeCount: { fontSize: 13, fontFamily: 'Inter_400Regular' },
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  // account / logout
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  accountBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  overlay: { flex: 1, backgroundColor: '#00000050', justifyContent: 'center', alignItems: 'center', padding: 32 },
+  logoutCard: {
+    width: '100%', borderRadius: 24, borderWidth: 1,
+    padding: 24, alignItems: 'center',
+  },
+  logoutEmail: { fontSize: 13, fontFamily: 'Inter_400Regular', marginBottom: 20 },
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#EF4444', borderRadius: 14,
+    paddingVertical: 14, paddingHorizontal: 28,
+  },
+  logoutBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  cancelText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
 });

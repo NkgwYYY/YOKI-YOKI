@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { useRouter } from 'expo-router';
 import { Mascot } from '@/components/Mascot';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -129,6 +130,16 @@ export default function LoginScreen() {
                 ✅ 今までのデータはそのまま引き継がれます
               </Text>
             )}
+
+            {tab === 'login' && (
+              <TouchableOpacity
+                onPress={() => router.push('/forgot-password')}
+                style={styles.forgotWrap}
+              >
+                <Ionicons name="lock-closed-outline" size={13} color="#9E7DD5" />
+                <Text style={styles.forgotText}>パスワードを忘れた場合</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -230,6 +241,18 @@ const styles = StyleSheet.create({
     color: '#00C4A7',
     marginTop: 14,
     textAlign: 'center',
+    fontWeight: '500',
+  },
+  forgotWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 16,
+  },
+  forgotText: {
+    fontSize: 13,
+    color: '#9E7DD5',
     fontWeight: '500',
   },
 });
