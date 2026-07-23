@@ -19,6 +19,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'checkmark.circle', selected: 'checkmark.circle.fill' }} />
         <Label>チェック</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="chat">
+        <Icon sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }} />
+        <Label>チャット</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="record">
         <Icon sf={{ default: 'pencil.and.scribble', selected: 'pencil.and.scribble' }} />
         <Label>きろく</Label>
@@ -90,6 +94,18 @@ function ClassicTabLayout() {
               <SymbolView name="checkmark.circle" tintColor={color} size={24} />
             ) : (
               <Ionicons name="checkmark-circle-outline" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'チャット',
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="bubble.left.and.bubble.right" tintColor={color} size={24} />
+            ) : (
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color={color} />
             ),
         }}
       />
