@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   FlatList, Platform, useColorScheme,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -131,37 +132,68 @@ const chipStyles = StyleSheet.create({
   text: { fontSize: 13, fontFamily: 'Inter_400Regular' },
 });
 
+const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
+const MAX_STORED = 60; // keep last 60 messages in storage
+const MAX_CONTEXT = 20; // send last 20 to API
+
 /* ── Main screen ── */
 export default function ChatScreen() {
   const colors = useColors();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-  const { progress, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount } = useApp();
+  const { progress, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
+          currentSatiety, inactivityHours } = useApp();
 
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
   const totalCount = getTotalCheckCount();
-  const { currentSatiety, inactivityHours } = useApp();
   const mascotStage = getMascotStage(progress.level);
   const mascotMood = getMascotMood(progress, todayRecord, completedCount, totalCount, {
-    inactivityHours,
-    satiety: currentSatiety,
+    inactivityHours, satiety: currentSatiety,
   });
   const displayName = mascotName || 'こころん';
+  const welcomeMsg: Message = { id: 'welcome', role: 'assistant', content: `やあ！${displayName}だよ✨ なんでも話しかけてね！` };
 
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 'welcome', role: 'assistant', content: `やあ！${displayName}だよ✨ なんでも話しかけてね！` },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([welcomeMsg]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showRestEvent, setShowRestEvent] = useState(false);
   const listRef = useRef<FlatList>(null);
   const sendScale = useSharedValue(1);
 
+  // ── Load history from storage on mount ──
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
+        if (raw) {
+          const stored: Message[] = JSON.parse(raw);
+          if (stored.length > 0) {
+            setMessages([welcomeMsg, ...stored]);
+          }
+        }
+      } catch { /* use default */ }
+      setHistoryLoaded(true);
+    })();
+  }, []);
+
+  // ── Save to storage whenever messages change (after initial load) ──
+  useEffect(() => {
+    if (!historyLoaded) return;
+    const toSave = messages.filter(m => m.id !== 'welcome').slice(-MAX_STORED);
+    AsyncStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(toSave)).catch(() => {});
+  }, [messages, historyLoaded]);
+
   const scrollToBottom = useCallback(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
+
+  const clearHistory = useCallback(async () => {
+    await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
+    setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ✨` }]);
+  }, [displayName]);
 
   const sendMessage = useCallback(async (text?: string) => {
     const msg = (text ?? input).trim();
@@ -182,7 +214,7 @@ export default function ChatScreen() {
     try {
       const history = next
         .filter(m => m.id !== 'welcome')
-        .slice(-12)
+        .slice(-MAX_CONTEXT)
         .map(m => ({ role: m.role, content: m.content }));
 
       const res = await fetch(`${API_BASE}/chat/message`, {
@@ -191,12 +223,12 @@ export default function ChatScreen() {
         body: JSON.stringify({ messages: history, mascotName: displayName, mascotStage }),
       });
       const data = await res.json();
-      setMessages(prev => [...prev, {
+      const assistantMsg: Message = {
         id: `a_${Date.now()}`,
         role: 'assistant',
         content: data.content || 'うん、聞いてるよ！',
-      }]);
-      console.log('[REST] restEvent flag:', data.restEvent, '| content:', data.content?.slice(0, 30));
+      };
+      setMessages(prev => [...prev, assistantMsg]);
       if (data.restEvent) {
         setTimeout(() => setShowRestEvent(true), 1200);
       }
@@ -229,13 +261,23 @@ export default function ChatScreen() {
         <View style={styles.headerAvatar}>
           <Mascot stage={mascotStage} mood={mascotMood} size={46} />
         </View>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={[styles.headerName, { color: colors.foreground }]}>{displayName}</Text>
           <View style={styles.onlineRow}>
             <View style={[styles.onlineDot, { backgroundColor: colors.primary }]} />
-            <Text style={[styles.onlineText, { color: colors.mutedForeground }]}>いつでもそばにいるよ</Text>
+            <Text style={[styles.onlineText, { color: colors.mutedForeground }]}>
+              {messages.filter(m => m.id !== 'welcome').length > 0
+                ? `${messages.filter(m => m.id !== 'welcome').length}件の会話`
+                : 'いつでもそばにいるよ'}
+            </Text>
           </View>
         </View>
+        {/* Clear button */}
+        {messages.length > 1 && (
+          <TouchableOpacity onPress={clearHistory} style={styles.clearBtn} activeOpacity={0.7}>
+            <Ionicons name="trash-outline" size={18} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Messages */}
@@ -267,7 +309,7 @@ export default function ChatScreen() {
         ) : null}
       />
 
-      {/* Input area — sits above the tab bar */}
+      {/* Input area */}
       <View style={[
         styles.inputArea,
         {
@@ -276,7 +318,6 @@ export default function ChatScreen() {
           paddingBottom: TAB_BAR_HEIGHT + (Platform.OS === 'ios' ? insets.bottom : 8),
         },
       ]}>
-        {/* Chips */}
         {showChips && (
           <View style={styles.chips}>
             {CHIPS.map(c => (
@@ -284,8 +325,6 @@ export default function ChatScreen() {
             ))}
           </View>
         )}
-
-        {/* Input row */}
         <View style={[styles.inputRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
           <TextInput
             style={[styles.input, { color: colors.foreground }]}
@@ -316,6 +355,7 @@ export default function ChatScreen() {
           </Animated.View>
         </View>
       </View>
+
       {/* ── Rest Event Modal ── */}
       <RestEventModal
         visible={showRestEvent}
@@ -367,5 +407,9 @@ const styles = StyleSheet.create({
     width: 38, height: 38, borderRadius: 19,
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
+  },
+  clearBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
   },
 });
