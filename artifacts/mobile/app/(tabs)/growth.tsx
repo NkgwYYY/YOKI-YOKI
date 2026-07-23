@@ -23,6 +23,7 @@ import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
 import { GrowthChart } from '@/components/GrowthChart';
 import { BadgeCard } from '@/components/BadgeCard';
+import { MoodCalendar } from '@/components/MoodCalendar';
 import { BADGE_DEFINITIONS } from '@/data/badges';
 import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
 
@@ -192,6 +193,11 @@ export default function GrowthScreen() {
               ))}
             </View>
           </View>
+        </FadeIn>
+
+        {/* Monthly Mood Calendar */}
+        <FadeIn delay={350}>
+          <MoodCalendar records={records} />
         </FadeIn>
 
         {/* Badges */}
