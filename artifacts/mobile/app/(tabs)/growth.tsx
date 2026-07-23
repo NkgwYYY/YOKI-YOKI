@@ -1,13 +1,23 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Platform,
+  useColorScheme,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withTiming,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
 import { GrowthChart } from '@/components/GrowthChart';
@@ -15,278 +25,234 @@ import { BadgeCard } from '@/components/BadgeCard';
 import { BADGE_DEFINITIONS } from '@/data/badges';
 import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
 
+function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(18);
+  useEffect(() => {
+    opacity.value = withDelay(delay, withTiming(1, { duration: 440 }));
+    translateY.value = withDelay(delay, withSpring(0, { damping: 22, stiffness: 160 }));
+  }, []);
+  const style = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
+
+function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
+  const w = useSharedValue(0);
+  useEffect(() => {
+    w.value = withDelay(400, withTiming(pct, { duration: 1100, easing: Easing.out(Easing.quad) }));
+  }, [pct]);
+  const style = useAnimatedStyle(() => ({ width: `${w.value}%` as any }));
+  return (
+    <Animated.View
+      style={[StyleSheet.absoluteFill, { backgroundColor: color, borderRadius: 5 }, style]}
+    />
+  );
+}
+
 export default function GrowthScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const { progress, records, unlockedBadges } = useApp();
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const xpInLevel = progress.experience % XP_PER_LEVEL;
+  const last7 = records.slice(-7);
+  const avgMood = last7.length > 0
+    ? (last7.reduce((s, r) => s + r.mood, 0) / last7.length).toFixed(1)
+    : '--';
+  const avgSleep = last7.length > 0
+    ? (last7.reduce((s, r) => s + r.sleep, 0) / last7.length).toFixed(1)
+    : '--';
 
-  // Weekly stats
-  const last7Records = records.slice(-7);
-  const avgMood =
-    last7Records.length > 0
-      ? (last7Records.reduce((s, r) => s + r.mood, 0) / last7Records.length).toFixed(1)
-      : '--';
-  const avgSleep =
-    last7Records.length > 0
-      ? (last7Records.reduce((s, r) => s + r.sleep, 0) / last7Records.length).toFixed(1)
-      : '--';
+  const bgColors = isDark
+    ? (['#0E0A1C', '#130D28'] as const)
+    : (['#FAF7FF', '#F0F5FF'] as const);
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: topPad + 16, paddingBottom: Platform.OS === 'web' ? 34 + 80 : insets.bottom + 80 },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={[styles.title, { color: colors.foreground }]}>メンタルの成長</Text>
-      <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-        あなたの積み重ねを見える化
-      </Text>
+    <View style={styles.flex}>
+      <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
 
-      {/* Level Card */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.levelHeader}>
-          <View>
-            <Text style={[styles.levelLabel, { color: colors.mutedForeground }]}>現在のレベル</Text>
-            <Text style={[styles.levelValue, { color: colors.foreground }]}>
-              Lv.{progress.level}
-            </Text>
-          </View>
-          <View style={[styles.levelBadge, { backgroundColor: colors.primary + '22' }]}>
-            <Ionicons name="trending-up" size={24} color={colors.primary} />
-          </View>
-        </View>
+      {/* Decorative orb */}
+      <View style={[styles.orb, { backgroundColor: colors.secondary + (isDark ? '12' : '0E') }]} />
 
-        {/* XP Progress */}
-        <View style={styles.xpSection}>
-          <View style={styles.xpRow}>
-            <Text style={[styles.xpLabel, { color: colors.mutedForeground }]}>
-              {xpInLevel} / {XP_PER_LEVEL} XP
-            </Text>
-            <Text style={[styles.xpNext, { color: colors.primary }]}>
-              次まで {xpToNextLevel(progress.experience)} XP
-            </Text>
-          </View>
-          <View style={[styles.xpTrack, { backgroundColor: colors.muted }]}>
-            <View
-              style={[
-                styles.xpFill,
-                { backgroundColor: colors.primary, width: `${progress.mentalMuscle}%` },
-              ]}
-            />
-          </View>
-        </View>
-
-        {/* Stats row */}
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Ionicons name="flame" size={18} color="#FF6B35" />
-            <Text style={[styles.statValue, { color: colors.foreground }]}>{progress.streak}</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>連続</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
-            <Ionicons name="calendar-outline" size={18} color={colors.primary} />
-            <Text style={[styles.statValue, { color: colors.foreground }]}>{progress.totalDays}</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>記録日数</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <View style={styles.statItem}>
-            <Ionicons name="flash" size={18} color="#FFB800" />
-            <Text style={[styles.statValue, { color: colors.foreground }]}>{progress.experience}</Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>総XP</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Weekly Mood Chart */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <View style={styles.cardHeader}>
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>気分の推移（7日間）</Text>
-          <View style={styles.avgRow}>
-            <Text style={[styles.avgLabel, { color: colors.mutedForeground }]}>平均</Text>
-            <Text style={[styles.avgValue, { color: colors.primary }]}>{avgMood}</Text>
-          </View>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <GrowthChart records={records} />
-        </ScrollView>
-      </View>
-
-      {/* Weekly Summary */}
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.cardTitle, { color: colors.foreground }]}>週間サマリー</Text>
-        <View style={styles.summaryRow}>
-          <View style={[styles.summaryItem, { backgroundColor: colors.muted }]}>
-            <Ionicons name="moon-outline" size={22} color={colors.primary} />
-            <Text style={[styles.summaryValue, { color: colors.foreground }]}>{avgSleep}h</Text>
-            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>平均睡眠</Text>
-          </View>
-          <View style={[styles.summaryItem, { backgroundColor: colors.muted }]}>
-            <Ionicons name="heart-outline" size={22} color="#FF6B35" />
-            <Text style={[styles.summaryValue, { color: colors.foreground }]}>{avgMood}</Text>
-            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>平均気分</Text>
-          </View>
-          <View style={[styles.summaryItem, { backgroundColor: colors.muted }]}>
-            <Ionicons name="document-text-outline" size={22} color="#FFB800" />
-            <Text style={[styles.summaryValue, { color: colors.foreground }]}>{last7Records.length}</Text>
-            <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>記録数</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Badges */}
-      <View style={styles.badgeSection}>
-        <View style={styles.cardHeader}>
-          <Text style={[styles.cardTitle, { color: colors.foreground }]}>バッジ</Text>
-          <Text style={[styles.badgeCount, { color: colors.mutedForeground }]}>
-            {unlockedBadges.length} / {BADGE_DEFINITIONS.length}
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: topPad + 16, paddingBottom: Platform.OS === 'web' ? 34 + 90 : insets.bottom + 90 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <FadeIn delay={0}>
+          <Text style={[styles.title, { color: colors.foreground }]}>メンタルの成長</Text>
+          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+            あなたの積み重ねを見える化
           </Text>
-        </View>
-        <View style={styles.badgeGrid}>
-          {BADGE_DEFINITIONS.map((badge) => {
-            const unlocked = unlockedBadges.find((b) => b.id === badge.id);
-            return <BadgeCard key={badge.id} badge={badge} unlocked={unlocked} />;
-          })}
-        </View>
-      </View>
-    </ScrollView>
+        </FadeIn>
+
+        {/* Level Card */}
+        <FadeIn delay={100}>
+          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
+            <LinearGradient
+              colors={isDark ? ['#1A1430', '#0F1030'] : ['#FFF', '#F7F0FF']}
+              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+            />
+            <View style={styles.levelHeader}>
+              <View>
+                <Text style={[styles.levelLabel, { color: colors.mutedForeground }]}>現在のレベル</Text>
+                <Text style={[styles.levelValue, { color: colors.foreground }]}>Lv.{progress.level}</Text>
+              </View>
+              <View style={[styles.levelIcon, { backgroundColor: colors.primary + '22' }]}>
+                <Ionicons name="trending-up" size={26} color={colors.primary} />
+              </View>
+            </View>
+
+            <View style={styles.xpSection}>
+              <View style={styles.xpRow}>
+                <Text style={[styles.xpLabel, { color: colors.mutedForeground }]}>
+                  {xpInLevel} / {XP_PER_LEVEL} XP
+                </Text>
+                <Text style={[styles.xpNext, { color: colors.primary }]}>
+                  次まで {xpToNextLevel(progress.experience)} XP
+                </Text>
+              </View>
+              <View style={[styles.xpTrack, { backgroundColor: colors.muted }]}>
+                <AnimatedXPBar pct={progress.mentalMuscle} color={colors.primary} />
+              </View>
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+            <View style={styles.statsRow}>
+              {[
+                { icon: 'flame', color: '#FF6FA3', value: progress.streak, label: '連続' },
+                { icon: 'calendar-outline', color: colors.primary, value: progress.totalDays, label: '記録日数' },
+                { icon: 'flash', color: colors.accent, value: progress.experience, label: '総XP' },
+              ].map((s, i) => (
+                <React.Fragment key={s.label}>
+                  {i > 0 && <View style={[styles.statDivider, { backgroundColor: colors.border }]} />}
+                  <View style={styles.statItem}>
+                    <Ionicons name={s.icon as any} size={18} color={s.color} />
+                    <Text style={[styles.statValue, { color: colors.foreground }]}>{s.value}</Text>
+                    <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
+                  </View>
+                </React.Fragment>
+              ))}
+            </View>
+          </View>
+        </FadeIn>
+
+        {/* Mood Chart */}
+        <FadeIn delay={200}>
+          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
+            <LinearGradient
+              colors={isDark ? ['#1A1430', '#0F1030'] : ['#FFF', '#F7F0FF']}
+              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+            />
+            <View style={styles.cardHeader}>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>
+                気分の推移（7日間）
+              </Text>
+              <View style={styles.avgBadge}>
+                <Text style={[styles.avgLabel, { color: colors.mutedForeground }]}>平均</Text>
+                <Text style={[styles.avgValue, { color: colors.primary }]}>{avgMood}</Text>
+              </View>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <GrowthChart records={records} />
+            </ScrollView>
+          </View>
+        </FadeIn>
+
+        {/* Weekly Summary */}
+        <FadeIn delay={300}>
+          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
+            <LinearGradient
+              colors={isDark ? ['#1A1430', '#0F1030'] : ['#FFF', '#F7F0FF']}
+              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+            />
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>週間サマリー</Text>
+            <View style={styles.summaryRow}>
+              {[
+                { icon: 'moon-outline', color: colors.primary, value: `${avgSleep}h`, label: '平均睡眠' },
+                { icon: 'heart-outline', color: '#FF6FA3', value: avgMood, label: '平均気分' },
+                { icon: 'document-text-outline', color: colors.accent, value: String(last7.length), label: '記録数' },
+              ].map((s) => (
+                <View key={s.label} style={[styles.summaryItem, { backgroundColor: colors.muted }]}>
+                  <Ionicons name={s.icon as any} size={22} color={s.color} />
+                  <Text style={[styles.summaryValue, { color: colors.foreground }]}>{s.value}</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </FadeIn>
+
+        {/* Badges */}
+        <FadeIn delay={400}>
+          <View style={styles.badgeSection}>
+            <View style={styles.cardHeader}>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>バッジ</Text>
+              <Text style={[styles.badgeCount, { color: colors.mutedForeground }]}>
+                {unlockedBadges.length} / {BADGE_DEFINITIONS.length}
+              </Text>
+            </View>
+            <View style={styles.badgeGrid}>
+              {BADGE_DEFINITIONS.map((badge) => (
+                <BadgeCard
+                  key={badge.id}
+                  badge={badge}
+                  unlocked={unlockedBadges.find((b) => b.id === badge.id)}
+                />
+              ))}
+            </View>
+          </View>
+        </FadeIn>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  flex: { flex: 1 },
   content: { paddingHorizontal: 20, gap: 16 },
-  title: {
-    fontSize: 24,
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.5,
+  orb: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    bottom: 300, right: -70,
   },
-  subtitle: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 2,
-    marginBottom: 4,
-  },
-  card: {
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    gap: 14,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  levelHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  levelLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginBottom: 4,
-  },
-  levelValue: {
-    fontSize: 34,
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: -1,
-  },
-  levelBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  title: { fontSize: 24, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
+  subtitle: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2, marginBottom: 4 },
+  card: { borderRadius: 22, padding: 20, borderWidth: 1, gap: 16 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  levelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  levelLabel: { fontSize: 12, fontFamily: 'Inter_400Regular', marginBottom: 4 },
+  levelValue: { fontSize: 36, fontFamily: 'Inter_700Bold', letterSpacing: -1 },
+  levelIcon: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   xpSection: { gap: 8 },
-  xpRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  xpLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-  },
-  xpNext: {
-    fontSize: 12,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  xpTrack: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  xpFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
+  xpRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  xpLabel: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  xpNext: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  xpTrack: { height: 10, borderRadius: 5, overflow: 'hidden', position: 'relative' },
   divider: { height: 1 },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  statItem: {
-    alignItems: 'center',
-    gap: 4,
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 20,
-    fontFamily: 'Inter_700Bold',
-  },
-  statLabel: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-  },
-  avgRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
+  statItem: { alignItems: 'center', gap: 4, flex: 1 },
+  statValue: { fontSize: 20, fontFamily: 'Inter_700Bold' },
+  statLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  statDivider: { width: 1, height: 40 },
+  avgBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   avgLabel: { fontSize: 12, fontFamily: 'Inter_400Regular' },
-  avgValue: { fontSize: 16, fontFamily: 'Inter_700Bold' },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
-    gap: 6,
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontFamily: 'Inter_700Bold',
-  },
-  summaryLabel: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-  },
+  avgValue: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+  summaryRow: { flexDirection: 'row', gap: 10 },
+  summaryItem: { flex: 1, alignItems: 'center', padding: 14, borderRadius: 16, gap: 6 },
+  summaryValue: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+  summaryLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
   badgeSection: { gap: 14 },
   badgeCount: { fontSize: 13, fontFamily: 'Inter_400Regular' },
-  badgeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
+  badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
 });
