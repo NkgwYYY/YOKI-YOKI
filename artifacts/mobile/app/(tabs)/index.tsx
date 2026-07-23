@@ -193,21 +193,41 @@ export default function HomeScreen() {
         {/* Header */}
         <FadeIn delay={0}>
           <View style={styles.header}>
+            {/* ── MENTRE logo ── */}
             <View>
               <Text style={[styles.greeting, { color: colors.mutedForeground }]}>{getGreeting()}</Text>
-              <Text style={[styles.appName, { color: colors.foreground }]}>メントレ</Text>
+              <View style={styles.logoRow}>
+                {/* accent bar */}
+                <LinearGradient
+                  colors={['#A855F7', '#6366F1']}
+                  style={styles.logoBar}
+                  start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+                />
+                <View>
+                  <Text style={[styles.logoText, { color: colors.foreground }]}>MENTRE</Text>
+                  <Text style={[styles.logoSub, { color: colors.mutedForeground }]}>メンタルトレーニング</Text>
+                </View>
+              </View>
               <Text style={[styles.dateText, { color: colors.mutedForeground }]}>
                 {formatDateJP(getTodayDate())}
               </Text>
             </View>
-            <TouchableOpacity
-              style={[styles.streakBadge, { backgroundColor: colors.card, borderColor: colors.border }]}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="flame" size={17} color="#FF6FA3" />
-              <Text style={[styles.streakNum, { color: colors.foreground }]}>{progress.streak}</Text>
-              <Text style={[styles.streakUnit, { color: colors.mutedForeground }]}>日</Text>
-            </TouchableOpacity>
+
+            {/* ── Streak badge ── */}
+            <View style={styles.streakWrap}>
+              <LinearGradient
+                colors={progress.streak > 0 ? ['#FF6FA3', '#FF9A3C'] : ['#6B7280', '#9CA3AF']}
+                style={styles.streakBadge}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              >
+                <Text style={styles.streakFlame}>{progress.streak > 0 ? '🔥' : '💤'}</Text>
+                <Text style={styles.streakNum}>{progress.streak}</Text>
+                <Text style={styles.streakUnit}>DAY{progress.streak !== 1 ? 'S' : ''}</Text>
+              </LinearGradient>
+              <Text style={[styles.streakLabel, { color: colors.mutedForeground }]}>
+                {progress.streak >= 7 ? '🏆 継続中！' : '連続記録'}
+              </Text>
+            </View>
           </View>
         </FadeIn>
 
@@ -558,12 +578,22 @@ const styles = StyleSheet.create({
   orb2: { position: 'absolute', width: 180, height: 180, borderRadius: 90, bottom: 240, left: -70 },
 
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
-  greeting: { fontSize: 12, fontFamily: 'Inter_400Regular' },
-  appName: { fontSize: 26, fontFamily: 'Inter_700Bold', letterSpacing: -0.8, marginTop: 1 },
-  dateText: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 1 },
-  streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  streakNum: { fontSize: 18, fontFamily: 'Inter_700Bold' },
-  streakUnit: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  greeting: { fontSize: 12, fontFamily: 'Inter_400Regular', marginBottom: 4 },
+  dateText: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 3 },
+
+  // Logo
+  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  logoBar: { width: 4, height: 32, borderRadius: 2 },
+  logoText: { fontSize: 24, fontFamily: 'Inter_700Bold', letterSpacing: 4 },
+  logoSub: { fontSize: 9, fontFamily: 'Inter_400Regular', letterSpacing: 1.5, marginTop: 1 },
+
+  // Streak
+  streakWrap: { alignItems: 'center', gap: 4 },
+  streakBadge: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18, minWidth: 72, gap: 0 },
+  streakFlame: { fontSize: 18, lineHeight: 22 },
+  streakNum: { fontSize: 22, fontFamily: 'Inter_700Bold', color: '#FFF', lineHeight: 26 },
+  streakUnit: { fontSize: 9, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.8)', letterSpacing: 1 },
+  streakLabel: { fontSize: 10, fontFamily: 'Inter_400Regular' },
 
   mascotCard: { borderRadius: 26, padding: 20, borderWidth: 1, alignItems: 'center', gap: 10 },
   mascotTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
