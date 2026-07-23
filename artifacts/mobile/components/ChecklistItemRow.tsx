@@ -17,6 +17,8 @@ interface ChecklistItemRowProps {
   isChecked: boolean;
   categoryColor: string;
   onToggle: (id: string) => void;
+  onDelete?: (id: string) => void;
+  editMode?: boolean;
   index?: number;
 }
 
@@ -26,81 +28,82 @@ export function ChecklistItemRow({
   isChecked,
   categoryColor,
   onToggle,
+  onDelete,
+  editMode = false,
   index = 0,
 }: ChecklistItemRowProps) {
   const colors = useColors();
 
-  // Entrance stagger animation
   const enterOpacity = useSharedValue(0);
   const enterY = useSharedValue(16);
   useEffect(() => {
-    enterOpacity.value = withDelay(index * 60, withTiming(1, { duration: 350 }));
-    enterY.value = withDelay(index * 60, withSpring(0, { damping: 20, stiffness: 180 }));
+    enterOpacity.value = withDelay(index * 40, withTiming(1, { duration: 300 }));
+    enterY.value = withDelay(index * 40, withSpring(0, { damping: 20, stiffness: 180 }));
   }, []);
 
-  // Check bounce
   const checkScale = useSharedValue(isChecked ? 1 : 0);
   const rowScale = useSharedValue(1);
   const flashOpacity = useSharedValue(0);
+  const deleteScale = useSharedValue(editMode ? 1 : 0);
 
   useEffect(() => {
     checkScale.value = withSpring(isChecked ? 1 : 0, { damping: 12, stiffness: 200 });
   }, [isChecked]);
 
+  useEffect(() => {
+    deleteScale.value = withSpring(editMode ? 1 : 0, { damping: 14, stiffness: 220 });
+  }, [editMode]);
+
   const handlePress = useCallback(() => {
+    if (editMode) return;
     if (!isChecked) {
-      // Bounce the whole row
       rowScale.value = withSequence(
         withSpring(0.97, { damping: 8, stiffness: 400 }),
         withSpring(1.03, { damping: 8, stiffness: 400 }),
         withSpring(1, { damping: 12, stiffness: 200 })
       );
-      // Flash highlight
       flashOpacity.value = withSequence(
         withTiming(1, { duration: 80 }),
         withTiming(0, { duration: 400 })
       );
     }
     onToggle(id);
-  }, [id, isChecked, onToggle]);
+  }, [id, isChecked, onToggle, editMode]);
 
   const enterStyle = useAnimatedStyle(() => ({
     opacity: enterOpacity.value,
     transform: [{ translateY: enterY.value }],
   }));
-
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ scale: rowScale.value }],
   }));
-
   const checkIconStyle = useAnimatedStyle(() => ({
     transform: [{ scale: checkScale.value }],
     opacity: checkScale.value,
   }));
-
-  const flashStyle = useAnimatedStyle(() => ({
-    opacity: flashOpacity.value,
-  }));
-
+  const flashStyle = useAnimatedStyle(() => ({ opacity: flashOpacity.value }));
   const textStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(isChecked ? 0.45 : 1, { duration: 200 }),
+    opacity: withTiming(isChecked && !editMode ? 0.45 : 1, { duration: 200 }),
+  }));
+  const deleteStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: deleteScale.value }],
+    opacity: deleteScale.value,
   }));
 
   return (
     <Animated.View style={enterStyle}>
       <Animated.View style={rowStyle}>
-        <TouchableOpacity activeOpacity={0.85} onPress={handlePress}>
+        <TouchableOpacity activeOpacity={editMode ? 1 : 0.85} onPress={handlePress}>
           <View
             style={[
               styles.row,
               {
                 backgroundColor: colors.card,
-                borderColor: isChecked ? categoryColor + '55' : colors.border,
-                shadowColor: isChecked ? categoryColor : 'transparent',
+                borderColor: isChecked && !editMode ? categoryColor + '55' : colors.border,
+                shadowColor: isChecked && !editMode ? categoryColor : 'transparent',
               },
             ]}
           >
-            {/* Flash overlay */}
             <Animated.View
               style={[
                 StyleSheet.absoluteFill,
@@ -111,7 +114,7 @@ export function ChecklistItemRow({
               pointerEvents="none"
             />
 
-            <View style={[styles.dot, { backgroundColor: isChecked ? categoryColor : colors.border }]} />
+            <View style={[styles.dot, { backgroundColor: editMode ? colors.border : (isChecked ? categoryColor : colors.border) }]} />
 
             <Animated.Text
               style={[styles.text, { color: colors.foreground }, textStyle]}
@@ -120,16 +123,28 @@ export function ChecklistItemRow({
               {text}
             </Animated.Text>
 
-            <View style={styles.checkWrap}>
-              {/* Empty ring */}
-              {!isChecked && (
-                <View style={[styles.emptyRing, { borderColor: colors.border }]} />
-              )}
-              {/* Filled check */}
-              <Animated.View style={[StyleSheet.absoluteFill, styles.checkCenter, checkIconStyle]}>
-                <Ionicons name="checkmark-circle" size={26} color={categoryColor} />
-              </Animated.View>
-            </View>
+            {/* Delete button (edit mode) */}
+            <Animated.View style={[styles.deleteWrap, deleteStyle]}>
+              <TouchableOpacity
+                onPress={() => onDelete?.(id)}
+                hitSlop={8}
+                style={[styles.deleteBtn, { backgroundColor: '#FEE2E2' }]}
+              >
+                <Ionicons name="remove" size={16} color="#EF4444" />
+              </TouchableOpacity>
+            </Animated.View>
+
+            {/* Check circle (normal mode) */}
+            {!editMode && (
+              <View style={styles.checkWrap}>
+                {!isChecked && (
+                  <View style={[styles.emptyRing, { borderColor: colors.border }]} />
+                )}
+                <Animated.View style={[StyleSheet.absoluteFill, styles.checkCenter, checkIconStyle]}>
+                  <Ionicons name="checkmark-circle" size={26} color={categoryColor} />
+                </Animated.View>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
       </Animated.View>
@@ -152,9 +167,7 @@ const styles = StyleSheet.create({
     elevation: 2,
     overflow: 'hidden',
   },
-  flash: {
-    pointerEvents: 'none',
-  },
+  flash: { pointerEvents: 'none' },
   dot: {
     width: 7,
     height: 7,
@@ -184,6 +197,16 @@ const styles = StyleSheet.create({
     left: 1,
   },
   checkCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteWrap: {
+    marginLeft: 8,
+  },
+  deleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },

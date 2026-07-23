@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef } from '@/data/defaultChecklist';
+import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef, ChecklistCategory } from '@/data/defaultChecklist';
 import { BADGE_DEFINITIONS } from '@/data/badges';
 import { getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
 import {
@@ -65,7 +65,8 @@ const KEYS = {
   PROGRESS: '@mentore/progress_v2',
   RECORDS: '@mentore/records_v2',
   CHECKED_STATE: '@mentore/checked_state_v2',
-  CUSTOM_ITEMS: '@mentore/custom_items_v2',
+  CUSTOM_ITEMS: '@mentore/custom_items_v2',       // legacy – used for migration only
+  CHECKLIST_ITEMS: '@mentore/checklist_items_v3', // unified items list (default + custom)
   BADGES: '@mentore/badges_v2',
   MASCOT_NAME: '@mentore/mascot_name_v1',
   FEED_STATE: '@mentore/feed_state_v1',
@@ -89,7 +90,7 @@ interface AppContextType {
   progress: UserProgress;
   records: DailyRecord[];
   checkedState: CheckedState;
-  customItems: ChecklistItemDef[];
+  checklistItems: ChecklistItemDef[];
   unlockedBadges: UnlockedBadge[];
   isLoading: boolean;
   newlyUnlockedBadge: string | null;
@@ -99,7 +100,9 @@ interface AppContextType {
   inactivityHours: number;
   clearNewBadge: () => void;
   toggleCheckItem: (id: string) => Promise<void>;
-  addCustomItem: (text: string) => Promise<void>;
+  addChecklistItem: (text: string, category: ChecklistCategory) => Promise<void>;
+  removeChecklistItem: (id: string) => Promise<void>;
+  resetChecklistToDefaults: () => Promise<void>;
   saveRecord: (mood: number, sleep: number, behaviors: string[], notes: string) => Promise<void>;
   getTodayRecord: () => DailyRecord | undefined;
   getCompletedCount: () => number;
@@ -134,7 +137,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState<UserProgress>(defaultProgress);
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [checkedState, setCheckedState] = useState<CheckedState>({ date: '', items: [], bonusEarned: false });
-  const [customItems, setCustomItems] = useState<ChecklistItemDef[]>([]);
+  const [checklistItems, setChecklistItems] = useState<ChecklistItemDef[]>(DEFAULT_CHECKLIST_ITEMS);
   const [unlockedBadges, setUnlockedBadges] = useState<UnlockedBadge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<string | null>(null);
@@ -201,24 +204,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!token) prevToken.current = null;
   }, [token]);
 
-  const buildFreshCheckedState = (customs: ChecklistItemDef[]): CheckedState => {
+  const buildFreshCheckedState = (items: ChecklistItemDef[]): CheckedState => {
     const today = getTodayDate();
-    const allItems = [...DEFAULT_CHECKLIST_ITEMS, ...customs];
     return {
       date: today,
-      items: allItems.map((item) => ({ id: item.id, checked: false, xpEarned: false })),
+      items: items.map((item) => ({ id: item.id, checked: false, xpEarned: false })),
       bonusEarned: false,
     };
   };
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, customStr, badgesStr, nameStr, feedStr, lastOpenedStr] =
+      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
           AsyncStorage.getItem(KEYS.RECORDS),
           AsyncStorage.getItem(KEYS.CHECKED_STATE),
-          AsyncStorage.getItem(KEYS.CUSTOM_ITEMS),
+          AsyncStorage.getItem(KEYS.CUSTOM_ITEMS),      // legacy
+          AsyncStorage.getItem(KEYS.CHECKLIST_ITEMS),   // new unified
           AsyncStorage.getItem(KEYS.BADGES),
           AsyncStorage.getItem(KEYS.MASCOT_NAME),
           AsyncStorage.getItem(KEYS.FEED_STATE),
@@ -229,30 +232,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(KEYS.LAST_OPENED, new Date().toISOString());
 
       const today = getTodayDate();
-      const loadedCustom: ChecklistItemDef[] = customStr ? JSON.parse(customStr) : [];
+
+      // ── Resolve unified checklist items ──────────────────────────────
+      let loadedItems: ChecklistItemDef[];
+      if (checklistStr) {
+        loadedItems = JSON.parse(checklistStr);
+      } else {
+        // First launch with new key: seed defaults + migrate any legacy custom items
+        const legacyCustom: ChecklistItemDef[] = legacyCustomStr ? JSON.parse(legacyCustomStr) : [];
+        loadedItems = [...DEFAULT_CHECKLIST_ITEMS, ...legacyCustom];
+        await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(loadedItems));
+      }
 
       if (progressStr) setProgress(JSON.parse(progressStr));
-      if (recordsStr) setRecords(JSON.parse(recordsStr));
-      if (badgesStr) setUnlockedBadges(JSON.parse(badgesStr));
-      if (nameStr) setMascotNameState(nameStr);
-      if (feedStr) setFeedState(JSON.parse(feedStr));
-      setCustomItems(loadedCustom);
+      if (recordsStr)  setRecords(JSON.parse(recordsStr));
+      if (badgesStr)   setUnlockedBadges(JSON.parse(badgesStr));
+      if (nameStr)     setMascotNameState(nameStr);
+      if (feedStr)     setFeedState(JSON.parse(feedStr));
+      setChecklistItems(loadedItems);
 
       if (checkedStr) {
         const state: CheckedState = JSON.parse(checkedStr);
         if (state.date === today) {
-          setCheckedState(state);
+          // Ensure any newly added items are present in today's state
+          const missingIds = loadedItems
+            .map(i => i.id)
+            .filter(id => !state.items.find(s => s.id === id));
+          const merged: CheckedState = missingIds.length > 0
+            ? { ...state, items: [...state.items, ...missingIds.map(id => ({ id, checked: false, xpEarned: false }))] }
+            : state;
+          setCheckedState(merged);
+          if (missingIds.length > 0) await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(merged));
         } else {
-          const fresh = buildFreshCheckedState(loadedCustom);
+          const fresh = buildFreshCheckedState(loadedItems);
           setCheckedState(fresh);
           await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
         }
       } else {
-        const fresh = buildFreshCheckedState(loadedCustom);
+        const fresh = buildFreshCheckedState(loadedItems);
         setCheckedState(fresh);
         await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
       }
-    } catch (e) {
+    } catch {
       // use defaults on error
     } finally {
       setIsLoading(false);
@@ -335,10 +356,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         i.id === id ? { ...i, checked: nowChecked, xpEarned: nowChecked ? true : i.xpEarned } : i
       );
 
-      const allDefaultChecked = DEFAULT_CHECKLIST_ITEMS.every((def) => {
-        const found = newItems.find((i) => i.id === def.id);
-        return found?.checked ?? false;
-      });
+      const allDefaultChecked = newItems.every((i) => i.checked);
 
       let bonusXp = 0;
       let newBonusEarned = checkedState.bonusEarned;
@@ -383,22 +401,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [checkedState, progress, unlockedBadges, records, feedState, checkAndUnlockBadges, pushDataToCloud]
   );
 
-  const addCustomItem = useCallback(
-    async (text: string) => {
+  const addChecklistItem = useCallback(
+    async (text: string, category: ChecklistCategory) => {
       const id = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-      const newItem: ChecklistItemDef = { id, text, category: 'mind', isDefault: false };
-      const newCustom = [...customItems, newItem];
+      const newItem: ChecklistItemDef = { id, text, category, isDefault: false };
+      const newItems = [...checklistItems, newItem];
       const newChecked: CheckedState = {
         ...checkedState,
         items: [...checkedState.items, { id, checked: false, xpEarned: false }],
       };
-      setCustomItems(newCustom);
+      setChecklistItems(newItems);
       setCheckedState(newChecked);
-      await AsyncStorage.setItem(KEYS.CUSTOM_ITEMS, JSON.stringify(newCustom));
+      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(newItems));
       await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newChecked));
       pushDataToCloud();
     },
-    [customItems, checkedState, pushDataToCloud]
+    [checklistItems, checkedState, pushDataToCloud]
+  );
+
+  const removeChecklistItem = useCallback(
+    async (id: string) => {
+      const newItems = checklistItems.filter(i => i.id !== id);
+      const newChecked: CheckedState = {
+        ...checkedState,
+        items: checkedState.items.filter(i => i.id !== id),
+      };
+      setChecklistItems(newItems);
+      setCheckedState(newChecked);
+      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(newItems));
+      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newChecked));
+      pushDataToCloud();
+    },
+    [checklistItems, checkedState, pushDataToCloud]
+  );
+
+  const resetChecklistToDefaults = useCallback(
+    async () => {
+      const fresh = buildFreshCheckedState(DEFAULT_CHECKLIST_ITEMS);
+      setChecklistItems(DEFAULT_CHECKLIST_ITEMS);
+      setCheckedState(fresh);
+      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(DEFAULT_CHECKLIST_ITEMS));
+      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
+      pushDataToCloud();
+    },
+    [checkedState, pushDataToCloud]
   );
 
   const saveRecord = useCallback(
@@ -483,7 +529,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         progress,
         records,
         checkedState,
-        customItems,
+        checklistItems,
         unlockedBadges,
         isLoading,
         newlyUnlockedBadge,
@@ -493,7 +539,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         inactivityHours,
         clearNewBadge,
         toggleCheckItem,
-        addCustomItem,
+        addChecklistItem,
+        removeChecklistItem,
+        resetChecklistToDefaults,
         saveRecord,
         getTodayRecord,
         getCompletedCount,
