@@ -196,6 +196,7 @@ export default function ChatScreen() {
         role: 'assistant',
         content: data.content || 'うん、聞いてるよ！',
       }]);
+      console.log('[REST] restEvent flag:', data.restEvent, '| content:', data.content?.slice(0, 30));
       if (data.restEvent) {
         setTimeout(() => setShowRestEvent(true), 1200);
       }
