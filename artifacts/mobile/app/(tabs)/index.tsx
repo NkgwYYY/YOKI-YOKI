@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,40 +19,69 @@ import Animated, {
   withDelay,
   withSpring,
 } from 'react-native-reanimated';
-
-const easeOut = (t: number) => t * (2 - t);
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
-import { MentalMeter } from '@/components/MentalMeter';
+import { Mascot } from '@/components/Mascot';
+import { SpeechBubble } from '@/components/SpeechBubble';
+import {
+  getMascotStage,
+  getMascotMood,
+  getMascotMessage,
+  calcStatus,
+  getNextStageLevel,
+  STAGE_LEVEL_MAP,
+  STAGE_COLORS,
+} from '@/utils/mascotUtils';
 import { getGreeting, formatDateJP, getTodayDate } from '@/utils/dateUtils';
-import { getMotivationalMessage, xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
+import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
 
-/* ---------- Reusable stagger-in wrapper ---------- */
+/* ── Stagger-in wrapper ── */
 function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(22);
+  const y = useSharedValue(18);
   useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(1, { duration: 480 }));
-    translateY.value = withDelay(delay, withSpring(0, { damping: 22, stiffness: 160 }));
+    opacity.value = withDelay(delay, withTiming(1, { duration: 460 }));
+    y.value = withDelay(delay, withSpring(0, { damping: 22, stiffness: 160 }));
   }, []);
   const style = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: y.value }],
   }));
   return <Animated.View style={style}>{children}</Animated.View>;
 }
 
-/* ---------- Animated XP bar ---------- */
-function AnimatedBar({ pct, color }: { pct: number; color: string }) {
+/* ── Animated fill bar ── */
+function FillBar({ pct, color, delay = 0 }: { pct: number; color: string; delay?: number }) {
+  const easeOut = (t: number) => t * (2 - t);
   const w = useSharedValue(0);
   useEffect(() => {
-    w.value = withDelay(700, withTiming(pct, { duration: 1100, easing: easeOut }));
+    w.value = withDelay(delay, withTiming(pct, { duration: 1000, easing: easeOut }));
   }, [pct]);
   const style = useAnimatedStyle(() => ({ width: `${w.value}%` as any }));
-  return <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: color, borderRadius: 4 }, style]} />;
+  return <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: color, borderRadius: 6 }, style]} />;
 }
 
-/* ---------- Main Screen ---------- */
+/* ── RPG status bar row ── */
+function StatusBar({
+  label, icon, value, color, delay,
+}: {
+  label: string; icon: string; value: number; color: string; delay: number;
+}) {
+  const colors = useColors();
+  return (
+    <View style={styles.statBarRow}>
+      <View style={styles.statBarLabelWrap}>
+        <Text style={styles.statBarIcon}>{icon}</Text>
+        <Text style={[styles.statBarLabel, { color: colors.mutedForeground }]}>{label}</Text>
+      </View>
+      <View style={[styles.statBarTrack, { backgroundColor: colors.muted }]}>
+        <FillBar pct={value} color={color} delay={delay} />
+      </View>
+      <Text style={[styles.statBarVal, { color: colors.foreground }]}>{value}</Text>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const colorScheme = useColorScheme();
@@ -60,33 +89,44 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { progress, getTodayRecord, getCompletedCount, getTotalCheckCount } = useApp();
+
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
   const totalCount = getTotalCheckCount();
-  const checkPct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
-  const today = getTodayDate();
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const moodColors = ['', '#EF4444', '#FF6B35', '#FFB800', '#00C4A7', '#00D4AA'];
-  const moodLabels = ['', '最悪', '辛い', '普通', '良い', '最高'];
 
+  const stage = getMascotStage(progress.level);
+  const mood = getMascotMood(progress, todayRecord, completedCount, totalCount);
+  const status = calcStatus(todayRecord, completedCount, totalCount, progress.streak);
+
+  const [msgIndex, setMsgIndex] = useState(0);
+  const msgs = React.useMemo(() => {
+    const m = getMascotMessage(mood);
+    return [m, ...['タップしてみてね！', '一緒に頑張ろう！', '今日も来てくれたね♪']];
+  }, [mood]);
+  const currentMsg = msgs[msgIndex % msgs.length];
+
+  const nextStageLevel = getNextStageLevel(progress.level);
+  const stageInfo = STAGE_LEVEL_MAP.find((s) => s.stage === stage)!;
+  const stageColors = STAGE_COLORS[stage];
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bgColors = isDark
     ? (['#0E0A1C', '#130D28'] as const)
     : (['#FAF7FF', '#F0F5FF'] as const);
 
+  const moodColors = ['', '#EF4444', '#FF6B35', '#FFB800', '#00C4A7', '#00D4AA'];
+  const moodLabels = ['', '最悪', '辛い', '普通', '良い', '最高'];
+
   return (
     <View style={styles.flex}>
-      {/* Gradient background */}
       <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
-
-      {/* Decorative orbs */}
-      <View style={[styles.orb1, { backgroundColor: colors.primary + (isDark ? '18' : '14') }]} />
-      <View style={[styles.orb2, { backgroundColor: colors.secondary + (isDark ? '14' : '10') }]} />
+      <View style={[styles.orb1, { backgroundColor: stageColors.body + '28' }]} />
+      <View style={[styles.orb2, { backgroundColor: colors.secondary + '14' }]} />
 
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: topPad + 16, paddingBottom: Platform.OS === 'web' ? 34 + 90 : insets.bottom + 90 },
+          { paddingTop: topPad + 12, paddingBottom: Platform.OS === 'web' ? 34 + 90 : insets.bottom + 90 },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -96,70 +136,128 @@ export default function HomeScreen() {
             <View>
               <Text style={[styles.greeting, { color: colors.mutedForeground }]}>{getGreeting()}</Text>
               <Text style={[styles.appName, { color: colors.foreground }]}>メントレ</Text>
-              <Text style={[styles.dateText, { color: colors.mutedForeground }]}>{formatDateJP(today)}</Text>
+              <Text style={[styles.dateText, { color: colors.mutedForeground }]}>
+                {formatDateJP(getTodayDate())}
+              </Text>
             </View>
             <TouchableOpacity
               style={[styles.streakBadge, { backgroundColor: colors.card, borderColor: colors.border }]}
               activeOpacity={0.8}
             >
-              <Ionicons name="flame" size={18} color="#FF6FA3" />
+              <Ionicons name="flame" size={17} color="#FF6FA3" />
               <Text style={[styles.streakNum, { color: colors.foreground }]}>{progress.streak}</Text>
               <Text style={[styles.streakUnit, { color: colors.mutedForeground }]}>日</Text>
             </TouchableOpacity>
           </View>
         </FadeIn>
 
-        {/* Mental Meter Card */}
-        <FadeIn delay={120}>
-          <View
-            style={[
-              styles.meterCard,
-              { borderColor: colors.border },
-            ]}
-          >
+        {/* ── Mascot Card ── */}
+        <FadeIn delay={80}>
+          <View style={[styles.mascotCard, { borderColor: colors.border, overflow: 'hidden' }]}>
             <LinearGradient
-              colors={isDark ? ['#1A1430', '#0F1030'] : ['#FFFFFF', '#F7F0FF']}
-              style={[StyleSheet.absoluteFill, { borderRadius: 24 }]}
+              colors={isDark
+                ? [stageColors.body + '18', '#0F1030']
+                : [stageColors.body + '30', '#FFFFFF']}
+              style={[StyleSheet.absoluteFill, { borderRadius: 26 }]}
             />
-            <MentalMeter
-              percentage={progress.mentalMuscle}
-              level={progress.level}
-              experience={progress.experience}
-            />
-            <Text style={[styles.motivText, { color: colors.mutedForeground }]}>
-              {getMotivationalMessage(progress.level, progress.streak)}
-            </Text>
 
-            {/* XP Bar */}
-            <View style={styles.xpWrap}>
-              <View style={styles.xpRow}>
-                <Text style={[styles.xpLabel, { color: colors.mutedForeground }]}>
-                  {progress.experience % XP_PER_LEVEL} / {XP_PER_LEVEL} XP
-                </Text>
-                <Text style={[styles.xpNext, { color: colors.primary }]}>
-                  次まで {xpToNextLevel(progress.experience)} XP
+            {/* Stage ribbon */}
+            <View style={styles.mascotTopRow}>
+              <View style={[styles.stagePill, { backgroundColor: stageColors.body + '44', borderColor: stageColors.accent + '55' }]}>
+                <Text style={[styles.stageName, { color: isDark ? stageColors.accent : stageColors.body }]}>
+                  {stageInfo.name}
                 </Text>
               </View>
-              <View style={[styles.xpTrack, { backgroundColor: colors.muted }]}>
-                <AnimatedBar pct={progress.mentalMuscle} color={colors.primary} />
+              <View style={[styles.levelPill, { backgroundColor: colors.primary + '22' }]}>
+                <Ionicons name="star" size={11} color={colors.primary} />
+                <Text style={[styles.levelText, { color: colors.primary }]}>Lv.{progress.level}</Text>
               </View>
             </View>
+
+            {/* Mascot + bubble */}
+            <View style={styles.mascotCenter}>
+              <SpeechBubble
+                message={currentMsg}
+                onPress={() => setMsgIndex((i) => i + 1)}
+              />
+              <Mascot
+                stage={stage}
+                mood={mood}
+                size={150}
+                onPress={() => setMsgIndex((i) => i + 1)}
+              />
+            </View>
+
+            {/* Stage desc */}
+            <Text style={[styles.stageDesc, { color: colors.mutedForeground }]}>
+              {stageInfo.desc}
+            </Text>
+
+            {/* XP bar to next evolution */}
+            {nextStageLevel ? (
+              <View style={styles.evoWrap}>
+                <View style={styles.evoRow}>
+                  <Text style={[styles.evoLabel, { color: colors.mutedForeground }]}>
+                    次の進化まで Lv.{nextStageLevel}
+                  </Text>
+                  <Text style={[styles.evoRemain, { color: colors.primary }]}>
+                    あと {nextStageLevel - progress.level} レベル
+                  </Text>
+                </View>
+                <View style={[styles.evoTrack, { backgroundColor: colors.muted }]}>
+                  <FillBar
+                    pct={Math.min(100, (progress.level / nextStageLevel) * 100)}
+                    color={stageColors.accent}
+                    delay={600}
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={[styles.maxBadge, { backgroundColor: colors.primary + '22' }]}>
+                <Ionicons name="trophy" size={14} color={colors.primary} />
+                <Text style={[styles.maxText, { color: colors.primary }]}>最高段階に達しました！</Text>
+              </View>
+            )}
           </View>
         </FadeIn>
 
-        {/* Stats Row */}
-        <FadeIn delay={220}>
+        {/* ── RPG ステータス ── */}
+        <FadeIn delay={180}>
+          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>今日のパラメータ</Text>
+              <Text style={[styles.sectionSub, { color: colors.mutedForeground }]}>
+                {todayRecord ? '記録済み' : '未記録'}
+              </Text>
+            </View>
+            <StatusBar label="元気度" icon="💪" value={status.vitality}  color="#00D4AA" delay={300} />
+            <StatusBar label="幸福度" icon="💖" value={status.happiness} color="#FF6FA3" delay={420} />
+            <StatusBar label="行動力" icon="⚡" value={status.activity}  color="#FFB347" delay={540} />
+            {!todayRecord && (
+              <TouchableOpacity
+                style={[styles.recordHint, { backgroundColor: colors.muted }]}
+                onPress={() => router.push('/(tabs)/record')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="create-outline" size={15} color={colors.primary} />
+                <Text style={[styles.recordHintText, { color: colors.mutedForeground }]}>
+                  気分を記録するとパラメータが上がります
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </FadeIn>
+
+        {/* ── Stats Row ── */}
+        <FadeIn delay={280}>
           <View style={styles.statsRow}>
             {[
-              { value: progress.streak, label: '連続記録', icon: 'flame', color: '#FF6FA3' },
-              { value: progress.level, label: 'レベル', icon: 'star', color: colors.primary },
-              { value: progress.totalDays, label: '記録日数', icon: 'calendar', color: colors.accent },
+              { value: progress.streak,    label: '連続', icon: 'flame',    color: '#FF6FA3' },
+              { value: progress.level,     label: 'レベル', icon: 'star',   color: colors.primary },
+              { value: progress.totalDays, label: '記録日', icon: 'calendar', color: colors.accent },
             ].map((s) => (
-              <View
-                key={s.label}
-                style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              >
-                <Ionicons name={s.icon as any} size={16} color={s.color} />
+              <View key={s.label} style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Ionicons name={s.icon as any} size={15} color={s.color} />
                 <Text style={[styles.statValue, { color: colors.foreground }]}>{s.value}</Text>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
               </View>
@@ -167,68 +265,65 @@ export default function HomeScreen() {
           </View>
         </FadeIn>
 
-        {/* Today Checklist */}
-        <FadeIn delay={320}>
-          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.sectionRow}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>今日のチェック</Text>
-              <Text style={[styles.sectionCount, { color: colors.primary }]}>
-                {completedCount} / {totalCount}
+        {/* ── Today Checklist quick-link ── */}
+        <FadeIn delay={360}>
+          <TouchableOpacity
+            style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => router.push('/(tabs)/check')}
+            activeOpacity={0.82}
+          >
+            <View style={[styles.quickIcon, { backgroundColor: colors.primary + '22' }]}>
+              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+            </View>
+            <View style={styles.quickText}>
+              <Text style={[styles.quickTitle, { color: colors.foreground }]}>今日のチェック</Text>
+              <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
+                {completedCount} / {totalCount} 完了
               </Text>
             </View>
-            <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
-              <AnimatedBar pct={checkPct} color={colors.primary} />
+            <View style={[styles.quickPct, { backgroundColor: colors.primary + '18' }]}>
+              <Text style={[styles.quickPctText, { color: colors.primary }]}>
+                {totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}%
+              </Text>
             </View>
-            <TouchableOpacity
-              style={[styles.linkBtn, { backgroundColor: colors.muted }]}
-              onPress={() => router.push('/(tabs)/check')}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="checkmark-circle-outline" size={17} color={colors.primary} />
-              <Text style={[styles.linkBtnText, { color: colors.foreground }]}>チェックを確認する</Text>
-              <Ionicons name="chevron-forward" size={15} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
         </FadeIn>
 
-        {/* Mood */}
+        {/* ── Mood quick-link ── */}
         <FadeIn delay={420}>
-          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={styles.sectionRow}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>今日の気分</Text>
-              {todayRecord && (
-                <View style={[styles.moodTag, { backgroundColor: moodColors[todayRecord.mood] + '22' }]}>
-                  <Text style={[styles.moodTagText, { color: moodColors[todayRecord.mood] }]}>
-                    {moodLabels[todayRecord.mood]}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {todayRecord ? (
-              <View style={styles.doneRow}>
-                <View style={[styles.doneDot, { backgroundColor: colors.primary }]} />
-                <Text style={[styles.doneText, { color: colors.mutedForeground }]}>
-                  今日の記録は完了しています
+          {todayRecord ? (
+            <View style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.quickIcon, { backgroundColor: moodColors[todayRecord.mood] + '22' }]}>
+                <Ionicons name="happy-outline" size={22} color={moodColors[todayRecord.mood]} />
+              </View>
+              <View style={styles.quickText}>
+                <Text style={[styles.quickTitle, { color: colors.foreground }]}>今日の気分</Text>
+                <Text style={[styles.quickSub, { color: moodColors[todayRecord.mood] }]}>
+                  {moodLabels[todayRecord.mood]}
                 </Text>
               </View>
-            ) : (
-              <TouchableOpacity
-                style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-                onPress={() => router.push('/(tabs)/record')}
-                activeOpacity={0.85}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.secondary + 'CC']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[StyleSheet.absoluteFill, { borderRadius: 14 }]}
-                />
-                <Ionicons name="create-outline" size={18} color="#FFF" />
-                <Text style={styles.primaryBtnText}>今日の気分を記録する</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+              <View style={[styles.doneDot, { backgroundColor: colors.primary }]} />
+              <Text style={[styles.doneLabel, { color: colors.mutedForeground }]}>記録済</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => router.push('/(tabs)/record')}
+              activeOpacity={0.82}
+            >
+              <View style={[styles.quickIcon, { backgroundColor: colors.secondary + '22' }]}>
+                <Ionicons name="create-outline" size={22} color={colors.secondary} />
+              </View>
+              <View style={styles.quickText}>
+                <Text style={[styles.quickTitle, { color: colors.foreground }]}>今日の気分を記録</Text>
+                <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
+                  記録するとXPが増えます
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          )}
         </FadeIn>
       </ScrollView>
     </View>
@@ -237,81 +332,64 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { paddingHorizontal: 20 },
+  content: { paddingHorizontal: 18, gap: 14 },
+  orb1: { position: 'absolute', width: 260, height: 260, borderRadius: 130, top: -80, right: -90 },
+  orb2: { position: 'absolute', width: 180, height: 180, borderRadius: 90, bottom: 240, left: -70 },
 
-  orb1: {
-    position: 'absolute',
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    top: -60,
-    right: -80,
-  },
-  orb2: {
-    position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    bottom: 200,
-    left: -60,
-  },
-
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 22 },
-  greeting: { fontSize: 13, fontFamily: 'Inter_400Regular' },
-  appName: { fontSize: 28, fontFamily: 'Inter_700Bold', letterSpacing: -0.8, marginTop: 1 },
-  dateText: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  streakBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 12, paddingVertical: 9,
-    borderRadius: 22, borderWidth: 1,
-  },
+  /* header */
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
+  greeting: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  appName: { fontSize: 26, fontFamily: 'Inter_700Bold', letterSpacing: -0.8, marginTop: 1 },
+  dateText: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 1 },
+  streakBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   streakNum: { fontSize: 18, fontFamily: 'Inter_700Bold' },
-  streakUnit: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  streakUnit: { fontSize: 11, fontFamily: 'Inter_400Regular' },
 
-  meterCard: {
-    borderRadius: 24, padding: 26, alignItems: 'center',
-    borderWidth: 1, marginBottom: 16, overflow: 'hidden',
-    gap: 10,
-  },
-  motivText: { fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center' },
-  xpWrap: { width: '100%', gap: 7 },
-  xpRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  xpLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
-  xpNext: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
-  xpTrack: { height: 8, borderRadius: 4, overflow: 'hidden', position: 'relative' },
+  /* mascot card */
+  mascotCard: { borderRadius: 26, padding: 20, borderWidth: 1, alignItems: 'center', gap: 10 },
+  mascotTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  stagePill: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, borderWidth: 1.5 },
+  stageName: { fontSize: 13, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
+  levelPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
+  levelText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  mascotCenter: { alignItems: 'center', gap: 6, paddingVertical: 4 },
+  stageDesc: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  evoWrap: { width: '100%', gap: 7 },
+  evoRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  evoLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  evoRemain: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  evoTrack: { height: 8, borderRadius: 4, overflow: 'hidden', position: 'relative' },
+  maxBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16 },
+  maxText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
 
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  statCard: {
-    flex: 1, padding: 14, borderRadius: 18, borderWidth: 1,
-    alignItems: 'center', gap: 4,
-  },
-  statValue: { fontSize: 24, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
-  statLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
-
-  sectionCard: {
-    borderRadius: 22, padding: 18, borderWidth: 1, marginBottom: 14, gap: 13,
-  },
-  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  /* status */
+  sectionCard: { borderRadius: 20, padding: 18, borderWidth: 1, gap: 14 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
-  sectionCount: { fontSize: 14, fontFamily: 'Inter_700Bold' },
-  progressTrack: { height: 8, borderRadius: 4, overflow: 'hidden', position: 'relative' },
+  sectionSub: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  statBarRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statBarLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, width: 60 },
+  statBarIcon: { fontSize: 13 },
+  statBarLabel: { fontSize: 11, fontFamily: 'Inter_500Medium' },
+  statBarTrack: { flex: 1, height: 10, borderRadius: 5, overflow: 'hidden', position: 'relative' },
+  statBarVal: { width: 28, textAlign: 'right', fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  recordHint: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 11, borderRadius: 12 },
+  recordHintText: { fontSize: 12, fontFamily: 'Inter_400Regular', flex: 1 },
 
-  linkBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    padding: 13, borderRadius: 13,
-  },
-  linkBtnText: { flex: 1, fontSize: 14, fontFamily: 'Inter_500Medium' },
+  /* stats row */
+  statsRow: { flexDirection: 'row', gap: 10 },
+  statCard: { flex: 1, padding: 14, borderRadius: 16, borderWidth: 1, alignItems: 'center', gap: 4 },
+  statValue: { fontSize: 22, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
+  statLabel: { fontSize: 10, fontFamily: 'Inter_400Regular' },
 
-  moodTag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  moodTagText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
-
-  doneRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
-  doneDot: { width: 8, height: 8, borderRadius: 4 },
-  doneText: { fontSize: 13, fontFamily: 'Inter_400Regular' },
-
-  primaryBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 9, padding: 16, borderRadius: 14, overflow: 'hidden',
-  },
-  primaryBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+  /* quick cards */
+  quickCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, borderWidth: 1 },
+  quickIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  quickText: { flex: 1, gap: 2 },
+  quickTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  quickSub: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  quickPct: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+  quickPctText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  doneDot: { width: 7, height: 7, borderRadius: 3.5 },
+  doneLabel: { fontSize: 12, fontFamily: 'Inter_400Regular' },
 });
