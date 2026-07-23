@@ -43,23 +43,50 @@ chatRouter.post("/chat/message", async (req, res) => {
 6. アドバイスは求められたときだけ、押しつけない
 7. 返答は自然な長さで（短いときは2〜3文、話が弾んでいるときはもう少し長くてもOK）
 8. 必ず日本語で返す
-9. 同じ言い回しを連続して使わない
-10. 【重要】会話の中でユーザーが明らかに疲労・強いストレスを感じていると判断したとき（例：「疲れた」「しんどい」「もう限界」「つらい」「やる気でない」「眠れない」などの表現、または会話の流れから深い疲弊が読み取れるとき）、通常の返答の末尾に必ず [REST] というタグを追加する。このタグはユーザーには表示されない。疲れていないときは絶対に付けない。`;
+9. 同じ言い回しを連続して使わない`;
 
     const chatMessages = [
       { role: "system" as const, content: systemPrompt },
       ...messages.map((m) => ({ role: m.role, content: m.content })),
     ];
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-5.6-terra",
-      max_completion_tokens: 8192,
-      messages: chatMessages,
-    });
+    // Stress classifier: runs in parallel, checks only recent user messages
+    const recentUserTexts = messages
+      .filter((m) => m.role === "user")
+      .slice(-3)
+      .map((m) => m.content)
+      .join("\n");
 
-    const raw = response.choices[0]?.message?.content ?? "うん、聞いてるよ！";
-    const restEvent = raw.includes("[REST]");
-    const content = raw.replace(/\[REST\]/g, "").trim();
+    const stressPrompt = `以下はメンタルトレーニングアプリでのユーザーの発言です。
+疲労・強いストレス・辛さが読み取れるか判定してください。
+
+判定基準（どれか1つでも当てはまれば yes）:
+- 「疲れた」「しんどい」「つらい」「きつい」「しんどすぎ」「もう無理」「限界」
+- 「やる気でない」「眠れない」「ぐったり」「へとへと」「消えたい」「怠い」
+- 複数の発言にわたって重さや疲弊が続いている
+- 絶望的・投げやりな表現
+
+発言:
+${recentUserTexts}
+
+「yes」か「no」のみ答えてください。`;
+
+    const [chatResponse, stressResponse] = await Promise.all([
+      openai.chat.completions.create({
+        model: "gpt-5.6-terra",
+        max_completion_tokens: 8192,
+        messages: chatMessages,
+      }),
+      openai.chat.completions.create({
+        model: "gpt-5.6-terra",
+        max_completion_tokens: 5,
+        messages: [{ role: "user" as const, content: stressPrompt }],
+      }),
+    ]);
+
+    const content = chatResponse.choices[0]?.message?.content?.trim() ?? "うん、聞いてるよ！";
+    const stressAnswer = stressResponse.choices[0]?.message?.content?.toLowerCase() ?? "";
+    const restEvent = stressAnswer.includes("yes");
     res.json({ content, restEvent });
   } catch (err) {
     console.error("Chat error:", err);
