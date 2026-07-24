@@ -50,7 +50,7 @@ function useSceneAudio() {
       }
       const { sound } = await Audio.Sound.createAsync(
         SOUND_MAP[scene],
-        { isLooping: true, volume: 0.78 },
+        { isLooping: true, volume: 1.0 },
       );
       soundRef.current = sound;
       await sound.playAsync();
@@ -74,152 +74,157 @@ function useSceneAudio() {
 /* ─── SVG Cat ─────────────────────────────────── */
 function CatSvg({ state }: { state: CatState }) {
   return (
-    <Svg width={180} height={200} viewBox="0 0 120 134">
+    <Svg width={190} height={200} viewBox="0 0 100 106">
       <Defs>
-        <SvgRadialGradient id="cBodyGrad" cx="38%" cy="32%" r="68%">
-          <Stop offset="0%" stopColor="#F5A84A" />
-          <Stop offset="100%" stopColor="#C86818" />
+        <SvgRadialGradient id="hGrad" cx="42%" cy="35%" r="65%">
+          <Stop offset="0%"   stopColor="#FBBE6A" />
+          <Stop offset="100%" stopColor="#D4751A" />
         </SvgRadialGradient>
-        <SvgRadialGradient id="cHeadGrad" cx="36%" cy="28%" r="68%">
-          <Stop offset="0%" stopColor="#F7AE55" />
-          <Stop offset="100%" stopColor="#C86818" />
+        <SvgRadialGradient id="bGrad" cx="42%" cy="30%" r="65%">
+          <Stop offset="0%"   stopColor="#F5AD4C" />
+          <Stop offset="100%" stopColor="#C96515" />
         </SvgRadialGradient>
-        <SvgRadialGradient id="cBellyGrad" cx="50%" cy="25%" r="70%">
-          <Stop offset="0%" stopColor="#FEE8C0" />
-          <Stop offset="100%" stopColor="#F6CB82" />
+        <SvgRadialGradient id="bellyGrad" cx="50%" cy="30%" r="65%">
+          <Stop offset="0%"   stopColor="#FFF0D8" />
+          <Stop offset="100%" stopColor="#F8D49A" />
+        </SvgRadialGradient>
+        <SvgRadialGradient id="eyeL" cx="38%" cy="35%" r="62%">
+          <Stop offset="0%"   stopColor="#ECC040" />
+          <Stop offset="60%"  stopColor="#D49820" />
+          <Stop offset="100%" stopColor="#A87010" />
+        </SvgRadialGradient>
+        <SvgRadialGradient id="eyeR" cx="38%" cy="35%" r="62%">
+          <Stop offset="0%"   stopColor="#ECC040" />
+          <Stop offset="60%"  stopColor="#D49820" />
+          <Stop offset="100%" stopColor="#A87010" />
         </SvgRadialGradient>
       </Defs>
 
-      {/* Shadow */}
-      <Ellipse cx={60} cy={130} rx={34} ry={5} fill="#00000030" />
+      {/* Ground shadow */}
+      <Ellipse cx={50} cy={103} rx={26} ry={4} fill="#00000025" />
 
-      {/* Tail — curling around to the right */}
-      <Path d="M 88 98 Q 116 88 114 110 Q 110 128 82 120"
-        stroke="#C06018" strokeWidth="13" fill="none" strokeLinecap="round" />
-      <Path d="M 88 98 Q 116 88 114 110 Q 110 128 82 120"
-        stroke="#E58830" strokeWidth="8" fill="none" strokeLinecap="round" />
-      <Path d="M 88 98 Q 116 88 114 110 Q 110 128 82 120"
-        stroke="#F5A84A55" strokeWidth="3" fill="none" strokeLinecap="round" />
+      {/* Tail — looping around right side */}
+      <Path d="M72 88 Q96 82 94 98 Q90 110 70 104"
+        stroke="#C06015" strokeWidth="10" fill="none" strokeLinecap="round" />
+      <Path d="M72 88 Q96 82 94 98 Q90 110 70 104"
+        stroke="#E5982A" strokeWidth="6"  fill="none" strokeLinecap="round" />
+      {/* tail tip lighter */}
+      <Path d="M84 101 Q89 108 72 104"
+        stroke="#F5B84A" strokeWidth="4"  fill="none" strokeLinecap="round" />
 
       {/* Body */}
-      <Ellipse cx={60} cy={100} rx={40} ry={32} fill="url(#cBodyGrad)" />
-
-      {/* Belly patch */}
-      <Ellipse cx={60} cy={108} rx={22} ry={18} fill="url(#cBellyGrad)" />
-
-      {/* Body tabby stripes */}
-      <Path d="M 27 88 Q 25 100 27 113" stroke="#B05810" strokeWidth="3.5" fill="none" strokeLinecap="round" opacity="0.45" />
-      <Path d="M 34 84 Q 32 96 34 109" stroke="#B05810" strokeWidth="3"   fill="none" strokeLinecap="round" opacity="0.38" />
-      <Path d="M 93 88 Q 95 100 93 113" stroke="#B05810" strokeWidth="3.5" fill="none" strokeLinecap="round" opacity="0.45" />
-      <Path d="M 86 84 Q 88 96 86 109" stroke="#B05810" strokeWidth="3"   fill="none" strokeLinecap="round" opacity="0.38" />
+      <Ellipse cx={50} cy={88} rx={26} ry={20} fill="url(#bGrad)" />
+      {/* Belly */}
+      <Ellipse cx={50} cy={93} rx={16} ry={13} fill="url(#bellyGrad)" />
 
       {/* Front paws */}
-      <Ellipse cx={42} cy={126} rx={13} ry={7}  fill="#C86818" />
-      <Ellipse cx={78} cy={126} rx={13} ry={7}  fill="#C86818" />
-      <Ellipse cx={42} cy={125} rx={9}  ry={4.5} fill="#F5A84A" opacity="0.55" />
-      <Ellipse cx={78} cy={125} rx={9}  ry={4.5} fill="#F5A84A" opacity="0.55" />
-      {/* Toe lines */}
-      <Line x1={38} y1={124} x2={38} y2={130} stroke="#B05818" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
-      <Line x1={42} y1={124} x2={42} y2={131} stroke="#B05818" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
-      <Line x1={46} y1={124} x2={46} y2={130} stroke="#B05818" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
-      <Line x1={74} y1={124} x2={74} y2={130} stroke="#B05818" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
-      <Line x1={78} y1={124} x2={78} y2={131} stroke="#B05818" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
-      <Line x1={82} y1={124} x2={82} y2={130} stroke="#B05818" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
+      <Ellipse cx={37} cy={100} rx={11} ry={7} fill="#D4751A" />
+      <Ellipse cx={63} cy={100} rx={11} ry={7} fill="#D4751A" />
+      <Ellipse cx={37} cy={99}  rx={7.5} ry={4.5} fill="#F5AD4C" opacity="0.55" />
+      <Ellipse cx={63} cy={99}  rx={7.5} ry={4.5} fill="#F5AD4C" opacity="0.55" />
+      {/* Toe splits — subtle */}
+      <Line x1={33} y1={98} x2={33} y2={104} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      <Line x1={37} y1={98} x2={37} y2={105} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      <Line x1={41} y1={98} x2={41} y2={104} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      <Line x1={59} y1={98} x2={59} y2={104} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      <Line x1={63} y1={98} x2={63} y2={105} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      <Line x1={67} y1={98} x2={67} y2={104} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
 
-      {/* Neck / shoulder fill */}
-      <Ellipse cx={60} cy={74} rx={21} ry={10} fill="#D97A22" />
+      {/* Neck bridge */}
+      <Ellipse cx={50} cy={72} rx={16} ry={8} fill="#D4751A" />
 
-      {/* ── Head ── */}
-      <Circle cx={60} cy={50} r={33} fill="url(#cHeadGrad)" />
+      {/* ── Head ── big & round */}
+      <Circle cx={50} cy={44} r={30} fill="url(#hGrad)" />
 
-      {/* Ear left outer */}
-      <Path d="M 27 40 L 22 10 L 48 30 Z" fill="#C06018" />
-      {/* Ear left inner */}
-      <Path d="M 29 38 L 25 14 L 46 30 Z" fill="#F4A0A8" />
+      {/* Ears — left */}
+      <Path d="M20 36 L26 12 L42 28 Z" fill="#C06015" />
+      <Path d="M22 34 L27 15 L40 27 Z" fill="#F4A0A8" />
+      {/* Ears — right */}
+      <Path d="M80 36 L74 12 L58 28 Z" fill="#C06015" />
+      <Path d="M78 34 L73 15 L60 27 Z" fill="#F4A0A8" />
 
-      {/* Ear right outer */}
-      <Path d="M 93 40 L 98 10 L 72 30 Z" fill="#C06018" />
-      {/* Ear right inner */}
-      <Path d="M 91 38 L 95 14 L 74 30 Z" fill="#F4A0A8" />
-
-      {/* Forehead tabby stripes */}
-      <Path d="M 51 23 Q 60 18 69 23" stroke="#B05810" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.45" />
-      <Path d="M 49 30 Q 60 25 71 30" stroke="#B05810" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.38" />
-      <Path d="M 55 38 Q 60 35 65 38" stroke="#B05810" strokeWidth="2"   fill="none" strokeLinecap="round" opacity="0.30" />
+      {/* Forehead tabby marks */}
+      <Path d="M43 20 Q50 15 57 20" stroke="#B86010" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.40" />
+      <Path d="M41 27 Q50 22 59 27" stroke="#B86010" strokeWidth="2.0" fill="none" strokeLinecap="round" opacity="0.33" />
+      <Path d="M45 34 Q50 31 55 34" stroke="#B86010" strokeWidth="1.6" fill="none" strokeLinecap="round" opacity="0.28" />
 
       {/* ── Eyes ── */}
       {state === 'sleeping' && (
         <G>
-          {/* Closed crescent lines */}
-          <Path d="M 38 52 Q 46 45 54 52"
-            stroke="#5A3010" strokeWidth="3" fill="none" strokeLinecap="round" />
-          <Path d="M 66 52 Q 74 45 82 52"
-            stroke="#5A3010" strokeWidth="3" fill="none" strokeLinecap="round" />
-          {/* Tiny eyelashes */}
-          <Line x1={39} y1={52} x2={36} y2={48} stroke="#5A3010" strokeWidth="1.6" strokeLinecap="round" />
-          <Line x1={46} y1={47} x2={46} y2={43} stroke="#5A3010" strokeWidth="1.4" strokeLinecap="round" />
-          <Line x1={53} y1={52} x2={56} y2={48} stroke="#5A3010" strokeWidth="1.6" strokeLinecap="round" />
-          <Line x1={67} y1={52} x2={64} y2={48} stroke="#5A3010" strokeWidth="1.6" strokeLinecap="round" />
-          <Line x1={74} y1={47} x2={74} y2={43} stroke="#5A3010" strokeWidth="1.4" strokeLinecap="round" />
-          <Line x1={81} y1={52} x2={84} y2={48} stroke="#5A3010" strokeWidth="1.6" strokeLinecap="round" />
+          {/* Cute closed eyes — upward arc = ∩ shape */}
+          <Path d="M30 46 Q38 39 46 46"
+            stroke="#6B3A10" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+          <Path d="M54 46 Q62 39 70 46"
+            stroke="#6B3A10" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+          {/* Tiny lashes */}
+          <Line x1={30} y1={46} x2={28} y2={42} stroke="#6B3A10" strokeWidth="1.5" strokeLinecap="round" />
+          <Line x1={38} y1={40} x2={38} y2={37} stroke="#6B3A10" strokeWidth="1.4" strokeLinecap="round" />
+          <Line x1={46} y1={46} x2={48} y2={42} stroke="#6B3A10" strokeWidth="1.5" strokeLinecap="round" />
+          <Line x1={54} y1={46} x2={52} y2={42} stroke="#6B3A10" strokeWidth="1.5" strokeLinecap="round" />
+          <Line x1={62} y1={40} x2={62} y2={37} stroke="#6B3A10" strokeWidth="1.4" strokeLinecap="round" />
+          <Line x1={70} y1={46} x2={72} y2={42} stroke="#6B3A10" strokeWidth="1.5" strokeLinecap="round" />
+          {/* Tiny zzz above head */}
+          <Path d="M68 24 L73 24 L68 19 L74 19" stroke="#FFFFFF" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
         </G>
       )}
       {state === 'alert' && (
         <G>
-          {/* Wide open — amber iris + vertical slit pupil */}
-          <Circle cx={46} cy={51} r={11} fill="#E8B830" />
-          <Circle cx={74} cy={51} r={11} fill="#E8B830" />
-          {/* Iris detail ring */}
-          <Circle cx={46} cy={51} r={11} fill="none" stroke="#C89020" strokeWidth="1.5" opacity="0.6" />
-          <Circle cx={74} cy={51} r={11} fill="none" stroke="#C89020" strokeWidth="1.5" opacity="0.6" />
-          {/* Slit pupils */}
-          <Ellipse cx={46} cy={51} rx={3.5} ry={9}   fill="#1A0800" />
-          <Ellipse cx={74} cy={51} rx={3.5} ry={9}   fill="#1A0800" />
-          {/* Catchlight */}
-          <Circle cx={43} cy={47} r={2.2} fill="white" opacity="0.75" />
-          <Circle cx={71} cy={47} r={2.2} fill="white" opacity="0.75" />
+          {/* Wide open round eyes — cute, big pupils not slits */}
+          {/* Left eye */}
+          <Circle cx={38} cy={45} r={9.5} fill="white" />
+          <Circle cx={38} cy={45} r={8.5} fill="url(#eyeL)" />
+          <Circle cx={38} cy={45} r={5.8} fill="#1C0C00" />
+          <Circle cx={35} cy={42} r={2.2} fill="white" opacity="0.85" />
+          <Circle cx={40} cy={47} r={1.0} fill="white" opacity="0.45" />
+          {/* Right eye */}
+          <Circle cx={62} cy={45} r={9.5} fill="white" />
+          <Circle cx={62} cy={45} r={8.5} fill="url(#eyeR)" />
+          <Circle cx={62} cy={45} r={5.8} fill="#1C0C00" />
+          <Circle cx={59} cy={42} r={2.2} fill="white" opacity="0.85" />
+          <Circle cx={64} cy={47} r={1.0} fill="white" opacity="0.45" />
         </G>
       )}
       {state === 'purring' && (
         <G>
-          {/* Half-closed happy squint — amber iris, narrow oval pupil */}
-          <Circle cx={46} cy={53} r={10} fill="#E8B830" />
-          <Circle cx={74} cy={53} r={10} fill="#E8B830" />
-          <Circle cx={46} cy={53} r={10} fill="none" stroke="#C89020" strokeWidth="1.5" opacity="0.6" />
-          <Circle cx={74} cy={53} r={10} fill="none" stroke="#C89020" strokeWidth="1.5" opacity="0.6" />
-          <Ellipse cx={46} cy={53} rx={2.8} ry={7} fill="#1A0800" />
-          <Ellipse cx={74} cy={53} rx={2.8} ry={7} fill="#1A0800" />
-          <Circle cx={43} cy={49} r={2}   fill="white" opacity="0.7" />
-          <Circle cx={71} cy={49} r={2}   fill="white" opacity="0.7" />
-          {/* Upper eyelid drooping */}
-          <Path d="M 34 47 Q 46 42 58 47"
-            stroke="#C06018" strokeWidth="4" fill="none" strokeLinecap="round" opacity="0.9" />
-          <Path d="M 62 47 Q 74 42 86 47"
-            stroke="#C06018" strokeWidth="4" fill="none" strokeLinecap="round" opacity="0.9" />
+          {/* Happy squinting — curved arcs with a small amber gleam underneath */}
+          <Path d="M29 47 Q38 41 47 47"
+            stroke="#6B3A10" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+          <Path d="M53 47 Q62 41 71 47"
+            stroke="#6B3A10" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+          {/* Small amber gleam showing a sliver of iris */}
+          <Path d="M30 47 Q38 43 46 47"
+            stroke="#D49820" strokeWidth="2.0" fill="none" strokeLinecap="round" opacity="0.45" />
+          <Path d="M54 47 Q62 43 70 47"
+            stroke="#D49820" strokeWidth="2.0" fill="none" strokeLinecap="round" opacity="0.45" />
+          {/* Upper eyelid curve */}
+          <Path d="M29 47 Q38 40 47 47"
+            stroke="#C06015" strokeWidth="4.0" fill="none" strokeLinecap="round" opacity="0.75" />
+          <Path d="M53 47 Q62 40 71 47"
+            stroke="#C06015" strokeWidth="4.0" fill="none" strokeLinecap="round" opacity="0.75" />
         </G>
       )}
 
-      {/* Nose */}
-      <Path d="M 57 62 L 63 62 L 60 67 Z" fill="#FF7A90" />
-      {/* Nose highlight */}
-      <Ellipse cx={58.5} cy={63.5} rx={1.8} ry={1.2} fill="white" opacity="0.4" />
+      {/* Nose — small heart-like pink triangle */}
+      <Path d="M47 57 L53 57 L50 61.5 Z" fill="#FF8099" />
+      <Ellipse cx={49} cy={58} rx={1.5} ry={1} fill="white" opacity="0.35" />
 
       {/* Mouth */}
-      <Path d="M 60 67 Q 55 73 51 70" stroke="#5A3010" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      <Path d="M 60 67 Q 65 73 69 70" stroke="#5A3010" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+      <Path d="M50 61.5 Q45 66.5 42 64" stroke="#7A4018" strokeWidth="1.7" fill="none" strokeLinecap="round" />
+      <Path d="M50 61.5 Q55 66.5 58 64" stroke="#7A4018" strokeWidth="1.7" fill="none" strokeLinecap="round" />
 
       {/* Cheek blush */}
-      <Ellipse cx={32} cy={62} rx={9} ry={5.5} fill="#FFB0B8" opacity="0.30" />
-      <Ellipse cx={88} cy={62} rx={9} ry={5.5} fill="#FFB0B8" opacity="0.30" />
+      <Ellipse cx={28} cy={58} rx={8}   ry={5} fill="#FFB0C0" opacity="0.28" />
+      <Ellipse cx={72} cy={58} rx={8}   ry={5} fill="#FFB0C0" opacity="0.28" />
 
-      {/* Whiskers — left */}
-      <Line x1={14} y1={59} x2={53} y2={63} stroke="#FFFFFFBB" strokeWidth="1.2" />
-      <Line x1={14} y1={65} x2={53} y2={65} stroke="#FFFFFFBB" strokeWidth="1.2" />
-      <Line x1={14} y1={71} x2={53} y2={67} stroke="#FFFFFFBB" strokeWidth="1.2" />
-      {/* Whiskers — right */}
-      <Line x1={67} y1={63} x2={106} y2={59} stroke="#FFFFFFBB" strokeWidth="1.2" />
-      <Line x1={67} y1={65} x2={106} y2={65} stroke="#FFFFFFBB" strokeWidth="1.2" />
-      <Line x1={67} y1={67} x2={106} y2={71} stroke="#FFFFFFBB" strokeWidth="1.2" />
+      {/* Whiskers — short, tasteful */}
+      {/* Left */}
+      <Line x1={28} y1={56} x2={46} y2={58} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
+      <Line x1={26} y1={60} x2={46} y2={60} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
+      <Line x1={28} y1={64} x2={46} y2={62} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
+      {/* Right */}
+      <Line x1={54} y1={58} x2={72} y2={56} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
+      <Line x1={54} y1={60} x2={74} y2={60} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
+      <Line x1={54} y1={62} x2={72} y2={64} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
     </Svg>
   );
 }
