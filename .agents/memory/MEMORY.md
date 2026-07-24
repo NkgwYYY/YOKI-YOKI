@@ -1,0 +1,1 @@
+- [Asset sourcing](asset-sourcing.md) — Unsplash/myinstants work via curl; use AI generation for same-character multi-expression photo sets; always expo export + commit after mobile changes.
