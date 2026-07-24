@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet, PanResponder } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,6 +7,7 @@ import Animated, {
   withSequence,
   withTiming,
   withSpring,
+  withDelay,
 } from 'react-native-reanimated';
 import Svg, {
   Circle, Ellipse, Path, G, Defs,
@@ -21,8 +21,51 @@ interface MascotProps {
   evolutionType?: EvolutionType | null;
   size?: number;
   onPress?: () => void;
+  onPet?: () => void;
   idleBehavior?: IdleBehavior;
   isEating?: boolean;
+}
+
+/* ── Floating heart / sparkle that rises and fades ── */
+function FloatingPuff({ x, y, delay, emoji }: { x: number; y: number; delay: number; emoji: string }) {
+  const ty  = useSharedValue(0);
+  const op  = useSharedValue(0);
+  const sc  = useSharedValue(0.4);
+
+  useEffect(() => {
+    ty.value = withDelay(delay, withTiming(-65, { duration: 950 }));
+    sc.value = withDelay(delay, withSpring(1, { damping: 7, stiffness: 180 }));
+    op.value = withDelay(delay, withSequence(
+      withTiming(1, { duration: 140 }),
+      withTiming(1, { duration: 420 }),
+      withTiming(0, { duration: 390 }),
+    ));
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateY: ty.value }, { scale: sc.value }],
+    opacity: op.value,
+    position: 'absolute',
+    left: x,
+    top: y,
+  }));
+
+  return <Animated.Text style={[style, { fontSize: 20 }]}>{emoji}</Animated.Text>;
+}
+
+function HeartsOverlay({ size, petKey }: { size: number; petKey: number }) {
+  const puffs = [
+    { x: size * 0.08, y: size * 0.06, delay: 0,   emoji: '💗' },
+    { x: size * 0.38, y: size * 0.00, delay: 110,  emoji: '✨' },
+    { x: size * 0.64, y: size * 0.05, delay: 55,   emoji: '💗' },
+    { x: size * 0.22, y: size * 0.18, delay: 230,  emoji: '💕' },
+    { x: size * 0.52, y: size * 0.16, delay: 290,  emoji: '⭐' },
+  ];
+  return (
+    <View style={[StyleSheet.absoluteFill, { overflow: 'visible' }]} pointerEvents="none">
+      {puffs.map((p, i) => <FloatingPuff key={`${petKey}-${i}`} {...p} />)}
+    </View>
+  );
 }
 
 /* ─── per-mood eye + mouth shapes ─── */
@@ -354,11 +397,19 @@ function MasterStarSvg({ mood, size }: { mood: MascotMood; size: number }) {
 }
 
 /* ─── Main component ─── */
-export function Mascot({ stage, mood, evolutionType, size = 140, onPress, idleBehavior = 'normal', isEating = false }: MascotProps) {
+export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet, idleBehavior = 'normal', isEating = false }: MascotProps) {
   const bounce = useSharedValue(0);
   const scaleX = useSharedValue(1);
   const scaleY = useSharedValue(1);
   const rotate = useSharedValue(0);
+
+  /* petting state */
+  const [showHearts, setShowHearts] = useState(false);
+  const [petKey,     setPetKey]     = useState(0);
+  const onPressRef = useRef(onPress);
+  const onPetRef   = useRef(onPet);
+  useEffect(() => { onPressRef.current = onPress; }, [onPress]);
+  useEffect(() => { onPetRef.current   = onPet;   }, [onPet]);
 
   // Eating flash
   useEffect(() => {
@@ -469,13 +520,75 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, idleBe
     }
   }, [mood, idleBehavior]);
 
-  const handlePress = () => {
-    bounce.value = withSequence(
-      withSpring(-22, { damping: 6, stiffness: 300 }),
-      withSpring(0, { damping: 8, stiffness: 200 })
+  /* ── petting animation ── */
+  const doPetAnimation = () => {
+    // head wobble left↔right
+    rotate.value = withSequence(
+      withTiming( 18, { duration: 75 }),
+      withTiming(-18, { duration: 75 }),
+      withTiming( 14, { duration: 75 }),
+      withTiming(-14, { duration: 75 }),
+      withTiming(  8, { duration: 75 }),
+      withTiming(  0, { duration: 120 }),
     );
-    onPress?.();
+    // happy bounce
+    bounce.value = withSequence(
+      withSpring(-14, { damping: 4, stiffness: 380 }),
+      withSpring(0,   { damping: 8, stiffness: 220 }),
+    );
+    // little squish
+    scaleX.value = withSequence(
+      withTiming(0.90, { duration: 90 }),
+      withTiming(1.10, { duration: 90 }),
+      withTiming(1,    { duration: 180 }),
+    );
+    scaleY.value = withSequence(
+      withTiming(1.08, { duration: 90 }),
+      withTiming(0.94, { duration: 90 }),
+      withTiming(1,    { duration: 180 }),
+    );
   };
+
+  /* ── pan responder: swipe = pet, tap = bounce ── */
+  const panResponder = useMemo(() => {
+    let wasPet = false;
+
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 6,
+
+      onPanResponderGrant: () => { wasPet = false; },
+
+      onPanResponderMove: (_, gs) => {
+        // Detect horizontal stroke over the head region (top ~65 % of mascot)
+        if (
+          !wasPet &&
+          Math.abs(gs.dx) > 28 &&
+          Math.abs(gs.dy) < 55 &&
+          gs.y0 < size * 0.72
+        ) {
+          wasPet = true;
+          doPetAnimation();
+          setShowHearts(true);
+          setPetKey(k => k + 1);
+          setTimeout(() => setShowHearts(false), 1400);
+          onPetRef.current?.();
+        }
+      },
+
+      onPanResponderRelease: (_, gs) => {
+        if (!wasPet && Math.abs(gs.dx) < 10 && Math.abs(gs.dy) < 10) {
+          // plain tap
+          bounce.value = withSequence(
+            withSpring(-22, { damping: 6, stiffness: 300 }),
+            withSpring(0,   { damping: 8, stiffness: 200 }),
+          );
+          onPressRef.current?.();
+        }
+      },
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size]);
 
   const style = useAnimatedStyle(() => ({
     transform: [
@@ -499,17 +612,15 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, idleBe
        : KokoronSvg);
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.9}>
+    <View {...panResponder.panHandlers}>
       <View>
         <Animated.View style={style}>
           <SvgComponent mood={mood} size={size} />
         </Animated.View>
-        {/* Sleeping Zzz overlay */}
-        {idleBehavior === 'sleeping' && (
-          <ZzzOverlay size={size} />
-        )}
+        {idleBehavior === 'sleeping' && <ZzzOverlay size={size} />}
+        {showHearts && <HeartsOverlay size={size} petKey={petKey} />}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
