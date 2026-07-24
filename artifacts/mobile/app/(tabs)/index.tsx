@@ -355,7 +355,7 @@ export default function HomeScreen() {
 
         {/* ── Room ── */}
         <FadeIn delay={140}>
-          <RoomView level={progress.level} streak={progress.streak} totalDays={progress.totalDays} />
+          <RoomView level={progress.level} streak={progress.streak} totalDays={progress.totalDays} mascotName={mascotName} />
         </FadeIn>
 
         {/* ── RPG ステータス ── */}

@@ -19,6 +19,7 @@ interface Props {
   level: number;
   streak: number;
   totalDays: number;
+  mascotName?: string;
 }
 
 /* ── helpers ── */
@@ -53,7 +54,7 @@ function RoomItem({ emoji, size = 28, delay = 0 }: { emoji: string; size?: numbe
   );
 }
 
-export function RoomView({ level, streak, totalDays }: Props) {
+export function RoomView({ level, streak, totalDays, mascotName }: Props) {
   const isDark = useColorScheme() === 'dark';
   const hour  = new Date().getHours();
   const month = new Date().getMonth() + 1;
@@ -113,7 +114,7 @@ export function RoomView({ level, streak, totalDays }: Props) {
     <View style={[r.card, { backgroundColor: colors.wall, borderColor: isDark ? '#2A2240' : '#E0CEBC' }]}>
       {/* Title row */}
       <View style={r.titleRow}>
-        <Text style={[r.titleText, { color: colors.text }]}>🏡 こころんのへや</Text>
+        <Text style={[r.titleText, { color: colors.text }]}>🏡 {mascotName ? `${mascotName}のへや` : 'キャラクターのへや'}</Text>
         {isRoomEmpty && (
           <Text style={[r.hintText, { color: colors.subtext }]}>続けると家具が増えるよ…</Text>
         )}
