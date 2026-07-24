@@ -43,7 +43,7 @@ import {
 import { getGreeting, formatDateJP, getTodayDate } from '@/utils/dateUtils';
 import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
 import { MascotRoomBg } from '@/components/MascotRoomBg';
-import { getTodayActivity } from '@/utils/dailyActivity';
+import { getAllActivities } from '@/utils/dailyActivity';
 
 /* ── Stagger-in wrapper ── */
 function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -155,8 +155,6 @@ export default function HomeScreen() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [showFeedModal, setShowFeedModal] = useState(false);
   const [nameInput, setNameInput] = useState('');
-  const todayActivity = React.useMemo(() => getTodayActivity(), []);
-
   const msgs = React.useMemo(() => {
     const m = getMascotMessage(mood);
     const idleMsg =
@@ -164,7 +162,17 @@ export default function HomeScreen() {
       idleBehavior === 'sleeping' ? 'zzz…すやすや…' :
       idleBehavior === 'playing'  ? 'あそんでたよ！' :
       m;
-    return [idleMsg, m, 'タップしてみてね！', '一緒に頑張ろう！', '今日も来てくれたね♪'];
+    const fixed = [
+      idleMsg, m,
+      'タップしてみてね！', '一緒に頑張ろう！',
+      '今日も来てくれたね♪', 'そばにいるよ〜',
+      'なにか話しかけてみて！', 'きょうはどんな日だった？',
+    ];
+    // 日課メッセージ（全40種）をシャッフルして追加
+    const activities = getAllActivities();
+    const seed = Date.now() % activities.length;
+    const shuffled = [...activities.slice(seed), ...activities.slice(0, seed)];
+    return [...fixed, ...shuffled];
   }, [mood, idleBehavior]);
   const currentMsg = msgs[msgIndex % msgs.length];
 
@@ -300,15 +308,6 @@ export default function HomeScreen() {
                 </>
               )}
             </TouchableOpacity>
-
-            {/* ── Daily activity ── */}
-            <View style={[styles.activityRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-              <Text style={styles.activityEmoji}>{todayActivity.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.activityLabel, { color: colors.mutedForeground }]}>今日のできごと</Text>
-                <Text style={[styles.activityText, { color: colors.foreground }]}>{todayActivity.text}</Text>
-              </View>
-            </View>
 
             {/* Stage desc */}
             <Text style={[styles.stageDesc, { color: colors.mutedForeground }]}>
@@ -697,14 +696,6 @@ const styles = StyleSheet.create({
   mascotNameText: { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
   namePrompt: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
 
-  activityRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    width: '100%', borderRadius: 14, borderWidth: 1,
-    paddingHorizontal: 14, paddingVertical: 10,
-  },
-  activityEmoji: { fontSize: 26 },
-  activityLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', marginBottom: 2 },
-  activityText:  { fontSize: 13, fontFamily: 'Inter_500Medium' },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },

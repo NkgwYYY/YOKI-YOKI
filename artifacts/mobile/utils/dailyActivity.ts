@@ -63,3 +63,7 @@ export function getTodayActivity(): DailyActivity {
   const r = seededRandom(seed);
   return ACTIVITIES[Math.floor(r * ACTIVITIES.length)];
 }
+
+export function getAllActivities(): string[] {
+  return ACTIVITIES.map((a) => `${a.emoji} ${a.text}`);
+}
