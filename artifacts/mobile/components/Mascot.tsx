@@ -554,18 +554,23 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
     let wasPet = false;
 
     return PanResponder.create({
+      // タッチ開始時点でResponderを取得（ScrollViewより先に）
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gs) => Math.abs(gs.dx) > 6,
+      onStartShouldSetPanResponderCapture: () => false,
+      // 横スワイプと判断できた時点でScrollViewから横取り
+      onMoveShouldSetPanResponder: (_, gs) =>
+        Math.abs(gs.dx) > 8 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.2,
+      onMoveShouldSetPanResponderCapture: (_, gs) =>
+        Math.abs(gs.dx) > 12 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5,
 
       onPanResponderGrant: () => { wasPet = false; },
 
       onPanResponderMove: (_, gs) => {
-        // Detect horizontal stroke over the head region (top ~65 % of mascot)
+        // y0チェック不要 — マスコット全体への横スワイプをペットと認識
         if (
           !wasPet &&
-          Math.abs(gs.dx) > 28 &&
-          Math.abs(gs.dy) < 55 &&
-          gs.y0 < size * 0.72
+          Math.abs(gs.dx) > 25 &&
+          Math.abs(gs.dy) < 60
         ) {
           wasPet = true;
           doPetAnimation();
@@ -577,7 +582,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       },
 
       onPanResponderRelease: (_, gs) => {
-        if (!wasPet && Math.abs(gs.dx) < 10 && Math.abs(gs.dy) < 10) {
+        if (!wasPet && Math.abs(gs.dx) < 12 && Math.abs(gs.dy) < 12) {
           // plain tap
           bounce.value = withSequence(
             withSpring(-22, { damping: 6, stiffness: 300 }),
@@ -588,7 +593,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [size]);
+  }, []);
 
   const style = useAnimatedStyle(() => ({
     transform: [
