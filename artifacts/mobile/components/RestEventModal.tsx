@@ -74,157 +74,211 @@ function useSceneAudio() {
 /* ─── SVG Cat ─────────────────────────────────── */
 function CatSvg({ state }: { state: CatState }) {
   return (
-    <Svg width={190} height={200} viewBox="0 0 100 106">
+    <Svg width={210} height={230} viewBox="0 0 130 145">
       <Defs>
-        <SvgRadialGradient id="hGrad" cx="42%" cy="35%" r="65%">
-          <Stop offset="0%"   stopColor="#FBBE6A" />
-          <Stop offset="100%" stopColor="#D4751A" />
+        {/* Head — warm amber-ginger with golden highlight */}
+        <SvgRadialGradient id="headFur" cx="42%" cy="33%" r="65%">
+          <Stop offset="0%"   stopColor="#F8C468" />
+          <Stop offset="40%"  stopColor="#EB9030" />
+          <Stop offset="100%" stopColor="#C05C10" />
         </SvgRadialGradient>
-        <SvgRadialGradient id="bGrad" cx="42%" cy="30%" r="65%">
-          <Stop offset="0%"   stopColor="#F5AD4C" />
-          <Stop offset="100%" stopColor="#C96515" />
+        {/* Cheek puff (slightly lighter) */}
+        <SvgRadialGradient id="cheekL" cx="62%" cy="38%" r="68%">
+          <Stop offset="0%"   stopColor="#F9BE5A" />
+          <Stop offset="100%" stopColor="#CC6618" />
         </SvgRadialGradient>
-        <SvgRadialGradient id="bellyGrad" cx="50%" cy="30%" r="65%">
-          <Stop offset="0%"   stopColor="#FFF0D8" />
-          <Stop offset="100%" stopColor="#F8D49A" />
+        <SvgRadialGradient id="cheekR" cx="38%" cy="38%" r="68%">
+          <Stop offset="0%"   stopColor="#F9BE5A" />
+          <Stop offset="100%" stopColor="#CC6618" />
         </SvgRadialGradient>
-        <SvgRadialGradient id="eyeL" cx="38%" cy="35%" r="62%">
-          <Stop offset="0%"   stopColor="#ECC040" />
-          <Stop offset="60%"  stopColor="#D49820" />
-          <Stop offset="100%" stopColor="#A87010" />
+        {/* Muzzle — cream */}
+        <SvgRadialGradient id="muzzle" cx="50%" cy="28%" r="64%">
+          <Stop offset="0%"   stopColor="#FFF4DE" />
+          <Stop offset="65%"  stopColor="#F9DDA8" />
+          <Stop offset="100%" stopColor="#EDCA78" />
         </SvgRadialGradient>
-        <SvgRadialGradient id="eyeR" cx="38%" cy="35%" r="62%">
-          <Stop offset="0%"   stopColor="#ECC040" />
-          <Stop offset="60%"  stopColor="#D49820" />
-          <Stop offset="100%" stopColor="#A87010" />
+        {/* Body */}
+        <SvgRadialGradient id="bodyFur" cx="42%" cy="28%" r="68%">
+          <Stop offset="0%"   stopColor="#F0A838" />
+          <Stop offset="100%" stopColor="#B85C10" />
         </SvgRadialGradient>
+        {/* Chest ruff */}
+        <SvgRadialGradient id="chestRuff" cx="50%" cy="20%" r="65%">
+          <Stop offset="0%"   stopColor="#FFF0D5" />
+          <Stop offset="100%" stopColor="#F5CCA0" />
+        </SvgRadialGradient>
+        {/* Iris */}
+        <SvgRadialGradient id="irisG" cx="36%" cy="33%" r="60%">
+          <Stop offset="0%"   stopColor="#F2D460" />
+          <Stop offset="55%"  stopColor="#D49820" />
+          <Stop offset="100%" stopColor="#9A6808" />
+        </SvgRadialGradient>
+        {/* Ear inner */}
+        <SvgLinearGradient id="earIn" x1="50%" y1="0%" x2="50%" y2="100%">
+          <Stop offset="0%"   stopColor="#F8B8C8" />
+          <Stop offset="100%" stopColor="#E48898" />
+        </SvgLinearGradient>
       </Defs>
 
       {/* Ground shadow */}
-      <Ellipse cx={50} cy={103} rx={26} ry={4} fill="#00000025" />
+      <Ellipse cx={65} cy={142} rx={38} ry={5} fill="#00000022" />
 
-      {/* Tail — looping around right side */}
-      <Path d="M72 88 Q96 82 94 98 Q90 110 70 104"
-        stroke="#C06015" strokeWidth="10" fill="none" strokeLinecap="round" />
-      <Path d="M72 88 Q96 82 94 98 Q90 110 70 104"
-        stroke="#E5982A" strokeWidth="6"  fill="none" strokeLinecap="round" />
-      {/* tail tip lighter */}
-      <Path d="M84 101 Q89 108 72 104"
-        stroke="#F5B84A" strokeWidth="4"  fill="none" strokeLinecap="round" />
+      {/* ── Body ── */}
+      <Ellipse cx={65} cy={120} rx={42} ry={26} fill="url(#bodyFur)" />
+      {/* Chest ruff layers */}
+      <Ellipse cx={65} cy={127} rx={34} ry={19} fill="#ECA040" opacity="0.55" />
+      <Ellipse cx={65} cy={133} rx={26} ry={13} fill="url(#chestRuff)" />
+      {/* Subtle body stripes */}
+      <Path d="M30 110 Q28 121 30 131" stroke="#9E4E0C" strokeWidth="2.8" fill="none" strokeLinecap="round" opacity="0.28" />
+      <Path d="M38 107 Q36 119 38 129" stroke="#9E4E0C" strokeWidth="2.4" fill="none" strokeLinecap="round" opacity="0.22" />
+      <Path d="M100 110 Q102 121 100 131" stroke="#9E4E0C" strokeWidth="2.8" fill="none" strokeLinecap="round" opacity="0.28" />
+      <Path d="M92 107 Q94 119 92 129" stroke="#9E4E0C" strokeWidth="2.4" fill="none" strokeLinecap="round" opacity="0.22" />
 
-      {/* Body */}
-      <Ellipse cx={50} cy={88} rx={26} ry={20} fill="url(#bGrad)" />
-      {/* Belly */}
-      <Ellipse cx={50} cy={93} rx={16} ry={13} fill="url(#bellyGrad)" />
+      {/* Neck */}
+      <Ellipse cx={65} cy={97} rx={26} ry={11} fill="#D07820" />
 
-      {/* Front paws */}
-      <Ellipse cx={37} cy={100} rx={11} ry={7} fill="#D4751A" />
-      <Ellipse cx={63} cy={100} rx={11} ry={7} fill="#D4751A" />
-      <Ellipse cx={37} cy={99}  rx={7.5} ry={4.5} fill="#F5AD4C" opacity="0.55" />
-      <Ellipse cx={63} cy={99}  rx={7.5} ry={4.5} fill="#F5AD4C" opacity="0.55" />
-      {/* Toe splits — subtle */}
-      <Line x1={33} y1={98} x2={33} y2={104} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
-      <Line x1={37} y1={98} x2={37} y2={105} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
-      <Line x1={41} y1={98} x2={41} y2={104} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
-      <Line x1={59} y1={98} x2={59} y2={104} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
-      <Line x1={63} y1={98} x2={63} y2={105} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
-      <Line x1={67} y1={98} x2={67} y2={104} stroke="#B05510" strokeWidth="1" strokeLinecap="round" opacity="0.4" />
+      {/* ── Ears ── */}
+      {/* Left outer */}
+      <Path d="M17 52 L25 18 L50 40 Z" fill="#C76210" />
+      {/* Left inner */}
+      <Path d="M20 50 L27 22 L48 39 Z" fill="url(#earIn)" opacity="0.88" />
+      {/* Ear fur tips */}
+      <Path d="M23 26 Q27 18 30 26" stroke="#DDA050" strokeWidth="1.8" fill="none" strokeLinecap="round" opacity="0.5" />
+      {/* Right outer */}
+      <Path d="M113 52 L105 18 L80 40 Z" fill="#C76210" />
+      {/* Right inner */}
+      <Path d="M110 50 L103 22 L82 39 Z" fill="url(#earIn)" opacity="0.88" />
+      <Path d="M107 26 Q103 18 100 26" stroke="#DDA050" strokeWidth="1.8" fill="none" strokeLinecap="round" opacity="0.5" />
 
-      {/* Neck bridge */}
-      <Ellipse cx={50} cy={72} rx={16} ry={8} fill="#D4751A" />
+      {/* ── Head — large, round, wide ── */}
+      {/* Cheek puffs (behind main head) */}
+      <Ellipse cx={18} cy={70} rx={22} ry={20} fill="url(#cheekL)" opacity="0.8" />
+      <Ellipse cx={112} cy={70} rx={22} ry={20} fill="url(#cheekR)" opacity="0.8" />
+      {/* Main head */}
+      <Ellipse cx={65} cy={62} rx={50} ry={46} fill="url(#headFur)" />
 
-      {/* ── Head ── big & round */}
-      <Circle cx={50} cy={44} r={30} fill="url(#hGrad)" />
+      {/* ── Forehead tabby stripes — dense, characteristic ── */}
+      <Path d="M40 28 Q65 20 90 28" stroke="#A84E0C" strokeWidth="3.0" fill="none" strokeLinecap="round" opacity="0.52" />
+      <Path d="M37 35 Q65 27 93 35" stroke="#A84E0C" strokeWidth="2.7" fill="none" strokeLinecap="round" opacity="0.46" />
+      <Path d="M35 42 Q65 34 95 42" stroke="#A84E0C" strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.40" />
+      <Path d="M37 49 Q65 42 93 49" stroke="#A84E0C" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.33" />
+      <Path d="M40 56 Q65 49 90 56" stroke="#A84E0C" strokeWidth="2.0" fill="none" strokeLinecap="round" opacity="0.26" />
+      {/* M-mark center */}
+      <Path d="M60 24 Q65 29 70 24" stroke="#9A4808" strokeWidth="1.8" fill="none" strokeLinecap="round" opacity="0.42" />
 
-      {/* Ears — left */}
-      <Path d="M20 36 L26 12 L42 28 Z" fill="#C06015" />
-      <Path d="M22 34 L27 15 L40 27 Z" fill="#F4A0A8" />
-      {/* Ears — right */}
-      <Path d="M80 36 L74 12 L58 28 Z" fill="#C06015" />
-      <Path d="M78 34 L73 15 L60 27 Z" fill="#F4A0A8" />
-
-      {/* Forehead tabby marks */}
-      <Path d="M43 20 Q50 15 57 20" stroke="#B86010" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.40" />
-      <Path d="M41 27 Q50 22 59 27" stroke="#B86010" strokeWidth="2.0" fill="none" strokeLinecap="round" opacity="0.33" />
-      <Path d="M45 34 Q50 31 55 34" stroke="#B86010" strokeWidth="1.6" fill="none" strokeLinecap="round" opacity="0.28" />
+      {/* ── Muzzle (cream area) ── */}
+      <Ellipse cx={65} cy={79} rx={29} ry={23} fill="url(#muzzle)" />
+      {/* Muzzle bumps */}
+      <Circle cx={57} cy={80} r={10} fill="#FFF6E4" opacity="0.32" />
+      <Circle cx={73} cy={80} r={10} fill="#FFF6E4" opacity="0.32" />
+      {/* Muzzle whisker dots */}
+      <Circle cx={52} cy={79} r={1.4} fill="#D08040" opacity="0.55" />
+      <Circle cx={56} cy={77} r={1.3} fill="#D08040" opacity="0.45" />
+      <Circle cx={78} cy={79} r={1.4} fill="#D08040" opacity="0.55" />
+      <Circle cx={74} cy={77} r={1.3} fill="#D08040" opacity="0.45" />
 
       {/* ── Eyes ── */}
       {state === 'sleeping' && (
         <G>
-          {/* Cute closed eyes — upward arc = ∩ shape */}
-          <Path d="M30 46 Q38 39 46 46"
-            stroke="#6B3A10" strokeWidth="2.8" fill="none" strokeLinecap="round" />
-          <Path d="M54 46 Q62 39 70 46"
-            stroke="#6B3A10" strokeWidth="2.8" fill="none" strokeLinecap="round" />
-          {/* Tiny lashes */}
-          <Line x1={30} y1={46} x2={28} y2={42} stroke="#6B3A10" strokeWidth="1.5" strokeLinecap="round" />
-          <Line x1={38} y1={40} x2={38} y2={37} stroke="#6B3A10" strokeWidth="1.4" strokeLinecap="round" />
-          <Line x1={46} y1={46} x2={48} y2={42} stroke="#6B3A10" strokeWidth="1.5" strokeLinecap="round" />
-          <Line x1={54} y1={46} x2={52} y2={42} stroke="#6B3A10" strokeWidth="1.5" strokeLinecap="round" />
-          <Line x1={62} y1={40} x2={62} y2={37} stroke="#6B3A10" strokeWidth="1.4" strokeLinecap="round" />
-          <Line x1={70} y1={46} x2={72} y2={42} stroke="#6B3A10" strokeWidth="1.5" strokeLinecap="round" />
-          {/* Tiny zzz above head */}
-          <Path d="M68 24 L73 24 L68 19 L74 19" stroke="#FFFFFF" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
+          {/* Realistic closed eyes — upper eyelid arc with thickness */}
+          {/* Left */}
+          <Path d="M36 65 Q50 56 64 65"
+            stroke="#6A3808" strokeWidth="3.8" fill="none" strokeLinecap="round" />
+          {/* Eyelid fill — slight warmth of the lid */}
+          <Path d="M36 65 Q50 58 64 65 Q63 69 37 69 Z"
+            fill="#CC6818" opacity="0.22" />
+          {/* Lower lid line */}
+          <Path d="M38 66 Q50 70 62 66"
+            stroke="#8B4818" strokeWidth="1.1" fill="none" strokeLinecap="round" opacity="0.35" />
+          {/* Lashes */}
+          <Line x1={37} y1={65} x2={34} y2={59} stroke="#4A2808" strokeWidth="1.9" strokeLinecap="round" />
+          <Line x1={44} y1={59} x2={43} y2={53} stroke="#4A2808" strokeWidth="1.7" strokeLinecap="round" />
+          <Line x1={52} y1={57} x2={52} y2={51} stroke="#4A2808" strokeWidth="1.6" strokeLinecap="round" />
+          <Line x1={60} y1={59} x2={62} y2={53} stroke="#4A2808" strokeWidth="1.7" strokeLinecap="round" />
+          <Line x1={64} y1={65} x2={68} y2={59} stroke="#4A2808" strokeWidth="1.9" strokeLinecap="round" />
+
+          {/* Right */}
+          <Path d="M66 65 Q80 56 94 65"
+            stroke="#6A3808" strokeWidth="3.8" fill="none" strokeLinecap="round" />
+          <Path d="M66 65 Q80 58 94 65 Q93 69 67 69 Z"
+            fill="#CC6818" opacity="0.22" />
+          <Path d="M68 66 Q80 70 92 66"
+            stroke="#8B4818" strokeWidth="1.1" fill="none" strokeLinecap="round" opacity="0.35" />
+          <Line x1={67} y1={65} x2={64} y2={59} stroke="#4A2808" strokeWidth="1.9" strokeLinecap="round" />
+          <Line x1={74} y1={59} x2={73} y2={53} stroke="#4A2808" strokeWidth="1.7" strokeLinecap="round" />
+          <Line x1={82} y1={57} x2={82} y2={51} stroke="#4A2808" strokeWidth="1.6" strokeLinecap="round" />
+          <Line x1={90} y1={59} x2={92} y2={53} stroke="#4A2808" strokeWidth="1.7" strokeLinecap="round" />
+          <Line x1={94} y1={65} x2={98} y2={59} stroke="#4A2808" strokeWidth="1.9" strokeLinecap="round" />
         </G>
       )}
       {state === 'alert' && (
         <G>
-          {/* Wide open round eyes — cute, big pupils not slits */}
-          {/* Left eye */}
-          <Circle cx={38} cy={45} r={9.5} fill="white" />
-          <Circle cx={38} cy={45} r={8.5} fill="url(#eyeL)" />
-          <Circle cx={38} cy={45} r={5.8} fill="#1C0C00" />
-          <Circle cx={35} cy={42} r={2.2} fill="white" opacity="0.85" />
-          <Circle cx={40} cy={47} r={1.0} fill="white" opacity="0.45" />
-          {/* Right eye */}
-          <Circle cx={62} cy={45} r={9.5} fill="white" />
-          <Circle cx={62} cy={45} r={8.5} fill="url(#eyeR)" />
-          <Circle cx={62} cy={45} r={5.8} fill="#1C0C00" />
-          <Circle cx={59} cy={42} r={2.2} fill="white" opacity="0.85" />
-          <Circle cx={64} cy={47} r={1.0} fill="white" opacity="0.45" />
+          {/* Wide open — large round pupils, warm amber iris */}
+          <Circle cx={50} cy={63} r={12}   fill="white" />
+          <Circle cx={50} cy={63} r={10.5} fill="url(#irisG)" />
+          <Circle cx={50} cy={63} r={7}    fill="#160A00" />
+          <Circle cx={47} cy={59} r={2.8} fill="white" opacity="0.88" />
+          <Circle cx={53} cy={66} r={1.2} fill="white" opacity="0.42" />
+
+          <Circle cx={80} cy={63} r={12}   fill="white" />
+          <Circle cx={80} cy={63} r={10.5} fill="url(#irisG)" />
+          <Circle cx={80} cy={63} r={7}    fill="#160A00" />
+          <Circle cx={77} cy={59} r={2.8} fill="white" opacity="0.88" />
+          <Circle cx={83} cy={66} r={1.2} fill="white" opacity="0.42" />
         </G>
       )}
       {state === 'purring' && (
         <G>
-          {/* Happy squinting — curved arcs with a small amber gleam underneath */}
-          <Path d="M29 47 Q38 41 47 47"
-            stroke="#6B3A10" strokeWidth="2.8" fill="none" strokeLinecap="round" />
-          <Path d="M53 47 Q62 41 71 47"
-            stroke="#6B3A10" strokeWidth="2.8" fill="none" strokeLinecap="round" />
-          {/* Small amber gleam showing a sliver of iris */}
-          <Path d="M30 47 Q38 43 46 47"
-            stroke="#D49820" strokeWidth="2.0" fill="none" strokeLinecap="round" opacity="0.45" />
-          <Path d="M54 47 Q62 43 70 47"
-            stroke="#D49820" strokeWidth="2.0" fill="none" strokeLinecap="round" opacity="0.45" />
-          {/* Upper eyelid curve */}
-          <Path d="M29 47 Q38 40 47 47"
-            stroke="#C06015" strokeWidth="4.0" fill="none" strokeLinecap="round" opacity="0.75" />
-          <Path d="M53 47 Q62 40 71 47"
-            stroke="#C06015" strokeWidth="4.0" fill="none" strokeLinecap="round" opacity="0.75" />
+          {/* Happy squinting — same arc as sleeping but with amber glow beneath */}
+          <Path d="M36 66 Q50 58 64 66"
+            stroke="#6A3808" strokeWidth="3.5" fill="none" strokeLinecap="round" />
+          <Path d="M66 66 Q80 58 94 66"
+            stroke="#6A3808" strokeWidth="3.5" fill="none" strokeLinecap="round" />
+          {/* Amber glint peeking below lid */}
+          <Path d="M38 66 Q50 62 62 66"
+            stroke="#D09820" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.50" />
+          <Path d="M68 66 Q80 62 92 66"
+            stroke="#D09820" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.50" />
+          {/* Eyelid overlay */}
+          <Path d="M35 66 Q50 57 65 66"
+            stroke="#C06015" strokeWidth="5.0" fill="none" strokeLinecap="round" opacity="0.65" />
+          <Path d="M65 66 Q80 57 95 66"
+            stroke="#C06015" strokeWidth="5.0" fill="none" strokeLinecap="round" opacity="0.65" />
         </G>
       )}
 
-      {/* Nose — small heart-like pink triangle */}
-      <Path d="M47 57 L53 57 L50 61.5 Z" fill="#FF8099" />
-      <Ellipse cx={49} cy={58} rx={1.5} ry={1} fill="white" opacity="0.35" />
+      {/* ── Nose ── */}
+      {/* Heart shape: two bumps at top, point at bottom */}
+      <Path d="M62 82 Q65 78 68 82 L67.5 87 Q65 89.5 62.5 87 Z" fill="#E87080" />
+      <Path d="M63 83 Q65 80 67 83" fill="#F9A8B0" opacity="0.55" />
+      {/* Philtrum */}
+      <Line x1={65} y1={88} x2={65} y2={92} stroke="#C06850" strokeWidth="1.3" strokeLinecap="round" opacity="0.45" />
 
-      {/* Mouth */}
-      <Path d="M50 61.5 Q45 66.5 42 64" stroke="#7A4018" strokeWidth="1.7" fill="none" strokeLinecap="round" />
-      <Path d="M50 61.5 Q55 66.5 58 64" stroke="#7A4018" strokeWidth="1.7" fill="none" strokeLinecap="round" />
+      {/* ── Mouth ── */}
+      <Path d="M65 92 Q58 98 54 95" stroke="#8B4820" strokeWidth="1.9" fill="none" strokeLinecap="round" />
+      <Path d="M65 92 Q72 98 76 95" stroke="#8B4820" strokeWidth="1.9" fill="none" strokeLinecap="round" />
 
-      {/* Cheek blush */}
-      <Ellipse cx={28} cy={58} rx={8}   ry={5} fill="#FFB0C0" opacity="0.28" />
-      <Ellipse cx={72} cy={58} rx={8}   ry={5} fill="#FFB0C0" opacity="0.28" />
+      {/* ── Cheek blush ── */}
+      <Ellipse cx={27} cy={78} rx={15} ry={10} fill="#FFB8C8" opacity="0.20" />
+      <Ellipse cx={103} cy={78} rx={15} ry={10} fill="#FFB8C8" opacity="0.20" />
 
-      {/* Whiskers — short, tasteful */}
+      {/* Chin lighter fur */}
+      <Ellipse cx={65} cy={94} rx={20} ry={10} fill="#FFF0D8" opacity="0.30" />
+
+      {/* ── Whiskers — long, natural, cat-like ── */}
+      {/* 5 per side at varying angles, extending well past cheeks */}
       {/* Left */}
-      <Line x1={28} y1={56} x2={46} y2={58} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
-      <Line x1={26} y1={60} x2={46} y2={60} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
-      <Line x1={28} y1={64} x2={46} y2={62} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
+      <Line x1={7}  y1={73} x2={61} y2={79} stroke="rgba(255,255,255,0.88)" strokeWidth="1.05" strokeLinecap="round" />
+      <Line x1={5}  y1={80} x2={61} y2={82} stroke="rgba(255,255,255,0.90)" strokeWidth="1.10" strokeLinecap="round" />
+      <Line x1={7}  y1={87} x2={61} y2={84} stroke="rgba(255,255,255,0.85)" strokeWidth="1.00" strokeLinecap="round" />
+      <Line x1={12} y1={94} x2={61} y2={87} stroke="rgba(255,255,255,0.72)" strokeWidth="0.95" strokeLinecap="round" />
+      <Line x1={5}  y1={67} x2={57} y2={76} stroke="rgba(255,255,255,0.62)" strokeWidth="0.85" strokeLinecap="round" />
       {/* Right */}
-      <Line x1={54} y1={58} x2={72} y2={56} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
-      <Line x1={54} y1={60} x2={74} y2={60} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
-      <Line x1={54} y1={62} x2={72} y2={64} stroke="rgba(255,255,255,0.75)" strokeWidth="1.1" strokeLinecap="round" />
+      <Line x1={123} y1={73} x2={69} y2={79} stroke="rgba(255,255,255,0.88)" strokeWidth="1.05" strokeLinecap="round" />
+      <Line x1={125} y1={80} x2={69} y2={82} stroke="rgba(255,255,255,0.90)" strokeWidth="1.10" strokeLinecap="round" />
+      <Line x1={123} y1={87} x2={69} y2={84} stroke="rgba(255,255,255,0.85)" strokeWidth="1.00" strokeLinecap="round" />
+      <Line x1={118} y1={94} x2={69} y2={87} stroke="rgba(255,255,255,0.72)" strokeWidth="0.95" strokeLinecap="round" />
+      <Line x1={125} y1={67} x2={73} y2={76} stroke="rgba(255,255,255,0.62)" strokeWidth="0.85" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -354,51 +408,108 @@ function CatScene() {
   );
 }
 
-/* ─── Campfire scene ──────────────────────────── */
+/* ─── Campfire scene — 線香花火スタイル ────────── */
 function CampfireScene() {
+  const glowOpacity = useRef(new RNAnimated.Value(0.35)).current;
   const flames = useRef(
-    Array.from({ length: 5 }, () => ({
-      scale:   new RNAnimated.Value(1),
-      opacity: new RNAnimated.Value(0.8 + Math.random() * 0.2),
+    Array.from({ length: 3 }, (_, i) => ({
+      scaleY:  new RNAnimated.Value(0.9),
+      sway:    new RNAnimated.Value(0),
+      opacity: new RNAnimated.Value(0.55 + i * 0.08),
     }))
   ).current;
 
   useEffect(() => {
-    flames.forEach(({ scale, opacity }, i) => {
-      const flicker = (v: RNAnimated.Value, min: number, max: number, dur: number) =>
-        RNAnimated.loop(RNAnimated.sequence([
-          RNAnimated.timing(v, { toValue: max, duration: dur + i * 40, useNativeDriver: true }),
-          RNAnimated.timing(v, { toValue: min, duration: dur + i * 60, useNativeDriver: true }),
-        ])).start();
-      flicker(scale,   0.85, 1.18, 300 + i * 80);
-      flicker(opacity, 0.5,  1.0,  250 + i * 60);
+    // Gentle breathing glow
+    RNAnimated.loop(RNAnimated.sequence([
+      RNAnimated.timing(glowOpacity, { toValue: 0.55, duration: 2800, useNativeDriver: true }),
+      RNAnimated.timing(glowOpacity, { toValue: 0.28, duration: 2600, useNativeDriver: true }),
+    ])).start();
+
+    // Very slow, gentle flame flicker
+    flames.forEach(({ scaleY, sway, opacity }, i) => {
+      RNAnimated.loop(RNAnimated.sequence([
+        RNAnimated.timing(scaleY, { toValue: 0.72 + i * 0.08, duration: 1400 + i * 320, useNativeDriver: true }),
+        RNAnimated.timing(scaleY, { toValue: 0.95 + i * 0.05, duration: 1200 + i * 260, useNativeDriver: true }),
+      ])).start();
+      RNAnimated.loop(RNAnimated.sequence([
+        RNAnimated.timing(sway, { toValue: 1,  duration: 2000 + i * 500, useNativeDriver: true }),
+        RNAnimated.timing(sway, { toValue: -1, duration: 1800 + i * 420, useNativeDriver: true }),
+      ])).start();
+      RNAnimated.loop(RNAnimated.sequence([
+        RNAnimated.timing(opacity, { toValue: 0.40 + i * 0.06, duration: 1100 + i * 240, useNativeDriver: true }),
+        RNAnimated.timing(opacity, { toValue: 0.75 + i * 0.08, duration: 900  + i * 180, useNativeDriver: true }),
+      ])).start();
     });
   }, []);
 
+  const flameColors = [
+    { base: '#FF5C10', mid: '#FF9820', tip: '#FFE060' },
+    { base: '#FF7020', mid: '#FFCC30', tip: '#FFF4A0' },
+    { base: '#FF5010', mid: '#FF8418', tip: '#FFDA60' },
+  ];
+  const flameOffsets = [-11, 0, 11];
+
   return (
     <View style={sc.scene}>
+      {/* Logs */}
       <View style={sc.logBase}>
-        <View style={[sc.log, { transform: [{ rotate: '-25deg' }] }]} />
-        <View style={[sc.log, { transform: [{ rotate: '25deg' }] }]} />
+        <View style={[sc.log, { transform: [{ rotate: '-22deg' }] }]} />
+        <View style={[sc.log, { transform: [{ rotate: '22deg' }] }]} />
       </View>
+
+      {/* Soft ember glow on logs */}
+      <RNAnimated.View style={[sc.fireGlow, { opacity: glowOpacity }]} />
+
+      {/* Small SVG flames */}
       {flames.map((f, i) => (
-        <RNAnimated.Text key={i} style={[sc.flameEmoji, {
-          fontSize: 36 + i * 8, bottom: 48 + i * 18,
-          left: SW / 2 - 30 + (i - 2) * 14,
-          transform: [{ scale: f.scale }], opacity: f.opacity,
-        }]}>🔥</RNAnimated.Text>
+        <RNAnimated.View
+          key={i}
+          style={{
+            position: 'absolute',
+            bottom: SH * 0.115,
+            left: SW / 2 - 14 + flameOffsets[i],
+            opacity: f.opacity,
+            transform: [
+              { scaleY: f.scaleY },
+              { translateX: f.sway.interpolate({ inputRange: [-1, 1], outputRange: [-2.5, 2.5] }) },
+            ],
+          }}
+        >
+          <Svg width={28} height={52} viewBox="0 0 28 52">
+            <Defs>
+              <SvgLinearGradient id={`fg${i}`} x1="50%" y1="100%" x2="50%" y2="0%">
+                <Stop offset="0%"   stopColor={flameColors[i].base} />
+                <Stop offset="45%"  stopColor={flameColors[i].mid} />
+                <Stop offset="100%" stopColor={flameColors[i].tip} stopOpacity="0" />
+              </SvgLinearGradient>
+            </Defs>
+            <Path
+              d="M14 50 Q20 36 18 22 Q16 12 14 2 Q12 12 10 22 Q8 36 14 50 Z"
+              fill={`url(#fg${i})`}
+            />
+            {/* Inner bright core */}
+            <Path
+              d="M14 48 Q17 38 16 28 Q15 20 14 12 Q13 20 12 28 Q11 38 14 48 Z"
+              fill={flameColors[i].tip}
+              opacity={0.5}
+            />
+          </Svg>
+        </RNAnimated.View>
       ))}
-      <EmberParticles />
-      <Text style={sc.sceneLabel}>ぱちぱち… ゆっくり休もう</Text>
+
+      <GentleEmbers />
+      <Text style={sc.sceneLabel}>しずかに燃えてる… ゆっくり休もう</Text>
     </View>
   );
 }
 
-function EmberParticles() {
+/* 線香花火のような静かな火花 */
+function GentleEmbers() {
   const embers = useRef(
-    Array.from({ length: 8 }, () => ({
-      x: new RNAnimated.Value(SW / 2 + (Math.random() - 0.5) * 60),
-      y: new RNAnimated.Value(SH * 0.52),
+    Array.from({ length: 6 }, () => ({
+      x:       new RNAnimated.Value(SW / 2),
+      y:       new RNAnimated.Value(SH * 0.52),
       opacity: new RNAnimated.Value(0),
     }))
   ).current;
@@ -406,29 +517,45 @@ function EmberParticles() {
   useEffect(() => {
     embers.forEach(({ x, y, opacity }, i) => {
       const rise = () => {
-        x.setValue(SW / 2 + (Math.random() - 0.5) * 60);
-        y.setValue(SH * 0.52);
-        opacity.setValue(0.9);
+        const startX = SW / 2 + (Math.random() - 0.5) * 20;
+        x.setValue(startX);
+        y.setValue(SH * 0.525);
+        opacity.setValue(0);
+        const dur = 3500 + Math.random() * 2000;
         RNAnimated.parallel([
-          RNAnimated.timing(y,       { toValue: SH * 0.28, duration: 2000 + Math.random() * 1500, useNativeDriver: true }),
-          RNAnimated.timing(x,       { toValue: SW / 2 + (Math.random() - 0.5) * 100, duration: 2500, useNativeDriver: true }),
           RNAnimated.sequence([
-            RNAnimated.timing(opacity, { toValue: 1, duration: 200,  useNativeDriver: true }),
-            RNAnimated.timing(opacity, { toValue: 0, duration: 1800, useNativeDriver: true }),
+            RNAnimated.timing(opacity, { toValue: 1.0, duration: 350,       useNativeDriver: true }),
+            RNAnimated.timing(opacity, { toValue: 0,   duration: dur - 350, useNativeDriver: true }),
           ]),
-        ]).start(() => setTimeout(rise, Math.random() * 1000));
+          RNAnimated.timing(y, { toValue: SH * 0.35, duration: dur, useNativeDriver: true }),
+          RNAnimated.timing(x, {
+            toValue: startX + (Math.random() - 0.5) * 30,
+            duration: dur,
+            useNativeDriver: true,
+          }),
+        ]).start(() => setTimeout(rise, 1500 + Math.random() * 2500));
       };
-      setTimeout(rise, i * 300);
+      setTimeout(rise, i * 700 + Math.random() * 500);
     });
   }, []);
 
   return (
     <>
       {embers.map((e, i) => (
-        <RNAnimated.Text key={i} style={{
-          position: 'absolute', fontSize: 8, opacity: e.opacity,
-          transform: [{ translateX: e.x }, { translateY: e.y }],
-        }}>✦</RNAnimated.Text>
+        <RNAnimated.View
+          key={i}
+          style={{
+            position: 'absolute',
+            width: 3, height: 3,
+            borderRadius: 1.5,
+            backgroundColor: i % 2 === 0 ? '#FFCC50' : '#FF9030',
+            shadowColor: '#FFAA20',
+            shadowRadius: 3,
+            shadowOpacity: 0.9,
+            opacity: e.opacity,
+            transform: [{ translateX: e.x }, { translateY: e.y }],
+          }}
+        />
       ))}
     </>
   );
@@ -687,17 +814,28 @@ const sc = StyleSheet.create({
   moon:         { position: 'absolute', top: SH * 0.07, right: 36, fontSize: 38 },
   sceneLabel:   { position: 'absolute', bottom: 36, alignSelf: 'center', color: '#FF9966', fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', opacity: 0.85 },
 
+  // Campfire glow
+  fireGlow: {
+    position: 'absolute',
+    bottom: SH * 0.085,
+    alignSelf: 'center',
+    width: 110,
+    height: 44,
+    borderRadius: 55,
+    backgroundColor: '#FF6010',
+  },
+
   // Cat scene
   catMoon:     { position: 'absolute', top: SH * 0.06, left: 28,  fontSize: 36 },
   catStar1:    { position: 'absolute', top: SH * 0.08, right: 44, fontSize: 20 },
   catStar2:    { position: 'absolute', top: SH * 0.14, right: 76, fontSize: 14, opacity: 0.6 },
-  cushionWrap: { position: 'absolute', bottom: SH * 0.16, alignSelf: 'center' },
+  cushionWrap: { position: 'absolute', bottom: SH * 0.15, alignSelf: 'center' },
   catArea:     {
     position: 'absolute',
-    top: SH * 0.18,
+    top: SH * 0.14,
     alignSelf: 'center',
     alignItems: 'center',
-    width: 220, height: 220,
+    width: 240, height: 260,
   },
   floatHeart:  { position: 'absolute', top: 20, fontSize: 26 },
   petBadge:    {
