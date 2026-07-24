@@ -278,16 +278,18 @@ export default function HomeScreen() {
 
             {/* Name display */}
             <TouchableOpacity
-              style={styles.nameRow}
+              style={[styles.nameRow, {
+                backgroundColor: isDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.60)',
+              }]}
               onPress={() => { setNameInput(mascotName); setShowNameModal(true); }}
               activeOpacity={0.75}
             >
               {mascotName ? (
                 <>
-                  <Text style={[styles.mascotNameText, { color: colors.foreground }]}>
+                  <Text style={[styles.mascotNameText, { color: isDark ? '#FFFFFF' : '#1A1A2E' }]}>
                     {mascotName}
                   </Text>
-                  <Ionicons name="pencil" size={13} color={colors.mutedForeground} />
+                  <Ionicons name="pencil" size={13} color={isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.4)'} />
                 </>
               ) : (
                 <>
@@ -686,7 +688,12 @@ const styles = StyleSheet.create({
   },
   playBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#FFF' },
 
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  nameRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    alignSelf: 'center',
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 999,
+  },
   mascotNameText: { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
   namePrompt: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
 
