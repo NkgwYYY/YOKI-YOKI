@@ -380,7 +380,7 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[m.outroBtn, { backgroundColor: '#374151' }]}
-                  onPress={() => { Analytics.restEventCompleted(false); onClose(); }}
+                  onPress={() => { Analytics.restEventCompleted(false); clearInterval(timerRef.current!); setPhase('choose'); }}
                 >
                   <Text style={m.outroBtnText}>まだかな…</Text>
                 </TouchableOpacity>
