@@ -233,8 +233,9 @@ export default function LoginScreen() {
           {/* Mascot */}
           <View style={styles.mascotWrap}>
             <Mascot stage="kokoron" mood="happy" size={100} />
-            <Text style={styles.title}>メントレ</Text>
-            <Text style={styles.subtitle}>データを引き継ぐためにアカウントを作ろう</Text>
+            <Text style={styles.title}>YOKKY</Text>
+            <Text style={styles.subtitle}>メンタルケア育成アプリ</Text>
+            <Text style={[styles.subtitle, { marginTop: 4, fontSize: 12, opacity: 0.6 }]}>データを引き継ぐためにアカウントを作ろう</Text>
           </View>
 
           {/* Tabs */}
