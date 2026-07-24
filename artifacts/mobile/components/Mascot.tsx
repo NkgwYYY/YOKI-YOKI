@@ -110,6 +110,23 @@ function Eyes({ mood, cx, leftX, rightX, eyeY }: {
       </G>
     );
   }
+  if (mood === 'grumpy') {
+    // へ字まゆ（内側が上がる怒り眉）＋やや下目線
+    return (
+      <G>
+        <Circle cx={leftX}  cy={eyeY} r={7} fill="white" />
+        <Circle cx={rightX} cy={eyeY} r={7} fill="white" />
+        <Circle cx={leftX}  cy={eyeY + 2} r={4} fill="#2D1B69" />
+        <Circle cx={rightX} cy={eyeY + 2} r={4} fill="#2D1B69" />
+        {/* 左まゆ: 内側(右端)が上がる  ＼ */}
+        <Line x1={leftX - 7} y1={eyeY - 8} x2={leftX + 5} y2={eyeY - 13}
+          stroke="#2D1B69" strokeWidth="2.8" strokeLinecap="round" />
+        {/* 右まゆ: 内側(左端)が上がる  ／ */}
+        <Line x1={rightX - 5} y1={eyeY - 13} x2={rightX + 7} y2={eyeY - 8}
+          stroke="#2D1B69" strokeWidth="2.8" strokeLinecap="round" />
+      </G>
+    );
+  }
   if (mood === 'happy') {
     return (
       <G>
@@ -145,6 +162,17 @@ function Mouth({ mood, cx, mouthY }: { mood: MascotMood; cx: number; mouthY: num
   if (mood === 'sleepy') {
     return <Path d={`M ${cx - 8} ${mouthY} Q ${cx} ${mouthY + 2} ${cx + 8} ${mouthY}`}
       stroke="#2D1B69" strokeWidth="2" fill="none" strokeLinecap="round" />;
+  }
+  if (mood === 'grumpy') {
+    // ぷくっとふくれた口: 小さめの逆U弧 + 下唇ふくらみ
+    return (
+      <G>
+        <Path d={`M ${cx - 9} ${mouthY + 2} Q ${cx} ${mouthY - 7} ${cx + 9} ${mouthY + 2}`}
+          stroke="#2D1B69" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <Path d={`M ${cx - 9} ${mouthY + 2} Q ${cx} ${mouthY + 8} ${cx + 9} ${mouthY + 2}`}
+          stroke="#2D1B69" strokeWidth="1.5" fill="#2D1B6922" strokeLinecap="round" />
+      </G>
+    );
   }
   return <Path d={`M ${cx - 12} ${mouthY} Q ${cx} ${mouthY + 10} ${cx + 12} ${mouthY}`}
     stroke="#2D1B69" strokeWidth="2.5" fill="none" strokeLinecap="round" />;

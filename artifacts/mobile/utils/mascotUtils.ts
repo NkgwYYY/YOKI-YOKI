@@ -1,7 +1,7 @@
 import { DailyRecord, UserProgress } from '@/contexts/AppContext';
 
 export type MascotStage = 'egg' | 'chick' | 'kokoron' | 'master';
-export type MascotMood = 'excited' | 'happy' | 'normal' | 'tired' | 'sleepy';
+export type MascotMood = 'excited' | 'happy' | 'normal' | 'grumpy' | 'tired' | 'sleepy';
 export type IdleBehavior = 'rolling' | 'sleeping' | 'playing' | 'normal';
 export type EvolutionType = 'heart' | 'star' | 'crown';
 
@@ -114,11 +114,13 @@ export function getMascotMood(
   extra?: {
     inactivityHours?: number; // hours since last app open
     satiety?: number;         // 0-100
+    variance?: number;        // 0-1 random value fixed per session for mood variation
   }
 ): MascotMood {
   const hour = new Date().getHours();
   const inactivity = extra?.inactivityHours ?? 0;
   const satiety = extra?.satiety ?? 70;
+  const v = extra?.variance ?? 0;
 
   // Night time → sleepy
   if (hour >= 22 || hour < 6) return 'sleepy';
@@ -141,6 +143,12 @@ export function getMascotMood(
   // No record and no streak → tired
   if (!todayRecord && progress.streak === 0) return 'tired';
 
+  // Grumpy variations — streak exists but no record yet today: 40% chance
+  if (!todayRecord && progress.streak > 0 && v < 0.40) return 'grumpy';
+
+  // Random grumpy: 20% of otherwise-normal sessions
+  if (v < 0.20) return 'grumpy';
+
   return 'normal';
 }
 
@@ -159,6 +167,15 @@ export const MOOD_MESSAGES: Record<MascotMood, string[]> = {
     '今日も一緒に頑張ろう！',
     'できることからはじめよう',
     '小さな一歩が大きな変化を作るよ',
+  ],
+  grumpy: [
+    'べつに…ふん。',
+    'きょう、きてくれると思ってなかったし。',
+    'おそいんだけど〜。',
+    'もう少し早く来てほしかったな…',
+    '…ちょっとはさびしかったかも。',
+    'なんでもない。ふつうだし。',
+    'きのうから待ってたし。べつに。',
   ],
   tired: [
     'お腹すいたよ〜🥺',

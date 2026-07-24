@@ -140,9 +140,12 @@ export default function HomeScreen() {
   const totalCount = getTotalCheckCount();
 
   const stage = getMascotStage(progress.level);
+  // 起動ごとに固定のランダム値でmood揺らぎを決定（renderのたびに変わらない）
+  const [moodVariance] = useState(() => Math.random());
   const mood = getMascotMood(progress, todayRecord, completedCount, totalCount, {
     inactivityHours,
     satiety: currentSatiety,
+    variance: moodVariance,
   });
   const status = calcStatus(todayRecord, completedCount, totalCount, progress.streak);
 
