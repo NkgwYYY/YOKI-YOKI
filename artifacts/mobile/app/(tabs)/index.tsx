@@ -42,6 +42,8 @@ import {
 } from '@/utils/mascotUtils';
 import { getGreeting, formatDateJP, getTodayDate } from '@/utils/dateUtils';
 import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
+import { RoomView } from '@/components/RoomView';
+import { getTodayActivity } from '@/utils/dailyActivity';
 
 /* ── Stagger-in wrapper ── */
 function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -153,6 +155,7 @@ export default function HomeScreen() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [showFeedModal, setShowFeedModal] = useState(false);
   const [nameInput, setNameInput] = useState('');
+  const todayActivity = React.useMemo(() => getTodayActivity(), []);
 
   const msgs = React.useMemo(() => {
     const m = getMascotMessage(mood);
@@ -292,6 +295,15 @@ export default function HomeScreen() {
               )}
             </TouchableOpacity>
 
+            {/* ── Daily activity ── */}
+            <View style={[styles.activityRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              <Text style={styles.activityEmoji}>{todayActivity.emoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.activityLabel, { color: colors.mutedForeground }]}>今日のできごと</Text>
+                <Text style={[styles.activityText, { color: colors.foreground }]}>{todayActivity.text}</Text>
+              </View>
+            </View>
+
             {/* Stage desc */}
             <Text style={[styles.stageDesc, { color: colors.mutedForeground }]}>
               {stageInfo.desc}
@@ -339,6 +351,11 @@ export default function HomeScreen() {
               </View>
             )}
           </View>
+        </FadeIn>
+
+        {/* ── Room ── */}
+        <FadeIn delay={140}>
+          <RoomView level={progress.level} streak={progress.streak} totalDays={progress.totalDays} />
         </FadeIn>
 
         {/* ── RPG ステータス ── */}
@@ -673,6 +690,15 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   mascotNameText: { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
   namePrompt: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+
+  activityRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    width: '100%', borderRadius: 14, borderWidth: 1,
+    paddingHorizontal: 14, paddingVertical: 10,
+  },
+  activityEmoji: { fontSize: 26 },
+  activityLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', marginBottom: 2 },
+  activityText:  { fontSize: 13, fontFamily: 'Inter_500Medium' },
 
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
