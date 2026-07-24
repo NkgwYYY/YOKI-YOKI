@@ -107,6 +107,7 @@ function CatScene() {
     }))
   ).current;
   const heartIdx = useRef(0);
+  const lastPetAt = useRef(0);
 
   useEffect(() => {
     if (catState === 'purring') {
@@ -159,6 +160,9 @@ function CatScene() {
     },
     onPanResponderMove: (_, gs) => {
       if (Math.abs(gs.dx) > 22 && Math.abs(gs.dy) < 55) {
+        const now = Date.now();
+        if (now - lastPetAt.current < 400) return;
+        lastPetAt.current = now;
         setCatState('purring');
         setPetCount(c => c + 1);
         floatHeart();
@@ -166,6 +170,8 @@ function CatScene() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     },
+    onPanResponderRelease: () => { lastPetAt.current = 0; },
+    onPanResponderTerminate: () => { lastPetAt.current = 0; },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [catState]);
 
@@ -208,9 +214,9 @@ function CatScene() {
           }}
         >
           <View style={sc.catPhoto}>
-            <Image
+            <RNAnimated.Image
               source={require('@/assets/images/cat_sleeping.jpg')}
-              style={sc.catPhotoLayer}
+              style={[sc.catPhotoLayer, { opacity: faceOpacity.sleeping }]}
               resizeMode="cover"
             />
             <RNAnimated.Image
