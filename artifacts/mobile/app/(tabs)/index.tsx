@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   KeyboardAvoidingView,
+  Image,
 } from 'react-native';
 import { MiniGameModal } from '@/components/MiniGameModal';
 import { getCurrentSlot, getSlotConfig, GameSlot } from '@/utils/miniGameUtils';
@@ -230,21 +231,14 @@ export default function HomeScreen() {
         {/* Header */}
         <FadeIn delay={0}>
           <View style={styles.header}>
-            {/* ── MENTRE logo ── */}
+            {/* ── YOKKY logo ── */}
             <View>
               <Text style={[styles.greeting, { color: colors.mutedForeground }]}>{getGreeting()}</Text>
-              <View style={styles.logoRow}>
-                {/* accent bar */}
-                <LinearGradient
-                  colors={['#A855F7', '#6366F1']}
-                  style={styles.logoBar}
-                  start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
-                />
-                <View>
-                  <Text style={[styles.logoText, { color: colors.foreground }]}>MENTRE</Text>
-                  <Text style={[styles.logoSub, { color: colors.mutedForeground }]}>メンタルトレーニング</Text>
-                </View>
-              </View>
+              <Image
+                source={require('@/assets/images/yokky_logo.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
               <Text style={[styles.dateText, { color: colors.mutedForeground }]}>
                 {formatDateJP(getTodayDate())}
               </Text>
@@ -646,10 +640,7 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 3 },
 
   // Logo
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  logoBar: { width: 4, height: 32, borderRadius: 2 },
-  logoText: { fontSize: 24, fontFamily: 'Inter_700Bold', letterSpacing: 4 },
-  logoSub: { fontSize: 9, fontFamily: 'Inter_400Regular', letterSpacing: 1.5, marginTop: 1 },
+  logoImage: { width: 132, height: 40, marginLeft: -4 },
 
   // Streak
   streakWrap: { alignItems: 'center', gap: 4 },
