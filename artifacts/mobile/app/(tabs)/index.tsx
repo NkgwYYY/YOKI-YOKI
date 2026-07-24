@@ -35,6 +35,10 @@ import {
   getMascotMessage,
   calcStatus,
   getNextStageLevel,
+  getStageColors,
+  calcEvolutionType,
+  calcDevelopingType,
+  EVOLUTION_TYPE_INFO,
   STAGE_LEVEL_MAP,
   STAGE_COLORS,
   pickIdleBehavior,
@@ -121,7 +125,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
-    progress, getTodayRecord, getCompletedCount, getTotalCheckCount,
+    progress, records, getTodayRecord, getCompletedCount, getTotalCheckCount,
     mascotName, setMascotName,
     currentSatiety, inactivityHours, feedState,
     miniGameState, completeMiniGame,
@@ -178,7 +182,22 @@ export default function HomeScreen() {
 
   const nextStageLevel = getNextStageLevel(progress.level);
   const stageInfo = STAGE_LEVEL_MAP.find((s) => s.stage === stage)!;
-  const stageColors = STAGE_COLORS[stage];
+
+  // 進化系統：Lv6以上で確定、Lv3-5は予告表示
+  const evolutionType = React.useMemo(
+    () => (stage === 'egg' ? null : calcEvolutionType(records, progress.streak)),
+    [records, progress.streak, stage],
+  );
+  const developingType = React.useMemo(
+    () => (stage === 'chick' ? calcDevelopingType(records, progress.streak) : null),
+    [records, progress.streak, stage],
+  );
+  const typeInfo = evolutionType && (stage === 'kokoron' || stage === 'master')
+    ? EVOLUTION_TYPE_INFO[evolutionType]
+    : null;
+  const devTypeInfo = developingType ? EVOLUTION_TYPE_INFO[developingType] : null;
+
+  const stageColors = getStageColors(stage, evolutionType);
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bgColors = isDark
     ? (['#0E0A1C', '#130D28'] as const)
@@ -258,10 +277,29 @@ export default function HomeScreen() {
 
             {/* Stage ribbon */}
             <View style={styles.mascotTopRow}>
-              <View style={[styles.stagePill, { backgroundColor: stageColors.body + '44', borderColor: stageColors.accent + '55' }]}>
-                <Text style={[styles.stageName, { color: isDark ? stageColors.accent : stageColors.body }]}>
-                  {stageInfo.name}
-                </Text>
+              <View style={styles.mascotTopLeft}>
+                <View style={[styles.stagePill, { backgroundColor: stageColors.body + '44', borderColor: stageColors.accent + '55' }]}>
+                  <Text style={[styles.stageName, { color: isDark ? stageColors.accent : stageColors.body }]}>
+                    {stageInfo.name}
+                  </Text>
+                </View>
+                {/* 系統バッジ：Lv6以上で確定表示、Lv3-5で予告 */}
+                {typeInfo && (
+                  <View style={[styles.typePill, { backgroundColor: stageColors.body + '33', borderColor: stageColors.accent + '66' }]}>
+                    <Text style={styles.typeEmoji}>{typeInfo.emoji}</Text>
+                    <Text style={[styles.typeName, { color: isDark ? stageColors.accent : stageColors.body }]}>
+                      {typeInfo.name}
+                    </Text>
+                  </View>
+                )}
+                {devTypeInfo && !typeInfo && (
+                  <View style={[styles.typePill, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                    <Text style={styles.typeEmoji}>🔮</Text>
+                    <Text style={[styles.typeName, { color: colors.mutedForeground }]}>
+                      {devTypeInfo.name}になりそう…
+                    </Text>
+                  </View>
+                )}
               </View>
               <View style={[styles.levelPill, { backgroundColor: colors.primary + '22' }]}>
                 <Ionicons name="star" size={11} color={colors.primary} />
@@ -278,6 +316,7 @@ export default function HomeScreen() {
               <Mascot
                 stage={stage}
                 mood={mood}
+                evolutionType={evolutionType}
                 size={150}
                 idleBehavior={idleBehavior}
                 onPress={() => setMsgIndex((i) => i + 1)}
@@ -613,9 +652,17 @@ const styles = StyleSheet.create({
   streakLabel: { fontSize: 10, fontFamily: 'Inter_400Regular' },
 
   mascotCard: { borderRadius: 26, padding: 20, borderWidth: 1, alignItems: 'center', gap: 10 },
-  mascotTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  mascotTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' },
+  mascotTopLeft: { flexDirection: 'column', gap: 6, alignItems: 'flex-start' },
   stagePill: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, borderWidth: 1.5 },
   stageName: { fontSize: 13, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
+  typePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 20, borderWidth: 1.5,
+  },
+  typeEmoji: { fontSize: 12 },
+  typeName:  { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
   levelPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
   levelText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
   mascotCenter: { alignItems: 'center', gap: 6, paddingVertical: 4 },

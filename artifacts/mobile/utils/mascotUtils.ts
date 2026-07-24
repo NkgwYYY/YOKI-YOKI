@@ -3,6 +3,76 @@ import { DailyRecord, UserProgress } from '@/contexts/AppContext';
 export type MascotStage = 'egg' | 'chick' | 'kokoron' | 'master';
 export type MascotMood = 'excited' | 'happy' | 'normal' | 'tired' | 'sleepy';
 export type IdleBehavior = 'rolling' | 'sleeping' | 'playing' | 'normal';
+export type EvolutionType = 'heart' | 'star' | 'crown';
+
+export const EVOLUTION_TYPE_INFO: Record<EvolutionType, {
+  name: string; emoji: string; desc: string; body: string; accent: string; hint: string;
+}> = {
+  heart: {
+    name: 'ハートタイプ',  emoji: '💗',
+    desc:  '感情豊かで優しい心の持ち主',
+    hint:  '気分を記録するほど開花する',
+    body: '#FF80AB', accent: '#FF4081',
+  },
+  star: {
+    name: 'スタータイプ', emoji: '⭐',
+    desc:  '継続力と活力あふれる存在',
+    hint:  '睡眠と連続記録で輝きが増す',
+    body: '#64B5F6', accent: '#1565C0',
+  },
+  crown: {
+    name: 'クラウンタイプ', emoji: '👑',
+    desc:  '行動力とやる気の達人',
+    hint:  'チェックを重ねると力が育つ',
+    body: '#FFD54F', accent: '#F57F17',
+  },
+};
+
+/**
+ * 蓄積した記録からどの系統かを判定する。
+ * - happinessScore : 気分記録の平均
+ * - vitalityScore  : 睡眠平均 + 連続日数
+ * - activityScore  : 1日あたり行動チェック数
+ */
+export function calcEvolutionType(
+  records: DailyRecord[],
+  streak: number,
+): EvolutionType {
+  if (records.length === 0) return 'star';
+
+  const avgMood      = records.reduce((s, r) => s + r.mood, 0) / records.length;
+  const happinessScore = ((avgMood - 1) / 4) * 100;
+
+  const avgSleep     = records.reduce((s, r) => s + (r.sleep ?? 0), 0) / records.length;
+  const vitalityScore  = Math.min(100, (avgSleep / 8) * 55 + Math.min(streak, 30) * 1.5);
+
+  const avgBehaviors = records.reduce((s, r) => s + r.behaviors.length, 0) / records.length;
+  const activityScore  = Math.min(100, avgBehaviors * 25);
+
+  if (happinessScore >= vitalityScore && happinessScore >= activityScore) return 'heart';
+  if (activityScore >= vitalityScore) return 'crown';
+  return 'star';
+}
+
+/** Lv6未満のchick段階で「どの系統になりそうか」を予告する */
+export function calcDevelopingType(
+  records: DailyRecord[],
+  streak: number,
+): EvolutionType {
+  return calcEvolutionType(records, streak);
+}
+
+/** 進化系統を加味したステージカラーを返す */
+export function getStageColors(
+  stage: MascotStage,
+  evolutionType?: EvolutionType | null,
+): { body: string; accent: string } {
+  if ((stage === 'kokoron' || stage === 'master') && evolutionType) {
+    const t = EVOLUTION_TYPE_INFO[evolutionType];
+    return { body: t.body, accent: t.accent };
+  }
+  return STAGE_COLORS[stage];
+}
 
 export const STAGE_LEVEL_MAP: { stage: MascotStage; minLevel: number; name: string; desc: string }[] = [
   { stage: 'egg',     minLevel: 1,  name: 'たまご',   desc: 'まだ眠っている…' },

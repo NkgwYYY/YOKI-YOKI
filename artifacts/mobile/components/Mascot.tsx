@@ -13,11 +13,12 @@ import Svg, {
   Circle, Ellipse, Path, G, Defs,
   RadialGradient, Stop, Line, Rect,
 } from 'react-native-svg';
-import { MascotStage, MascotMood, IdleBehavior } from '@/utils/mascotUtils';
+import { MascotStage, MascotMood, IdleBehavior, EvolutionType } from '@/utils/mascotUtils';
 
 interface MascotProps {
   stage: MascotStage;
   mood: MascotMood;
+  evolutionType?: EvolutionType | null;
   size?: number;
   onPress?: () => void;
   idleBehavior?: IdleBehavior;
@@ -211,8 +212,149 @@ function MasterSvg({ mood, size }: { mood: MascotMood; size: number }) {
   );
 }
 
+/* ─── ⭐ Star-type Kokoron ─── */
+function KokoronStarSvg({ mood, size }: { mood: MascotMood; size: number }) {
+  const cx = 60;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 120 130">
+      <Defs>
+        <RadialGradient id="kkStarGrad" cx="38%" cy="32%" r="65%">
+          <Stop offset="0%" stopColor="#90CAF9" />
+          <Stop offset="100%" stopColor="#1565C0" />
+        </RadialGradient>
+      </Defs>
+      {/* glow ring */}
+      <Circle cx={cx} cy={74} r={48} fill="#42A5F520" />
+      <Ellipse cx={cx} cy={120} rx={34} ry={7} fill="#00000018" />
+      <Circle cx={cx} cy={74} r={44} fill="url(#kkStarGrad)" />
+      {/* wings — blue tint */}
+      <Path d="M 18 80 Q 8 70 14 58" stroke="#1565C0" strokeWidth="8" fill="none" strokeLinecap="round" />
+      <Path d="M 102 80 Q 112 70 106 58" stroke="#1565C0" strokeWidth="8" fill="none" strokeLinecap="round" />
+      {/* antenna */}
+      <Line x1={cx} y1={30} x2={cx - 6} y2={16} stroke="#1565C0" strokeWidth="3" strokeLinecap="round" />
+      {/* 5-pointed star at antenna tip */}
+      <Path d="M54,4 L56.6,11.8 L65,11.8 L58.4,16.5 L61,24 L54,19.5 L47,24 L49.6,16.5 L43,11.8 L51.4,11.8 Z"
+        fill="#FFD54F" stroke="#FFA000" strokeWidth="0.8" />
+      <Eyes mood={mood} cx={cx} leftX={44} rightX={76} eyeY={70} />
+      <Ellipse cx={30} cy={82} rx={10} ry={6} fill="#90CAF9" opacity="0.6" />
+      <Ellipse cx={90} cy={82} rx={10} ry={6} fill="#90CAF9" opacity="0.6" />
+      <Mouth mood={mood} cx={cx} mouthY={90} />
+    </Svg>
+  );
+}
+
+/* ─── 👑 Crown-type Kokoron ─── */
+function KokoronCrownSvg({ mood, size }: { mood: MascotMood; size: number }) {
+  const cx = 60;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 120 130">
+      <Defs>
+        <RadialGradient id="kkCrownGrad" cx="38%" cy="32%" r="65%">
+          <Stop offset="0%" stopColor="#FFE082" />
+          <Stop offset="100%" stopColor="#F57F17" />
+        </RadialGradient>
+      </Defs>
+      <Circle cx={cx} cy={74} r={48} fill="#FFD54F20" />
+      <Ellipse cx={cx} cy={120} rx={34} ry={7} fill="#00000018" />
+      <Circle cx={cx} cy={74} r={44} fill="url(#kkCrownGrad)" />
+      {/* wings — amber */}
+      <Path d="M 18 80 Q 8 70 14 58" stroke="#F57F17" strokeWidth="8" fill="none" strokeLinecap="round" />
+      <Path d="M 102 80 Q 112 70 106 58" stroke="#F57F17" strokeWidth="8" fill="none" strokeLinecap="round" />
+      {/* small crown */}
+      <Path d="M 44 26 L 44 15 L 50 21 L 54 12 L 58 21 L 64 15 L 64 26 Z"
+        fill="#FFD54F" stroke="#F57F17" strokeWidth="1.2" strokeLinejoin="round" />
+      {/* crown jewels */}
+      <Circle cx={54} cy={13} r={2.5} fill="#FF4081" />
+      <Circle cx={44} cy={16} r={1.8} fill="#64FFDA" />
+      <Circle cx={64} cy={16} r={1.8} fill="#64FFDA" />
+      <Eyes mood={mood} cx={cx} leftX={44} rightX={76} eyeY={70} />
+      <Ellipse cx={30} cy={82} rx={10} ry={6} fill="#FFCC02" opacity="0.55" />
+      <Ellipse cx={90} cy={82} rx={10} ry={6} fill="#FFCC02" opacity="0.55" />
+      <Mouth mood={mood} cx={cx} mouthY={90} />
+    </Svg>
+  );
+}
+
+/* ─── 💗 Heart-type Master ─── */
+function MasterHeartSvg({ mood, size }: { mood: MascotMood; size: number }) {
+  const cx = 60;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 120 140">
+      <Defs>
+        <RadialGradient id="masterHeartGrad" cx="38%" cy="32%" r="65%">
+          <Stop offset="0%" stopColor="#FF80AB" />
+          <Stop offset="100%" stopColor="#C2185B" />
+        </RadialGradient>
+      </Defs>
+      {/* halo rings */}
+      <Circle cx={cx} cy={78} r={56} fill="#FF4F8118" />
+      <Circle cx={cx} cy={78} r={50} fill="#FF4F8110" />
+      <Ellipse cx={cx} cy={126} rx={36} ry={8} fill="#00000015" />
+      <Circle cx={cx} cy={78} r={44} fill="url(#masterHeartGrad)" />
+      {/* wings */}
+      <Path d="M 18 84 Q 6 72 14 58"  stroke="#C2185B" strokeWidth="9" fill="none" strokeLinecap="round" />
+      <Path d="M 102 84 Q 114 72 106 58" stroke="#C2185B" strokeWidth="9" fill="none" strokeLinecap="round" />
+      {/* floating hearts around body */}
+      <Path d="M22,38 C20,34 14,34 14,38 C14,42 22,46 22,46 C22,46 30,42 30,38 C30,34 24,34 22,38 Z"
+        fill="#FF4081" opacity="0.7" />
+      <Path d="M98,38 C96,34 90,34 90,38 C90,42 98,46 98,46 C98,46 106,42 106,38 C106,34 100,34 98,38 Z"
+        fill="#FF4081" opacity="0.7" />
+      <Circle cx={110} cy={70} r={2.5} fill="#FF80AB" />
+      <Circle cx={10}  cy={70} r={2}   fill="#FF80AB" />
+      {/* large heart crown */}
+      <Path d={`M${cx},34 C${cx-5},27 ${cx-14},27 ${cx-14},34 C${cx-14},41 ${cx},48 ${cx},48 C${cx},48 ${cx+14},41 ${cx+14},34 C${cx+14},27 ${cx+5},27 ${cx},34 Z`}
+        fill="#FF4081" stroke="#C2185B" strokeWidth="1.2" />
+      {/* jewel */}
+      <Circle cx={cx} cy={29} r={3} fill="#FFD54F" />
+      <Eyes mood={mood} cx={cx} leftX={44} rightX={76} eyeY={74} />
+      <Ellipse cx={30} cy={86} rx={10} ry={6} fill="#FF80AB" opacity="0.6" />
+      <Ellipse cx={90} cy={86} rx={10} ry={6} fill="#FF80AB" opacity="0.6" />
+      <Mouth mood={mood} cx={cx} mouthY={94} />
+    </Svg>
+  );
+}
+
+/* ─── ⭐ Star-type Master ─── */
+function MasterStarSvg({ mood, size }: { mood: MascotMood; size: number }) {
+  const cx = 60;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 120 140">
+      <Defs>
+        <RadialGradient id="masterStarGrad" cx="38%" cy="32%" r="65%">
+          <Stop offset="0%" stopColor="#82B1FF" />
+          <Stop offset="100%" stopColor="#283593" />
+        </RadialGradient>
+      </Defs>
+      {/* star-burst halo */}
+      <Circle cx={cx} cy={78} r={56} fill="#3F51B518" />
+      <Circle cx={cx} cy={78} r={50} fill="#3F51B510" />
+      <Ellipse cx={cx} cy={126} rx={36} ry={8} fill="#00000015" />
+      <Circle cx={cx} cy={78} r={44} fill="url(#masterStarGrad)" />
+      {/* wings */}
+      <Path d="M 18 84 Q 6 72 14 58"  stroke="#283593" strokeWidth="9" fill="none" strokeLinecap="round" />
+      <Path d="M 102 84 Q 114 72 106 58" stroke="#283593" strokeWidth="9" fill="none" strokeLinecap="round" />
+      {/* floating star accents */}
+      <Path d="M22,42 L23.5,46.8 L28.5,46.8 L24.5,49.7 L26,54.5 L22,51.5 L18,54.5 L19.5,49.7 L15.5,46.8 L20.5,46.8 Z"
+        fill="#FFD54F" opacity="0.75" />
+      <Path d="M98,42 L99.5,46.8 L104.5,46.8 L100.5,49.7 L102,54.5 L98,51.5 L94,54.5 L95.5,49.7 L91.5,46.8 L96.5,46.8 Z"
+        fill="#FFD54F" opacity="0.75" />
+      <Circle cx={110} cy={72} r={2.5} fill="#FFD54F" />
+      <Circle cx={10}  cy={72} r={2}   fill="#64B5F6" />
+      {/* large star crown */}
+      <Path d={`M${cx},16 L${cx+3.5},25 L${cx+13},25 L${cx+5},31 L${cx+8},40 L${cx},34 L${cx-8},40 L${cx-5},31 L${cx-13},25 L${cx-3.5},25 Z`}
+        fill="#FFD54F" stroke="#FFA000" strokeWidth="1.2" strokeLinejoin="round" />
+      {/* center gem */}
+      <Circle cx={cx} cy={21} r={3.5} fill="#40C4FF" />
+      <Eyes mood={mood} cx={cx} leftX={44} rightX={76} eyeY={74} />
+      <Ellipse cx={30} cy={86} rx={10} ry={6} fill="#90CAF9" opacity="0.6" />
+      <Ellipse cx={90} cy={86} rx={10} ry={6} fill="#90CAF9" opacity="0.6" />
+      <Mouth mood={mood} cx={cx} mouthY={94} />
+    </Svg>
+  );
+}
+
 /* ─── Main component ─── */
-export function Mascot({ stage, mood, size = 140, onPress, idleBehavior = 'normal', isEating = false }: MascotProps) {
+export function Mascot({ stage, mood, evolutionType, size = 140, onPress, idleBehavior = 'normal', isEating = false }: MascotProps) {
   const bounce = useSharedValue(0);
   const scaleX = useSharedValue(1);
   const scaleY = useSharedValue(1);
@@ -345,10 +487,16 @@ export function Mascot({ stage, mood, size = 140, onPress, idleBehavior = 'norma
   }));
 
   const SvgComponent =
-    stage === 'egg' ? EggSvg :
+    stage === 'egg'   ? EggSvg :
     stage === 'chick' ? ChickSvg :
-    stage === 'master' ? MasterSvg :
-    KokoronSvg;
+    stage === 'master'
+      ? (evolutionType === 'heart' ? MasterHeartSvg
+       : evolutionType === 'star'  ? MasterStarSvg
+       : MasterSvg)
+      : /* kokoron */
+        (evolutionType === 'star'  ? KokoronStarSvg
+       : evolutionType === 'crown' ? KokoronCrownSvg
+       : KokoronSvg);
 
   return (
     <TouchableOpacity onPress={handlePress} activeOpacity={0.9}>
