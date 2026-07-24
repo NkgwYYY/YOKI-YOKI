@@ -42,7 +42,7 @@ import {
 } from '@/utils/mascotUtils';
 import { getGreeting, formatDateJP, getTodayDate } from '@/utils/dateUtils';
 import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
-import { RoomView } from '@/components/RoomView';
+import { MascotRoomBg } from '@/components/MascotRoomBg';
 import { getTodayActivity } from '@/utils/dailyActivity';
 
 /* ── Stagger-in wrapper ── */
@@ -237,10 +237,14 @@ export default function HomeScreen() {
         {/* ── Mascot Card ── */}
         <FadeIn delay={80}>
           <View style={[styles.mascotCard, { borderColor: colors.border, overflow: 'hidden' }]}>
+            {/* Room background scene */}
+            <MascotRoomBg level={progress.level} streak={progress.streak} totalDays={progress.totalDays} />
+
+            {/* Stage color tint overlay */}
             <LinearGradient
               colors={isDark
-                ? [stageColors.body + '18', '#0F1030']
-                : [stageColors.body + '30', '#FFFFFF']}
+                ? ['transparent', stageColors.body + '28', '#0F1030CC']
+                : ['transparent', stageColors.body + '18', '#FFFFFFCC']}
               style={[StyleSheet.absoluteFill, { borderRadius: 26 }]}
             />
 
@@ -351,11 +355,6 @@ export default function HomeScreen() {
               </View>
             )}
           </View>
-        </FadeIn>
-
-        {/* ── Room ── */}
-        <FadeIn delay={140}>
-          <RoomView level={progress.level} streak={progress.streak} totalDays={progress.totalDays} mascotName={mascotName} />
         </FadeIn>
 
         {/* ── RPG ステータス ── */}
