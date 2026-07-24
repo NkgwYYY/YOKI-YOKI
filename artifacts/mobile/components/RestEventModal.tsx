@@ -79,6 +79,24 @@ function CatScene() {
 
   const bodyScale  = useRef(new RNAnimated.Value(1)).current;
   const tailAngle  = useRef(new RNAnimated.Value(0)).current;
+  const petBounce  = useRef(new RNAnimated.Value(0)).current;
+
+  // Cross-fade opacities per state photo
+  const faceOpacity = useRef({
+    sleeping: new RNAnimated.Value(1),
+    alert:    new RNAnimated.Value(0),
+    purring:  new RNAnimated.Value(0),
+  }).current;
+
+  useEffect(() => {
+    (['sleeping', 'alert', 'purring'] as CatState[]).forEach(s => {
+      RNAnimated.timing(faceOpacity[s], {
+        toValue: s === catState ? 1 : 0,
+        duration: 450,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [catState]);
 
   // 3 pooled floating hearts
   const hearts = useRef(
@@ -107,6 +125,17 @@ function CatScene() {
     return () => { bodyScale.stopAnimation(); tailAngle.stopAnimation(); };
   }, [catState]);
 
+  // Quick head-tilt wiggle + bounce when petted
+  const petWiggle = () => {
+    petBounce.stopAnimation();
+    petBounce.setValue(0);
+    RNAnimated.sequence([
+      RNAnimated.timing(petBounce, { toValue: 1,  duration: 130, useNativeDriver: true }),
+      RNAnimated.timing(petBounce, { toValue: -1, duration: 170, useNativeDriver: true }),
+      RNAnimated.spring(petBounce, { toValue: 0, friction: 4, useNativeDriver: true }),
+    ]).start();
+  };
+
   const floatHeart = () => {
     const h = hearts[heartIdx.current % hearts.length];
     heartIdx.current++;
@@ -133,6 +162,7 @@ function CatScene() {
         setCatState('purring');
         setPetCount(c => c + 1);
         floatHeart();
+        petWiggle();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     },
@@ -168,12 +198,32 @@ function CatScene() {
 
       {/* Cat — interactive area */}
       <View style={sc.catArea} {...panResponder.panHandlers}>
-        <RNAnimated.View style={{ transform: [{ scale: bodyScale }] }}>
-          <Image
-            source={require('@/assets/images/cat_real.jpg')}
-            style={sc.catPhoto}
-            resizeMode="cover"
-          />
+        <RNAnimated.View
+          style={{
+            transform: [
+              { scale: bodyScale },
+              { rotate: petBounce.interpolate({ inputRange: [-1, 1], outputRange: ['-6deg', '6deg'] }) },
+              { translateY: petBounce.interpolate({ inputRange: [-1, 0, 1], outputRange: [-4, 0, -4] }) },
+            ],
+          }}
+        >
+          <View style={sc.catPhoto}>
+            <Image
+              source={require('@/assets/images/cat_sleeping.jpg')}
+              style={sc.catPhotoLayer}
+              resizeMode="cover"
+            />
+            <RNAnimated.Image
+              source={require('@/assets/images/cat_alert.jpg')}
+              style={[sc.catPhotoLayer, sc.catPhotoAbs, { opacity: faceOpacity.alert }]}
+              resizeMode="cover"
+            />
+            <RNAnimated.Image
+              source={require('@/assets/images/cat_purring.jpg')}
+              style={[sc.catPhotoLayer, sc.catPhotoAbs, { opacity: faceOpacity.purring }]}
+              resizeMode="cover"
+            />
+          </View>
         </RNAnimated.View>
 
         {/* Floating hearts */}
@@ -636,6 +686,17 @@ const sc = StyleSheet.create({
     borderRadius: 110,
     borderWidth: 3,
     borderColor: 'rgba(255,200,120,0.45)',
+    overflow: 'hidden',
+  },
+  catPhotoLayer: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 110,
+  },
+  catPhotoAbs: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   floatHeart:  { position: 'absolute', top: 20, fontSize: 26 },
   petBadge:    {
