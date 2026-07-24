@@ -231,11 +231,11 @@ export default function HomeScreen() {
         {/* Header */}
         <FadeIn delay={0}>
           <View style={styles.header}>
-            {/* ── YOKKY logo ── */}
+            {/* ── YOKI YOKI logo ── */}
             <View>
               <Text style={[styles.greeting, { color: colors.mutedForeground }]}>{getGreeting()}</Text>
               <Image
-                source={require('@/assets/images/yokky_logo.png')}
+                source={require('@/assets/images/yoki_logo.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
   dateText: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 3 },
 
   // Logo
-  logoImage: { width: 132, height: 40, marginLeft: -4 },
+  logoImage: { width: 168, height: 25, marginTop: 6, marginBottom: 4 },
 
   // Streak
   streakWrap: { alignItems: 'center', gap: 4 },
