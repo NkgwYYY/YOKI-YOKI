@@ -162,26 +162,10 @@ export default function HomeScreen() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [showFeedModal, setShowFeedModal] = useState(false);
   const [nameInput, setNameInput] = useState('');
-  const [petMsgIndex, setPetMsgIndex] = useState(0);
-  const [isPetMsg, setIsPetMsg] = useState(false);
-
-  const PET_MSGS = [
-    'わぁ〜！気持ちいい〜♪', 'えへへ…嬉しいな💗',
-    'もっとなでなでして〜！', 'ふわふわする〜♡',
-    'ありがとう〜🥰', 'だいすき〜！',
-    'しあわせ〜☁️', 'うれしくてうれしくて！',
-    'なでなでありがと♪', 'きゅん…ってした💕',
-  ];
 
   const handlePet = React.useCallback(() => {
-    const idx = petMsgIndex % PET_MSGS.length;
-    setPetMsgIndex(i => i + 1);
-    setIsPetMsg(true);
-    setMsgIndex(idx); // reuse msgIndex slot with pet message override
-    // 2秒後に通常モードへ戻す
-    setTimeout(() => setIsPetMsg(false), 2200);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [petMsgIndex]);
+    // アニメーション・ハートのみ — 吹き出しは変えない
+  }, []);
   const msgs = React.useMemo(() => {
     const m = getMascotMessage(mood);
     const idleMsg =
@@ -201,9 +185,7 @@ export default function HomeScreen() {
     const shuffled = [...activities.slice(seed), ...activities.slice(0, seed)];
     return [...fixed, ...shuffled];
   }, [mood, idleBehavior]);
-  const currentMsg = isPetMsg
-    ? PET_MSGS[petMsgIndex % PET_MSGS.length]
-    : msgs[msgIndex % msgs.length];
+  const currentMsg = msgs[msgIndex % msgs.length];
 
   const nextStageLevel = getNextStageLevel(progress.level);
   const stageInfo = STAGE_LEVEL_MAP.find((s) => s.stage === stage)!;
