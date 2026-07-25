@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity,
-  Dimensions, Animated as RNAnimated, PanResponder, Image,
+  Dimensions, Animated as RNAnimated, PanResponder,
 } from 'react-native';
 import Svg, {
   G, Path, Circle, Ellipse, Line, Defs,
@@ -352,10 +352,13 @@ function CatScene() {
         {/* Tail — behind body, swaying from its base */}
         <RNAnimated.View
           style={[sc.catTail, {
+            // hinge around the tail root (x≈24, y≈114 in the 110x120 svg)
             transform: [
-              { translateY: 46 },
+              { translateX: -31 },
+              { translateY: 54 },
               { rotate: tailAngle.interpolate({ inputRange: [-1, 1], outputRange: ['-9deg', '9deg'] }) },
-              { translateY: -46 },
+              { translateY: -54 },
+              { translateX: 31 },
             ],
           }]}
         >
