@@ -1,7 +1,23 @@
 import { Router } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
+import { requireAuth, AuthRequest } from "../lib/auth";
 
 const insightRouter = Router();
+
+// Simple per-user daily rate limit (client also caches per day; this is abuse protection)
+const DAILY_LIMIT = 10;
+const usage = new Map<string, { date: string; count: number }>();
+function allowRequest(userId: string): boolean {
+  const today = new Date().toISOString().slice(0, 10);
+  const u = usage.get(userId);
+  if (!u || u.date !== today) {
+    usage.set(userId, { date: today, count: 1 });
+    return true;
+  }
+  if (u.count >= DAILY_LIMIT) return false;
+  u.count++;
+  return true;
+}
 
 interface RecordSummary {
   date: string;
@@ -31,8 +47,14 @@ interface InsightRequest {
  * Analyzes the user's recent activity and returns 2-3 "hidden strengths"
  * — positive patterns the user likely hasn't noticed themselves.
  */
-insightRouter.post("/insight", async (req, res) => {
+insightRouter.post("/insight", requireAuth, async (req: AuthRequest, res) => {
   try {
+    const userId = String(req.user?.userId ?? "");
+    if (!allowRequest(userId)) {
+      res.status(429).json({ error: "daily limit reached" });
+      return;
+    }
+
     const {
       mascotName = "こころん",
       records = [],
@@ -41,7 +63,7 @@ insightRouter.post("/insight", async (req, res) => {
       badgeCount = 0,
     } = req.body as InsightRequest;
 
-    if (records.length === 0 && !progress) {
+    if (!Array.isArray(records) || (records.length === 0 && !progress)) {
       res.status(400).json({ error: "no data" });
       return;
     }
@@ -86,15 +108,20 @@ ${recordLines || "（記録なし）"}
     });
 
     const raw = response.choices[0]?.message?.content ?? "";
-    // Be lenient: extract the first {...} block in case the model wraps it
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) {
+    // Be lenient: extract the outermost {...} block in case the model wraps it
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start === -1 || end <= start) {
       res.status(502).json({ error: "bad ai response" });
       return;
     }
-    const parsed = JSON.parse(match[0]) as {
-      insights?: { emoji?: string; title?: string; body?: string }[];
-    };
+    let parsed: { insights?: { emoji?: string; title?: string; body?: string }[] };
+    try {
+      parsed = JSON.parse(raw.slice(start, end + 1));
+    } catch {
+      res.status(502).json({ error: "bad ai response" });
+      return;
+    }
     const insights = (parsed.insights ?? [])
       .filter((i) => i.title && i.body)
       .slice(0, 3)

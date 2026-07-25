@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const STORAGE_KEY = '@mentore/insight_v1';
@@ -30,6 +31,7 @@ export function InsightCard() {
   const colors = useColors();
   const isDark = useColorScheme() === 'dark';
   const { records, progress, checkedState, unlockedBadges, mascotName } = useApp();
+  const { token } = useAuth();
 
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -76,7 +78,10 @@ export function InsightCard() {
       };
       const res = await fetch(`${API_BASE}/insight`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('bad status');
