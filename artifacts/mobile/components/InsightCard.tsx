@@ -58,7 +58,7 @@ export function InsightCard() {
     try {
       const payload = {
         mascotName,
-        records: records.slice(-14).map(r => ({
+        records: records.slice(-90).map(r => ({
           date: r.date,
           mood: r.mood,
           sleep: r.sleep,
