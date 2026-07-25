@@ -1,1 +1,2 @@
 - [Asset sourcing](asset-sourcing.md) — Unsplash/myinstants work via curl; use AI generation for same-character multi-expression photo sets; always expo export + commit after mobile changes.
+- [Expo web head tags](expo-web-html-meta.md) — +html.tsx is ignored in single output; OGP/GA must be injected post-export via inject-meta.js; LINE preview cache dodged with ?v=2 URLs.
