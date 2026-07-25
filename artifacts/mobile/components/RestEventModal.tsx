@@ -72,30 +72,207 @@ function useSceneAudio() {
 }
 
 
-/* ─── Cat scene ───────────────────────────────── */
+/* ─── Cat scene — smooth pseudo-3D animated cat ─ */
+const CAT_W = 300;
+const CAT_H = 260;
+
+/** Static body + head, shaded with radial gradients for a soft 3D look */
+function CatBodySvg() {
+  return (
+    <Svg width={CAT_W} height={CAT_H} viewBox="0 0 300 260">
+      <Defs>
+        <SvgRadialGradient id="bodyGrad" cx="45%" cy="35%" r="75%">
+          <Stop offset="0%"  stopColor="#F4F2F5" />
+          <Stop offset="55%" stopColor="#D9D6DE" />
+          <Stop offset="100%" stopColor="#A8A4B2" />
+        </SvgRadialGradient>
+        <SvgRadialGradient id="headGrad" cx="42%" cy="32%" r="80%">
+          <Stop offset="0%"  stopColor="#F8F6FA" />
+          <Stop offset="60%" stopColor="#DEDBE4" />
+          <Stop offset="100%" stopColor="#ABA7B6" />
+        </SvgRadialGradient>
+        <SvgRadialGradient id="earGrad" cx="50%" cy="30%" r="90%">
+          <Stop offset="0%" stopColor="#E9E6EE" />
+          <Stop offset="100%" stopColor="#9B97A8" />
+        </SvgRadialGradient>
+        <SvgRadialGradient id="bellyGrad" cx="50%" cy="40%" r="70%">
+          <Stop offset="0%" stopColor="#FDFCFE" />
+          <Stop offset="100%" stopColor="#E4E1E9" stopOpacity="0.2" />
+        </SvgRadialGradient>
+      </Defs>
+
+      {/* ground shadow */}
+      <Ellipse cx={150} cy={238} rx={102} ry={16} fill="#000" opacity={0.28} />
+
+      {/* body */}
+      <Ellipse cx={150} cy={182} rx={92} ry={62} fill="url(#bodyGrad)" />
+      {/* belly highlight */}
+      <Ellipse cx={150} cy={196} rx={56} ry={36} fill="url(#bellyGrad)" />
+      {/* body stripes */}
+      <Path d="M78 152 Q92 168 84 190"  stroke="#8D8998" strokeWidth={7} strokeLinecap="round" fill="none" opacity={0.5} />
+      <Path d="M222 152 Q208 168 216 190" stroke="#8D8998" strokeWidth={7} strokeLinecap="round" fill="none" opacity={0.5} />
+      <Path d="M104 132 Q112 150 104 166" stroke="#8D8998" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.4} />
+      <Path d="M196 132 Q188 150 196 166" stroke="#8D8998" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.4} />
+
+      {/* front paws */}
+      <Ellipse cx={116} cy={230} rx={26} ry={14} fill="url(#headGrad)" />
+      <Ellipse cx={184} cy={230} rx={26} ry={14} fill="url(#headGrad)" />
+      <Line x1={108} y1={226} x2={108} y2={236} stroke="#B5B1C0" strokeWidth={2.4} strokeLinecap="round" />
+      <Line x1={120} y1={225} x2={120} y2={237} stroke="#B5B1C0" strokeWidth={2.4} strokeLinecap="round" />
+      <Line x1={176} y1={225} x2={176} y2={237} stroke="#B5B1C0" strokeWidth={2.4} strokeLinecap="round" />
+      <Line x1={188} y1={226} x2={188} y2={236} stroke="#B5B1C0" strokeWidth={2.4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** Head layer — animated separately for tilt */
+function CatHeadSvg({ state }: { state: CatState }) {
+  return (
+    <Svg width={220} height={180} viewBox="0 0 220 180">
+      <Defs>
+        <SvgRadialGradient id="hg2" cx="42%" cy="32%" r="80%">
+          <Stop offset="0%"  stopColor="#F8F6FA" />
+          <Stop offset="60%" stopColor="#DEDBE4" />
+          <Stop offset="100%" stopColor="#ABA7B6" />
+        </SvgRadialGradient>
+        <SvgRadialGradient id="eg2" cx="50%" cy="30%" r="90%">
+          <Stop offset="0%" stopColor="#E9E6EE" />
+          <Stop offset="100%" stopColor="#9B97A8" />
+        </SvgRadialGradient>
+      </Defs>
+
+      {/* ears */}
+      <Path d="M42 74 L30 18 Q30 12 36 15 L82 44 Z" fill="url(#eg2)" />
+      <Path d="M178 74 L190 18 Q190 12 184 15 L138 44 Z" fill="url(#eg2)" />
+      <Path d="M48 62 L41 30 L74 50 Z" fill="#E8B4C8" opacity={0.75} />
+      <Path d="M172 62 L179 30 L146 50 Z" fill="#E8B4C8" opacity={0.75} />
+
+      {/* head */}
+      <Ellipse cx={110} cy={104} rx={78} ry={68} fill="url(#hg2)" />
+
+      {/* head stripes */}
+      <Path d="M92 40 Q96 56 92 66"  stroke="#8D8998" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.5} />
+      <Path d="M110 36 Q110 54 110 64" stroke="#8D8998" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.55} />
+      <Path d="M128 40 Q124 56 128 66" stroke="#8D8998" strokeWidth={6} strokeLinecap="round" fill="none" opacity={0.5} />
+      {/* cheek stripes */}
+      <Path d="M36 100 Q48 104 56 102" stroke="#8D8998" strokeWidth={5} strokeLinecap="round" fill="none" opacity={0.35} />
+      <Path d="M184 100 Q172 104 164 102" stroke="#8D8998" strokeWidth={5} strokeLinecap="round" fill="none" opacity={0.35} />
+
+      {/* eyes */}
+      {state === 'sleeping' && (
+        <>
+          <Path d="M70 108 Q80 116 90 108"  stroke="#5A5666" strokeWidth={4.5} strokeLinecap="round" fill="none" />
+          <Path d="M130 108 Q140 116 150 108" stroke="#5A5666" strokeWidth={4.5} strokeLinecap="round" fill="none" />
+        </>
+      )}
+      {state === 'alert' && (
+        <>
+          <Circle cx={80} cy={106} r={11} fill="#4E4A5A" />
+          <Circle cx={140} cy={106} r={11} fill="#4E4A5A" />
+          <Circle cx={83.5} cy={102} r={3.6} fill="#FFF" opacity={0.9} />
+          <Circle cx={143.5} cy={102} r={3.6} fill="#FFF" opacity={0.9} />
+        </>
+      )}
+      {state === 'purring' && (
+        <>
+          <Path d="M68 110 Q80 100 92 110"  stroke="#5A5666" strokeWidth={4.5} strokeLinecap="round" fill="none" />
+          <Path d="M128 110 Q140 100 152 110" stroke="#5A5666" strokeWidth={4.5} strokeLinecap="round" fill="none" />
+        </>
+      )}
+
+      {/* blush when purring */}
+      {state === 'purring' && (
+        <>
+          <Ellipse cx={62} cy={124} rx={12} ry={7} fill="#F2A7C3" opacity={0.55} />
+          <Ellipse cx={158} cy={124} rx={12} ry={7} fill="#F2A7C3" opacity={0.55} />
+        </>
+      )}
+
+      {/* nose + mouth */}
+      <Path d="M104 124 L116 124 L110 132 Z" fill="#E58FB0" />
+      {state === 'purring' ? (
+        <Path d="M98 138 Q104 146 110 140 Q116 146 122 138" stroke="#5A5666" strokeWidth={3.4} strokeLinecap="round" fill="none" />
+      ) : (
+        <Path d="M102 138 Q110 143 118 138" stroke="#5A5666" strokeWidth={3} strokeLinecap="round" fill="none" />
+      )}
+
+      {/* whiskers */}
+      <Line x1={30} y1={116} x2={62} y2={120} stroke="#C9C5D2" strokeWidth={2.2} strokeLinecap="round" />
+      <Line x1={30} y1={130} x2={62} y2={128} stroke="#C9C5D2" strokeWidth={2.2} strokeLinecap="round" />
+      <Line x1={190} y1={116} x2={158} y2={120} stroke="#C9C5D2" strokeWidth={2.2} strokeLinecap="round" />
+      <Line x1={190} y1={130} x2={158} y2={128} stroke="#C9C5D2" strokeWidth={2.2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** Tail layer — rotated at its base */
+function CatTailSvg() {
+  return (
+    <Svg width={110} height={120} viewBox="0 0 110 120">
+      <Defs>
+        <SvgLinearGradient id="tailGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+          <Stop offset="0%" stopColor="#B7B3C2" />
+          <Stop offset="100%" stopColor="#E4E1E9" />
+        </SvgLinearGradient>
+      </Defs>
+      <Path
+        d="M14 112 Q30 70 62 44 Q92 20 96 40 Q98 54 70 66 Q42 82 34 116 Z"
+        fill="url(#tailGrad)"
+      />
+      <Path d="M76 38 Q84 34 90 40" stroke="#8D8998" strokeWidth={5} strokeLinecap="round" fill="none" opacity={0.5} />
+      <Path d="M58 52 Q66 46 74 50" stroke="#8D8998" strokeWidth={5} strokeLinecap="round" fill="none" opacity={0.4} />
+    </Svg>
+  );
+}
+
 function CatScene() {
   const [catState, setCatState]   = useState<CatState>('sleeping');
   const [petCount, setPetCount]   = useState(0);
 
-  const bodyScale  = useRef(new RNAnimated.Value(1)).current;
-  const tailAngle  = useRef(new RNAnimated.Value(0)).current;
-  const petBounce  = useRef(new RNAnimated.Value(0)).current;
+  const bodyScale  = useRef(new RNAnimated.Value(1)).current;   // breathing / purr squash
+  const tailAngle  = useRef(new RNAnimated.Value(0)).current;   // tail sway
+  const petBounce  = useRef(new RNAnimated.Value(0)).current;   // head tilt on pet
+  const zzzFloat   = useRef(new RNAnimated.Value(0)).current;   // Zzz drift
+  const earPerk    = useRef(new RNAnimated.Value(0)).current;   // head lift when awake
 
-  // Cross-fade opacities per state photo
-  const faceOpacity = useRef({
-    sleeping: new RNAnimated.Value(1),
-    alert:    new RNAnimated.Value(0),
-    purring:  new RNAnimated.Value(0),
-  }).current;
-
+  // Continuous breathing + tail sway (speed varies by state)
   useEffect(() => {
-    (['sleeping', 'alert', 'purring'] as CatState[]).forEach(s => {
-      RNAnimated.timing(faceOpacity[s], {
-        toValue: s === catState ? 1 : 0,
-        duration: 450,
-        useNativeDriver: true,
-      }).start();
-    });
+    const breathing = catState === 'purring'
+      ? RNAnimated.loop(RNAnimated.sequence([
+          RNAnimated.timing(bodyScale, { toValue: 1.05, duration: 420, useNativeDriver: true }),
+          RNAnimated.timing(bodyScale, { toValue: 1.0,  duration: 420, useNativeDriver: true }),
+        ]))
+      : RNAnimated.loop(RNAnimated.sequence([
+          RNAnimated.timing(bodyScale, { toValue: 1.03, duration: 1900, useNativeDriver: true }),
+          RNAnimated.timing(bodyScale, { toValue: 1.0,  duration: 1900, useNativeDriver: true }),
+        ]));
+    breathing.start();
+
+    const tailDur = catState === 'purring' ? 450 : catState === 'alert' ? 900 : 2400;
+    const tail = RNAnimated.loop(RNAnimated.sequence([
+      RNAnimated.timing(tailAngle, { toValue: 1,  duration: tailDur, useNativeDriver: true }),
+      RNAnimated.timing(tailAngle, { toValue: -1, duration: tailDur, useNativeDriver: true }),
+    ]));
+    tail.start();
+
+    RNAnimated.spring(earPerk, {
+      toValue: catState === 'sleeping' ? 0 : 1,
+      friction: 5,
+      useNativeDriver: true,
+    }).start();
+
+    return () => { breathing.stop(); tail.stop(); };
+  }, [catState]);
+
+  // Zzz drift while sleeping
+  useEffect(() => {
+    if (catState !== 'sleeping') { zzzFloat.stopAnimation(); return; }
+    const loop = RNAnimated.loop(RNAnimated.sequence([
+      RNAnimated.timing(zzzFloat, { toValue: 1, duration: 2200, useNativeDriver: true }),
+      RNAnimated.timing(zzzFloat, { toValue: 0, duration: 0,    useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
   }, [catState]);
 
   // 3 pooled floating hearts
@@ -108,23 +285,6 @@ function CatScene() {
   ).current;
   const heartIdx = useRef(0);
   const lastPetAt = useRef(0);
-
-  useEffect(() => {
-    if (catState === 'purring') {
-      RNAnimated.loop(RNAnimated.sequence([
-        RNAnimated.timing(bodyScale, { toValue: 1.06, duration: 320, useNativeDriver: true }),
-        RNAnimated.timing(bodyScale, { toValue: 1.01, duration: 320, useNativeDriver: true }),
-      ])).start();
-      RNAnimated.loop(RNAnimated.sequence([
-        RNAnimated.timing(tailAngle, { toValue: 1,  duration: 400, useNativeDriver: true }),
-        RNAnimated.timing(tailAngle, { toValue: -1, duration: 400, useNativeDriver: true }),
-      ])).start();
-    } else {
-      bodyScale.stopAnimation();  bodyScale.setValue(1);
-      tailAngle.stopAnimation();  tailAngle.setValue(0);
-    }
-    return () => { bodyScale.stopAnimation(); tailAngle.stopAnimation(); };
-  }, [catState]);
 
   // Quick head-tilt wiggle + bounce when petted
   const petWiggle = () => {
@@ -182,41 +342,57 @@ function CatScene() {
 
   return (
     <View style={sc.scene} {...panResponder.panHandlers}>
-      {/* Full-bleed cat photo with subtle breathing/wiggle motion */}
-      <RNAnimated.View
-        style={[
-          sc.catFull,
-          {
-            transform: [
-              { scale: bodyScale },
-              { rotate: petBounce.interpolate({ inputRange: [-1, 1], outputRange: ['-1.5deg', '1.5deg'] }) },
-            ],
-          },
-        ]}
-      >
-        <RNAnimated.Image
-          source={require('@/assets/images/cat_sleeping.jpg')}
-          style={[sc.catFullLayer, { opacity: faceOpacity.sleeping }]}
-          resizeMode="cover"
-        />
-        <RNAnimated.Image
-          source={require('@/assets/images/cat_alert.jpg')}
-          style={[sc.catFullLayer, { opacity: faceOpacity.alert }]}
-          resizeMode="cover"
-        />
-        <RNAnimated.Image
-          source={require('@/assets/images/cat_purring.jpg')}
-          style={[sc.catFullLayer, { opacity: faceOpacity.purring }]}
-          resizeMode="cover"
-        />
-      </RNAnimated.View>
+      {/* Night ambience */}
+      <Text style={sc.catMoon}>🌙</Text>
+      <Text style={sc.catStar1}>✨</Text>
+      <Text style={sc.catStar2}>⭐</Text>
 
-      {/* Soft dark gradient at bottom so the label stays readable */}
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.55)']}
-        style={sc.catBottomFade}
-        pointerEvents="none"
-      />
+      {/* The cat */}
+      <View style={sc.catStage} pointerEvents="none">
+        {/* Tail — behind body, swaying from its base */}
+        <RNAnimated.View
+          style={[sc.catTail, {
+            transform: [
+              { translateY: 46 },
+              { rotate: tailAngle.interpolate({ inputRange: [-1, 1], outputRange: ['-9deg', '9deg'] }) },
+              { translateY: -46 },
+            ],
+          }]}
+        >
+          <CatTailSvg />
+        </RNAnimated.View>
+
+        {/* Body — breathing */}
+        <RNAnimated.View style={{ transform: [{ scale: bodyScale }] }}>
+          <CatBodySvg />
+        </RNAnimated.View>
+
+        {/* Head — tilts when petted, lifts slightly when awake */}
+        <RNAnimated.View
+          style={[sc.catHead, {
+            transform: [
+              { translateY: earPerk.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) },
+              { rotate: petBounce.interpolate({ inputRange: [-1, 1], outputRange: ['-8deg', '8deg'] }) },
+              { scale: bodyScale.interpolate({ inputRange: [1, 1.06], outputRange: [1, 1.02] }) },
+            ],
+          }]}
+        >
+          <CatHeadSvg state={catState} />
+        </RNAnimated.View>
+
+        {/* Zzz while sleeping */}
+        {catState === 'sleeping' && (
+          <RNAnimated.Text
+            style={[sc.catZzz, {
+              opacity: zzzFloat.interpolate({ inputRange: [0, 0.15, 0.8, 1], outputRange: [0, 0.9, 0.5, 0] }),
+              transform: [
+                { translateY: zzzFloat.interpolate({ inputRange: [0, 1], outputRange: [0, -46] }) },
+                { translateX: zzzFloat.interpolate({ inputRange: [0, 1], outputRange: [0, 14] }) },
+              ],
+            }]}
+          >💤</RNAnimated.Text>
+        )}
+      </View>
 
       {/* Floating hearts */}
       <View style={sc.catHeartsWrap} pointerEvents="none">
@@ -237,7 +413,7 @@ function CatScene() {
         </View>
       )}
 
-      <Text style={[sc.sceneLabel, { color: '#FFF', bottom: 30, lineHeight: 22 }]}>
+      <Text style={[sc.sceneLabel, { color: '#FFBF90', bottom: 30, lineHeight: 22 }]}>
         {labelText}
       </Text>
     </View>
@@ -662,19 +838,32 @@ const sc = StyleSheet.create({
   },
 
   // Cat scene — full-bleed photo
-  catFull: {
+  catMoon:  { position: 'absolute', top: SH * 0.06, left: 28,  fontSize: 36 },
+  catStar1: { position: 'absolute', top: SH * 0.08, right: 44, fontSize: 20 },
+  catStar2: { position: 'absolute', top: SH * 0.14, right: 76, fontSize: 14, opacity: 0.6 },
+  catStage: {
     position: 'absolute',
-    top: -14, bottom: -14, left: -14, right: -14,
+    top: SH * 0.2,
+    alignSelf: 'center',
+    width: CAT_W,
+    height: CAT_H,
+    alignItems: 'center',
   },
-  catFullLayer: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
-  catBottomFade: {
+  catTail: {
     position: 'absolute',
-    left: 0, right: 0, bottom: 0,
-    height: 140,
+    right: -30,
+    bottom: 26,
+  },
+  catHead: {
+    position: 'absolute',
+    top: -34,
+    alignSelf: 'center',
+  },
+  catZzz: {
+    position: 'absolute',
+    top: -50,
+    right: 40,
+    fontSize: 30,
   },
   catHeartsWrap: {
     position: 'absolute',
