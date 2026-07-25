@@ -8,7 +8,7 @@ const syncRouter = Router();
 // GET /api/sync — pull all user data
 syncRouter.get("/sync", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
     const rows = await db.select().from(userData).where(eq(userData.userId, userId));
     const data: Record<string, unknown> = {};
     for (const row of rows) {
@@ -23,7 +23,7 @@ syncRouter.get("/sync", requireAuth, async (req: AuthRequest, res) => {
 // PUT /api/sync — push all user data (upsert)
 syncRouter.put("/sync", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.userId!;
     const { data } = req.body as { data: Record<string, unknown> };
     if (!data || typeof data !== "object") {
       res.status(400).json({ error: "不正なデータです" });

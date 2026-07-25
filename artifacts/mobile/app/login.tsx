@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Analytics } from '@/utils/analytics';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
@@ -7,35 +7,69 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth, API_BASE } from '@/contexts/AuthContext';
-import { useApp } from '@/contexts/AppContext';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
+import { useSignIn, useSignUp, useSSO } from '@clerk/expo';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import { Mascot } from '@/components/Mascot';
 import { Ionicons } from '@expo/vector-icons';
 
-// ── Forgot-password flow ──────────────────────────────────────────────────
+// Preloads the browser for Android devices to reduce authentication load time
+const useWarmUpBrowser = () => {
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    void WebBrowser.warmUpAsync();
+    return () => {
+      void WebBrowser.coolDownAsync();
+    };
+  }, []);
+};
+
+// Handle any pending authentication sessions
+WebBrowser.maybeCompleteAuthSession();
+
+function clerkErrorMessage(error: unknown): string {
+  const e = error as { errors?: { code?: string; longMessage?: string; message?: string }[] } | null;
+  const first = e?.errors?.[0];
+  const code = first?.code ?? '';
+  const map: Record<string, string> = {
+    form_identifier_not_found: 'このメールアドレスは登録されていません',
+    form_password_incorrect: 'パスワードが違います',
+    form_identifier_exists: 'このメールアドレスはすでに登録されています',
+    form_password_pwned: 'このパスワードは流出リストに含まれています。別のパスワードにしてください',
+    form_password_length_too_short: 'パスワードが短すぎます（8文字以上にしてください）',
+    form_code_incorrect: 'コードが違います',
+    verification_expired: 'コードの有効期限が切れました。再送してください',
+    session_exists: 'すでにログインしています',
+  };
+  if (code && map[code]) return map[code];
+  return first?.longMessage || first?.message || 'エラーが発生しました。もう一度お試しください';
+}
+
+// ── Forgot-password flow (Clerk: email code → new password) ──────────────
 type ResetStep = 'email' | 'code';
 
 function ForgotPasswordModal({
   visible,
   onClose,
+  onDone,
 }: {
   visible: boolean;
   onClose: () => void;
+  onDone: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { signIn } = useSignIn();
   const [step, setStep] = useState<ResetStep>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [devCode, setDevCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
 
   const reset = () => {
     setStep('email'); setEmail(''); setCode(''); setNewPassword('');
-    setDevCode(''); setError(''); setDone(false);
+    setError('');
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -45,17 +79,13 @@ function ForgotPasswordModal({
     if (!email.trim()) { setError('メールアドレスを入力してください'); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      });
-      const json = await res.json();
-      if (!res.ok) { setError(json.error ?? 'エラーが発生しました'); return; }
-      if (json.devCode) setDevCode(json.devCode);
+      const { error: createErr } = await signIn.create({ identifier: email.trim().toLowerCase() });
+      if (createErr) { setError(clerkErrorMessage({ errors: [createErr] })); return; }
+      const { error: sendErr } = await signIn.resetPasswordEmailCode.sendCode();
+      if (sendErr) { setError(clerkErrorMessage({ errors: [sendErr] })); return; }
       setStep('code');
-    } catch {
-      setError('サーバーに接続できませんでした。\n接続先: ' + API_BASE);
+    } catch (e) {
+      setError(clerkErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -64,19 +94,26 @@ function ForgotPasswordModal({
   const handleReset = async () => {
     setError('');
     if (code.trim().length !== 6) { setError('6桁のコードを入力してください'); return; }
-    if (newPassword.length < 6) { setError('パスワードは6文字以上にしてください'); return; }
+    if (newPassword.length < 8) { setError('パスワードは8文字以上にしてください'); return; }
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim(), newPassword }),
-      });
-      const json = await res.json();
-      if (!res.ok) { setError(json.error ?? 'コードが無効か期限切れです'); return; }
-      setDone(true);
-    } catch {
-      setError('サーバーに接続できませんでした。\n接続先: ' + API_BASE);
+      const { error: verifyErr } = await signIn.resetPasswordEmailCode.verifyCode({ code: code.trim() });
+      if (verifyErr) { setError(clerkErrorMessage({ errors: [verifyErr] })); return; }
+      const { error: submitErr } = await signIn.resetPasswordEmailCode.submitPassword({ password: newPassword });
+      if (submitErr) { setError(clerkErrorMessage({ errors: [submitErr] })); return; }
+      if (signIn.status === 'complete') {
+        await signIn.finalize({
+          navigate: async () => {
+            reset();
+            onDone();
+          },
+        });
+      } else {
+        reset();
+        onClose();
+      }
+    } catch (e) {
+      setError(clerkErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -92,25 +129,17 @@ function ForgotPasswordModal({
           {/* Header */}
           <View style={s.sheetHeader}>
             <Text style={s.sheetTitle}>
-              {done ? '✅ 変更完了' : step === 'email' ? '🔑 パスワードを再設定' : '📬 コードを入力'}
+              {step === 'email' ? '🔑 パスワードを再設定' : '📬 コードを入力'}
             </Text>
             <TouchableOpacity onPress={handleClose} hitSlop={12}>
               <Ionicons name="close" size={22} color="#9E7DD5" />
             </TouchableOpacity>
           </View>
 
-          {done ? (
-            /* ── Complete ── */
-            <View style={s.doneBox}>
-              <Text style={s.doneText}>新しいパスワードでログインしてください</Text>
-              <TouchableOpacity style={s.doneBtn} onPress={handleClose}>
-                <Text style={s.doneBtnText}>ログイン画面に戻る</Text>
-              </TouchableOpacity>
-            </View>
-          ) : step === 'email' ? (
+          {step === 'email' ? (
             /* ── Step 1: email ── */
             <View style={s.sheetBody}>
-              <Text style={s.sheetSub}>登録したメールアドレスを入力してください</Text>
+              <Text style={s.sheetSub}>登録したメールアドレスを入力してください。確認コードをメールでお送りします。</Text>
               <TextInput
                 style={s.input}
                 value={email}
@@ -130,15 +159,6 @@ function ForgotPasswordModal({
           ) : (
             /* ── Step 2: code + new password ── */
             <View style={s.sheetBody}>
-              {/* Dev helper */}
-              {!!devCode && (
-                <View style={s.devBox}>
-                  <Text style={s.devLabel}>📬 確認コード（開発用表示）</Text>
-                  <Text style={s.devCode}>{devCode}</Text>
-                  <Text style={s.devNote}>本番環境ではメールで届きます</Text>
-                </View>
-              )}
-
               <Text style={s.sheetSub}>{email} に送られたコードを入力</Text>
 
               <TextInput
@@ -157,7 +177,7 @@ function ForgotPasswordModal({
                 value={newPassword}
                 onChangeText={setNewPassword}
                 secureTextEntry
-                placeholder="6文字以上"
+                placeholder="8文字以上"
                 placeholderTextColor="#BBA8D8"
               />
 
@@ -167,7 +187,7 @@ function ForgotPasswordModal({
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>パスワードを変更する</Text>}
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => { setStep('email'); setError(''); setDevCode(''); }}>
+              <TouchableOpacity onPress={() => signIn.resetPasswordEmailCode.sendCode()}>
                 <Text style={s.resend}>コードが届かない場合は再送する</Text>
               </TouchableOpacity>
             </View>
@@ -179,49 +199,112 @@ function ForgotPasswordModal({
 }
 
 // ── Login / Register screen ───────────────────────────────────────────────
-const IS_NETWORK_ERR = (msg: string) =>
-  msg.includes('ネットワーク') || msg.includes('Network') || msg.includes('接続');
-
 export default function LoginScreen() {
+  useWarmUpBrowser();
   const insets = useSafeAreaInsets();
-  const { login, register } = useAuth();
-  const { pushDataToCloud } = useApp();
   const router = useRouter();
+  const { signIn, errors: signInErrors, fetchStatus: signInFetch } = useSignIn();
+  const { signUp, fetchStatus: signUpFetch } = useSignUp();
+  const { startSSOFlow } = useSSO();
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState<'google' | 'apple' | null>(null);
   const [showForgot, setShowForgot] = useState(false);
 
+  const loading = signInFetch === 'fetching' || signUpFetch === 'fetching';
+
+  const goHome = useCallback(() => {
+    router.replace('/(tabs)');
+  }, [router]);
+
+  const finalizeNavigate = useCallback(
+    ({ session, decorateUrl }: { session?: { currentTask?: unknown } | null; decorateUrl: (url: string) => string }) => {
+      if (session?.currentTask) return;
+      const url = decorateUrl('/(tabs)');
+      if (url.startsWith('http')) {
+        window.location.href = url;
+      } else {
+        router.replace(url as Href);
+      }
+    },
+    [router],
+  );
+
+  // ── OAuth (Google / Apple) ──
+  const handleSSO = useCallback(async (provider: 'google' | 'apple') => {
+    setError('');
+    setSsoLoading(provider);
+    try {
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: provider === 'google' ? 'oauth_google' : 'oauth_apple',
+        redirectUrl: AuthSession.makeRedirectUri(),
+      });
+      if (createdSessionId && setActive) {
+        await setActive({
+          session: createdSessionId,
+          navigate: async ({ session }) => {
+            if (session?.currentTask) return;
+            Analytics.login();
+            goHome();
+          },
+        });
+      }
+    } catch (e) {
+      setError(clerkErrorMessage(e));
+    } finally {
+      setSsoLoading(null);
+    }
+  }, [startSSOFlow, goHome]);
+
+  // ── Email / password ──
   const handleSubmit = async () => {
     setError('');
     if (!email.trim() || !password.trim()) {
       setError('メールとパスワードを入力してください');
       return;
     }
-    setLoading(true);
-    try {
-      let result: { error?: string };
-      if (tab === 'login') {
-        result = await login(email.trim(), password);
+    const emailAddress = email.trim().toLowerCase();
+
+    if (tab === 'login') {
+      const { error: err } = await signIn.password({ emailAddress, password });
+      if (err) { setError(clerkErrorMessage({ errors: [err] })); return; }
+      if (signIn.status === 'complete') {
+        Analytics.login();
+        await signIn.finalize({ navigate: finalizeNavigate });
       } else {
-        result = await register(email.trim(), password);
-        if (!result.error) await pushDataToCloud();
+        setError('ログインを完了できませんでした。もう一度お試しください');
       }
-      if (result.error) {
-        setError(result.error);
-      } else {
-        tab === 'login' ? Analytics.login() : Analytics.signUp();
-        router.replace('/(tabs)');
-      }
-    } finally {
-      setLoading(false);
+    } else {
+      const { error: err } = await signUp.password({ emailAddress, password });
+      if (err) { setError(clerkErrorMessage({ errors: [err] })); return; }
+      const { error: sendErr } = await signUp.verifications.sendEmailCode();
+      if (sendErr) { setError(clerkErrorMessage({ errors: [sendErr] })); return; }
     }
   };
 
-  const isNetErr = IS_NETWORK_ERR(error);
+  const handleVerify = async () => {
+    setError('');
+    if (code.trim().length !== 6) { setError('6桁のコードを入力してください'); return; }
+    const { error: err } = await signUp.verifications.verifyEmailCode({ code: code.trim() });
+    if (err) { setError(clerkErrorMessage({ errors: [err] })); return; }
+    if (signUp.status === 'complete') {
+      Analytics.signUp();
+      await signUp.finalize({ navigate: finalizeNavigate });
+    } else {
+      setError('確認を完了できませんでした。もう一度お試しください');
+    }
+  };
+
+  // ── Sign-up: email verification step ──
+  const needsVerification =
+    tab === 'register' &&
+    signUp.status === 'missing_requirements' &&
+    signUp.unverifiedFields.includes('email_address') &&
+    signUp.missingFields.length === 0;
 
   return (
     <LinearGradient colors={['#F5EEFF', '#E8F4FF']} style={{ flex: 1 }}>
@@ -242,95 +325,160 @@ export default function LoginScreen() {
             <Text style={[styles.subtitle, { marginTop: 4, fontSize: 12, opacity: 0.6 }]}>データを引き継ぐためにアカウントを作ろう</Text>
           </View>
 
-          {/* Tabs */}
-          <View style={styles.tabRow}>
-            {(['login', 'register'] as const).map(t => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.tab, tab === t && styles.tabActive]}
-                onPress={() => { setTab(t); setError(''); }}
-              >
-                <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-                  {t === 'login' ? 'ログイン' : '新規登録'}
-                </Text>
+          {needsVerification ? (
+            /* ── Email verification step ── */
+            <View style={styles.form}>
+              <Text style={styles.verifyTitle}>📬 メールを確認してください</Text>
+              <Text style={styles.verifySub}>{email.trim()} に6桁の確認コードを送りました</Text>
+              <TextInput
+                style={[styles.input, styles.codeInput]}
+                value={code}
+                onChangeText={setCode}
+                keyboardType="number-pad"
+                placeholder="000000"
+                placeholderTextColor="#BBA8D8"
+                maxLength={6}
+                autoFocus
+              />
+              {!!error && (
+                <View style={styles.errorBox}>
+                  <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+              <TouchableOpacity style={styles.button} onPress={handleVerify} disabled={loading} activeOpacity={0.85}>
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>確認する</Text>}
               </TouchableOpacity>
-            ))}
-          </View>
+              <TouchableOpacity onPress={() => signUp.verifications.sendEmailCode()}>
+                <Text style={styles.resendText}>コードが届かない場合は再送する</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              {/* ── Social login ── */}
+              <View style={styles.form}>
+                <TouchableOpacity
+                  style={styles.ssoBtn}
+                  onPress={() => handleSSO('google')}
+                  disabled={ssoLoading !== null}
+                  activeOpacity={0.85}
+                >
+                  {ssoLoading === 'google'
+                    ? <ActivityIndicator color="#5A3DAA" />
+                    : (
+                      <>
+                        <Ionicons name="logo-google" size={18} color="#4285F4" />
+                        <Text style={styles.ssoBtnText}>Googleでつづける</Text>
+                      </>
+                    )}
+                </TouchableOpacity>
 
-          {/* Form */}
-          <View style={styles.form}>
-            <Text style={styles.label}>メールアドレス</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              placeholder="例：hello@example.com"
-              placeholderTextColor="#BBA8D8"
-              autoCorrect={false}
-            />
+                <TouchableOpacity
+                  style={[styles.ssoBtn, styles.ssoBtnApple]}
+                  onPress={() => handleSSO('apple')}
+                  disabled={ssoLoading !== null}
+                  activeOpacity={0.85}
+                >
+                  {ssoLoading === 'apple'
+                    ? <ActivityIndicator color="#fff" />
+                    : (
+                      <>
+                        <Ionicons name="logo-apple" size={20} color="#fff" />
+                        <Text style={[styles.ssoBtnText, { color: '#fff' }]}>Appleでつづける</Text>
+                      </>
+                    )}
+                </TouchableOpacity>
 
-            <Text style={[styles.label, { marginTop: 16 }]}>パスワード</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              placeholder="6文字以上"
-              placeholderTextColor="#BBA8D8"
-            />
-
-            {!!error && (
-              <View style={[styles.errorBox, isNetErr && styles.errorBoxWarn]}>
-                <Ionicons
-                  name={isNetErr ? 'wifi-outline' : 'alert-circle-outline'}
-                  size={16}
-                  color={isNetErr ? '#F97316' : '#EF4444'}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.errorText, isNetErr && { color: '#F97316' }]}>{error}</Text>
-                  {isNetErr && (
-                    <Text style={styles.errorSub}>接続先: {API_BASE}</Text>
-                  )}
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>または</Text>
+                  <View style={styles.dividerLine} />
                 </View>
               </View>
-            )}
 
-            <TouchableOpacity
-              style={styles.button}
-              onPress={handleSubmit}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              {loading
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.buttonText}>{tab === 'login' ? 'ログイン' : 'アカウントを作成'}</Text>
-              }
-            </TouchableOpacity>
+              {/* Tabs */}
+              <View style={styles.tabRow}>
+                {(['login', 'register'] as const).map(t => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.tab, tab === t && styles.tabActive]}
+                    onPress={() => { setTab(t); setError(''); }}
+                  >
+                    <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
+                      {t === 'login' ? 'ログイン' : '新規登録'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            {tab === 'register' && (
-              <Text style={styles.hint}>✅ 今までのデータはそのまま引き継がれます</Text>
-            )}
+              {/* Form */}
+              <View style={styles.form}>
+                <Text style={styles.label}>メールアドレス</Text>
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  placeholder="例：hello@example.com"
+                  placeholderTextColor="#BBA8D8"
+                  autoCorrect={false}
+                />
 
-            {tab === 'login' && (
-              <TouchableOpacity onPress={() => setShowForgot(true)} style={styles.forgotWrap}>
-                <Ionicons name="lock-closed-outline" size={13} color="#9E7DD5" />
-                <Text style={styles.forgotText}>パスワードを忘れた場合</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+                <Text style={[styles.label, { marginTop: 16 }]}>パスワード</Text>
+                <TextInput
+                  style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  placeholder="8文字以上"
+                  placeholderTextColor="#BBA8D8"
+                />
 
-          {/* API URL (always visible for diagnosis) */}
-          <View style={styles.apiRow}>
-            <Ionicons name="server-outline" size={10} color="#C4B5E8" />
-            <Text style={styles.apiUrl} numberOfLines={1}>{API_BASE}</Text>
-          </View>
+                {!!error && (
+                  <View style={styles.errorBox}>
+                    <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={handleSubmit}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                >
+                  {loading
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.buttonText}>{tab === 'login' ? 'ログイン' : 'アカウントを作成'}</Text>
+                  }
+                </TouchableOpacity>
+
+                {tab === 'register' && (
+                  <Text style={styles.hint}>✅ 今までのデータはそのまま引き継がれます</Text>
+                )}
+
+                {tab === 'login' && (
+                  <TouchableOpacity onPress={() => setShowForgot(true)} style={styles.forgotWrap}>
+                    <Ionicons name="lock-closed-outline" size={13} color="#9E7DD5" />
+                    <Text style={styles.forgotText}>パスワードを忘れた場合</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Required for sign-up flows: Clerk bot protection */}
+                <View nativeID="clerk-captcha" />
+              </View>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Forgot-password modal — no navigation, no AuthGate involved */}
-      <ForgotPasswordModal visible={showForgot} onClose={() => setShowForgot(false)} />
+      {/* Forgot-password modal */}
+      <ForgotPasswordModal
+        visible={showForgot}
+        onClose={() => setShowForgot(false)}
+        onDone={() => { setShowForgot(false); goHome(); }}
+      />
     </LinearGradient>
   );
 }
@@ -341,6 +489,16 @@ const styles = StyleSheet.create({
   mascotWrap: { alignItems: 'center', marginBottom: 28 },
   titleLogo: { width: 220, height: 33, marginTop: 12 },
   subtitle: { fontSize: 13, color: '#9E7DD5', marginTop: 6, textAlign: 'center' },
+  ssoBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#fff', borderRadius: 14, paddingVertical: 14,
+    borderWidth: 1.5, borderColor: '#DDD0F5', marginBottom: 12,
+  },
+  ssoBtnApple: { backgroundColor: '#000', borderColor: '#000' },
+  ssoBtnText: { fontSize: 15, fontWeight: '600', color: '#333' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 10 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#DDD0F5' },
+  dividerText: { fontSize: 12, color: '#9E7DD5' },
   tabRow: {
     flexDirection: 'row', backgroundColor: '#EDE5F8',
     borderRadius: 14, padding: 4, marginBottom: 28, width: '100%',
@@ -356,14 +514,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 15, color: '#333', borderWidth: 1.5, borderColor: '#DDD0F5',
   },
+  codeInput: { textAlign: 'center', fontSize: 26, letterSpacing: 10, fontWeight: '700' },
+  verifyTitle: { fontSize: 17, fontWeight: '700', color: '#5A3DAA', textAlign: 'center', marginBottom: 8 },
+  verifySub: { fontSize: 13, color: '#9E7DD5', textAlign: 'center', marginBottom: 16 },
+  resendText: { color: '#9E7DD5', fontSize: 13, textAlign: 'center', marginTop: 16 },
   errorBox: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12,
     marginTop: 12, borderWidth: 1, borderColor: '#FECACA',
   },
-  errorBoxWarn: { backgroundColor: '#FFF7ED', borderColor: '#FED7AA' },
   errorText: { color: '#EF4444', fontSize: 13, flexShrink: 1 },
-  errorSub: { color: '#F97316', fontSize: 10, marginTop: 3 },
   button: {
     backgroundColor: '#7C4DCC', borderRadius: 14, paddingVertical: 16,
     alignItems: 'center', marginTop: 24,
@@ -374,8 +534,6 @@ const styles = StyleSheet.create({
   hint: { fontSize: 12, color: '#00C4A7', marginTop: 14, textAlign: 'center', fontWeight: '500' },
   forgotWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 16 },
   forgotText: { fontSize: 13, color: '#9E7DD5', fontWeight: '500' },
-  apiRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 24, opacity: 0.5 },
-  apiUrl: { fontSize: 9, color: '#9E7DD5', flexShrink: 1 },
 });
 
 // Sheet styles (for modal)
@@ -404,15 +562,4 @@ const s = StyleSheet.create({
   },
   btnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   resend: { color: '#9E7DD5', fontSize: 13, textAlign: 'center', marginTop: 14 },
-  devBox: {
-    backgroundColor: '#FFF9E6', borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: '#FFD166', marginBottom: 12, alignItems: 'center',
-  },
-  devLabel: { fontSize: 11, color: '#999', marginBottom: 6 },
-  devCode: { fontSize: 34, fontWeight: '700', color: '#5A3DAA', letterSpacing: 8 },
-  devNote: { fontSize: 10, color: '#BBB', marginTop: 4 },
-  doneBox: { alignItems: 'center', paddingVertical: 16, gap: 16 },
-  doneText: { fontSize: 14, color: '#7C4DCC', textAlign: 'center' },
-  doneBtn: { backgroundColor: '#7C4DCC', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28 },
-  doneBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

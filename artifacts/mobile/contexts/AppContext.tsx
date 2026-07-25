@@ -141,9 +141,11 @@ const defaultFeedState: FeedState = {
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { token } = useAuth();
-  const tokenRef = useRef(token);
-  useEffect(() => { tokenRef.current = token; }, [token]);
+  const { isSignedIn, getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
+  const signedInRef = useRef(isSignedIn);
+  useEffect(() => { signedInRef.current = isSignedIn; }, [isSignedIn]);
 
   const [progress, setProgress] = useState<UserProgress>(defaultProgress);
   const [records, setRecords] = useState<DailyRecord[]>([]);
@@ -160,8 +162,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const currentSatiety = computeCurrentSatiety(feedState);
 
   // ─── Cloud sync helpers ───────────────────────────────────────────────
+  // Blocks pushes while the initial post-login pull is running, so a quick
+  // user action right after sign-in can't overwrite cloud data.
+  const pullingRef = useRef(false);
+
   const pushDataToCloud = useCallback(async () => {
-    const t = tokenRef.current;
+    if (!signedInRef.current || pullingRef.current) return;
+    const t = await getTokenRef.current();
     if (!t) return;
     try {
       const keys = Object.values(KEYS);
@@ -181,7 +188,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const pullDataFromCloud = useCallback(async () => {
-    const t = tokenRef.current;
+    if (!signedInRef.current) return;
+    const t = await getTokenRef.current();
     if (!t) return;
     try {
       const res = await fetch(`${API_BASE}/sync`, {
@@ -203,18 +211,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadAll();
   }, []);
 
-  // When token arrives (user logs in), pull cloud data and reload
-  const prevToken = useRef<string | null>(null);
+  // When the user logs in, pull cloud data and reload
+  const prevSignedIn = useRef(false);
   useEffect(() => {
-    if (token && token !== prevToken.current) {
-      prevToken.current = token;
+    if (isSignedIn && !prevSignedIn.current) {
+      prevSignedIn.current = true;
       (async () => {
-        await pullDataFromCloud();
-        await loadAll();
+        pullingRef.current = true;
+        try {
+          await pullDataFromCloud();
+          await loadAll();
+        } finally {
+          pullingRef.current = false;
+        }
       })();
     }
-    if (!token) prevToken.current = null;
-  }, [token]);
+    if (!isSignedIn) prevSignedIn.current = false;
+  }, [isSignedIn]);
 
   const buildFreshCheckedState = (items: ChecklistItemDef[]): CheckedState => {
     const today = getTodayDate();

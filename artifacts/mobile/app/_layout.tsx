@@ -13,6 +13,8 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { ClerkProvider, ClerkLoaded } from '@clerk/expo';
+import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider } from '@/contexts/AppContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { initAnalytics } from '@/utils/analytics';
@@ -22,23 +24,25 @@ SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
+const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
+
 function AuthGate() {
-  const { token, isLoading } = useAuth();
+  const { isSignedIn, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (isLoading) return;
     // Public routes that don't require authentication
-    const isPublicRoute = segments[0] === 'login' || segments[0] === 'forgot-password';
+    const isPublicRoute = segments[0] === 'login';
 
-    if (!token && !isPublicRoute) {
+    if (!isSignedIn && !isPublicRoute) {
       router.replace('/login');
-    } else if (token && segments[0] === 'login') {
-      // Only auto-redirect to tabs from the login screen, not forgot-password
+    } else if (isSignedIn && segments[0] === 'login') {
       router.replace('/(tabs)');
     }
-  }, [token, isLoading, segments]);
+  }, [isSignedIn, isLoading, segments]);
 
   return null;
 }
@@ -50,7 +54,6 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
-        <Stack.Screen name="forgot-password" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
       </Stack>
     </>
   );
@@ -77,20 +80,28 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <SafeAreaProvider>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <AppProvider>
-              <GestureHandlerRootView>
-                <KeyboardProvider>
-                  <RootLayoutNav />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </AppProvider>
-          </AuthProvider>
-        </QueryClientProvider>
-      </ErrorBoundary>
-    </SafeAreaProvider>
+    <ClerkProvider
+      publishableKey={clerkPublishableKey}
+      tokenCache={tokenCache}
+      proxyUrl={clerkProxyUrl}
+    >
+      <ClerkLoaded>
+        <SafeAreaProvider>
+          <ErrorBoundary>
+            <QueryClientProvider client={queryClient}>
+              <AuthProvider>
+                <AppProvider>
+                  <GestureHandlerRootView>
+                    <KeyboardProvider>
+                      <RootLayoutNav />
+                    </KeyboardProvider>
+                  </GestureHandlerRootView>
+                </AppProvider>
+              </AuthProvider>
+            </QueryClientProvider>
+          </ErrorBoundary>
+        </SafeAreaProvider>
+      </ClerkLoaded>
+    </ClerkProvider>
   );
 }

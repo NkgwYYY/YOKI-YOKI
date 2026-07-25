@@ -31,7 +31,7 @@ export function InsightCard() {
   const colors = useColors();
   const isDark = useColorScheme() === 'dark';
   const { records, progress, checkedState, unlockedBadges, mascotName } = useApp();
-  const { token } = useAuth();
+  const { getToken } = useAuth();
 
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -76,6 +76,7 @@ export function InsightCard() {
         },
         badgeCount: unlockedBadges.length,
       };
+      const token = await getToken();
       const res = await fetch(`${API_BASE}/insight`, {
         method: 'POST',
         headers: {

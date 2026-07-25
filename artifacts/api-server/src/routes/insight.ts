@@ -49,7 +49,7 @@ interface InsightRequest {
  */
 insightRouter.post("/insight", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const userId = String(req.user?.userId ?? "");
+    const userId = req.userId!;
     if (!allowRequest(userId)) {
       res.status(429).json({ error: "daily limit reached" });
       return;
