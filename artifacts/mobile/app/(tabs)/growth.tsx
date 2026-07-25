@@ -29,6 +29,7 @@ import { useRouter } from 'expo-router';
 import { GrowthChart } from '@/components/GrowthChart';
 import { BadgeCard } from '@/components/BadgeCard';
 import { MoodCalendar } from '@/components/MoodCalendar';
+import { InsightCard } from '@/components/InsightCard';
 import { BADGE_DEFINITIONS } from '@/data/badges';
 import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
 
@@ -195,6 +196,11 @@ export default function GrowthScreen() {
               ))}
             </View>
           </View>
+        </FadeIn>
+
+        {/* AI insight — hidden strengths */}
+        <FadeIn delay={150}>
+          <InsightCard />
         </FadeIn>
 
         {/* Mood Chart */}
