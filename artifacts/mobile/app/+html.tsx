@@ -10,6 +10,15 @@ export default function Root({ children }: PropsWithChildren) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+
+        {/* Link preview (OGP) — LINE/SNS共有時のタイトル・説明 */}
+        <meta property="og:title" content="YOKI YOKI" />
+        <meta property="og:site_name" content="YOKI YOKI" />
+        <meta property="og:type" content="website" />
+        <meta property="og:description" content="こころを育てるメンタルケアアプリ" />
+        <meta property="og:url" content="https://mental-muscle-trainer.replit.app/" />
+        <meta name="description" content="こころを育てるメンタルケアアプリ" />
+
         <ScrollViewStyleReset />
 
         {/* Google Analytics 4 */}
