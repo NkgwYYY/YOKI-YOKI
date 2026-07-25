@@ -3,7 +3,7 @@ import { Analytics } from '@/utils/analytics';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
-  Modal,
+  Modal, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -233,7 +233,11 @@ export default function LoginScreen() {
           {/* Mascot */}
           <View style={styles.mascotWrap}>
             <Mascot stage="kokoron" mood="happy" size={100} />
-            <Text style={styles.title}>YOKI YOKI</Text>
+            <Image
+              source={require('@/assets/images/yoki_logo.png')}
+              style={styles.titleLogo}
+              resizeMode="contain"
+            />
             <Text style={styles.subtitle}>メンタルケア育成アプリ</Text>
             <Text style={[styles.subtitle, { marginTop: 4, fontSize: 12, opacity: 0.6 }]}>データを引き継ぐためにアカウントを作ろう</Text>
           </View>
@@ -335,7 +339,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { alignItems: 'center', paddingHorizontal: 24 },
   mascotWrap: { alignItems: 'center', marginBottom: 28 },
-  title: { fontSize: 26, fontWeight: '700', color: '#5A3DAA', marginTop: 8, letterSpacing: 1 },
+  titleLogo: { width: 220, height: 33, marginTop: 12 },
   subtitle: { fontSize: 13, color: '#9E7DD5', marginTop: 6, textAlign: 'center' },
   tabRow: {
     flexDirection: 'row', backgroundColor: '#EDE5F8',
