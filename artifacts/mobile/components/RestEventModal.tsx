@@ -112,8 +112,8 @@ function CatScene() {
   useEffect(() => {
     if (catState === 'purring') {
       RNAnimated.loop(RNAnimated.sequence([
-        RNAnimated.timing(bodyScale, { toValue: 1.05, duration: 280, useNativeDriver: true }),
-        RNAnimated.timing(bodyScale, { toValue: 0.96, duration: 280, useNativeDriver: true }),
+        RNAnimated.timing(bodyScale, { toValue: 1.06, duration: 320, useNativeDriver: true }),
+        RNAnimated.timing(bodyScale, { toValue: 1.01, duration: 320, useNativeDriver: true }),
       ])).start();
       RNAnimated.loop(RNAnimated.sequence([
         RNAnimated.timing(tailAngle, { toValue: 1,  duration: 400, useNativeDriver: true }),
@@ -181,58 +181,45 @@ function CatScene() {
     'ゴロゴロゴロ〜♪';
 
   return (
-    <View style={sc.scene}>
-      {/* Cosy room backdrop */}
-      <Text style={sc.catMoon}>🌙</Text>
-      <Text style={sc.catStar1}>✨</Text>
-      <Text style={sc.catStar2}>⭐</Text>
-
-      {/* Cushion under cat */}
-      <View style={sc.cushionWrap}>
-        <Svg width={200} height={60} viewBox="0 0 200 60">
-          <Defs>
-            <SvgLinearGradient id="cushGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#8B4513" />
-              <Stop offset="100%" stopColor="#5C2D0A" />
-            </SvgLinearGradient>
-          </Defs>
-          <Ellipse cx={100} cy={30} rx={90} ry={26} fill="url(#cushGrad)" />
-          <Ellipse cx={100} cy={26} rx={84} ry={18} fill="#A0522D" opacity="0.5" />
-          <Ellipse cx={100} cy={22} rx={76} ry={12} fill="#CD853F" opacity="0.3" />
-        </Svg>
-      </View>
-
-      {/* Cat — interactive area */}
-      <View style={sc.catArea} {...panResponder.panHandlers}>
-        <RNAnimated.View
-          style={{
+    <View style={sc.scene} {...panResponder.panHandlers}>
+      {/* Full-bleed cat photo with subtle breathing/wiggle motion */}
+      <RNAnimated.View
+        style={[
+          sc.catFull,
+          {
             transform: [
               { scale: bodyScale },
-              { rotate: petBounce.interpolate({ inputRange: [-1, 1], outputRange: ['-6deg', '6deg'] }) },
-              { translateY: petBounce.interpolate({ inputRange: [-1, 0, 1], outputRange: [-4, 0, -4] }) },
+              { rotate: petBounce.interpolate({ inputRange: [-1, 1], outputRange: ['-1.5deg', '1.5deg'] }) },
             ],
-          }}
-        >
-          <View style={sc.catPhoto}>
-            <RNAnimated.Image
-              source={require('@/assets/images/cat_sleeping.jpg')}
-              style={[sc.catPhotoLayer, { opacity: faceOpacity.sleeping }]}
-              resizeMode="cover"
-            />
-            <RNAnimated.Image
-              source={require('@/assets/images/cat_alert.jpg')}
-              style={[sc.catPhotoLayer, sc.catPhotoAbs, { opacity: faceOpacity.alert }]}
-              resizeMode="cover"
-            />
-            <RNAnimated.Image
-              source={require('@/assets/images/cat_purring.jpg')}
-              style={[sc.catPhotoLayer, sc.catPhotoAbs, { opacity: faceOpacity.purring }]}
-              resizeMode="cover"
-            />
-          </View>
-        </RNAnimated.View>
+          },
+        ]}
+      >
+        <RNAnimated.Image
+          source={require('@/assets/images/cat_sleeping.jpg')}
+          style={[sc.catFullLayer, { opacity: faceOpacity.sleeping }]}
+          resizeMode="cover"
+        />
+        <RNAnimated.Image
+          source={require('@/assets/images/cat_alert.jpg')}
+          style={[sc.catFullLayer, { opacity: faceOpacity.alert }]}
+          resizeMode="cover"
+        />
+        <RNAnimated.Image
+          source={require('@/assets/images/cat_purring.jpg')}
+          style={[sc.catFullLayer, { opacity: faceOpacity.purring }]}
+          resizeMode="cover"
+        />
+      </RNAnimated.View>
 
-        {/* Floating hearts */}
+      {/* Soft dark gradient at bottom so the label stays readable */}
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.55)']}
+        style={sc.catBottomFade}
+        pointerEvents="none"
+      />
+
+      {/* Floating hearts */}
+      <View style={sc.catHeartsWrap} pointerEvents="none">
         {hearts.map((h, i) => (
           <RNAnimated.Text
             key={i}
@@ -242,15 +229,15 @@ function CatScene() {
             }]}
           >💗</RNAnimated.Text>
         ))}
-
-        {petCount > 0 && (
-          <View style={sc.petBadge}>
-            <Text style={sc.petBadgeText}>×{petCount}</Text>
-          </View>
-        )}
       </View>
 
-      <Text style={[sc.sceneLabel, { color: '#FFBF90', bottom: 30, lineHeight: 22 }]}>
+      {petCount > 0 && (
+        <View style={sc.petBadge}>
+          <Text style={sc.petBadgeText}>×{petCount}</Text>
+        </View>
+      )}
+
+      <Text style={[sc.sceneLabel, { color: '#FFF', bottom: 30, lineHeight: 22 }]}>
         {labelText}
       </Text>
     </View>
@@ -674,41 +661,32 @@ const sc = StyleSheet.create({
     backgroundColor: '#FF6010',
   },
 
-  // Cat scene
-  catMoon:     { position: 'absolute', top: SH * 0.06, left: 28,  fontSize: 36 },
-  catStar1:    { position: 'absolute', top: SH * 0.08, right: 44, fontSize: 20 },
-  catStar2:    { position: 'absolute', top: SH * 0.14, right: 76, fontSize: 14, opacity: 0.6 },
-  cushionWrap: { position: 'absolute', bottom: SH * 0.15, alignSelf: 'center' },
-  catArea:     {
+  // Cat scene — full-bleed photo
+  catFull: {
     position: 'absolute',
-    top: SH * 0.16,
-    alignSelf: 'center',
-    alignItems: 'center',
-    width: 240, height: 240,
+    top: -14, bottom: -14, left: -14, right: -14,
   },
-  catPhoto: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    borderWidth: 3,
-    borderColor: 'rgba(255,200,120,0.45)',
-    overflow: 'hidden',
-  },
-  catPhotoLayer: {
+  catFullLayer: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
-    borderRadius: 110,
   },
-  catPhotoAbs: {
+  catBottomFade: {
     position: 'absolute',
-    top: 0,
-    left: 0,
+    left: 0, right: 0, bottom: 0,
+    height: 140,
   },
-  floatHeart:  { position: 'absolute', top: 20, fontSize: 26 },
+  catHeartsWrap: {
+    position: 'absolute',
+    top: '38%',
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  floatHeart:  { position: 'absolute', top: 20, fontSize: 30 },
   petBadge:    {
-    position: 'absolute', top: -6, right: -6,
+    position: 'absolute', top: 54, right: 18,
     backgroundColor: 'rgba(220,80,80,0.88)',
-    borderRadius: 12, paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3,
   },
   petBadgeText: { color: '#FFF', fontSize: 12, fontFamily: 'Inter_700Bold' },
 });
