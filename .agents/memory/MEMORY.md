@@ -1,2 +1,3 @@
 - [Asset sourcing](asset-sourcing.md) — Unsplash/myinstants work via curl; use AI generation for same-character multi-expression photo sets; always expo export + commit after mobile changes.
+- [Clerk auth migration](clerk-auth-migration.md) — login is Replit-managed Clerk (Google/Apple+email); no custom auth or mail service; providers toggled in Auth pane; dev/prod user stores separate.
 - [Expo web head tags](expo-web-html-meta.md) — +html.tsx is ignored in single output; OGP/GA must be injected post-export via inject-meta.js; LINE preview cache dodged with ?v=2 URLs.
