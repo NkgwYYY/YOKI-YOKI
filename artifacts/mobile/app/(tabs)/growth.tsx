@@ -140,6 +140,14 @@ export default function GrowthScreen() {
                 <Text style={[styles.profileBtnText, { color: colors.foreground }]}>プロフィールを編集</Text>
               </TouchableOpacity>
               <TouchableOpacity
+                style={[styles.profileBtn, { backgroundColor: colors.muted }]}
+                onPress={() => { setShowLogout(false); router.push('/guide'); }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="book-outline" size={18} color={colors.foreground} />
+                <Text style={[styles.profileBtnText, { color: colors.foreground }]}>使い方ガイド</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={styles.logoutBtn}
                 onPress={handleLogout}
                 activeOpacity={0.85}

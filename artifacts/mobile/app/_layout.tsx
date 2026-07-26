@@ -63,6 +63,7 @@ function RootLayoutNav() {
         <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
+        <Stack.Screen name="guide" options={{ headerShown: false }} />
       </Stack>
     </>
   );
