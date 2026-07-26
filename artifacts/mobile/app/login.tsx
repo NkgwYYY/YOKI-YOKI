@@ -27,7 +27,23 @@ function clerkErrorMessage(error: unknown): string {
     session_exists: 'すでにログインしています',
   };
   if (code && map[code]) return map[code];
-  return first?.longMessage || first?.message || 'エラーが発生しました。もう一度お試しください';
+  // Fallback: translate common English messages from Clerk
+  const raw = first?.longMessage || first?.message || '';
+  const textMap: [string, string][] = [
+    ["couldn't find your account", 'このメールアドレスは登録されていません。「新規登録」からアカウントを作成してください'],
+    ['data breach', 'このパスワードは過去に流出したものと一致します。安全のため、別のパスワードにしてください'],
+    ['password is incorrect', 'パスワードが違います'],
+    ['is taken', 'このメールアドレスはすでに登録されています'],
+    ['too many requests', '試行回数が多すぎます。しばらく待ってからお試しください'],
+    ['is invalid', '入力内容に誤りがあります。確認してください'],
+  ];
+  const lower = raw.toLowerCase();
+  for (const [en, ja] of textMap) {
+    if (lower.includes(en)) return ja;
+  }
+  // If the message is already Japanese, show it; otherwise show a generic Japanese message
+  if (/[ぁ-んァ-ン一-龥]/.test(raw)) return raw;
+  return 'エラーが発生しました。もう一度お試しください';
 }
 
 // ── Forgot-password flow (Clerk: email code → new password) ──────────────

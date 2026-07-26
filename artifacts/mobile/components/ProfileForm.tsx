@@ -113,7 +113,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
           maxLength={20}
           placeholder="例: ゆき"
           placeholderTextColor={colors.mutedForeground + '99'}
-          style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+          style={[styles.input, { backgroundColor: isDark ? '#241C42' : '#FFFFFF', color: colors.foreground, borderColor: isDark ? '#4A3D78' : '#DDD0F5' }]}
         />
 
         <Text style={[styles.label, { color: colors.mutedForeground }]}>年代 *</Text>
@@ -174,7 +174,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
           maxLength={30}
           placeholder="例: 会社員、学生、フリーランス"
           placeholderTextColor={colors.mutedForeground + '99'}
-          style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+          style={[styles.input, { backgroundColor: isDark ? '#241C42' : '#FFFFFF', color: colors.foreground, borderColor: isDark ? '#4A3D78' : '#DDD0F5' }]}
         />
 
         <Text style={[styles.label, { color: colors.mutedForeground }]}>いま気になっていること</Text>
@@ -212,8 +212,8 @@ const styles = StyleSheet.create({
   hint: { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 17 },
   label: { fontSize: 12, fontFamily: 'Inter_600SemiBold', marginTop: 6 },
   input: {
-    borderRadius: 14, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 15, fontFamily: 'Inter_400Regular',
+    borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 15, fontFamily: 'Inter_400Regular', minHeight: 48, width: '100%',
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
