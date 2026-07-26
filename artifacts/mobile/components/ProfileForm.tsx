@@ -113,7 +113,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
           maxLength={20}
           placeholder="例: ゆき"
           placeholderTextColor={colors.mutedForeground + '99'}
-          style={[styles.input, { backgroundColor: isDark ? '#241C42' : '#FFFFFF', color: colors.foreground, borderColor: isDark ? '#4A3D78' : '#DDD0F5' }]}
+          style={[styles.input, { backgroundColor: isDark ? '#241C42' : '#FFFFFF', color: colors.foreground, borderColor: isDark ? '#6B58A8' : '#A78BDA' }]}
         />
 
         <Text style={[styles.label, { color: colors.mutedForeground }]}>年代 *</Text>
@@ -174,7 +174,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
           maxLength={30}
           placeholder="例: 会社員、学生、フリーランス"
           placeholderTextColor={colors.mutedForeground + '99'}
-          style={[styles.input, { backgroundColor: isDark ? '#241C42' : '#FFFFFF', color: colors.foreground, borderColor: isDark ? '#4A3D78' : '#DDD0F5' }]}
+          style={[styles.input, { backgroundColor: isDark ? '#241C42' : '#FFFFFF', color: colors.foreground, borderColor: isDark ? '#6B58A8' : '#A78BDA' }]}
         />
 
         <Text style={[styles.label, { color: colors.mutedForeground }]}>いま気になっていること</Text>

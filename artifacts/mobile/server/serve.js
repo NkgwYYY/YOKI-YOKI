@@ -123,15 +123,22 @@ function serveWebApp(pathname, res) {
     if (fs.existsSync(normalizedFilePath) && !fs.statSync(normalizedFilePath).isDirectory()) {
       const ext = path.extname(normalizedFilePath).toLowerCase();
       const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-      res.writeHead(200, { 'content-type': contentType });
+      // Hashed bundles under _expo/static can be cached forever; everything else must revalidate
+      const cacheControl = pathname.includes('/_expo/static/')
+        ? 'public, max-age=31536000, immutable'
+        : 'no-cache';
+      res.writeHead(200, { 'content-type': contentType, 'cache-control': cacheControl });
       res.end(fs.readFileSync(normalizedFilePath));
       return;
     }
   }
 
-  // SPA fallback — all routes serve index.html
+  // SPA fallback — all routes serve index.html (never cache it)
   const indexPath = path.join(WEB_ROOT, 'index.html');
-  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  res.writeHead(200, {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store, no-cache, must-revalidate',
+  });
   res.end(fs.readFileSync(indexPath));
 }
 
