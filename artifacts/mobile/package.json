@@ -8,7 +8,7 @@
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "export:web": "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=$CLERK_PUBLISHABLE_KEY expo export --platform web --output-dir ../../static-build/web && node scripts/inject-meta.js"
+    "export:web": "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=$CLERK_PUBLISHABLE_KEY expo export --platform web --output-dir ../../static-build/web && node scripts/inject-meta.js && cp -r web-extras/. ../../static-build/web/"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
