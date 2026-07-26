@@ -163,6 +163,21 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  // Google Search Console HTML verification files
+  if (pathname.match(/^\/google[a-f0-9]+\.html$/)) {
+    const verifyPath = path.join(WEB_ROOT, pathname);
+    if (fs.existsSync(verifyPath)) {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(fs.readFileSync(verifyPath, 'utf-8'));
+      return;
+    }
+    // Fallback: derive content from filename
+    const code = pathname.replace(/^\//, '').replace(/\.html$/, '');
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end(`google-site-verification: ${code}`);
+    return;
+  }
+
   // Browser → web build (SPA) if available
   if (hasWebBuild()) {
     return serveWebApp(pathname, res);
