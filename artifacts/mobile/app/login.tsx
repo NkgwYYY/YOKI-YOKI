@@ -8,25 +8,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
-import { useSignIn, useSignUp, useSSO } from '@clerk/expo';
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
+import { useSignIn, useSignUp } from '@clerk/expo';
 import { Mascot } from '@/components/Mascot';
 import { Ionicons } from '@expo/vector-icons';
-
-// Preloads the browser for Android devices to reduce authentication load time
-const useWarmUpBrowser = () => {
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    void WebBrowser.warmUpAsync();
-    return () => {
-      void WebBrowser.coolDownAsync();
-    };
-  }, []);
-};
-
-// Handle any pending authentication sessions
-WebBrowser.maybeCompleteAuthSession();
 
 function clerkErrorMessage(error: unknown): string {
   const e = error as { errors?: { code?: string; longMessage?: string; message?: string }[] } | null;
@@ -200,19 +184,16 @@ function ForgotPasswordModal({
 
 // ── Login / Register screen ───────────────────────────────────────────────
 export default function LoginScreen() {
-  useWarmUpBrowser();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signIn, errors: signInErrors, fetchStatus: signInFetch } = useSignIn();
   const { signUp, fetchStatus: signUpFetch } = useSignUp();
-  const { startSSOFlow } = useSSO();
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
-  const [ssoLoading, setSsoLoading] = useState<'google' | 'apple' | null>(null);
   const [showForgot, setShowForgot] = useState(false);
 
   const loading = signInFetch === 'fetching' || signUpFetch === 'fetching';
@@ -233,32 +214,6 @@ export default function LoginScreen() {
     },
     [router],
   );
-
-  // ── OAuth (Google / Apple) ──
-  const handleSSO = useCallback(async (provider: 'google' | 'apple') => {
-    setError('');
-    setSsoLoading(provider);
-    try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: provider === 'google' ? 'oauth_google' : 'oauth_apple',
-        redirectUrl: AuthSession.makeRedirectUri(),
-      });
-      if (createdSessionId && setActive) {
-        await setActive({
-          session: createdSessionId,
-          navigate: async ({ session }) => {
-            if (session?.currentTask) return;
-            Analytics.login();
-            goHome();
-          },
-        });
-      }
-    } catch (e) {
-      setError(clerkErrorMessage(e));
-    } finally {
-      setSsoLoading(null);
-    }
-  }, [startSSOFlow, goHome]);
 
   // ── Email / password ──
   const handleSubmit = async () => {
@@ -355,47 +310,6 @@ export default function LoginScreen() {
             </View>
           ) : (
             <>
-              {/* ── Social login ── */}
-              <View style={styles.form}>
-                <TouchableOpacity
-                  style={styles.ssoBtn}
-                  onPress={() => handleSSO('google')}
-                  disabled={ssoLoading !== null}
-                  activeOpacity={0.85}
-                >
-                  {ssoLoading === 'google'
-                    ? <ActivityIndicator color="#5A3DAA" />
-                    : (
-                      <>
-                        <Ionicons name="logo-google" size={18} color="#4285F4" />
-                        <Text style={styles.ssoBtnText}>Googleでつづける</Text>
-                      </>
-                    )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.ssoBtn, styles.ssoBtnApple]}
-                  onPress={() => handleSSO('apple')}
-                  disabled={ssoLoading !== null}
-                  activeOpacity={0.85}
-                >
-                  {ssoLoading === 'apple'
-                    ? <ActivityIndicator color="#fff" />
-                    : (
-                      <>
-                        <Ionicons name="logo-apple" size={20} color="#fff" />
-                        <Text style={[styles.ssoBtnText, { color: '#fff' }]}>Appleでつづける</Text>
-                      </>
-                    )}
-                </TouchableOpacity>
-
-                <View style={styles.dividerRow}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>または</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-              </View>
-
               {/* Tabs */}
               <View style={styles.tabRow}>
                 {(['login', 'register'] as const).map(t => (
@@ -489,16 +403,6 @@ const styles = StyleSheet.create({
   mascotWrap: { alignItems: 'center', marginBottom: 28 },
   titleLogo: { width: 220, height: 33, marginTop: 12 },
   subtitle: { fontSize: 13, color: '#9E7DD5', marginTop: 6, textAlign: 'center' },
-  ssoBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#fff', borderRadius: 14, paddingVertical: 14,
-    borderWidth: 1.5, borderColor: '#DDD0F5', marginBottom: 12,
-  },
-  ssoBtnApple: { backgroundColor: '#000', borderColor: '#000' },
-  ssoBtnText: { fontSize: 15, fontWeight: '600', color: '#333' },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 10 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#DDD0F5' },
-  dividerText: { fontSize: 12, color: '#9E7DD5' },
   tabRow: {
     flexDirection: 'row', backgroundColor: '#EDE5F8',
     borderRadius: 14, padding: 4, marginBottom: 28, width: '100%',
