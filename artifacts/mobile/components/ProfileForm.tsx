@@ -214,6 +214,7 @@ const styles = StyleSheet.create({
   input: {
     borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 15, fontFamily: 'Inter_400Regular', minHeight: 48, width: '100%',
+    zIndex: 1, // web: keep the input above the card's absolute-fill gradient
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
