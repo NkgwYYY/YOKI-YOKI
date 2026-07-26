@@ -59,6 +59,7 @@ function serveManifest(platform, res) {
   const manifest = fs.readFileSync(manifestPath, 'utf-8');
   res.writeHead(200, {
     'content-type': 'application/json',
+    'cache-control': 'no-store, no-cache, must-revalidate',
     'expo-protocol-version': '1',
     'expo-sfv-version': '0',
   });
@@ -77,7 +78,10 @@ function serveLandingPage(req, res, landingPageTemplate, appName) {
     .replace(/EXPS_URL_PLACEHOLDER/g, expsUrl)
     .replace(/APP_NAME_PLACEHOLDER/g, appName);
 
-  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  res.writeHead(200, {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store, no-cache, must-revalidate',
+  });
   res.end(html);
 }
 
