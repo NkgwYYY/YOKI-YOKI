@@ -9,6 +9,7 @@ let html = fs.readFileSync(file, 'utf8');
 
 const META = `
     <meta name="google-site-verification" content="pz2YpceAZWVu-OXqardhMy8WmaPi_OXsSOugCiVPm2A" />
+    <meta name="google-site-verification" content="4R-ZlbEXRH_5og-OkUNngJYN28bYCvVGXw5IY1m5UEw" />
     <meta property="og:title" content="YOKI YOKI" />
     <meta property="og:site_name" content="YOKI YOKI" />
     <meta property="og:type" content="website" />
