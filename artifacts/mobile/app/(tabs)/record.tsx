@@ -36,6 +36,29 @@ const BEHAVIOR_TAGS = [
   '運動した', '読書した', '瞑想した', '日記を書いた',
   '友人と会った', '新しいことに挑戦', 'ゆっくり休んだ',
   '自然を感じた', '好きな音楽を聴いた', '料理をした',
+  '人に感謝された', '人に親切にした',
+];
+
+// 3-choice condition scales (1..3). Kept tiny so daily input stays light.
+const CONDITION_SCALES = [
+  {
+    key: 'exercise' as const,
+    title: '運動',
+    icon: 'walk-outline' as const,
+    options: ['なし', '軽め', 'しっかり'],
+  },
+  {
+    key: 'meal' as const,
+    title: '食事',
+    icon: 'restaurant-outline' as const,
+    options: ['乱れた', 'ふつう', '整ってた'],
+  },
+  {
+    key: 'social' as const,
+    title: '人間関係',
+    icon: 'people-outline' as const,
+    options: ['しんどい', 'ふつう', '温かい'],
+  },
 ];
 
 function MoodButton({
@@ -96,6 +119,10 @@ export default function RecordScreen() {
   const [sleep, setSleep] = useState(todayRecord?.sleep ?? 7);
   const [behaviors, setBehaviors] = useState<string[]>(todayRecord?.behaviors ?? []);
   const [notes, setNotes] = useState(todayRecord?.notes ?? '');
+  const [exercise, setExercise] = useState<number | undefined>(todayRecord?.exercise);
+  const [meal, setMeal] = useState<number | undefined>(todayRecord?.meal);
+  const [social, setSocial] = useState<number | undefined>(todayRecord?.social);
+  const [win, setWin] = useState(todayRecord?.win ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -105,8 +132,15 @@ export default function RecordScreen() {
       setSleep(todayRecord.sleep);
       setBehaviors(todayRecord.behaviors);
       setNotes(todayRecord.notes);
+      setExercise(todayRecord.exercise);
+      setMeal(todayRecord.meal);
+      setSocial(todayRecord.social);
+      setWin(todayRecord.win ?? '');
     }
   }, [todayRecord?.id]);
+
+  const scaleValues = { exercise, meal, social };
+  const scaleSetters = { exercise: setExercise, meal: setMeal, social: setSocial };
 
   const toggleBehavior = (tag: string) =>
     setBehaviors((prev) => prev.includes(tag) ? prev.filter((b) => b !== tag) : [...prev, tag]);
@@ -117,7 +151,7 @@ export default function RecordScreen() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await saveRecord(mood, sleep, behaviors, notes);
+      await saveRecord(mood, sleep, behaviors, notes, { exercise, meal, social, win });
       Analytics.moodRecorded(mood);
       setSaved(true);
       setTimeout(() => setSaved(false), 2200);
@@ -238,6 +272,77 @@ export default function RecordScreen() {
           <Text style={[styles.sleepHint, { color: colors.mutedForeground }]}>
             {sleep >= 7 ? '理想的な睡眠時間です' : sleep >= 5 ? 'もう少し睡眠を取りましょう' : '睡眠不足に注意しましょう'}
           </Text>
+        </View>
+
+        {/* Condition scales: exercise / meal / relationships */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <LinearGradient
+            colors={isDark ? ['#1A1430', '#1A1430'] : ['#FFF', '#FAF7FF']}
+            style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+          />
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>今日のコンディション</Text>
+          {CONDITION_SCALES.map((scale) => {
+            const value = scaleValues[scale.key];
+            const setValue = scaleSetters[scale.key];
+            return (
+              <View key={scale.key} style={styles.scaleRow}>
+                <View style={styles.scaleLabel}>
+                  <Ionicons name={scale.icon} size={16} color={colors.mutedForeground} />
+                  <Text style={[styles.scaleTitle, { color: colors.foreground }]}>{scale.title}</Text>
+                </View>
+                <View style={styles.scaleOptions}>
+                  {scale.options.map((label, i) => {
+                    const v = i + 1;
+                    const sel = value === v;
+                    return (
+                      <TouchableOpacity
+                        key={v}
+                        onPress={() => setValue(sel ? undefined : v)}
+                        activeOpacity={0.8}
+                        style={[
+                          styles.scaleBtn,
+                          {
+                            backgroundColor: sel ? colors.primary + '22' : colors.muted,
+                            borderColor: sel ? colors.primary : 'transparent',
+                            borderWidth: sel ? 1.5 : 0,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.scaleBtnText,
+                            { color: sel ? colors.primary : colors.mutedForeground },
+                          ]}
+                        >
+                          {label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Small win */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <LinearGradient
+            colors={isDark ? ['#1A1430', '#1A1430'] : ['#FFF', '#FAF7FF']}
+            style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+          />
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>🏆 今日の小さな成功（任意）</Text>
+          <TextInput
+            style={[
+              styles.winInput,
+              { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border },
+            ]}
+            placeholder="例：早起きできた、ありがとうと言えた"
+            placeholderTextColor={colors.mutedForeground}
+            value={win}
+            onChangeText={setWin}
+            maxLength={60}
+          />
         </View>
 
         {/* Behavior Tags */}
@@ -363,6 +468,18 @@ const styles = StyleSheet.create({
   tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tag: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 13, paddingVertical: 9, borderRadius: 22 },
   tagText: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  scaleRow: { gap: 8 },
+  scaleLabel: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  scaleTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  scaleOptions: { flexDirection: 'row', gap: 8 },
+  scaleBtn: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10, borderRadius: 12,
+  },
+  scaleBtnText: { fontSize: 12.5, fontFamily: 'Inter_500Medium' },
+  winInput: {
+    padding: 14, borderRadius: 14, fontSize: 14, fontFamily: 'Inter_400Regular', borderWidth: 1,
+  },
   notesInput: { padding: 14, borderRadius: 14, fontSize: 14, fontFamily: 'Inter_400Regular', borderWidth: 1, minHeight: 100, lineHeight: 21 },
   saveBtnWrap: { borderRadius: 16, overflow: 'hidden', marginTop: 4 },
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 18 },

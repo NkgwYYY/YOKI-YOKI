@@ -35,6 +35,18 @@ export interface DailyRecord {
   sleep: number;
   behaviors: string[];
   notes: string;
+  // Life-condition extras (optional; added later, older records won't have them)
+  exercise?: number; // 1=なし 2=軽め 3=しっかり
+  meal?: number;     // 1=乱れた 2=ふつう 3=整ってた
+  social?: number;   // 1=しんどい 2=ふつう 3=温かい
+  win?: string;      // 今日の小さな成功(1行)
+}
+
+export interface RecordExtras {
+  exercise?: number;
+  meal?: number;
+  social?: number;
+  win?: string;
 }
 
 export interface CheckedItem {
@@ -113,7 +125,7 @@ interface AppContextType {
   addChecklistItem: (text: string, category: ChecklistCategory) => Promise<void>;
   removeChecklistItem: (id: string) => Promise<void>;
   resetChecklistToDefaults: () => Promise<void>;
-  saveRecord: (mood: number, sleep: number, behaviors: string[], notes: string) => Promise<void>;
+  saveRecord: (mood: number, sleep: number, behaviors: string[], notes: string, extras?: RecordExtras) => Promise<void>;
   getTodayRecord: () => DailyRecord | undefined;
   getCompletedCount: () => number;
   getTotalCheckCount: () => number;
@@ -475,7 +487,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   const saveRecord = useCallback(
-    async (mood: number, sleep: number, behaviors: string[], notes: string) => {
+    async (mood: number, sleep: number, behaviors: string[], notes: string, extras?: RecordExtras) => {
       const today = getTodayDate();
       const yesterday = getYesterdayDate();
       const existingIndex = records.findIndex((r) => r.date === today);
@@ -488,6 +500,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sleep,
         behaviors,
         notes,
+        exercise: extras?.exercise,
+        meal: extras?.meal,
+        social: extras?.social,
+        win: extras?.win?.trim() || undefined,
       };
 
       const newRecords = isNew

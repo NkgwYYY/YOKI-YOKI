@@ -143,7 +143,7 @@ export default function ChatScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
-  const { progress, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
+  const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
           currentSatiety, inactivityHours } = useApp();
 
   const todayRecord = getTodayRecord();
@@ -218,10 +218,35 @@ export default function ChatScreen() {
         .slice(-MAX_CONTEXT)
         .map(m => ({ role: m.role, content: m.content }));
 
+      // Compact life-condition context so the mascot knows how the user is really doing
+      const recent = records.slice(-14);
+      const todayRec = getTodayRecord();
+      const avgOf = (nums: number[]) =>
+        nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : null;
+      const ctxParts: string[] = [];
+      if (recent.length) {
+        ctxParts.push(`直近${recent.length}日: 平均気分${avgOf(recent.map(r => r.mood))}/5, 平均睡眠${avgOf(recent.map(r => r.sleep))}h`);
+      }
+      if (todayRec) {
+        ctxParts.push(
+          `今日の記録: 気分${todayRec.mood}/5, 睡眠${todayRec.sleep}h` +
+          (todayRec.behaviors.length ? `, したこと[${todayRec.behaviors.join(',')}]` : '') +
+          (todayRec.win ? `, 小さな成功「${todayRec.win}」` : '')
+        );
+      }
+      const recentWins = recent.map(r => r.win).filter(Boolean).slice(-3);
+      if (recentWins.length) ctxParts.push(`最近の小さな成功: ${recentWins.join(' / ')}`);
+      if (progress?.streak) ctxParts.push(`連続記録${progress.streak}日目`);
+
       const res = await fetch(`${API_BASE}/chat/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history, mascotName: displayName, mascotStage }),
+        body: JSON.stringify({
+          messages: history,
+          mascotName: displayName,
+          mascotStage,
+          context: ctxParts.join('\n') || undefined,
+        }),
       });
       const data = await res.json();
       const assistantMsg: Message = {
@@ -244,7 +269,7 @@ export default function ChatScreen() {
       setIsLoading(false);
       scrollToBottom();
     }
-  }, [input, isLoading, messages, displayName, mascotStage, scrollToBottom]);
+  }, [input, isLoading, messages, displayName, mascotStage, records, progress, getTodayRecord, scrollToBottom]);
 
   const sendBtnStyle = useAnimatedStyle(() => ({ transform: [{ scale: sendScale.value }] }));
 
