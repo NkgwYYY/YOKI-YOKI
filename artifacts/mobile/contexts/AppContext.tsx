@@ -42,6 +42,17 @@ export interface DailyRecord {
   win?: string;      // 今日の小さな成功(1行)
 }
 
+export interface UserProfile {
+  nickname: string;
+  ageRange: string;   // '10代' | '20代' | ... | '70代以上' | '回答しない'
+  gender: string;     // '男性' | '女性' | 'その他' | '回答しない'
+  goal?: string;      // 今の目標
+  mbti?: string;      // 例: 'INTP'
+  bloodType?: string; // 'A' | 'B' | 'O' | 'AB'
+  occupation?: string;
+  concerns?: string[]; // 悩み(仕事・恋愛・健康など)
+}
+
 export interface RecordExtras {
   exercise?: number;
   meal?: number;
@@ -92,6 +103,7 @@ const KEYS = {
   FEED_STATE: '@mentore/feed_state_v1',
   LAST_OPENED: '@mentore/last_opened_v1',
   MINI_GAME: '@mentore/mini_game_v1',
+  PROFILE: '@mentore/profile_v1',
 };
 
 /** Compute current satiety based on elapsed time since last feed */
@@ -120,6 +132,10 @@ interface AppContextType {
   currentSatiety: number;
   inactivityHours: number;
   miniGameState: MiniGameState;
+  profile: UserProfile | null;
+  /** True once the post-login cloud pull has finished (safe to decide onboarding) */
+  cloudSynced: boolean;
+  saveProfile: (profile: UserProfile) => Promise<void>;
   clearNewBadge: () => void;
   toggleCheckItem: (id: string) => Promise<void>;
   addChecklistItem: (text: string, category: ChecklistCategory) => Promise<void>;
@@ -170,6 +186,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [feedState, setFeedState] = useState<FeedState>(defaultFeedState);
   const [inactivityHours, setInactivityHours] = useState(0);
   const [miniGameState, setMiniGameState] = useState<MiniGameState>(DEFAULT_MINI_GAME_STATE);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [cloudSynced, setCloudSynced] = useState(false);
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
@@ -199,15 +217,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch { /* fire-and-forget */ }
   }, []);
 
-  const pullDataFromCloud = useCallback(async () => {
-    if (!signedInRef.current) return;
+  const pullDataFromCloud = useCallback(async (): Promise<boolean> => {
+    if (!signedInRef.current) return false;
     const t = await getTokenRef.current();
-    if (!t) return;
+    if (!t) return false;
     try {
       const res = await fetch(`${API_BASE}/sync`, {
         headers: { Authorization: `Bearer ${t}` },
       });
-      if (!res.ok) return;
+      if (!res.ok) return false;
       const { data } = await res.json() as { data: Record<string, unknown> };
       // Write cloud data to AsyncStorage
       await Promise.all(
@@ -215,7 +233,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
         )
       );
-    } catch { /* ignore */ }
+      // Profile gates onboarding: if the cloud snapshot has no profile,
+      // drop any stale local one (e.g. from a previous account on this device)
+      if (!(KEYS.PROFILE in data)) {
+        await AsyncStorage.removeItem(KEYS.PROFILE);
+      }
+      return true;
+    } catch { return false; }
   }, []);
 
   // ─── Load all data from local storage (+ cloud on login) ─────────────
@@ -230,15 +254,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       prevSignedIn.current = true;
       (async () => {
         pullingRef.current = true;
+        let ok = false;
         try {
-          await pullDataFromCloud();
+          ok = await pullDataFromCloud();
           await loadAll();
         } finally {
           pullingRef.current = false;
+          // Only mark synced when the pull actually succeeded, so a failed
+          // pull can't send an existing user (with a cloud profile) to onboarding
+          if (ok) setCloudSynced(true);
         }
       })();
     }
-    if (!isSignedIn) prevSignedIn.current = false;
+    if (!isSignedIn) {
+      prevSignedIn.current = false;
+      setCloudSynced(false);
+    }
   }, [isSignedIn]);
 
   const buildFreshCheckedState = (items: ChecklistItemDef[]): CheckedState => {
@@ -252,7 +283,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr] =
+      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
           AsyncStorage.getItem(KEYS.RECORDS),
@@ -264,6 +295,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.FEED_STATE),
           AsyncStorage.getItem(KEYS.LAST_OPENED),
           AsyncStorage.getItem(KEYS.MINI_GAME),
+          AsyncStorage.getItem(KEYS.PROFILE),
         ]);
 
       if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
@@ -288,6 +320,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (nameStr)     setMascotNameState(nameStr);
       if (feedStr)     setFeedState(JSON.parse(feedStr));
       setMiniGameState(resolveMiniGameState(miniGameStr ? JSON.parse(miniGameStr) : null));
+      if (profileStr) {
+        try { setProfile(JSON.parse(profileStr)); } catch { setProfile(null); }
+      } else {
+        setProfile(null);
+      }
       setChecklistItems(loadedItems);
 
       if (checkedStr) {
@@ -560,6 +597,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const getTotalCheckCount = useCallback(() => checkedState.items.length, [checkedState]);
   const clearNewBadge = useCallback(() => setNewlyUnlockedBadge(null), []);
 
+  const saveProfile = useCallback(async (p: UserProfile) => {
+    setProfile(p);
+    await AsyncStorage.setItem(KEYS.PROFILE, JSON.stringify(p));
+    pushDataToCloud();
+  }, [pushDataToCloud]);
+
   const setMascotName = useCallback(async (name: string) => {
     setMascotNameState(name);
     await AsyncStorage.setItem(KEYS.MASCOT_NAME, name);
@@ -610,6 +653,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentSatiety,
         inactivityHours,
         miniGameState,
+        profile,
+        cloudSynced,
+        saveProfile,
         clearNewBadge,
         toggleCheckItem,
         addChecklistItem,

@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
+import { profileToContext } from '@/utils/profileContext';
 import { Mascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
 
@@ -144,7 +145,7 @@ export default function ChatScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
-          currentSatiety, inactivityHours } = useApp();
+          currentSatiety, inactivityHours, profile } = useApp();
 
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
@@ -224,6 +225,8 @@ export default function ChatScreen() {
       const avgOf = (nums: number[]) =>
         nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : null;
       const ctxParts: string[] = [];
+      const profileLine = profileToContext(profile);
+      if (profileLine) ctxParts.push(`ユーザーのプロフィール: ${profileLine}`);
       if (recent.length) {
         ctxParts.push(`直近${recent.length}日: 平均気分${avgOf(recent.map(r => r.mood))}/5, 平均睡眠${avgOf(recent.map(r => r.sleep))}h`);
       }
@@ -269,7 +272,7 @@ export default function ChatScreen() {
       setIsLoading(false);
       scrollToBottom();
     }
-  }, [input, isLoading, messages, displayName, mascotStage, records, progress, getTodayRecord, scrollToBottom]);
+  }, [input, isLoading, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom]);
 
   const sendBtnStyle = useAnimatedStyle(() => ({ transform: [{ scale: sendScale.value }] }));
 

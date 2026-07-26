@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { profileToContext } from '@/utils/profileContext';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const STORAGE_KEY = '@mentore/insight_v1';
@@ -30,7 +31,7 @@ function todayStr() {
 export function InsightCard() {
   const colors = useColors();
   const isDark = useColorScheme() === 'dark';
-  const { records, progress, checkedState, unlockedBadges, mascotName } = useApp();
+  const { records, progress, checkedState, unlockedBadges, mascotName, profile } = useApp();
   const { getToken } = useAuth();
 
   const [insights, setInsights] = useState<Insight[] | null>(null);
@@ -58,6 +59,7 @@ export function InsightCard() {
     try {
       const payload = {
         mascotName,
+        profile: profileToContext(profile),
         records: records.slice(-365).map(r => ({
           date: r.date,
           mood: r.mood,

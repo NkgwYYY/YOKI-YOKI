@@ -132,6 +132,14 @@ export default function GrowthScreen() {
                 <Text style={[styles.logoutEmail, { color: colors.mutedForeground }]}>{user.email}</Text>
               )}
               <TouchableOpacity
+                style={[styles.profileBtn, { backgroundColor: colors.muted }]}
+                onPress={() => { setShowLogout(false); router.push('/profile'); }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="create-outline" size={18} color={colors.foreground} />
+                <Text style={[styles.profileBtnText, { color: colors.foreground }]}>プロフィールを編集</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
                 style={styles.logoutBtn}
                 onPress={handleLogout}
                 activeOpacity={0.85}
@@ -325,6 +333,11 @@ const styles = StyleSheet.create({
     padding: 24, alignItems: 'center',
   },
   logoutEmail: { fontSize: 13, fontFamily: 'Inter_400Regular', marginBottom: 20 },
+  profileBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, marginBottom: 10,
+  },
+  profileBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#EF4444', borderRadius: 14,

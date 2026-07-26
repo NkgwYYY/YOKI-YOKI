@@ -15,7 +15,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { ClerkProvider, ClerkLoaded } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
-import { AppProvider } from '@/contexts/AppContext';
+import { AppProvider, useApp } from '@/contexts/AppContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { initAnalytics } from '@/utils/analytics';
 
@@ -29,6 +29,7 @@ const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 function AuthGate() {
   const { isSignedIn, isLoading } = useAuth();
+  const { profile, cloudSynced } = useApp();
   const segments = useSegments();
   const router = useRouter();
 
@@ -41,8 +42,14 @@ function AuthGate() {
       router.replace('/login');
     } else if (isSignedIn && segments[0] === 'login') {
       router.replace('/(tabs)');
+    } else if (isSignedIn && cloudSynced && !profile && segments[0] !== 'onboarding') {
+      // First time after sign-up: collect profile (only after cloud pull, so
+      // existing users with a saved profile don't get flashed the onboarding)
+      router.replace('/onboarding');
+    } else if (isSignedIn && profile && segments[0] === 'onboarding') {
+      router.replace('/(tabs)');
     }
-  }, [isSignedIn, isLoading, segments]);
+  }, [isSignedIn, isLoading, cloudSynced, profile, segments]);
 
   return null;
 }
@@ -54,6 +61,8 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="profile" options={{ headerShown: false }} />
       </Stack>
     </>
   );
