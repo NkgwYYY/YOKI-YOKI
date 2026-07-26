@@ -244,8 +244,18 @@ export default function HomeScreen() {
               </Text>
             </View>
 
-            {/* ── Streak badge ── */}
-            <View style={styles.streakWrap}>
+            {/* ── Help + Streak badge ── */}
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                onPress={() => router.push('/guide')}
+                hitSlop={8}
+                activeOpacity={0.8}
+                style={[styles.helpBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              >
+                <Ionicons name="help-circle-outline" size={20} color={colors.mutedForeground} />
+                <Text style={[styles.helpText, { color: colors.mutedForeground }]}>使い方</Text>
+              </TouchableOpacity>
+              <View style={styles.streakWrap}>
               <LinearGradient
                 colors={progress.streak > 0 ? ['#FF6FA3', '#FF9A3C'] : ['#6B7280', '#9CA3AF']}
                 style={styles.streakBadge}
@@ -258,6 +268,7 @@ export default function HomeScreen() {
               <Text style={[styles.streakLabel, { color: colors.mutedForeground }]}>
                 {progress.streak >= 7 ? '🏆 継続中！' : '連続記録'}
               </Text>
+              </View>
             </View>
           </View>
         </FadeIn>
@@ -644,6 +655,12 @@ const styles = StyleSheet.create({
 
   // Streak
   streakWrap: { alignItems: 'center', gap: 4 },
+  headerRight: { alignItems: 'flex-end', gap: 8 },
+  helpBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
+  },
+  helpText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
   streakBadge: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18, minWidth: 72, gap: 0 },
   streakFlame: { fontSize: 18, lineHeight: 22 },
   streakNum: { fontSize: 22, fontFamily: 'Inter_700Bold', color: '#FFF', lineHeight: 26 },
