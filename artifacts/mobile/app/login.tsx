@@ -43,7 +43,9 @@ function clerkErrorMessage(error: unknown): string {
   }
   // If the message is already Japanese, show it; otherwise show a generic Japanese message
   if (/[ぁ-んァ-ン一-龥]/.test(raw)) return raw;
-  return 'エラーが発生しました。もう一度お試しください';
+  return raw
+    ? `エラーが発生しました。もう一度お試しください（${raw}）`
+    : 'エラーが発生しました。もう一度お試しください';
 }
 
 // ── Forgot-password flow (Clerk: email code → new password) ──────────────
