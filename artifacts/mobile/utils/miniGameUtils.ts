@@ -2,18 +2,20 @@ import { getTodayDate } from './dateUtils';
 
 export type GameSlot = 'morning' | 'noon' | 'night';
 
+export const MAX_PLAYS_PER_SLOT = 2; // 1スロットあたり最大プレイ回数
+
 export interface MiniGameState {
   date: string;
-  morning: boolean;
-  noon: boolean;
-  night: boolean;
+  morning: number;
+  noon: number;
+  night: number;
 }
 
 export const DEFAULT_MINI_GAME_STATE: MiniGameState = {
   date: '',
-  morning: false,
-  noon: false,
-  night: false,
+  morning: 0,
+  noon: 0,
+  night: 0,
 };
 
 export function getCurrentSlot(): GameSlot | null {
@@ -28,8 +30,8 @@ export function getSlotConfig(slot: GameSlot) {
   return {
     morning: {
       label: '朝のゲーム',
-      title: '☀️ 朝日を集めよう',
-      description: '10秒で太陽をタップ！',
+      title: '☀️ 朝のゲーム',
+      description: '10秒でタップ！',
       emoji: '☀️',
       color: '#FFB347',
       gradient: ['#FFD700', '#FFB347'] as const,
@@ -38,8 +40,8 @@ export function getSlotConfig(slot: GameSlot) {
     },
     noon: {
       label: '昼のゲーム',
-      title: '☕ おやつ探し',
-      description: '3つの宝箱から1つ選ぼう',
+      title: '☕ 昼のゲーム',
+      description: 'ラッキーを探そう',
       emoji: '🎁',
       color: '#7C3AED',
       gradient: ['#A855F7', '#7C3AED'] as const,
@@ -48,8 +50,8 @@ export function getSlotConfig(slot: GameSlot) {
     },
     night: {
       label: '夜のゲーム',
-      title: '🌙 星集め',
-      description: '10秒で流れ星をタップ！',
+      title: '🌙 夜のゲーム',
+      description: '10秒でタップ！',
       emoji: '⭐',
       color: '#3B82F6',
       gradient: ['#6366F1', '#3B82F6'] as const,
@@ -59,11 +61,17 @@ export function getSlotConfig(slot: GameSlot) {
   }[slot];
 }
 
-/** Returns fresh state if date changed */
+/** Returns fresh state if date changed, handles migration from boolean */
 export function resolveMiniGameState(stored: MiniGameState | null): MiniGameState {
   const today = getTodayDate();
   if (!stored || stored.date !== today) {
-    return { date: today, morning: false, noon: false, night: false };
+    return { date: today, morning: 0, noon: 0, night: 0 };
   }
-  return stored;
+  // Migrate from old boolean format
+  return {
+    date: stored.date,
+    morning: typeof stored.morning === 'boolean' ? (stored.morning ? 1 : 0) : (stored.morning || 0),
+    noon:    typeof stored.noon    === 'boolean' ? (stored.noon    ? 1 : 0) : (stored.noon    || 0),
+    night:   typeof stored.night   === 'boolean' ? (stored.night   ? 1 : 0) : (stored.night   || 0),
+  };
 }

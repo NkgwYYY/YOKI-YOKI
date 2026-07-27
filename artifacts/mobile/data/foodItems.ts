@@ -73,7 +73,7 @@ export const FP_PER_FULL_DAY_BONUS = 10;
 export const FP_PER_MOOD_RECORD = 5;
 
 // Satiety decays: 100 → 0 over 24 hours = ~4.17/hr
-export const SATIETY_DECAY_PER_HOUR = 100 / 24;
+export const SATIETY_DECAY_PER_HOUR = 100 / 36; // 36時間でゼロになるペース
 
 export const RARITY_COLORS: Record<FoodRarity, { bg: string; text: string; border: string }> = {
   common:  { bg: '#F0F5FF', text: '#6B7280', border: '#E2E8F0' },

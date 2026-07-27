@@ -13,7 +13,7 @@ import {
   Image,
 } from 'react-native';
 import { MiniGameModal } from '@/components/MiniGameModal';
-import { getCurrentSlot, getSlotConfig, GameSlot } from '@/utils/miniGameUtils';
+import { getCurrentSlot, getSlotConfig, GameSlot, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -134,7 +134,8 @@ export default function HomeScreen() {
 
   const [showMiniGame, setShowMiniGame] = useState(false);
   const currentSlot = getCurrentSlot();
-  const slotDone = currentSlot ? miniGameState[currentSlot] : true;
+  const slotPlays = currentSlot ? (miniGameState[currentSlot] || 0) : MAX_PLAYS_PER_SLOT;
+  const slotDone = slotPlays >= MAX_PLAYS_PER_SLOT;
 
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
@@ -489,7 +490,7 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.quickText}>
                   <Text style={[styles.quickTitle, { color: colors.foreground }]}>{getSlotConfig(currentSlot).label}</Text>
-                  <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>今日はもう遊んだよ！また明日ね ✨</Text>
+                  <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>今日のゲームは終わったよ！また明日ね ✨</Text>
                 </View>
                 <View style={[styles.doneDot, { backgroundColor: colors.primary }]} />
                 <Text style={[styles.doneLabel, { color: colors.mutedForeground }]}>完了</Text>
@@ -505,7 +506,9 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.quickText}>
                   <Text style={[styles.quickTitle, { color: colors.foreground }]}>{getSlotConfig(currentSlot).label}</Text>
-                  <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>{getSlotConfig(currentSlot).rewardLabel}</Text>
+                  <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
+                    {slotPlays > 0 ? `あと1回できるよ！ ` : ''}{getSlotConfig(currentSlot).rewardLabel}
+                  </Text>
                 </View>
                 <View style={[styles.playBtn, { backgroundColor: getSlotConfig(currentSlot).color }]}>
                   <Text style={styles.playBtnText}>あそぶ</Text>

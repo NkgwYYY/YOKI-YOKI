@@ -64,23 +64,28 @@ ${String(context).slice(0, 1500)}
     ];
 
     // Stress classifier: runs in parallel, checks only recent user messages
-    const recentUserTexts = messages
+    // 直近1件のユーザー発言のみで判定（過去文脈による誤発火を防ぐ）
+    const latestUserText = messages
       .filter((m) => m.role === "user")
-      .slice(-3)
+      .slice(-1)
       .map((m) => m.content)
-      .join("\n");
+      .join("");
 
     const stressPrompt = `以下はメンタルトレーニングアプリでのユーザーの発言です。
-疲労・強いストレス・辛さが読み取れるか判定してください。
+明確な疲弊・強いストレス・辛さの直接表現があるか判定してください。
 
-判定基準（どれか1つでも当てはまれば yes）:
+判定基準（次のような言葉が直接含まれている場合のみ yes）:
 - 「疲れた」「しんどい」「つらい」「きつい」「しんどすぎ」「もう無理」「限界」
 - 「やる気でない」「眠れない」「ぐったり」「へとへと」「消えたい」「怠い」
-- 複数の発言にわたって重さや疲弊が続いている
-- 絶望的・投げやりな表現
+- 「死にたい」「消えたい」「もう嫌」「最悪」などの強い絶望表現
+
+以下の場合は必ず no:
+- 日常会話・雑談・質問
+- 軽い愚痴や普通のネガティブ（「ちょっと疲れた」程度）
+- ポジティブな内容や中立的な内容
 
 発言:
-${recentUserTexts}
+${latestUserText}
 
 「yes」か「no」のみ答えてください。`;
 

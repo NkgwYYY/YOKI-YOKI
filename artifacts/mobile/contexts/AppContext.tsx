@@ -611,7 +611,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp?: number; xp?: number }) => {
     // Mark slot as done
-    const next: MiniGameState = { ...miniGameState, [slot]: true };
+    const next: MiniGameState = { ...miniGameState, [slot]: (miniGameState[slot] || 0) + 1 };
     setMiniGameState(next);
     await AsyncStorage.setItem(KEYS.MINI_GAME, JSON.stringify(next));
 
