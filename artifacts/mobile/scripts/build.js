@@ -565,6 +565,38 @@ async function buildWeb(domain) {
     proc.on('close', (code) => {
       if (code === 0) {
         console.log('Web build complete');
+        // Inject meta tags into the web index.html
+        try {
+          const indexPath = path.join(webBuildDir, 'index.html');
+          if (fs.existsSync(indexPath)) {
+            let html = fs.readFileSync(indexPath, 'utf8');
+            if (!html.includes('google-site-verification')) {
+              const META = [
+                '<meta name="google-site-verification" content="pz2YpceAZWVu-OXqardhMy8WmaPi_OXsSOugCiVPm2A" />',
+                '<meta name="google-site-verification" content="4R-ZlbEXRH_5og-OkUNngJYN28bYCvVGXw5IY1m5UEw" />',
+                '<meta property="og:title" content="YOKI YOKI" />',
+                '<meta property="og:site_name" content="YOKI YOKI" />',
+                '<meta property="og:type" content="website" />',
+                '<meta property="og:description" content="こころを育てるメンタルケアアプリ" />',
+                '<meta name="description" content="こころを育てるメンタルケアアプリ" />',
+              ].join('\n    ');
+              html = html.replace('<title>', `${META}\n    <title>`);
+              html = html.replace('<html lang="en">', '<html lang="ja">');
+              fs.writeFileSync(indexPath, html);
+              console.log('Injected meta tags into web index.html');
+            }
+            // Copy web-extras (Google verification HTML files, etc.)
+            const extrasDir = path.join(projectRoot, 'web-extras');
+            if (fs.existsSync(extrasDir)) {
+              for (const file of fs.readdirSync(extrasDir)) {
+                fs.copyFileSync(path.join(extrasDir, file), path.join(webBuildDir, file));
+              }
+              console.log('Copied web-extras to web build');
+            }
+          }
+        } catch (e) {
+          console.warn('Meta injection warning (non-fatal):', e.message);
+        }
         resolve();
       } else {
         // Web build failure is non-fatal — native will still work
