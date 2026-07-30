@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "7w_yHqM0fZgDfEHKAJqGL"
+uri = "file://attached_assets/egg_awake_preview.jpg"
+type = "image"
+title = "起きてるバージョンの表情一覧"
