@@ -51,7 +51,7 @@ function EggImage({ mood, size }: { mood: MascotMood; size: number }) {
   /* まばたき（起きている気分のみ、2〜4.5秒間隔でランダム） */
   const [blinking, setBlinking] = useState(false);
   useEffect(() => {
-    if (mood === 'sleepy' || mood === 'tired') { setBlinking(false); return; }
+    if (mood === 'sleepy') { setBlinking(false); return; }
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     const loop = () => {
@@ -633,7 +633,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
   useEffect(() => { wakeUpRef.current = wakeUp; });
 
   const effMood: MascotMood =
-    awake && mood === 'sleepy' ? 'happy' : mood;
+    awake && (mood === 'sleepy' || mood === 'tired') ? 'happy' : mood;
   const effIdle: IdleBehavior =
     awake && idleBehavior === 'sleeping' ? 'normal' : idleBehavior;
 
