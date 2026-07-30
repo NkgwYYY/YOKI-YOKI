@@ -13,26 +13,27 @@ import Svg, {
   Circle, Ellipse, Path, G, Defs,
   RadialGradient, Stop, Line, Rect,
 } from 'react-native-svg';
-import { Video, ResizeMode } from 'expo-av';
+import { Image } from 'react-native';
 import { MascotStage, MascotMood, IdleBehavior, EvolutionType } from '@/utils/mascotUtils';
 
-/* ── たまごステージ: アップロード動画をそのまま使用 ── */
-const EGG_VIDEO = require('../assets/videos/egg.mp4');
+/* ── たまごステージ: 動画から切り出した透過画像（気分ごとに表情切替） ── */
+const EGG_IMAGES: Record<MascotMood, ReturnType<typeof require>> = {
+  normal:  require('../assets/images/egg/normal.png'),
+  happy:   require('../assets/images/egg/happy.png'),
+  excited: require('../assets/images/egg/excited.png'),
+  grumpy:  require('../assets/images/egg/grumpy.png'),
+  tired:   require('../assets/images/egg/tired.png'),
+  sleepy:  require('../assets/images/egg/sleepy.png'),
+};
 
-function EggVideo({ size }: { size: number }) {
+function EggImage({ mood, size }: { mood: MascotMood; size: number }) {
   return (
-    <View style={{ width: size, height: size, borderRadius: size * 0.24, overflow: 'hidden' }}>
-      <Video
-        source={EGG_VIDEO}
-        style={{ width: size, height: size }}
-        resizeMode={ResizeMode.COVER}
-        shouldPlay
-        isLooping
-        isMuted
-        // @ts-ignore web用
-        videoStyle={{ width: '100%', height: '100%' }}
-      />
-    </View>
+    <Image
+      source={EGG_IMAGES[mood] ?? EGG_IMAGES.normal}
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+      fadeDuration={0}
+    />
   );
 }
 
@@ -787,7 +788,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       <View>
         <Animated.View style={style}>
           {stage === 'egg'
-            ? <EggVideo size={size} />
+            ? <EggImage mood={mood} size={size} />
             : <SvgComponent mood={mood} size={size} />}
         </Animated.View>
         {idleBehavior === 'sleeping' && <ZzzOverlay size={size} />}
