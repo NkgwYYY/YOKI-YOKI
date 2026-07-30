@@ -184,39 +184,135 @@ function Mouth({ mood, cx, mouthY }: { mood: MascotMood; cx: number; mouthY: num
     stroke="#1A0A3C" strokeWidth="2.8" fill="none" strokeLinecap="round" />;
 }
 
+/* ─── Egg専用パーツ（動画のリアル調たまごに合わせた点目スタイル） ─── */
+function EggEyes({ mood, leftX, rightX, eyeY }: {
+  mood: MascotMood; leftX: number; rightX: number; eyeY: number;
+}) {
+  const INK = '#1F1B24';
+  if (mood === 'sleepy') {
+    // ほぼ閉じた目（まぶた線）
+    return (
+      <G>
+        <Path d={`M ${leftX - 5} ${eyeY} Q ${leftX} ${eyeY + 3} ${leftX + 5} ${eyeY}`}
+          stroke={INK} strokeWidth="2.2" fill="none" strokeLinecap="round" />
+        <Path d={`M ${rightX - 5} ${eyeY} Q ${rightX} ${eyeY + 3} ${rightX + 5} ${eyeY}`}
+          stroke={INK} strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      </G>
+    );
+  }
+  if (mood === 'tired') {
+    // 半目（まぶたが半分かぶる）
+    return (
+      <G>
+        <Circle cx={leftX}  cy={eyeY} r={4.5} fill={INK} />
+        <Circle cx={rightX} cy={eyeY} r={4.5} fill={INK} />
+        <Rect x={leftX - 5.5}  y={eyeY - 6} width={11} height={5.5} rx={2.5} fill="#F3EEF7" />
+        <Rect x={rightX - 5.5} y={eyeY - 6} width={11} height={5.5} rx={2.5} fill="#F3EEF7" />
+        <Path d={`M ${leftX - 5} ${eyeY - 1} L ${leftX + 5} ${eyeY - 1}`}
+          stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+        <Path d={`M ${rightX - 5} ${eyeY - 1} L ${rightX + 5} ${eyeY - 1}`}
+          stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+      </G>
+    );
+  }
+  if (mood === 'excited') {
+    // 大きめキラキラ目
+    return (
+      <G>
+        <Circle cx={leftX}  cy={eyeY} r={5.5} fill={INK} />
+        <Circle cx={rightX} cy={eyeY} r={5.5} fill={INK} />
+        <Circle cx={leftX - 1.5}  cy={eyeY - 1.5} r={1.8} fill="white" />
+        <Circle cx={rightX - 1.5} cy={eyeY - 1.5} r={1.8} fill="white" />
+        <Circle cx={leftX + 1.8}  cy={eyeY + 1.8} r={0.9} fill="white" />
+        <Circle cx={rightX + 1.8} cy={eyeY + 1.8} r={0.9} fill="white" />
+      </G>
+    );
+  }
+  if (mood === 'grumpy') {
+    // 点目＋への字まゆ
+    return (
+      <G>
+        <Circle cx={leftX}  cy={eyeY} r={4.5} fill={INK} />
+        <Circle cx={rightX} cy={eyeY} r={4.5} fill={INK} />
+        <Circle cx={leftX - 1.2}  cy={eyeY - 1.2} r={1.3} fill="white" />
+        <Circle cx={rightX - 1.2} cy={eyeY - 1.2} r={1.3} fill="white" />
+        <Line x1={leftX - 5} y1={eyeY - 8} x2={leftX + 4} y2={eyeY - 11}
+          stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
+        <Line x1={rightX - 4} y1={eyeY - 11} x2={rightX + 5} y2={eyeY - 8}
+          stroke={INK} strokeWidth="2.2" strokeLinecap="round" />
+      </G>
+    );
+  }
+  // normal / happy: 動画そのままの丸い点目
+  return (
+    <G>
+      <Circle cx={leftX}  cy={eyeY} r={4.5} fill={INK} />
+      <Circle cx={rightX} cy={eyeY} r={4.5} fill={INK} />
+      <Circle cx={leftX - 1.2}  cy={eyeY - 1.2} r={1.3} fill="white" />
+      <Circle cx={rightX - 1.2} cy={eyeY - 1.2} r={1.3} fill="white" />
+    </G>
+  );
+}
+
+function EggMouth({ mood, cx, mouthY }: { mood: MascotMood; cx: number; mouthY: number }) {
+  const INK = '#1F1B24';
+  if (mood === 'excited') {
+    return <Ellipse cx={cx} cy={mouthY} rx={5} ry={4} fill={INK} />;
+  }
+  if (mood === 'happy') {
+    return <Path d={`M ${cx - 7} ${mouthY - 2} Q ${cx} ${mouthY + 4} ${cx + 7} ${mouthY - 2}`}
+      stroke={INK} strokeWidth="2.4" fill="none" strokeLinecap="round" />;
+  }
+  if (mood === 'sleepy') {
+    return <Path d={`M ${cx - 4} ${mouthY} Q ${cx} ${mouthY + 2} ${cx + 4} ${mouthY}`}
+      stroke={INK} strokeWidth="2" fill="none" strokeLinecap="round" />;
+  }
+  // normal / grumpy / tired: 動画のへの字口
+  return <Path d={`M ${cx - 7} ${mouthY + 1} Q ${cx} ${mouthY - 5} ${cx + 7} ${mouthY + 1}`}
+    stroke={INK} strokeWidth="2.4" fill="none" strokeLinecap="round" />;
+}
+
 /* ─── Stage SVGs ─── */
 function EggSvg({ mood, size }: { mood: MascotMood; size: number }) {
   const cx = 60;
   return (
     <Svg width={size} height={size} viewBox="0 0 120 130">
       <Defs>
-        <RadialGradient id="eggGrad" cx="38%" cy="30%" r="65%">
+        <RadialGradient id="eggGrad" cx="40%" cy="32%" r="70%">
           <Stop offset="0%"   stopColor="#FFFFFF" />
-          <Stop offset="60%"  stopColor="#F7F4FF" />
-          <Stop offset="100%" stopColor="#E8E0F8" />
+          <Stop offset="55%"  stopColor="#FDFCFB" />
+          <Stop offset="85%"  stopColor="#F1EDE9" />
+          <Stop offset="100%" stopColor="#E2DBD5" />
         </RadialGradient>
-        <RadialGradient id="eggShine" cx="35%" cy="25%" r="40%">
-          <Stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.9" />
+        <RadialGradient id="eggShine" cx="35%" cy="22%" r="38%">
+          <Stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.95" />
           <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
         </RadialGradient>
       </Defs>
       {/* 影 */}
-      <Ellipse cx={cx} cy={119} rx={30} ry={7} fill="#00000018" />
-      {/* ボディ */}
-      <Ellipse cx={cx} cy={70} rx={41} ry={51} fill="url(#eggGrad)" />
+      <Ellipse cx={cx} cy={119} rx={28} ry={6} fill="#00000014" />
+      {/* ボディ（上がやや細いたまご型） */}
+      <Path
+        d={`M 60 19
+            C 40 19, 22 42, 22 74
+            C 22 100, 39 121, 60 121
+            C 81 121, 98 100, 98 74
+            C 98 42, 80 19, 60 19 Z`}
+        fill="url(#eggGrad)"
+      />
       {/* ハイライト */}
-      <Ellipse cx={cx - 8} cy={50} rx={20} ry={16} fill="url(#eggShine)" />
-      {/* 紫ボルト（⚡ 形） */}
-      <Path d="M 50 23 L 44 37 L 51 37 L 45 51"
-        stroke="#8B5CF6" strokeWidth="4" fill="none"
+      <Ellipse cx={cx - 10} cy={44} rx={16} ry={13} fill="url(#eggShine)" />
+      {/* 細い紫ボルト（頭のてっぺん寄り） */}
+      <Path d="M 66 27 L 60 38 L 66 40 L 59 52"
+        stroke="#A78BFA" strokeWidth="3" fill="none"
         strokeLinecap="round" strokeLinejoin="round" />
       {/* 目 */}
-      <Eyes mood={mood} cx={cx} leftX={46} rightX={74} eyeY={70} />
+      <EggEyes mood={mood} leftX={48} rightX={72} eyeY={70} />
       {/* ほっぺ */}
-      <Ellipse cx={34} cy={82} rx={10} ry={6.5} fill="#FFB3C6" opacity="0.55" />
-      <Ellipse cx={86} cy={82} rx={10} ry={6.5} fill="#FFB3C6" opacity="0.55" />
+      <Ellipse cx={38} cy={80} rx={7.5} ry={5} fill="#F9A8C0" opacity="0.7" />
+      <Ellipse cx={82} cy={80} rx={7.5} ry={5} fill="#F9A8C0" opacity="0.7" />
       {/* 口 */}
-      <Mouth mood={mood} cx={cx} mouthY={90} />
+      <EggMouth mood={mood} cx={cx} mouthY={82} />
     </Svg>
   );
 }
