@@ -13,7 +13,28 @@ import Svg, {
   Circle, Ellipse, Path, G, Defs,
   RadialGradient, Stop, Line, Rect,
 } from 'react-native-svg';
+import { Video, ResizeMode } from 'expo-av';
 import { MascotStage, MascotMood, IdleBehavior, EvolutionType } from '@/utils/mascotUtils';
+
+/* ── たまごステージ: アップロード動画をそのまま使用 ── */
+const EGG_VIDEO = require('../assets/videos/egg.mp4');
+
+function EggVideo({ size }: { size: number }) {
+  return (
+    <View style={{ width: size, height: size, borderRadius: size * 0.24, overflow: 'hidden' }}>
+      <Video
+        source={EGG_VIDEO}
+        style={{ width: size, height: size }}
+        resizeMode={ResizeMode.COVER}
+        shouldPlay
+        isLooping
+        isMuted
+        // @ts-ignore web用
+        videoStyle={{ width: '100%', height: '100%' }}
+      />
+    </View>
+  );
+}
 
 interface MascotProps {
   stage: MascotStage;
@@ -765,7 +786,9 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
     <View {...panResponder.panHandlers}>
       <View>
         <Animated.View style={style}>
-          <SvgComponent mood={mood} size={size} />
+          {stage === 'egg'
+            ? <EggVideo size={size} />
+            : <SvgComponent mood={mood} size={size} />}
         </Animated.View>
         {idleBehavior === 'sleeping' && <ZzzOverlay size={size} />}
         {showHearts && <HeartsOverlay size={size} petKey={petKey} />}
