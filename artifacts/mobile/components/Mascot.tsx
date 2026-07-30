@@ -620,6 +620,23 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
   useEffect(() => { onPressRef.current = onPress; }, [onPress]);
   useEffect(() => { onPetRef.current   = onPet;   }, [onPet]);
 
+  /* ── 夜でもタップ/なでなでで起きる（90秒間） ── */
+  const [awake, setAwake] = useState(false);
+  const wakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wakeUp = () => {
+    setAwake(true);
+    if (wakeTimer.current) clearTimeout(wakeTimer.current);
+    wakeTimer.current = setTimeout(() => setAwake(false), 90000);
+  };
+  useEffect(() => () => { if (wakeTimer.current) clearTimeout(wakeTimer.current); }, []);
+  const wakeUpRef = useRef(wakeUp);
+  useEffect(() => { wakeUpRef.current = wakeUp; });
+
+  const effMood: MascotMood =
+    awake && mood === 'sleepy' ? 'happy' : mood;
+  const effIdle: IdleBehavior =
+    awake && idleBehavior === 'sleeping' ? 'normal' : idleBehavior;
+
   // Eating flash
   useEffect(() => {
     if (!isEating) return;
@@ -644,7 +661,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
   useEffect(() => {
     rotate.value = withTiming(0, { duration: 300 });
 
-    if (idleBehavior === 'rolling') {
+    if (effIdle === 'rolling') {
       // Rock side to side
       rotate.value = withRepeat(
         withSequence(
@@ -666,7 +683,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       return;
     }
 
-    if (idleBehavior === 'sleeping') {
+    if (effIdle === 'sleeping') {
       // Very slow, tiny movement
       bounce.value = withRepeat(
         withSequence(
@@ -679,7 +696,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       return;
     }
 
-    if (idleBehavior === 'playing') {
+    if (effIdle === 'playing') {
       // Fast playful bounce
       bounce.value = withRepeat(
         withSequence(
@@ -702,8 +719,8 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
     }
 
     // normal — based on mood
-    const speed = mood === 'excited' ? 500 : mood === 'tired' || mood === 'sleepy' ? 1800 : 1100;
-    const height = mood === 'excited' ? 14 : mood === 'tired' ? 3 : 8;
+    const speed = effMood === 'excited' ? 500 : effMood === 'tired' || effMood === 'sleepy' ? 1800 : 1100;
+    const height = effMood === 'excited' ? 14 : effMood === 'tired' ? 3 : 8;
 
     bounce.value = withRepeat(
       withSequence(
@@ -714,7 +731,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       false
     );
 
-    if (mood === 'excited') {
+    if (effMood === 'excited') {
       scaleX.value = withRepeat(
         withSequence(
           withTiming(1.08, { duration: 250 }),
@@ -727,7 +744,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
     } else {
       scaleX.value = withTiming(1, { duration: 300 });
     }
-  }, [mood, idleBehavior]);
+  }, [effMood, effIdle]);
 
   /* ── petting animation ── */
   const doPetAnimation = () => {
@@ -782,6 +799,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
           Math.abs(gs.dy) < 60
         ) {
           wasPet = true;
+          wakeUpRef.current();
           doPetAnimation();
           setShowHearts(true);
           setPetKey(k => k + 1);
@@ -793,6 +811,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       onPanResponderRelease: (_, gs) => {
         if (!wasPet && Math.abs(gs.dx) < 12 && Math.abs(gs.dy) < 12) {
           // plain tap
+          wakeUpRef.current();
           bounce.value = withSequence(
             withSpring(-22, { damping: 6, stiffness: 300 }),
             withSpring(0,   { damping: 8, stiffness: 200 }),
@@ -830,10 +849,10 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       <View>
         <Animated.View style={style}>
           {stage === 'egg'
-            ? <EggImage mood={mood} size={size} />
-            : <SvgComponent mood={mood} size={size} />}
+            ? <EggImage mood={effMood} size={size} />
+            : <SvgComponent mood={effMood} size={size} />}
         </Animated.View>
-        {idleBehavior === 'sleeping' && <ZzzOverlay size={size} />}
+        {effIdle === 'sleeping' && <ZzzOverlay size={size} />}
         {showHearts && <HeartsOverlay size={size} petKey={petKey} />}
       </View>
     </View>
