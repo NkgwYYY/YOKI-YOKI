@@ -75,107 +75,113 @@ function Eyes({ mood, cx, leftX, rightX, eyeY }: {
   if (mood === 'sleepy') {
     return (
       <G>
-        <Ellipse cx={leftX}  cy={eyeY} rx={7} ry={4} fill="white" />
-        <Ellipse cx={rightX} cy={eyeY} rx={7} ry={4} fill="white" />
-        <Rect x={leftX - 7}  y={eyeY - 5} width={14} height={5} fill="#C9B8E8" rx={2} />
-        <Rect x={rightX - 7} y={eyeY - 5} width={14} height={5} fill="#C9B8E8" rx={2} />
-        <Circle cx={leftX + 1}  cy={eyeY + 1} r={3} fill="#2D1B69" />
-        <Circle cx={rightX + 1} cy={eyeY + 1} r={3} fill="#2D1B69" />
+        {/* 半目: 下半分だけ見える */}
+        <Ellipse cx={leftX}  cy={eyeY} rx={9} ry={5} fill="white" />
+        <Ellipse cx={rightX} cy={eyeY} rx={9} ry={5} fill="white" />
+        <Rect x={leftX - 9}  y={eyeY - 6} width={18} height={6} fill="#C9B8E8" rx={3} />
+        <Rect x={rightX - 9} y={eyeY - 6} width={18} height={6} fill="#C9B8E8" rx={3} />
+        <Circle cx={leftX + 1}  cy={eyeY + 1} r={3.5} fill="#1A0A3C" />
+        <Circle cx={rightX + 1} cy={eyeY + 1} r={3.5} fill="#1A0A3C" />
       </G>
     );
   }
   if (mood === 'excited') {
     return (
       <G>
-        <Circle cx={leftX}  cy={eyeY} r={8} fill="white" />
-        <Circle cx={rightX} cy={eyeY} r={8} fill="white" />
-        <Circle cx={leftX}  cy={eyeY + 1} r={5} fill="#2D1B69" />
-        <Circle cx={rightX} cy={eyeY + 1} r={5} fill="#2D1B69" />
-        <Circle cx={leftX - 1}  cy={eyeY - 1} r={2} fill="white" />
-        <Circle cx={rightX - 1} cy={eyeY - 1} r={2} fill="white" />
-        <Line x1={leftX - 10} y1={eyeY - 8} x2={leftX - 6} y2={eyeY - 4} stroke="#FFD166" strokeWidth="1.5" strokeLinecap="round" />
-        <Line x1={leftX - 12} y1={eyeY}     x2={leftX - 7} y2={eyeY}     stroke="#FFD166" strokeWidth="1.5" strokeLinecap="round" />
+        <Circle cx={leftX}  cy={eyeY} r={10} fill="white" />
+        <Circle cx={rightX} cy={eyeY} r={10} fill="white" />
+        <Circle cx={leftX}  cy={eyeY + 1} r={6.5} fill="#1A0A3C" />
+        <Circle cx={rightX} cy={eyeY + 1} r={6.5} fill="#1A0A3C" />
+        <Circle cx={leftX - 2}  cy={eyeY - 2} r={2.5} fill="white" />
+        <Circle cx={rightX - 2} cy={eyeY - 2} r={2.5} fill="white" />
+        {/* キラキラ */}
+        <Line x1={leftX - 12} y1={eyeY - 9} x2={leftX - 7} y2={eyeY - 4} stroke="#FFD166" strokeWidth="2" strokeLinecap="round" />
+        <Line x1={leftX - 14} y1={eyeY}     x2={leftX - 8} y2={eyeY}     stroke="#FFD166" strokeWidth="2" strokeLinecap="round" />
       </G>
     );
   }
   if (mood === 'tired') {
     return (
       <G>
-        <Circle cx={leftX}  cy={eyeY} r={7} fill="white" />
-        <Circle cx={rightX} cy={eyeY} r={7} fill="white" />
-        <Rect x={leftX - 7}  y={eyeY - 7} width={14} height={7} fill="#C9B8E8" rx={3} />
-        <Rect x={rightX - 7} y={eyeY - 7} width={14} height={7} fill="#C9B8E8" rx={3} />
-        <Circle cx={leftX}  cy={eyeY + 2} r={4} fill="#2D1B69" />
-        <Circle cx={rightX} cy={eyeY + 2} r={4} fill="#2D1B69" />
+        <Circle cx={leftX}  cy={eyeY} r={9} fill="white" />
+        <Circle cx={rightX} cy={eyeY} r={9} fill="white" />
+        <Rect x={leftX - 9}  y={eyeY - 9} width={18} height={8} fill="#C9B8E8" rx={4} />
+        <Rect x={rightX - 9} y={eyeY - 9} width={18} height={8} fill="#C9B8E8" rx={4} />
+        <Circle cx={leftX}  cy={eyeY + 2} r={5} fill="#1A0A3C" />
+        <Circle cx={rightX} cy={eyeY + 2} r={5} fill="#1A0A3C" />
       </G>
     );
   }
   if (mood === 'grumpy') {
-    // へ字まゆ（内側が上がる怒り眉）＋やや下目線
     return (
       <G>
-        <Circle cx={leftX}  cy={eyeY} r={7} fill="white" />
-        <Circle cx={rightX} cy={eyeY} r={7} fill="white" />
-        <Circle cx={leftX}  cy={eyeY + 2} r={4} fill="#2D1B69" />
-        <Circle cx={rightX} cy={eyeY + 2} r={4} fill="#2D1B69" />
-        {/* 左まゆ: 内側(右端)が上がる  ＼ */}
-        <Line x1={leftX - 7} y1={eyeY - 8} x2={leftX + 5} y2={eyeY - 13}
-          stroke="#2D1B69" strokeWidth="2.8" strokeLinecap="round" />
-        {/* 右まゆ: 内側(左端)が上がる  ／ */}
-        <Line x1={rightX - 5} y1={eyeY - 13} x2={rightX + 7} y2={eyeY - 8}
-          stroke="#2D1B69" strokeWidth="2.8" strokeLinecap="round" />
+        <Circle cx={leftX}  cy={eyeY} r={9} fill="white" />
+        <Circle cx={rightX} cy={eyeY} r={9} fill="white" />
+        <Circle cx={leftX}  cy={eyeY + 2} r={5.5} fill="#1A0A3C" />
+        <Circle cx={rightX} cy={eyeY + 2} r={5.5} fill="#1A0A3C" />
+        <Circle cx={leftX - 2}  cy={eyeY} r={1.8} fill="white" />
+        <Circle cx={rightX - 2} cy={eyeY} r={1.8} fill="white" />
+        {/* へ字まゆ（内側が上がる怒り眉） */}
+        <Line x1={leftX - 8} y1={eyeY - 10} x2={leftX + 6} y2={eyeY - 15}
+          stroke="#1A0A3C" strokeWidth="3" strokeLinecap="round" />
+        <Line x1={rightX - 6} y1={eyeY - 15} x2={rightX + 8} y2={eyeY - 10}
+          stroke="#1A0A3C" strokeWidth="3" strokeLinecap="round" />
       </G>
     );
   }
   if (mood === 'happy') {
     return (
       <G>
-        <Circle cx={leftX}  cy={eyeY} r={7} fill="white" />
-        <Circle cx={rightX} cy={eyeY} r={7} fill="white" />
-        <Rect x={leftX - 7}  y={eyeY - 7} width={14} height={5} fill="#C9B8E8" rx={2} />
-        <Rect x={rightX - 7} y={eyeY - 7} width={14} height={5} fill="#C9B8E8" rx={2} />
-        <Circle cx={leftX}  cy={eyeY + 1} r={4} fill="#2D1B69" />
-        <Circle cx={rightX} cy={eyeY + 1} r={4} fill="#2D1B69" />
-        <Circle cx={leftX - 1}  cy={eyeY} r={1.5} fill="white" />
-        <Circle cx={rightX - 1} cy={eyeY} r={1.5} fill="white" />
+        <Circle cx={leftX}  cy={eyeY} r={9} fill="white" />
+        <Circle cx={rightX} cy={eyeY} r={9} fill="white" />
+        <Rect x={leftX - 9}  y={eyeY - 9} width={18} height={6} fill="#C9B8E8" rx={3} />
+        <Rect x={rightX - 9} y={eyeY - 9} width={18} height={6} fill="#C9B8E8" rx={3} />
+        <Circle cx={leftX}  cy={eyeY + 1} r={5.5} fill="#1A0A3C" />
+        <Circle cx={rightX} cy={eyeY + 1} r={5.5} fill="#1A0A3C" />
+        <Circle cx={leftX - 2}  cy={eyeY - 1} r={2} fill="white" />
+        <Circle cx={rightX - 2} cy={eyeY - 1} r={2} fill="white" />
       </G>
     );
   }
+  // normal
   return (
     <G>
-      <Circle cx={leftX}  cy={eyeY} r={7} fill="white" />
-      <Circle cx={rightX} cy={eyeY} r={7} fill="white" />
-      <Circle cx={leftX + 1}  cy={eyeY + 1} r={4.5} fill="#2D1B69" />
-      <Circle cx={rightX + 1} cy={eyeY + 1} r={4.5} fill="#2D1B69" />
-      <Circle cx={leftX - 1}  cy={eyeY - 1} r={1.5} fill="white" />
-      <Circle cx={rightX - 1} cy={eyeY - 1} r={1.5} fill="white" />
+      <Circle cx={leftX}  cy={eyeY} r={9} fill="white" />
+      <Circle cx={rightX} cy={eyeY} r={9} fill="white" />
+      <Circle cx={leftX + 1}  cy={eyeY + 1} r={5.5} fill="#1A0A3C" />
+      <Circle cx={rightX + 1} cy={eyeY + 1} r={5.5} fill="#1A0A3C" />
+      <Circle cx={leftX - 2}  cy={eyeY - 2} r={2} fill="white" />
+      <Circle cx={rightX - 2} cy={eyeY - 2} r={2} fill="white" />
     </G>
   );
 }
 
 function Mouth({ mood, cx, mouthY }: { mood: MascotMood; cx: number; mouthY: number }) {
-  if (mood === 'excited') return <Ellipse cx={cx} cy={mouthY} rx={10} ry={7} fill="#2D1B69" />;
-  if (mood === 'tired') {
-    return <Path d={`M ${cx - 12} ${mouthY} Q ${cx} ${mouthY - 6} ${cx + 12} ${mouthY}`}
-      stroke="#2D1B69" strokeWidth="2.5" fill="none" strokeLinecap="round" />;
-  }
-  if (mood === 'sleepy') {
-    return <Path d={`M ${cx - 8} ${mouthY} Q ${cx} ${mouthY + 2} ${cx + 8} ${mouthY}`}
-      stroke="#2D1B69" strokeWidth="2" fill="none" strokeLinecap="round" />;
-  }
-  if (mood === 'grumpy') {
-    // ぷくっとふくれた口: 小さめの逆U弧 + 下唇ふくらみ
+  if (mood === 'excited') {
     return (
       <G>
-        <Path d={`M ${cx - 9} ${mouthY + 2} Q ${cx} ${mouthY - 7} ${cx + 9} ${mouthY + 2}`}
-          stroke="#2D1B69" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <Path d={`M ${cx - 9} ${mouthY + 2} Q ${cx} ${mouthY + 8} ${cx + 9} ${mouthY + 2}`}
-          stroke="#2D1B69" strokeWidth="1.5" fill="#2D1B6922" strokeLinecap="round" />
+        <Ellipse cx={cx} cy={mouthY} rx={11} ry={8} fill="#1A0A3C" />
+        <Ellipse cx={cx} cy={mouthY - 1} rx={7} ry={4} fill="#FF6B8A" />
       </G>
     );
   }
-  return <Path d={`M ${cx - 12} ${mouthY} Q ${cx} ${mouthY + 10} ${cx + 12} ${mouthY}`}
-    stroke="#2D1B69" strokeWidth="2.5" fill="none" strokeLinecap="round" />;
+  if (mood === 'tired') {
+    // 逆弧（への字フラウン）
+    return <Path d={`M ${cx - 13} ${mouthY} Q ${cx} ${mouthY - 8} ${cx + 13} ${mouthY}`}
+      stroke="#1A0A3C" strokeWidth="2.8" fill="none" strokeLinecap="round" />;
+  }
+  if (mood === 'sleepy') {
+    return <Path d={`M ${cx - 9} ${mouthY} Q ${cx} ${mouthY + 3} ${cx + 9} ${mouthY}`}
+      stroke="#1A0A3C" strokeWidth="2.2" fill="none" strokeLinecap="round" />;
+  }
+  if (mood === 'grumpy') {
+    // シンプルなフラウン（画像に近い）
+    return <Path d={`M ${cx - 11} ${mouthY} Q ${cx} ${mouthY - 9} ${cx + 11} ${mouthY}`}
+      stroke="#1A0A3C" strokeWidth="2.8" fill="none" strokeLinecap="round" />;
+  }
+  // happy / normal: 笑顔
+  return <Path d={`M ${cx - 13} ${mouthY} Q ${cx} ${mouthY + 11} ${cx + 13} ${mouthY}`}
+    stroke="#1A0A3C" strokeWidth="2.8" fill="none" strokeLinecap="round" />;
 }
 
 /* ─── Stage SVGs ─── */
@@ -184,18 +190,33 @@ function EggSvg({ mood, size }: { mood: MascotMood; size: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 120 130">
       <Defs>
-        <RadialGradient id="eggGrad" cx="40%" cy="35%" r="65%">
-          <Stop offset="0%" stopColor="#F5EEFF" />
-          <Stop offset="100%" stopColor="#DDD0F5" />
+        <RadialGradient id="eggGrad" cx="38%" cy="30%" r="65%">
+          <Stop offset="0%"   stopColor="#FFFFFF" />
+          <Stop offset="60%"  stopColor="#F7F4FF" />
+          <Stop offset="100%" stopColor="#E8E0F8" />
+        </RadialGradient>
+        <RadialGradient id="eggShine" cx="35%" cy="25%" r="40%">
+          <Stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.9" />
+          <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
         </RadialGradient>
       </Defs>
-      <Ellipse cx={cx} cy={118} rx={28} ry={6} fill="#00000015" />
-      <Ellipse cx={cx} cy={70} rx={40} ry={50} fill="url(#eggGrad)" />
-      <Path d="M 55 26 L 52 34 L 58 38 L 54 46" stroke="#C9B8E8" strokeWidth="2" fill="none" strokeLinecap="round" />
-      <Eyes mood={mood} cx={cx} leftX={46} rightX={74} eyeY={68} />
-      <Ellipse cx={36} cy={78} rx={8} ry={5} fill="#FFB3D1" opacity="0.45" />
-      <Ellipse cx={84} cy={78} rx={8} ry={5} fill="#FFB3D1" opacity="0.45" />
-      <Mouth mood={mood} cx={cx} mouthY={84} />
+      {/* 影 */}
+      <Ellipse cx={cx} cy={119} rx={30} ry={7} fill="#00000018" />
+      {/* ボディ */}
+      <Ellipse cx={cx} cy={70} rx={41} ry={51} fill="url(#eggGrad)" />
+      {/* ハイライト */}
+      <Ellipse cx={cx - 8} cy={50} rx={20} ry={16} fill="url(#eggShine)" />
+      {/* 紫ボルト（⚡ 形） */}
+      <Path d="M 50 23 L 44 37 L 51 37 L 45 51"
+        stroke="#8B5CF6" strokeWidth="4" fill="none"
+        strokeLinecap="round" strokeLinejoin="round" />
+      {/* 目 */}
+      <Eyes mood={mood} cx={cx} leftX={46} rightX={74} eyeY={70} />
+      {/* ほっぺ */}
+      <Ellipse cx={34} cy={82} rx={10} ry={6.5} fill="#FFB3C6" opacity="0.55" />
+      <Ellipse cx={86} cy={82} rx={10} ry={6.5} fill="#FFB3C6" opacity="0.55" />
+      {/* 口 */}
+      <Mouth mood={mood} cx={cx} mouthY={90} />
     </Svg>
   );
 }
