@@ -25,15 +25,57 @@ const EGG_IMAGES: Record<MascotMood, ReturnType<typeof require>> = {
   tired:   require('../assets/images/egg/tired.png'),
   sleepy:  require('../assets/images/egg/sleepy.png'),
 };
+const EGG_BLINK = require('../assets/images/egg/blink.png');
 
 function EggImage({ mood, size }: { mood: MascotMood; size: number }) {
+  /* ぷにぷに呼吸（シリコンライトのような柔らかい伸縮） */
+  const breath = useSharedValue(0);
+  useEffect(() => {
+    breath.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: mood === 'sleepy' || mood === 'tired' ? 1600 : 1100 }),
+        withTiming(0, { duration: mood === 'sleepy' || mood === 'tired' ? 1600 : 1100 }),
+      ),
+      -1,
+      false
+    );
+  }, [mood]);
+
+  const breathStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scaleY: 1 - breath.value * 0.035 },
+      { scaleX: 1 + breath.value * 0.03 },
+    ],
+  }));
+
+  /* まばたき（起きている気分のみ、2〜4.5秒間隔でランダム） */
+  const [blinking, setBlinking] = useState(false);
+  useEffect(() => {
+    if (mood === 'sleepy' || mood === 'tired') { setBlinking(false); return; }
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const loop = () => {
+      timer = setTimeout(() => {
+        if (!alive) return;
+        setBlinking(true);
+        setTimeout(() => { if (alive) setBlinking(false); loop(); }, 150);
+      }, 2000 + Math.random() * 2500);
+    };
+    loop();
+    return () => { alive = false; clearTimeout(timer); };
+  }, [mood]);
+
+  const source = blinking ? EGG_BLINK : (EGG_IMAGES[mood] ?? EGG_IMAGES.normal);
+
   return (
-    <Image
-      source={EGG_IMAGES[mood] ?? EGG_IMAGES.normal}
-      style={{ width: size, height: size }}
-      resizeMode="contain"
-      fadeDuration={0}
-    />
+    <Animated.View style={[breathStyle, { transformOrigin: 'bottom' } as any]}>
+      <Image
+        source={source}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+        fadeDuration={0}
+      />
+    </Animated.View>
   );
 }
 
