@@ -87,13 +87,17 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
   const moodSource = EGG_IMAGES[mood] ?? EGG_IMAGES.normal;
   const [layers, setLayers] = useState<{ curr: any; prev: any | null }>({ curr: moodSource, prev: null });
   const fade = useSharedValue(1);
+  const currRef = useRef(moodSource);
   useEffect(() => {
-    setLayers((l) => {
-      if (l.curr === moodSource) return l;
-      fade.value = 0;
-      fade.value = withTiming(1, { duration: 350 });
-      return { curr: moodSource, prev: l.curr };
-    });
+    if (currRef.current === moodSource) return;
+    const prev = currRef.current;
+    currRef.current = moodSource;
+    setLayers({ curr: moodSource, prev });
+    fade.value = 0;
+    fade.value = withTiming(1, { duration: 350 });
+    // フェード完了後に前レイヤーを破棄（重ね描画を残さない）
+    const t = setTimeout(() => setLayers({ curr: moodSource, prev: null }), 400);
+    return () => clearTimeout(t);
   }, [moodSource]);
   const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
 
