@@ -6,3 +6,9 @@ id = "7w_yHqM0fZgDfEHKAJqGL"
 uri = "file://attached_assets/egg_awake_preview.jpg"
 type = "image"
 title = "起きてるバージョンの表情一覧"
+
+[[outputs]]
+id = "hI80Bt4CdXqUZZ8Fa_9lL"
+uri = "file://attached_assets/character_gallery.jpg"
+type = "image"
+title = "進化キャラクター一覧"

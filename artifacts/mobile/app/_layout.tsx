@@ -36,7 +36,7 @@ function AuthGate() {
   useEffect(() => {
     if (isLoading) return;
     // Public routes that don't require authentication
-    const isPublicRoute = segments[0] === 'login';
+    const isPublicRoute = segments[0] === 'login' || segments[0] === 'gallery';
 
     if (!isSignedIn && !isPublicRoute) {
       router.replace('/login');
