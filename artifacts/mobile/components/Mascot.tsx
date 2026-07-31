@@ -26,8 +26,16 @@ const EGG_IMAGES: Record<MascotMood, ReturnType<typeof require>> = {
   sleepy:  require('../assets/images/egg/sleepy.png'),
 };
 const EGG_BLINK = require('../assets/images/egg/blink.png');
+/* ころころ転がるコマ送りフレーム（動画から切り出し） */
+const EGG_ROLL_FRAMES = [
+  require('../assets/images/egg/roll_1.png'),
+  require('../assets/images/egg/roll_2.png'),
+  require('../assets/images/egg/roll_3.png'),
+  require('../assets/images/egg/roll_4.png'),
+  require('../assets/images/egg/roll_5.png'),
+];
 
-function EggImage({ mood, size }: { mood: MascotMood; size: number }) {
+function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: number; rolling?: boolean }) {
   /* ぷにぷに呼吸（シリコンライトのような柔らかい伸縮） */
   const breath = useSharedValue(0);
   useEffect(() => {
@@ -65,16 +73,67 @@ function EggImage({ mood, size }: { mood: MascotMood; size: number }) {
     return () => { alive = false; clearTimeout(timer); };
   }, [mood]);
 
-  const source = blinking ? EGG_BLINK : (EGG_IMAGES[mood] ?? EGG_IMAGES.normal);
+  /* ころころアニメ（rolling中はフレームを順送り） */
+  const [rollFrame, setRollFrame] = useState(0);
+  useEffect(() => {
+    if (!rolling) { setRollFrame(0); return; }
+    const iv = setInterval(() => {
+      setRollFrame((f) => (f + 1) % EGG_ROLL_FRAMES.length);
+    }, 220);
+    return () => clearInterval(iv);
+  }, [rolling]);
+
+  /* 表情のクロスフェード（切り替え時に前の顔から自然に繋ぐ） */
+  const moodSource = EGG_IMAGES[mood] ?? EGG_IMAGES.normal;
+  const [layers, setLayers] = useState<{ curr: any; prev: any | null }>({ curr: moodSource, prev: null });
+  const fade = useSharedValue(1);
+  useEffect(() => {
+    setLayers((l) => {
+      if (l.curr === moodSource) return l;
+      fade.value = 0;
+      fade.value = withTiming(1, { duration: 350 });
+      return { curr: moodSource, prev: l.curr };
+    });
+  }, [moodSource]);
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
+
+  if (rolling) {
+    return (
+      <Animated.View style={[breathStyle, { transformOrigin: 'bottom' } as any]}>
+        <Image
+          source={EGG_ROLL_FRAMES[rollFrame]}
+          style={{ width: size, height: size }}
+          resizeMode="contain"
+          fadeDuration={0}
+        />
+      </Animated.View>
+    );
+  }
 
   return (
-    <Animated.View style={[breathStyle, { transformOrigin: 'bottom' } as any]}>
-      <Image
-        source={source}
-        style={{ width: size, height: size }}
+    <Animated.View style={[breathStyle, { transformOrigin: 'bottom', width: size, height: size } as any]}>
+      {layers.prev != null && (
+        <Image
+          source={layers.prev}
+          style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }}
+          resizeMode="contain"
+          fadeDuration={0}
+        />
+      )}
+      <Animated.Image
+        source={layers.curr}
+        style={[fadeStyle, { width: size, height: size }]}
         resizeMode="contain"
         fadeDuration={0}
       />
+      {blinking && (
+        <Image
+          source={EGG_BLINK}
+          style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }}
+          resizeMode="contain"
+          fadeDuration={0}
+        />
+      )}
     </Animated.View>
   );
 }
@@ -662,15 +721,17 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
     rotate.value = withTiming(0, { duration: 300 });
 
     if (effIdle === 'rolling') {
-      // Rock side to side
-      rotate.value = withRepeat(
-        withSequence(
-          withTiming(-14, { duration: 500 }),
-          withTiming(14, { duration: 500 }),
-        ),
-        -1,
-        true
-      );
+      // Egg stage: frame animation already contains the tilt — skip the rocking rotate
+      if (stage !== 'egg') {
+        rotate.value = withRepeat(
+          withSequence(
+            withTiming(-14, { duration: 500 }),
+            withTiming(14, { duration: 500 }),
+          ),
+          -1,
+          true
+        );
+      }
       // Slow bounce while rolling
       bounce.value = withRepeat(
         withSequence(
@@ -849,7 +910,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       <View>
         <Animated.View style={style}>
           {stage === 'egg'
-            ? <EggImage mood={effMood} size={size} />
+            ? <EggImage mood={effMood} size={size} rolling={effIdle === 'rolling'} />
             : <SvgComponent mood={effMood} size={size} />}
         </Animated.View>
         {effIdle === 'sleeping' && <ZzzOverlay size={size} />}
