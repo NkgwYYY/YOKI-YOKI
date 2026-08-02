@@ -679,6 +679,8 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
   /* petting state */
   const [showHearts, setShowHearts] = useState(false);
   const [petKey,     setPetKey]     = useState(0);
+  const glowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (glowTimer.current) clearTimeout(glowTimer.current); }, []);
   const onPressRef = useRef(onPress);
   const onPetRef   = useRef(onPet);
   useEffect(() => { onPressRef.current = onPress; }, [onPress]);
@@ -899,7 +901,8 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
           doPetAnimation();
           setShowHearts(true);
           setPetKey(k => k + 1);
-          setTimeout(() => setShowHearts(false), 1400);
+          if (glowTimer.current) clearTimeout(glowTimer.current);
+          glowTimer.current = setTimeout(() => setShowHearts(false), 1400);
           onPetRef.current?.();
         }
       },
