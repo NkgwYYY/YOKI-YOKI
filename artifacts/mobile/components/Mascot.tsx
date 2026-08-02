@@ -7,7 +7,6 @@ import Animated, {
   withSequence,
   withTiming,
   withSpring,
-  withDelay,
 } from 'react-native-reanimated';
 import Svg, {
   Circle, Ellipse, Path, G, Defs,
@@ -138,6 +137,12 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
           fadeDuration={0}
         />
       )}
+      {/* 全表情を先読みしておき、切替時に一瞬消えるのを防ぐ */}
+      <View style={{ position: 'absolute', width: 1, height: 1, opacity: 0, overflow: 'hidden' }} pointerEvents="none">
+        {(Object.values(EGG_IMAGES) as any[]).map((src, i) => (
+          <Image key={i} source={src} style={{ width: 1, height: 1 }} fadeDuration={0} />
+        ))}
+      </View>
     </Animated.View>
   );
 }
@@ -153,44 +158,40 @@ interface MascotProps {
   isEating?: boolean;
 }
 
-/* ── Floating heart / sparkle that rises and fades ── */
-function FloatingPuff({ x, y, delay, emoji }: { x: number; y: number; delay: number; emoji: string }) {
-  const ty  = useSharedValue(0);
-  const op  = useSharedValue(0);
-  const sc  = useSharedValue(0.4);
+/* ── なでなで時の控えめな光（絵文字なし・淡いピンクの輪がふわっと広がって消える） ── */
+function PetGlow({ size, petKey }: { size: number; petKey: number }) {
+  const sc = useSharedValue(0.85);
+  const op = useSharedValue(0);
 
   useEffect(() => {
-    ty.value = withDelay(delay, withTiming(-65, { duration: 950 }));
-    sc.value = withDelay(delay, withSpring(1, { damping: 7, stiffness: 180 }));
-    op.value = withDelay(delay, withSequence(
-      withTiming(1, { duration: 140 }),
-      withTiming(1, { duration: 420 }),
-      withTiming(0, { duration: 390 }),
-    ));
-  }, []);
+    sc.value = 0.85;
+    op.value = 0;
+    sc.value = withTiming(1.22, { duration: 750 });
+    op.value = withSequence(
+      withTiming(0.55, { duration: 160 }),
+      withTiming(0, { duration: 590 }),
+    );
+  }, [petKey]);
 
   const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: ty.value }, { scale: sc.value }],
     opacity: op.value,
-    position: 'absolute',
-    left: x,
-    top: y,
+    transform: [{ scale: sc.value }],
   }));
 
-  return <Animated.Text style={[style, { fontSize: 20 }]}>{emoji}</Animated.Text>;
-}
-
-function HeartsOverlay({ size, petKey }: { size: number; petKey: number }) {
-  const puffs = [
-    { x: size * 0.08, y: size * 0.06, delay: 0,   emoji: '💗' },
-    { x: size * 0.38, y: size * 0.00, delay: 110,  emoji: '✨' },
-    { x: size * 0.64, y: size * 0.05, delay: 55,   emoji: '💗' },
-    { x: size * 0.22, y: size * 0.18, delay: 230,  emoji: '💕' },
-    { x: size * 0.52, y: size * 0.16, delay: 290,  emoji: '⭐' },
-  ];
   return (
-    <View style={[StyleSheet.absoluteFill, { overflow: 'visible' }]} pointerEvents="none">
-      {puffs.map((p, i) => <FloatingPuff key={`${petKey}-${i}`} {...p} />)}
+    <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]} pointerEvents="none">
+      <Animated.View style={style}>
+        <Svg width={size * 1.3} height={size * 1.3} viewBox="0 0 100 100">
+          <Defs>
+            <RadialGradient id="petGlowGrad" cx="50%" cy="50%" r="50%">
+              <Stop offset="0%"  stopColor="#FFD3E4" stopOpacity="0.9" />
+              <Stop offset="60%" stopColor="#FFD3E4" stopOpacity="0.35" />
+              <Stop offset="100%" stopColor="#FFD3E4" stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Circle cx={50} cy={50} r={50} fill="url(#petGlowGrad)" />
+        </Svg>
+      </Animated.View>
     </View>
   );
 }
@@ -685,18 +686,48 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
 
   /* ── 夜でもタップ/なでなでで起きる（90秒間） ── */
   const [awake, setAwake] = useState(false);
+  /* 起床モーション: 閉じ目→半目→開き目 と実写フレームを順番にクロスフェードで繋ぐ */
+  const [wakePhase, setWakePhase] = useState<MascotMood | null>(null);
   const wakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wakeSeqTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const awakeRef = useRef(awake);
+  useEffect(() => { awakeRef.current = awake; }, [awake]);
   const wakeUp = () => {
+    if (!awakeRef.current && (mood === 'sleepy' || mood === 'tired')) {
+      wakeSeqTimers.current.forEach(clearTimeout);
+      wakeSeqTimers.current = [];
+      if (mood === 'sleepy') {
+        // 閉じ目 → 半目 → 開き目 → にっこり
+        setWakePhase('sleepy');
+        wakeSeqTimers.current.push(
+          setTimeout(() => setWakePhase('tired'), 300),
+          setTimeout(() => setWakePhase('normal'), 700),
+          setTimeout(() => setWakePhase(null), 1200),
+        );
+      } else {
+        // 半目 → 開き目 → にっこり
+        setWakePhase('tired');
+        wakeSeqTimers.current.push(
+          setTimeout(() => setWakePhase('normal'), 350),
+          setTimeout(() => setWakePhase(null), 900),
+        );
+      }
+    }
     setAwake(true);
     if (wakeTimer.current) clearTimeout(wakeTimer.current);
     wakeTimer.current = setTimeout(() => setAwake(false), 90000);
   };
-  useEffect(() => () => { if (wakeTimer.current) clearTimeout(wakeTimer.current); }, []);
+  useEffect(() => () => {
+    if (wakeTimer.current) clearTimeout(wakeTimer.current);
+    wakeSeqTimers.current.forEach(clearTimeout);
+  }, []);
   const wakeUpRef = useRef(wakeUp);
   useEffect(() => { wakeUpRef.current = wakeUp; });
 
   const effMood: MascotMood =
-    awake && (mood === 'sleepy' || mood === 'tired') ? 'happy' : mood;
+    awake && (mood === 'sleepy' || mood === 'tired')
+      ? (wakePhase ?? 'happy')
+      : mood;
   const effIdle: IdleBehavior =
     awake && idleBehavior === 'sleeping' ? 'normal' : idleBehavior;
 
@@ -918,7 +949,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
             : <SvgComponent mood={effMood} size={size} />}
         </Animated.View>
         {effIdle === 'sleeping' && <ZzzOverlay size={size} />}
-        {showHearts && <HeartsOverlay size={size} petKey={petKey} />}
+        {showHearts && <PetGlow size={size} petKey={petKey} />}
       </View>
     </View>
   );
