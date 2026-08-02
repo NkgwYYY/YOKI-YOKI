@@ -2,4 +2,5 @@
 - [Clerk auth migration](clerk-auth-migration.md) — login is Replit-managed Clerk (Google/Apple+email); no custom auth or mail service; providers toggled in Auth pane; dev/prod user stores separate.
 - [Edit batch verification](edit-batch-verification.md) — if one parallel edit fails with a server disconnect, grep-verify the siblings; "Edited" results can be silently unapplied.
 - [RN-web gradient hides TextInput](rn-web-gradient-overlay.md) — absoluteFill gradients paint over inputs on web; add zIndex to inputs; verify pixels, not computed styles.
+- [YOKKY bolt trademark](yokky-bolt-trademark.md) — purple bolt on egg head must be in every egg asset; extract via fuzz +opaque and full-canvas composite.
 - [Expo web head tags](expo-web-html-meta.md) — +html.tsx is ignored in single output; OGP/GA must be injected post-export via inject-meta.js; LINE preview cache dodged with ?v=2 URLs.
