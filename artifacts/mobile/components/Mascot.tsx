@@ -173,10 +173,9 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
       ))}
       <Animated.Image
         source={EGG_BLINK}
-        style={[blinkStyle, { position: 'absolute', top: 0, left: 0, width: size, height: size }]}
+        style={[blinkStyle, { position: 'absolute', top: 0, left: 0, width: size, height: size, pointerEvents: 'none' } as any]}
         resizeMode="contain"
         fadeDuration={0}
-        pointerEvents="none"
       />
     
     </Animated.View>
