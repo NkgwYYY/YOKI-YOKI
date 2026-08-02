@@ -7,6 +7,7 @@ import Animated, {
   withSequence,
   withTiming,
   withSpring,
+  Easing,
 } from 'react-native-reanimated';
 import Svg, {
   Circle, Ellipse, Path, G, Defs,
@@ -55,42 +56,84 @@ function MoodFadeLayer({ active, size, children }: { active: boolean; size: numb
 }
 
 function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: number; rolling?: boolean }) {
-  /* ぷにぷに呼吸（シリコンライトのような柔らかい伸縮） */
+  /* ぷにぷに呼吸（サイン波イージングでゆったり・シリコンのような柔らかさ） */
+  const SINE = Easing.inOut(Easing.sin);
   const breath = useSharedValue(0);
+  const sway = useSharedValue(0);
   useEffect(() => {
+    const d = mood === 'sleepy' || mood === 'tired' ? 1900 : 1500;
     breath.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: mood === 'sleepy' || mood === 'tired' ? 1600 : 1100 }),
-        withTiming(0, { duration: mood === 'sleepy' || mood === 'tired' ? 1600 : 1100 }),
+        withTiming(1, { duration: d, easing: SINE }),
+        withTiming(0, { duration: d, easing: SINE }),
+      ),
+      -1,
+      false
+    );
+    /* 呼吸とは別周期のゆらぎ（重心の揺れ）— 周期をずらすと機械っぽさが消える */
+    sway.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: d * 1.37, easing: SINE }),
+        withTiming(-1, { duration: d * 1.37, easing: SINE }),
       ),
       -1,
       false
     );
   }, [mood]);
 
-  const breathStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scaleY: 1 - breath.value * 0.035 },
-      { scaleX: 1 + breath.value * 0.03 },
-    ],
-  }));
-
-  /* まばたき（起きている気分のみ、2〜4.5秒間隔でランダム） */
-  const [blinking, setBlinking] = useState(false);
+  /* たまにゼリーみたいにぷるんと揺れる（4〜9秒ごと） */
+  const jelly = useSharedValue(0);
   useEffect(() => {
-    if (mood === 'sleepy') { setBlinking(false); return; }
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     const loop = () => {
       timer = setTimeout(() => {
         if (!alive) return;
-        setBlinking(true);
-        setTimeout(() => { if (alive) setBlinking(false); loop(); }, 150);
-      }, 2000 + Math.random() * 2500);
+        jelly.value = withSequence(
+          withTiming(1, { duration: 110, easing: Easing.out(Easing.quad) }),
+          withSpring(0, { damping: 4, stiffness: 160 }),
+        );
+        loop();
+      }, 4000 + Math.random() * 5000);
+    };
+    if (mood !== 'sleepy' && mood !== 'tired') loop();
+    return () => { alive = false; clearTimeout(timer); };
+  }, [mood]);
+
+  const breathStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scaleY: 1 - breath.value * 0.032 - jelly.value * 0.04 },
+      { scaleX: 1 + breath.value * 0.028 + jelly.value * 0.045 },
+      { rotate: `${sway.value * 1.1}deg` },
+    ],
+  }));
+
+  /* まばたき（ふわっと閉じてふわっと開く。たまに2連続） */
+  const blinkOp = useSharedValue(0);
+  useEffect(() => {
+    if (mood === 'sleepy') { blinkOp.value = 0; return; }
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const one = () =>
+      withSequence(
+        withTiming(1, { duration: 90, easing: Easing.in(Easing.quad) }),
+        withTiming(1, { duration: 60 }),
+        withTiming(0, { duration: 140, easing: Easing.out(Easing.quad) }),
+      );
+    const loop = () => {
+      timer = setTimeout(() => {
+        if (!alive) return;
+        // 25%の確率で2連続まばたき
+        blinkOp.value = Math.random() < 0.25
+          ? withSequence(one(), withTiming(0, { duration: 120 }), one())
+          : one();
+        loop();
+      }, 2200 + Math.random() * 3000);
     };
     loop();
     return () => { alive = false; clearTimeout(timer); };
   }, [mood]);
+  const blinkStyle = useAnimatedStyle(() => ({ opacity: blinkOp.value }));
 
   /* ころころアニメ（rolling中はフレームを順送り） */
   const [rollFrame, setRollFrame] = useState(0);
@@ -128,14 +171,14 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
           />
         </MoodFadeLayer>
       ))}
-      {blinking && (
-        <Image
-          source={EGG_BLINK}
-          style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }}
-          resizeMode="contain"
-          fadeDuration={0}
-        />
-      )}
+      <Animated.Image
+        source={EGG_BLINK}
+        style={[blinkStyle, { position: 'absolute', top: 0, left: 0, width: size, height: size }]}
+        resizeMode="contain"
+        fadeDuration={0}
+        pointerEvents="none"
+      />
+    
     </Animated.View>
   );
 }
