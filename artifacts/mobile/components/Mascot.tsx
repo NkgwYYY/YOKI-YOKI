@@ -26,6 +26,15 @@ const EGG_IMAGES: Record<MascotMood, ReturnType<typeof require>> = {
   sleepy:  require('../assets/images/egg/sleepy.png'),
 };
 const EGG_BLINK = require('../assets/images/egg/blink.png');
+/* 真顔→まばたき→にっこり の変身モーション（動画から切り出した実フレーム） */
+const EGG_WAKE_FRAMES = [
+  require('../assets/images/egg/wake_1.png'),
+  require('../assets/images/egg/wake_2.png'),
+  require('../assets/images/egg/wake_3.png'),
+  require('../assets/images/egg/wake_4.png'),
+  require('../assets/images/egg/wake_5.png'),
+  require('../assets/images/egg/wake_6.png'),
+];
 /* ころころ転がるコマ送りフレーム（動画から切り出し） */
 const EGG_ROLL_FRAMES = [
   require('../assets/images/egg/roll_1.png'),
@@ -135,6 +144,32 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
   }, [mood]);
   const blinkStyle = useAnimatedStyle(() => ({ opacity: blinkOp.value }));
 
+  /* 変身モーション: 真顔/寝顔 → happy になった瞬間、動画の実フレームを順送り再生 */
+  const [seq, setSeq] = useState<number | null>(null);
+  const seqOp = useSharedValue(0);
+  const prevMoodRef = useRef(mood);
+  useEffect(() => {
+    const from = prevMoodRef.current;
+    prevMoodRef.current = mood;
+    if (mood !== 'happy' || !(from === 'normal' || from === 'sleepy' || from === 'tired')) return;
+    let i = from === 'normal' ? 0 : 1; // 寝起きは目閉じフレームから
+    setSeq(i);
+    seqOp.value = 1;
+    const iv = setInterval(() => {
+      i += 1;
+      if (i >= EGG_WAKE_FRAMES.length) {
+        clearInterval(iv);
+        // 最終フレームを残したままフェードアウトして通常レイヤーへ繋ぐ
+        seqOp.value = withTiming(0, { duration: 220 });
+        setTimeout(() => setSeq(null), 240);
+      } else {
+        setSeq(i);
+      }
+    }, 130);
+    return () => clearInterval(iv);
+  }, [mood]);
+  const seqStyle = useAnimatedStyle(() => ({ opacity: seqOp.value }));
+
   /* ころころアニメ（rolling中はフレームを順送り） */
   const [rollFrame, setRollFrame] = useState(0);
   useEffect(() => {
@@ -177,6 +212,14 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
         resizeMode="contain"
         fadeDuration={0}
       />
+      {seq != null && (
+        <Animated.Image
+          source={EGG_WAKE_FRAMES[seq]}
+          style={[seqStyle, { position: 'absolute', top: 0, left: 0, width: size, height: size, pointerEvents: 'none' } as any]}
+          resizeMode="contain"
+          fadeDuration={0}
+        />
+      )}
     
     </Animated.View>
   );
@@ -723,48 +766,21 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
 
   /* ── 夜でもタップ/なでなでで起きる（90秒間） ── */
   const [awake, setAwake] = useState(false);
-  /* 起床モーション: 閉じ目→半目→開き目 と実写フレームを順番にクロスフェードで繋ぐ */
-  const [wakePhase, setWakePhase] = useState<MascotMood | null>(null);
   const wakeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wakeSeqTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const awakeRef = useRef(awake);
-  useEffect(() => { awakeRef.current = awake; }, [awake]);
   const wakeUp = () => {
-    if (!awakeRef.current && (mood === 'sleepy' || mood === 'tired')) {
-      wakeSeqTimers.current.forEach(clearTimeout);
-      wakeSeqTimers.current = [];
-      if (mood === 'sleepy') {
-        // 閉じ目 → 半目 → 開き目 → にっこり
-        setWakePhase('sleepy');
-        wakeSeqTimers.current.push(
-          setTimeout(() => setWakePhase('tired'), 300),
-          setTimeout(() => setWakePhase('normal'), 700),
-          setTimeout(() => setWakePhase(null), 1200),
-        );
-      } else {
-        // 半目 → 開き目 → にっこり
-        setWakePhase('tired');
-        wakeSeqTimers.current.push(
-          setTimeout(() => setWakePhase('normal'), 350),
-          setTimeout(() => setWakePhase(null), 900),
-        );
-      }
-    }
     setAwake(true);
     if (wakeTimer.current) clearTimeout(wakeTimer.current);
     wakeTimer.current = setTimeout(() => setAwake(false), 90000);
   };
   useEffect(() => () => {
     if (wakeTimer.current) clearTimeout(wakeTimer.current);
-    wakeSeqTimers.current.forEach(clearTimeout);
   }, []);
   const wakeUpRef = useRef(wakeUp);
   useEffect(() => { wakeUpRef.current = wakeUp; });
 
+  /* 起床/にっこりへの変身は EggImage 側が動画の実フレーム(EGG_WAKE_FRAMES)で再生する */
   const effMood: MascotMood =
-    awake && (mood === 'sleepy' || mood === 'tired')
-      ? (wakePhase ?? 'happy')
-      : mood;
+    awake && (mood === 'sleepy' || mood === 'tired') ? 'happy' : mood;
   const effIdle: IdleBehavior =
     awake && idleBehavior === 'sleeping' ? 'normal' : idleBehavior;
 
