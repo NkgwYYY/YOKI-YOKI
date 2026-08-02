@@ -32,6 +32,7 @@ const EGG_ROLL_FRAMES = [
   require('../assets/images/egg/roll_3.png'),
   require('../assets/images/egg/roll_4.png'),
   require('../assets/images/egg/roll_5.png'),
+  require('../assets/images/egg/roll_6.png'),
 ];
 
 function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: number; rolling?: boolean }) {
