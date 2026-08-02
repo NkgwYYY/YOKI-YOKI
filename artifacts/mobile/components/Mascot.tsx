@@ -121,7 +121,7 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
       {ALL_MOODS.map((m) => (
         <MoodFadeLayer key={m} active={(EGG_IMAGES[mood] ? mood : 'normal') === m} size={size}>
           <Image
-            source={EGG_IMAGES[m]}
+            source={EGG_IMAGES[m] as any}
             style={{ width: size, height: size }}
             resizeMode="contain"
             fadeDuration={0}
