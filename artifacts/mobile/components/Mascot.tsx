@@ -35,6 +35,25 @@ const EGG_ROLL_FRAMES = [
   require('../assets/images/egg/roll_6.png'),
 ];
 
+const ALL_MOODS: MascotMood[] = ['normal', 'happy', 'excited', 'grumpy', 'tired', 'sleepy'];
+
+/* 常時マウントされたレイヤーの不透明度をクロスさせる（表情切替のじわっとした変化） */
+function MoodFadeLayer({ active, size, children }: { active: boolean; size: number; children: React.ReactNode }) {
+  const op = useSharedValue(active ? 1 : 0);
+  useEffect(() => {
+    op.value = withTiming(active ? 1 : 0, { duration: 300 });
+  }, [active]);
+  const st = useAnimatedStyle(() => ({ opacity: op.value }));
+  return (
+    <Animated.View
+      style={[st, { position: 'absolute', top: 0, left: 0, width: size, height: size }]}
+      pointerEvents="none"
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: number; rolling?: boolean }) {
   /* ぷにぷに呼吸（シリコンライトのような柔らかい伸縮） */
   const breath = useSharedValue(0);
@@ -83,24 +102,6 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
     return () => clearInterval(iv);
   }, [rolling]);
 
-  /* 表情のクロスフェード（切り替え時に前の顔から自然に繋ぐ） */
-  const moodSource = EGG_IMAGES[mood] ?? EGG_IMAGES.normal;
-  const [layers, setLayers] = useState<{ curr: any; prev: any | null }>({ curr: moodSource, prev: null });
-  const fade = useSharedValue(1);
-  const currRef = useRef(moodSource);
-  useEffect(() => {
-    if (currRef.current === moodSource) return;
-    const prev = currRef.current;
-    currRef.current = moodSource;
-    setLayers({ curr: moodSource, prev });
-    fade.value = 0;
-    fade.value = withTiming(1, { duration: 350 });
-    // フェード完了後に前レイヤーを破棄（重ね描画を残さない）
-    const t = setTimeout(() => setLayers({ curr: moodSource, prev: null }), 400);
-    return () => clearTimeout(t);
-  }, [moodSource]);
-  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
-
   if (rolling) {
     return (
       <Animated.View style={[breathStyle, { transformOrigin: 'bottom' } as any]}>
@@ -116,20 +117,17 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
 
   return (
     <Animated.View style={[breathStyle, { transformOrigin: 'bottom', width: size, height: size } as any]}>
-      {layers.prev != null && (
-        <Image
-          source={layers.prev}
-          style={{ position: 'absolute', top: 0, left: 0, width: size, height: size }}
-          resizeMode="contain"
-          fadeDuration={0}
-        />
-      )}
-      <Animated.Image
-        source={layers.curr}
-        style={[fadeStyle, { width: size, height: size }]}
-        resizeMode="contain"
-        fadeDuration={0}
-      />
+      {/* 全表情レイヤーを常時重ねて、不透明度だけを0.3秒でクロスフェード */}
+      {ALL_MOODS.map((m) => (
+        <MoodFadeLayer key={m} active={(EGG_IMAGES[mood] ? mood : 'normal') === m} size={size}>
+          <Image
+            source={EGG_IMAGES[m]}
+            style={{ width: size, height: size }}
+            resizeMode="contain"
+            fadeDuration={0}
+          />
+        </MoodFadeLayer>
+      ))}
       {blinking && (
         <Image
           source={EGG_BLINK}
@@ -138,12 +136,6 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
           fadeDuration={0}
         />
       )}
-      {/* 全表情を先読みしておき、切替時に一瞬消えるのを防ぐ */}
-      <View style={{ position: 'absolute', width: 1, height: 1, opacity: 0, overflow: 'hidden' }} pointerEvents="none">
-        {(Object.values(EGG_IMAGES) as any[]).map((src, i) => (
-          <Image key={i} source={src} style={{ width: 1, height: 1 }} fadeDuration={0} />
-        ))}
-      </View>
     </Animated.View>
   );
 }
@@ -950,7 +942,15 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
         <Animated.View style={style}>
           {stage === 'egg'
             ? <EggImage mood={effMood} size={size} rolling={effIdle === 'rolling'} />
-            : <SvgComponent mood={effMood} size={size} />}
+            : (
+              <View style={{ width: size, height: size }}>
+                {ALL_MOODS.map((m) => (
+                  <MoodFadeLayer key={m} active={effMood === m} size={size}>
+                    <SvgComponent mood={m} size={size} />
+                  </MoodFadeLayer>
+                ))}
+              </View>
+            )}
         </Animated.View>
         {effIdle === 'sleeping' && <ZzzOverlay size={size} />}
         {showHearts && <PetGlow size={size} petKey={petKey} />}
