@@ -288,7 +288,7 @@ export default function LoginScreen() {
         >
           {/* Mascot */}
           <View style={styles.mascotWrap}>
-            <Mascot stage="kokoron" mood="happy" size={100} />
+            <Mascot stage="stage3" mood="happy" size={100} />
             <Image
               source={require('@/assets/images/yoki_logo.png')}
               style={styles.titleLogo}

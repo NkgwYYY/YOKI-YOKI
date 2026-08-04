@@ -4,17 +4,20 @@ import { Mascot } from '../components/Mascot';
 
 const ITEMS: {
   label: string; sub: string;
-  stage: 'egg' | 'chick' | 'kokoron' | 'master';
+  stage: 'egg' | 'odango' | 'stage3' | 'stage4' | 'stage5';
   evolutionType?: 'heart' | 'star' | 'crown' | null;
 }[] = [
-  { label: 'たまご', sub: 'Lv.1〜', stage: 'egg' },
-  { label: 'めだか', sub: 'Lv.3〜', stage: 'chick' },
-  { label: 'こころん 💗ハート', sub: 'Lv.6〜', stage: 'kokoron', evolutionType: 'heart' },
-  { label: 'こころん ⭐スター', sub: 'Lv.6〜', stage: 'kokoron', evolutionType: 'star' },
-  { label: 'こころん 👑クラウン', sub: 'Lv.6〜', stage: 'kokoron', evolutionType: 'crown' },
-  { label: 'マスター 💗ハート', sub: 'Lv.15〜', stage: 'master', evolutionType: 'heart' },
-  { label: 'マスター ⭐スター', sub: 'Lv.15〜', stage: 'master', evolutionType: 'star' },
-  { label: 'マスター 👑クラウン', sub: 'Lv.15〜', stage: 'master', evolutionType: 'crown' },
+  { label: 'たまご', sub: 'Lv.1〜（1段階目・全タイプ共通）', stage: 'egg' },
+  { label: 'おだんご', sub: 'Lv.3〜（2段階目・全タイプ共通）', stage: 'odango' },
+  { label: '塩おにぎり 🍙食物', sub: 'Lv.6〜（3段階目）', stage: 'stage3', evolutionType: 'heart' },
+  { label: 'はっぱ 🌱植物', sub: 'Lv.6〜（3段階目）', stage: 'stage3', evolutionType: 'crown' },
+  { label: 'ねこ 🐾動物', sub: 'Lv.6〜（3段階目）', stage: 'stage3', evolutionType: 'star' },
+  { label: 'タコ 🍙食物', sub: 'Lv.15〜（4段階目）', stage: 'stage4', evolutionType: 'heart' },
+  { label: 'カラフルはっぱ 🌱植物', sub: 'Lv.15〜（4段階目）', stage: 'stage4', evolutionType: 'crown' },
+  { label: 'うさぎ 🐾動物', sub: 'Lv.15〜（4段階目）', stage: 'stage4', evolutionType: 'star' },
+  { label: 'エビフライ 🍙食物', sub: 'Lv.25〜（5段階目）', stage: 'stage5', evolutionType: 'heart' },
+  { label: '？？？ 🌱植物', sub: 'Lv.25〜（5段階目・検討中）', stage: 'stage5', evolutionType: 'crown' },
+  { label: 'ライオン 🐾動物', sub: 'Lv.25〜（5段階目）', stage: 'stage5', evolutionType: 'star' },
 ];
 
 export default function GalleryScreen() {

@@ -1,32 +1,70 @@
 import { DailyRecord, UserProgress } from '@/contexts/AppContext';
 
-export type MascotStage = 'egg' | 'chick' | 'kokoron' | 'master';
+export type MascotStage = 'egg' | 'odango' | 'stage3' | 'stage4' | 'stage5';
 export type MascotMood = 'excited' | 'happy' | 'normal' | 'grumpy' | 'tired' | 'sleepy';
 export type IdleBehavior = 'rolling' | 'sleeping' | 'playing' | 'normal';
+/* 内部キーは保存データ互換のため heart/star/crown のまま。
+   表示上は heart=食物タイプ, crown=植物タイプ, star=動物タイプ */
 export type EvolutionType = 'heart' | 'star' | 'crown';
 
 export const EVOLUTION_TYPE_INFO: Record<EvolutionType, {
   name: string; emoji: string; desc: string; body: string; accent: string; hint: string;
 }> = {
   heart: {
-    name: 'ハートタイプ',  emoji: '💗',
+    name: '食物タイプ',  emoji: '🍙',
     desc:  '感情豊かで優しい心の持ち主',
-    hint:  '気分を記録するほど開花する',
+    hint:  '気分を記録するほど育っていく',
     body: '#FF80AB', accent: '#FF4081',
   },
   star: {
-    name: 'スタータイプ', emoji: '⭐',
+    name: '動物タイプ', emoji: '🐾',
     desc:  '継続力と活力あふれる存在',
-    hint:  '睡眠と連続記録で輝きが増す',
-    body: '#64B5F6', accent: '#1565C0',
+    hint:  '睡眠と連続記録で元気に育つ',
+    body: '#FFB74D', accent: '#EF6C00',
   },
   crown: {
-    name: 'クラウンタイプ', emoji: '👑',
+    name: '植物タイプ', emoji: '🌱',
     desc:  '行動力とやる気の達人',
-    hint:  'チェックを重ねると力が育つ',
-    body: '#FFD54F', accent: '#F57F17',
+    hint:  'チェックを重ねるとすくすく育つ',
+    body: '#81C784', accent: '#2E7D32',
   },
 };
+
+/* ── ステージ×タイプごとのキャラクター ──
+   1〜2段階目は全タイプ共通。3段階目からタイプで見た目が分かれる。
+   植物タイプの5段階目は未定のため、決まるまで4段階目(カラフルはっぱ)を継続表示 */
+export type CharacterKey =
+  | 'egg' | 'odango'
+  | 'onigiri' | 'tako' | 'ebifurai'          // 食物タイプ
+  | 'happa' | 'colorful_happa'               // 植物タイプ
+  | 'neko' | 'usagi' | 'lion';               // 動物タイプ
+
+export function getCharacter(
+  stage: MascotStage,
+  evolutionType?: EvolutionType | null,
+): { key: CharacterKey; name: string } {
+  if (stage === 'egg') return { key: 'egg', name: 'たまご' };
+  if (stage === 'odango') return { key: 'odango', name: 'おだんご' };
+  const t: EvolutionType = evolutionType ?? 'star';
+  const table: Record<'stage3' | 'stage4' | 'stage5', Record<EvolutionType, { key: CharacterKey; name: string }>> = {
+    stage3: {
+      heart: { key: 'onigiri',        name: '塩おにぎり' },
+      crown: { key: 'happa',          name: 'はっぱ' },
+      star:  { key: 'neko',           name: 'ねこ' },
+    },
+    stage4: {
+      heart: { key: 'tako',           name: 'タコ' },
+      crown: { key: 'colorful_happa', name: 'カラフルはっぱ' },
+      star:  { key: 'usagi',          name: 'うさぎ' },
+    },
+    stage5: {
+      heart: { key: 'ebifurai',       name: 'エビフライ' },
+      crown: { key: 'colorful_happa', name: 'カラフルはっぱ' }, // 5段階目キャラは検討中
+      star:  { key: 'lion',           name: 'ライオン' },
+    },
+  };
+  return table[stage][t];
+}
 
 /**
  * 蓄積した記録からどの系統かを判定する。
@@ -67,7 +105,7 @@ export function getStageColors(
   stage: MascotStage,
   evolutionType?: EvolutionType | null,
 ): { body: string; accent: string } {
-  if ((stage === 'kokoron' || stage === 'master') && evolutionType) {
+  if ((stage === 'stage3' || stage === 'stage4' || stage === 'stage5') && evolutionType) {
     const t = EVOLUTION_TYPE_INFO[evolutionType];
     return { body: t.body, accent: t.accent };
   }
@@ -75,11 +113,20 @@ export function getStageColors(
 }
 
 export const STAGE_LEVEL_MAP: { stage: MascotStage; minLevel: number; name: string; desc: string }[] = [
-  { stage: 'egg',     minLevel: 1,  name: 'たまご',   desc: 'まだ眠っている…' },
-  { stage: 'chick',   minLevel: 3,  name: 'めだか',   desc: 'すこしずつ育っています' },
-  { stage: 'kokoron', minLevel: 6,  name: 'こころん', desc: '元気いっぱいです！' },
-  { stage: 'master',  minLevel: 15, name: 'マスター', desc: 'メンタルの達人' },
+  { stage: 'egg',    minLevel: 1,  name: 'たまご',   desc: 'まだ眠っている…' },
+  { stage: 'odango', minLevel: 3,  name: 'おだんご', desc: 'すこしずつ育っています' },
+  { stage: 'stage3', minLevel: 6,  name: '3段階目',  desc: '元気いっぱいです！' },
+  { stage: 'stage4', minLevel: 15, name: '4段階目',  desc: 'ぐんぐん育っています' },
+  { stage: 'stage5', minLevel: 25, name: '5段階目',  desc: 'メンタルの達人' },
 ];
+
+/** タイプを加味した表示用ステージ名（キャラクター名） */
+export function getStageName(
+  stage: MascotStage,
+  evolutionType?: EvolutionType | null,
+): string {
+  return getCharacter(stage, evolutionType).name;
+}
 
 export function getMascotStage(level: number): MascotStage {
   let result: MascotStage = 'egg';
@@ -226,8 +273,9 @@ export function calcStatus(
 }
 
 export const STAGE_COLORS: Record<MascotStage, { body: string; accent: string }> = {
-  egg:     { body: '#E8D9F8', accent: '#C9B8E8' },
-  chick:   { body: '#B3EDDE', accent: '#00C4A7' },
-  kokoron: { body: '#00D4AA', accent: '#64FFDA' },
-  master:  { body: '#FFD166', accent: '#FF6FA3' },
+  egg:    { body: '#E8D9F8', accent: '#C9B8E8' },
+  odango: { body: '#F8D9E8', accent: '#E8A8C8' },
+  stage3: { body: '#B3EDDE', accent: '#00C4A7' },
+  stage4: { body: '#00D4AA', accent: '#64FFDA' },
+  stage5: { body: '#FFD166', accent: '#FF6FA3' },
 };

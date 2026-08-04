@@ -41,6 +41,7 @@ import {
   calcDevelopingType,
   EVOLUTION_TYPE_INFO,
   STAGE_LEVEL_MAP,
+  getStageName,
   STAGE_COLORS,
   pickIdleBehavior,
   IdleBehavior,
@@ -198,10 +199,10 @@ export default function HomeScreen() {
     [records, progress.streak, stage],
   );
   const developingType = React.useMemo(
-    () => (stage === 'chick' ? calcDevelopingType(records, progress.streak) : null),
+    () => (stage === 'odango' ? calcDevelopingType(records, progress.streak) : null),
     [records, progress.streak, stage],
   );
-  const typeInfo = evolutionType && (stage === 'kokoron' || stage === 'master')
+  const typeInfo = evolutionType && (stage === 'stage3' || stage === 'stage4' || stage === 'stage5')
     ? EVOLUTION_TYPE_INFO[evolutionType]
     : null;
   const devTypeInfo = developingType ? EVOLUTION_TYPE_INFO[developingType] : null;
@@ -293,7 +294,7 @@ export default function HomeScreen() {
               <View style={styles.mascotTopLeft}>
                 <View style={[styles.stagePill, { backgroundColor: stageColors.body + '44', borderColor: stageColors.accent + '55' }]}>
                   <Text style={[styles.stageName, { color: isDark ? stageColors.accent : stageColors.body }]}>
-                    {stageInfo.name}
+                    {getStageName(stage, evolutionType ?? developingType)}
                   </Text>
                 </View>
                 {/* 系統バッジ：Lv6以上で確定表示、Lv3-5で予告 */}

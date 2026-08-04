@@ -13,7 +13,7 @@ chatRouter.post("/chat/message", async (req, res) => {
     const {
       messages = [],
       mascotName = "こころん",
-      mascotStage = "kokoron",
+      mascotStage = "stage3",
       context,
     } = req.body as {
       messages: ChatMessage[];
@@ -24,9 +24,10 @@ chatRouter.post("/chat/message", async (req, res) => {
 
     const stageDesc: Record<string, string> = {
       egg: "たまごから生まれたばかりの小さな存在",
-      chick: "すこしずつ成長中のかわいい子",
-      kokoron: "元気いっぱいで心が強くなってきた",
-      master: "メンタルの達人、心の師匠",
+      odango: "すこしずつ成長中のかわいい子",
+      stage3: "元気いっぱいで心が強くなってきた",
+      stage4: "ぐんぐん成長して頼もしくなってきた",
+      stage5: "メンタルの達人、心の師匠",
     };
 
     const systemPrompt = `あなたは「${mascotName}」という名前のマスコットキャラクター。${stageDesc[mascotStage] ?? "元気なキャラクター"}。メンタルトレーニングアプリの相棒として、ユーザーの心の友達でいること。
