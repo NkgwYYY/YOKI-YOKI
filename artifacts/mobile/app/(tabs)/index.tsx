@@ -13,6 +13,7 @@ import {
   Image,
 } from 'react-native';
 import { MiniGameModal } from '@/components/MiniGameModal';
+import { EvolutionVideoModal } from '@/components/EvolutionVideoModal';
 import { getCurrentSlot, getSlotConfig, GameSlot, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -165,6 +166,23 @@ export default function HomeScreen() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [showFeedModal, setShowFeedModal] = useState(false);
   const [nameInput, setNameInput] = useState('');
+
+  // ── 進化映像モーダル ──
+  const [showEvolutionVideo, setShowEvolutionVideo] = useState(false);
+  const prevStageRef = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    // 初回レンダー時は prevStage を設定するだけ（映像は表示しない）
+    if (prevStageRef.current === null) {
+      prevStageRef.current = stage;
+      return;
+    }
+    // ステージが上がったときだけ映像を再生
+    if (prevStageRef.current !== stage) {
+      prevStageRef.current = stage;
+      setShowEvolutionVideo(true);
+    }
+  }, [stage]);
 
   const handlePet = React.useCallback(() => {
     // アニメーション・ハートのみ — 吹き出しは変えない
@@ -630,6 +648,12 @@ export default function HomeScreen() {
 
       {/* ── Feed Modal ── */}
       <FeedModal visible={showFeedModal} onClose={() => setShowFeedModal(false)} />
+
+      {/* ── Evolution Video Modal ── */}
+      <EvolutionVideoModal
+        visible={showEvolutionVideo}
+        onClose={() => setShowEvolutionVideo(false)}
+      />
 
       {/* ── Mini Game Modal ── */}
       {currentSlot && (
