@@ -280,7 +280,7 @@ export default function LoginScreen() {
     signUp.missingFields.length === 0;
 
   return (
-    <LinearGradient colors={['#F5EEFF', '#E8F4FF']} style={{ flex: 1 }}>
+    <LinearGradient colors={['#F5EEFF', '#E8F4FF']} style={[{ flex: 1 }, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={[styles.container, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24 }]}
@@ -417,7 +417,7 @@ export default function LoginScreen() {
 
 // ── Styles ────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', paddingHorizontal: 24 },
+  container: { alignItems: 'center', paddingHorizontal: 24, ...(Platform.OS === 'web' && { maxWidth: 480, width: '100%', alignSelf: 'center' as any }) },
   mascotWrap: { alignItems: 'center', marginBottom: 28 },
   titleLogo: { width: 220, height: 33, marginTop: 12 },
   subtitle: { fontSize: 13, color: '#9E7DD5', marginTop: 6, textAlign: 'center' },
