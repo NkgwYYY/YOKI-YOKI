@@ -19,7 +19,7 @@ import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 const { width: SW, height: SH } = Dimensions.get('window');
 
 // Object Storage の公開ファイル（App Storage ペインからアップロード済み）
-const VIDEO_PATH = '進化映像.mov';
+const VIDEO_PATH = '進化映像.mp4';
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const EVOLUTION_VIDEO_URL = `${API_BASE}/storage/public-objects/${encodeURIComponent(VIDEO_PATH)}`;
 
