@@ -3,6 +3,7 @@ type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/home-variants/CosmicA.tsx": () => import("../components/mockups/home-variants/CosmicA.tsx"),
   "./components/mockups/home-variants/CosmicABubbleAnim.tsx": () => import("../components/mockups/home-variants/CosmicABubbleAnim.tsx"),
+  "./components/mockups/home-variants/CosmicABubbleAnimFast.tsx": () => import("../components/mockups/home-variants/CosmicABubbleAnimFast.tsx"),
   "./components/mockups/home-variants/CosmicB.tsx": () => import("../components/mockups/home-variants/CosmicB.tsx"),
   "./components/mockups/home-variants/CosmicC.tsx": () => import("../components/mockups/home-variants/CosmicC.tsx"),
   "./components/mockups/home-variants/SpaceA.tsx": () => import("../components/mockups/home-variants/SpaceA.tsx"),

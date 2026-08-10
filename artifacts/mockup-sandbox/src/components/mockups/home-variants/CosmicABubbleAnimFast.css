@@ -1,0 +1,12 @@
+@keyframes float-bubble-fast {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+.animate-float-bubble-fast {
+  animation: float-bubble-fast 2.5s ease-in-out infinite;
+}
