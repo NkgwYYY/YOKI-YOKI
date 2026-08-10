@@ -336,6 +336,8 @@ function EggVideoNative({ size, pokeKey }: { size: number; pokeKey: number }) {
           contentFit="contain"
           nativeControls={false}
           pointerEvents="none"
+          // AndroidのSurfaceViewはMaskedViewで合成できないためTextureViewを使う
+          surfaceType="textureView"
         />
       </MaskedView>
     </View>
