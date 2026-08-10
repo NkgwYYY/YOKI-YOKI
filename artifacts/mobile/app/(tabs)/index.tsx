@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
-  useColorScheme,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -14,10 +13,9 @@ import {
 } from 'react-native';
 import { MiniGameModal } from '@/components/MiniGameModal';
 import { EvolutionVideoModal } from '@/components/EvolutionVideoModal';
-import { getCurrentSlot, getSlotConfig, GameSlot, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
+import { getCurrentSlot, getSlotConfig, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -27,7 +25,6 @@ import Animated, {
   withSpring,
   withRepeat,
 } from 'react-native-reanimated';
-import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
 import { Mascot } from '@/components/Mascot';
 import { FeedModal } from '@/components/FeedModal';
@@ -38,18 +35,15 @@ import {
   getMascotMessage,
   calcStatus,
   getNextStageLevel,
-  getStageColors,
   calcEvolutionType,
   calcDevelopingType,
   EVOLUTION_TYPE_INFO,
   STAGE_LEVEL_MAP,
   getStageName,
-  STAGE_COLORS,
   pickIdleBehavior,
   IdleBehavior,
 } from '@/utils/mascotUtils';
 import { getGreeting, formatDateJP, getTodayDate } from '@/utils/dateUtils';
-import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
 import { getAllActivities } from '@/utils/dailyActivity';
 
 /* ── Cosmic theme palette ── */
@@ -58,12 +52,13 @@ const C = {
   textSub: 'rgba(255,255,255,0.72)',
   textMuted: 'rgba(255,255,255,0.55)',
   card: 'rgba(28,18,61,0.55)',
-  cardSolid: 'rgba(28,18,61,0.82)',
   border: 'rgba(255,255,255,0.12)',
   pill: 'rgba(28,18,61,0.6)',
   accent: '#B2A4FF',
-  glow: 'rgba(155,114,203,0.30)',
   track: 'rgba(255,255,255,0.12)',
+  sheet: '#1C123D',
+  input: 'rgba(255,255,255,0.08)',
+  primary: '#9B72CB',
 };
 
 /* ── Stagger-in wrapper ── */
@@ -155,9 +150,6 @@ function SatietyBar({ satiety }: { satiety: number }) {
 }
 
 export default function HomeScreen() {
-  const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const {
@@ -258,7 +250,6 @@ export default function HomeScreen() {
     : null;
   const devTypeInfo = developingType ? EVOLUTION_TYPE_INFO[developingType] : null;
 
-  const stageColors = getStageColors(stage, evolutionType);
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const moodColors = ['', '#EF4444', '#FF6B35', '#FFB800', '#00C4A7', '#00D4AA'];
@@ -596,23 +587,23 @@ export default function HomeScreen() {
       <Modal visible={showNameModal} transparent animationType="slide" onRequestClose={() => setShowNameModal(false)}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setShowNameModal(false)} />
-          <View style={[styles.sheet, { backgroundColor: colors.card }]}>
-            <View style={[styles.handle, { backgroundColor: colors.border }]} />
+          <View style={[styles.sheet, { backgroundColor: C.sheet }]}>
+            <View style={[styles.handle, { backgroundColor: C.border }]} />
             <View style={styles.sheetHeader}>
               <Mascot stage={stage} mood="happy" size={72} />
               <View style={{ flex: 1 }}>
-                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
+                <Text style={[styles.sheetTitle, { color: C.text }]}>
                   {mascotName ? '名前を変更する' : '名前をつけよう！'}
                 </Text>
-                <Text style={[styles.sheetSub, { color: colors.mutedForeground }]}>
+                <Text style={[styles.sheetSub, { color: C.textMuted }]}>
                   キャラクターに名前をつけてね
                 </Text>
               </View>
             </View>
             <TextInput
-              style={[styles.nameInput, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+              style={[styles.nameInput, { backgroundColor: C.input, color: C.text, borderColor: C.border }]}
               placeholder="なまえを入力（例：こころん）"
-              placeholderTextColor={colors.mutedForeground}
+              placeholderTextColor={C.textMuted}
               value={nameInput}
               onChangeText={setNameInput}
               maxLength={12}
@@ -622,10 +613,10 @@ export default function HomeScreen() {
                 if (nameInput.trim()) { setMascotName(nameInput.trim()); setShowNameModal(false); }
               }}
             />
-            <Text style={[styles.charCount, { color: colors.mutedForeground }]}>
+            <Text style={[styles.charCount, { color: C.textMuted }]}>
               {nameInput.length} / 12
             </Text>
-            <Text style={[styles.presetLabel, { color: colors.mutedForeground }]}>提案</Text>
+            <Text style={[styles.presetLabel, { color: C.textMuted }]}>提案</Text>
             <View style={styles.presetRow}>
               {['こころん', 'みらい', 'ひかり', 'ほのか', 'そら', 'なな'].map((n) => (
                 <TouchableOpacity
@@ -633,29 +624,29 @@ export default function HomeScreen() {
                   style={[
                     styles.presetChip,
                     {
-                      backgroundColor: nameInput === n ? colors.primary + '22' : colors.muted,
-                      borderColor: nameInput === n ? colors.primary : 'transparent',
+                      backgroundColor: nameInput === n ? 'rgba(178,164,255,0.18)' : C.input,
+                      borderColor: nameInput === n ? C.accent : 'transparent',
                       borderWidth: nameInput === n ? 1.5 : 0,
                     },
                   ]}
                   onPress={() => setNameInput(n)}
                   activeOpacity={0.75}
                 >
-                  <Text style={[styles.presetText, { color: nameInput === n ? colors.primary : colors.foreground }]}>
+                  <Text style={[styles.presetText, { color: nameInput === n ? C.accent : C.text }]}>
                     {n}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
             <TouchableOpacity
-              style={[styles.confirmBtn, { backgroundColor: nameInput.trim() ? colors.primary : colors.muted }]}
+              style={[styles.confirmBtn, { backgroundColor: nameInput.trim() ? C.primary : C.input }]}
               disabled={!nameInput.trim()}
               onPress={() => {
                 if (nameInput.trim()) { setMascotName(nameInput.trim()); setShowNameModal(false); }
               }}
               activeOpacity={0.85}
             >
-              <Text style={[styles.confirmText, { color: nameInput.trim() ? '#FFF' : colors.mutedForeground }]}>
+              <Text style={[styles.confirmText, { color: nameInput.trim() ? '#FFF' : C.textMuted }]}>
                 {nameInput.trim() ? `「${nameInput}」に決める！` : '名前を入力してください'}
               </Text>
             </TouchableOpacity>
