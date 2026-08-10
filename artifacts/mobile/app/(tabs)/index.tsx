@@ -25,12 +25,13 @@ import Animated, {
   withTiming,
   withDelay,
   withSpring,
+  withRepeat,
 } from 'react-native-reanimated';
 import { useColors } from '@/hooks/useColors';
 import { useApp } from '@/contexts/AppContext';
 import { Mascot } from '@/components/Mascot';
-import { SpeechBubble } from '@/components/SpeechBubble';
 import { FeedModal } from '@/components/FeedModal';
+import { CosmicBackground } from '@/components/CosmicBackground';
 import {
   getMascotStage,
   getMascotMood,
@@ -49,8 +50,21 @@ import {
 } from '@/utils/mascotUtils';
 import { getGreeting, formatDateJP, getTodayDate } from '@/utils/dateUtils';
 import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
-import { MascotRoomBg } from '@/components/MascotRoomBg';
 import { getAllActivities } from '@/utils/dailyActivity';
+
+/* ── Cosmic theme palette ── */
+const C = {
+  text: '#FFFFFF',
+  textSub: 'rgba(255,255,255,0.72)',
+  textMuted: 'rgba(255,255,255,0.55)',
+  card: 'rgba(28,18,61,0.55)',
+  cardSolid: 'rgba(28,18,61,0.82)',
+  border: 'rgba(255,255,255,0.12)',
+  pill: 'rgba(28,18,61,0.6)',
+  accent: '#B2A4FF',
+  glow: 'rgba(155,114,203,0.30)',
+  track: 'rgba(255,255,255,0.12)',
+};
 
 /* ── Stagger-in wrapper ── */
 function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -78,29 +92,48 @@ function FillBar({ pct, color, delay = 0 }: { pct: number; color: string; delay?
   return <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: color, borderRadius: 6 }, style]} />;
 }
 
+/* ── Floating glass bubble (speech) ── */
+function GlassBubble({ message, onPress }: { message: string; onPress: () => void }) {
+  const y = useSharedValue(0);
+  useEffect(() => {
+    y.value = withRepeat(withTiming(-10, { duration: 2500 }), -1, true);
+  }, []);
+  const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
+  return (
+    <Animated.View style={style}>
+      <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.bubble}>
+        {/* inner highlight */}
+        <View style={styles.bubbleHighlight} />
+        <View style={styles.bubbleGlowSpot} />
+        <Text style={styles.bubbleText}>{message}</Text>
+        <Text style={styles.bubbleHint}>タップで変更</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 /* ── RPG status bar row ── */
 function StatusBar({
   label, icon, value, color, delay,
 }: {
   label: string; icon: string; value: number; color: string; delay: number;
 }) {
-  const colors = useColors();
   return (
     <View style={styles.statBarRow}>
       <View style={styles.statBarLabelWrap}>
         <Text style={styles.statBarIcon}>{icon}</Text>
-        <Text style={[styles.statBarLabel, { color: colors.mutedForeground }]}>{label}</Text>
+        <Text style={[styles.statBarLabel, { color: C.textSub }]}>{label}</Text>
       </View>
-      <View style={[styles.statBarTrack, { backgroundColor: colors.muted }]}>
+      <View style={[styles.statBarTrack, { backgroundColor: C.track }]}>
         <FillBar pct={value} color={color} delay={delay} />
       </View>
-      <Text style={[styles.statBarVal, { color: colors.foreground }]}>{value}</Text>
+      <Text style={[styles.statBarVal, { color: C.text }]}>{value}</Text>
     </View>
   );
 }
 
 /* ── Satiety bar ── */
-function SatietyBar({ satiety, colors }: { satiety: number; colors: ReturnType<typeof useColors> }) {
+function SatietyBar({ satiety }: { satiety: number }) {
   const color =
     satiety >= 70 ? '#00D4AA' :
     satiety >= 40 ? '#FFB347' :
@@ -113,10 +146,10 @@ function SatietyBar({ satiety, colors }: { satiety: number; colors: ReturnType<t
   return (
     <View style={styles.satietyRow}>
       <Text style={styles.satietyIcon}>🍽️</Text>
-      <View style={[styles.satietyTrack, { backgroundColor: colors.muted }]}>
+      <View style={[styles.satietyTrack, { backgroundColor: C.track }]}>
         <View style={[styles.satietyFill, { width: `${satiety}%`, backgroundColor: color }]} />
       </View>
-      <Text style={[styles.satietyLabel, { color: colors.mutedForeground }]}>{label}</Text>
+      <Text style={[styles.satietyLabel, { color: C.textSub }]}>{label}</Text>
     </View>
   );
 }
@@ -227,18 +260,13 @@ export default function HomeScreen() {
 
   const stageColors = getStageColors(stage, evolutionType);
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const bgColors = isDark
-    ? (['#0E0A1C', '#130D28'] as const)
-    : (['#FAF7FF', '#F0F5FF'] as const);
 
   const moodColors = ['', '#EF4444', '#FF6B35', '#FFB800', '#00C4A7', '#00D4AA'];
   const moodLabels = ['', '最悪', '辛い', '普通', '良い', '最高'];
 
   return (
     <View style={styles.flex}>
-      <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
-      <View style={[styles.orb1, { backgroundColor: stageColors.body + '28' }]} />
-      <View style={[styles.orb2, { backgroundColor: colors.secondary + '14' }]} />
+      <CosmicBackground />
 
       <ScrollView
         style={styles.flex}
@@ -253,13 +281,13 @@ export default function HomeScreen() {
           <View style={styles.header}>
             {/* ── YOKI YOKI logo ── */}
             <View>
-              <Text style={[styles.greeting, { color: colors.mutedForeground }]}>{getGreeting()}</Text>
+              <Text style={[styles.greeting, { color: C.textSub }]}>{getGreeting()}</Text>
               <Image
                 source={require('@/assets/images/yoki_logo.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
-              <Text style={[styles.dateText, { color: colors.mutedForeground }]}>
+              <Text style={[styles.dateText, { color: C.textSub }]}>
                 {formatDateJP(getTodayDate())}
               </Text>
             </View>
@@ -270,81 +298,68 @@ export default function HomeScreen() {
                 onPress={() => router.push('/guide')}
                 hitSlop={8}
                 activeOpacity={0.8}
-                style={[styles.helpBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+                style={[styles.helpBtn, { backgroundColor: C.pill, borderColor: C.border }]}
               >
-                <Ionicons name="help-circle-outline" size={20} color={colors.mutedForeground} />
-                <Text style={[styles.helpText, { color: colors.mutedForeground }]}>使い方</Text>
+                <Ionicons name="help-circle-outline" size={20} color={C.textSub} />
+                <Text style={[styles.helpText, { color: C.textSub }]}>使い方</Text>
               </TouchableOpacity>
               <View style={styles.streakWrap}>
-              <LinearGradient
-                colors={progress.streak > 0 ? ['#FF6FA3', '#FF9A3C'] : ['#6B7280', '#9CA3AF']}
-                style={styles.streakBadge}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              >
-                <Text style={styles.streakFlame}>{progress.streak > 0 ? '🔥' : '💤'}</Text>
-                <Text style={styles.streakNum}>{progress.streak}</Text>
-                <Text style={styles.streakUnit}>DAY{progress.streak !== 1 ? 'S' : ''}</Text>
-              </LinearGradient>
-              <Text style={[styles.streakLabel, { color: colors.mutedForeground }]}>
-                {progress.streak >= 7 ? '🏆 継続中！' : '連続記録'}
-              </Text>
+                <View style={styles.streakCircle}>
+                  <View style={styles.streakDashed} />
+                  <Text style={styles.streakNum}>{progress.streak}</Text>
+                  <Text style={styles.streakUnit}>DAY{progress.streak !== 1 ? 'S' : ''}</Text>
+                </View>
+                <Text style={[styles.streakLabel, { color: C.textSub }]}>
+                  {progress.streak >= 7 ? '🏆 継続中！' : '連続記録'}
+                </Text>
               </View>
             </View>
           </View>
         </FadeIn>
 
-        {/* ── Mascot Card ── */}
+        {/* ── Cosmic Hero (stage pills / bubble / mascot / name) ── */}
         <FadeIn delay={80}>
-          <View style={[styles.mascotCard, { borderColor: colors.border, overflow: 'hidden' }]}>
-            {/* Room background scene */}
-            <MascotRoomBg level={progress.level} streak={progress.streak} totalDays={progress.totalDays} />
-
-            {/* Stage color tint overlay */}
-            <LinearGradient
-              colors={isDark
-                ? ['transparent', stageColors.body + '28', '#0F1030CC']
-                : ['transparent', stageColors.body + '18', '#FFFFFFCC']}
-              style={[StyleSheet.absoluteFill, { borderRadius: 26 }]}
-            />
-
-            {/* Stage ribbon */}
+          <View style={styles.hero}>
+            {/* Stage / type / level pills */}
             <View style={styles.mascotTopRow}>
               <View style={styles.mascotTopLeft}>
-                <View style={[styles.stagePill, { backgroundColor: stageColors.body + '44', borderColor: stageColors.accent + '55' }]}>
-                  <Text style={[styles.stageName, { color: isDark ? stageColors.accent : stageColors.body }]}>
+                <View style={[styles.stagePill, { backgroundColor: C.pill, borderColor: C.border }]}>
+                  <Text style={[styles.stageName, { color: C.text }]}>
                     {getStageName(stage, evolutionType ?? developingType)}
                   </Text>
                 </View>
                 {/* 系統バッジ：Lv6以上で確定表示、Lv3-5で予告 */}
                 {typeInfo && (
-                  <View style={[styles.typePill, { backgroundColor: stageColors.body + '33', borderColor: stageColors.accent + '66' }]}>
+                  <View style={[styles.typePill, { backgroundColor: C.pill, borderColor: C.border }]}>
                     <Text style={styles.typeEmoji}>{typeInfo.emoji}</Text>
-                    <Text style={[styles.typeName, { color: isDark ? stageColors.accent : stageColors.body }]}>
+                    <Text style={[styles.typeName, { color: C.textSub }]}>
                       {typeInfo.name}
                     </Text>
                   </View>
                 )}
                 {devTypeInfo && !typeInfo && (
-                  <View style={[styles.typePill, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                  <View style={[styles.typePill, { backgroundColor: C.pill, borderColor: C.border }]}>
                     <Text style={styles.typeEmoji}>🔮</Text>
-                    <Text style={[styles.typeName, { color: colors.mutedForeground }]}>
+                    <Text style={[styles.typeName, { color: C.textSub }]}>
                       {devTypeInfo.name}になりそう…
                     </Text>
                   </View>
                 )}
               </View>
-              <View style={[styles.levelPill, { backgroundColor: colors.primary + '22' }]}>
-                <Ionicons name="star" size={11} color={colors.primary} />
-                <Text style={[styles.levelText, { color: colors.primary }]}>Lv.{progress.level}</Text>
+              <View style={[styles.levelPill, { backgroundColor: C.pill, borderColor: C.border, borderWidth: 1 }]}>
+                <Ionicons name="star" size={11} color={C.accent} />
+                <Text style={[styles.levelText, { color: C.accent }]}>Lv.{progress.level}</Text>
               </View>
             </View>
 
-            {/* Mascot + bubble */}
-            <View style={styles.mascotCenter}>
-              <SpeechBubble
-                message={currentMsg}
-                onPress={() => setMsgIndex((i) => i + 1)}
-              />
+            {/* Floating glass bubble */}
+            <View style={styles.bubbleWrap}>
+              <GlassBubble message={currentMsg} onPress={() => setMsgIndex((i) => i + 1)} />
+            </View>
+
+            {/* Mascot with glow */}
+            <View style={styles.mascotWrap}>
+              <View style={styles.mascotGlow} />
               <Mascot
                 stage={stage}
                 mood={mood}
@@ -358,23 +373,21 @@ export default function HomeScreen() {
 
             {/* Name display */}
             <TouchableOpacity
-              style={[styles.nameRow, {
-                backgroundColor: isDark ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.60)',
-              }]}
+              style={[styles.nameRow, { backgroundColor: C.pill, borderColor: C.border, borderWidth: 1 }]}
               onPress={() => { setNameInput(mascotName); setShowNameModal(true); }}
               activeOpacity={0.75}
             >
               {mascotName ? (
                 <>
-                  <Text style={[styles.mascotNameText, { color: isDark ? '#FFFFFF' : '#1A1A2E' }]}>
+                  <Text style={[styles.mascotNameText, { color: C.text }]}>
                     {mascotName}
                   </Text>
-                  <Ionicons name="pencil" size={13} color={isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.4)'} />
+                  <Ionicons name="pencil" size={13} color={C.textMuted} />
                 </>
               ) : (
                 <>
-                  <Ionicons name="add-circle-outline" size={15} color={colors.primary} />
-                  <Text style={[styles.namePrompt, { color: colors.primary }]}>
+                  <Ionicons name="add-circle-outline" size={15} color={C.accent} />
+                  <Text style={[styles.namePrompt, { color: C.accent }]}>
                     名前をつけよう！
                   </Text>
                 </>
@@ -382,16 +395,21 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             {/* Stage desc */}
-            <Text style={[styles.stageDesc, { color: colors.mutedForeground }]}>
+            <Text style={[styles.stageDesc, { color: C.textMuted }]}>
               {stageInfo.desc}
             </Text>
+          </View>
+        </FadeIn>
 
+        {/* ── お世話カード（満腹度・ごはん・進化）── */}
+        <FadeIn delay={140}>
+          <View style={[styles.sectionCard, { backgroundColor: C.card, borderColor: C.border, gap: 12 }]}>
             {/* Satiety bar */}
-            <SatietyBar satiety={currentSatiety} colors={colors} />
+            <SatietyBar satiety={currentSatiety} />
 
             {/* Feed button */}
             <TouchableOpacity
-              style={[styles.feedBtn, { backgroundColor: colors.primary }]}
+              style={[styles.feedBtn, { backgroundColor: '#9B72CB' }]}
               onPress={() => setShowFeedModal(true)}
               activeOpacity={0.85}
             >
@@ -406,25 +424,25 @@ export default function HomeScreen() {
             {nextStageLevel ? (
               <View style={styles.evoWrap}>
                 <View style={styles.evoRow}>
-                  <Text style={[styles.evoLabel, { color: colors.mutedForeground }]}>
+                  <Text style={[styles.evoLabel, { color: C.textSub }]}>
                     次の進化まで Lv.{nextStageLevel}
                   </Text>
-                  <Text style={[styles.evoRemain, { color: colors.primary }]}>
+                  <Text style={[styles.evoRemain, { color: C.accent }]}>
                     あと {nextStageLevel - progress.level} レベル
                   </Text>
                 </View>
-                <View style={[styles.evoTrack, { backgroundColor: colors.muted }]}>
+                <View style={[styles.evoTrack, { backgroundColor: C.track }]}>
                   <FillBar
                     pct={Math.min(100, (progress.level / nextStageLevel) * 100)}
-                    color={stageColors.accent}
+                    color={C.accent}
                     delay={600}
                   />
                 </View>
               </View>
             ) : (
-              <View style={[styles.maxBadge, { backgroundColor: colors.primary + '22' }]}>
-                <Ionicons name="trophy" size={14} color={colors.primary} />
-                <Text style={[styles.maxText, { color: colors.primary }]}>最高段階に達しました！</Text>
+              <View style={[styles.maxBadge, { backgroundColor: 'rgba(178,164,255,0.16)' }]}>
+                <Ionicons name="trophy" size={14} color={C.accent} />
+                <Text style={[styles.maxText, { color: C.accent }]}>最高段階に達しました！</Text>
               </View>
             )}
           </View>
@@ -432,10 +450,10 @@ export default function HomeScreen() {
 
         {/* ── RPG ステータス ── */}
         <FadeIn delay={180}>
-          <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.sectionCard, { backgroundColor: C.card, borderColor: C.border }]}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>今日のパラメータ</Text>
-              <Text style={[styles.sectionSub, { color: colors.mutedForeground }]}>
+              <Text style={[styles.sectionTitle, { color: C.text }]}>今日のパラメータ</Text>
+              <Text style={[styles.sectionSub, { color: C.textMuted }]}>
                 {todayRecord ? '記録済み' : '未記録'}
               </Text>
             </View>
@@ -444,12 +462,12 @@ export default function HomeScreen() {
             <StatusBar label="行動力" icon="⚡" value={status.activity}  color="#FFB347" delay={540} />
             {!todayRecord && (
               <TouchableOpacity
-                style={[styles.recordHint, { backgroundColor: colors.muted }]}
+                style={[styles.recordHint, { backgroundColor: 'rgba(255,255,255,0.06)' }]}
                 onPress={() => router.push('/(tabs)/record')}
                 activeOpacity={0.8}
               >
-                <Ionicons name="create-outline" size={15} color={colors.primary} />
-                <Text style={[styles.recordHintText, { color: colors.mutedForeground }]}>
+                <Ionicons name="create-outline" size={15} color={C.accent} />
+                <Text style={[styles.recordHintText, { color: C.textSub }]}>
                   気分を記録するとパラメータが上がります
                 </Text>
               </TouchableOpacity>
@@ -462,13 +480,13 @@ export default function HomeScreen() {
           <View style={styles.statsRow}>
             {[
               { value: progress.streak,    label: '連続', icon: 'flame',    color: '#FF6FA3' },
-              { value: progress.level,     label: 'レベル', icon: 'star',   color: colors.primary },
-              { value: progress.totalDays, label: '記録日', icon: 'calendar', color: colors.accent },
+              { value: progress.level,     label: 'レベル', icon: 'star',   color: C.accent },
+              { value: progress.totalDays, label: '記録日', icon: 'calendar', color: '#80D0C7' },
             ].map((s) => (
-              <View key={s.label} style={[styles.statCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View key={s.label} style={[styles.statCard, { backgroundColor: C.card, borderColor: C.border }]}>
                 <Ionicons name={s.icon as any} size={15} color={s.color} />
-                <Text style={[styles.statValue, { color: colors.foreground }]}>{s.value}</Text>
-                <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
+                <Text style={[styles.statValue, { color: C.text }]}>{s.value}</Text>
+                <Text style={[styles.statLabel, { color: C.textMuted }]}>{s.label}</Text>
               </View>
             ))}
           </View>
@@ -477,25 +495,25 @@ export default function HomeScreen() {
         {/* ── Today Checklist quick-link ── */}
         <FadeIn delay={360}>
           <TouchableOpacity
-            style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+            style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border }]}
             onPress={() => router.push('/(tabs)/check')}
             activeOpacity={0.82}
           >
-            <View style={[styles.quickIcon, { backgroundColor: colors.primary + '22' }]}>
-              <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
+            <View style={[styles.quickIcon, { backgroundColor: 'rgba(178,164,255,0.18)' }]}>
+              <Ionicons name="checkmark-circle" size={22} color={C.accent} />
             </View>
             <View style={styles.quickText}>
-              <Text style={[styles.quickTitle, { color: colors.foreground }]}>今日のチェック</Text>
-              <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
+              <Text style={[styles.quickTitle, { color: C.text }]}>今日のチェック</Text>
+              <Text style={[styles.quickSub, { color: C.textMuted }]}>
                 {completedCount} / {totalCount} 完了・達成で🪙ポイント獲得
               </Text>
             </View>
-            <View style={[styles.quickPct, { backgroundColor: colors.primary + '18' }]}>
-              <Text style={[styles.quickPctText, { color: colors.primary }]}>
+            <View style={[styles.quickPct, { backgroundColor: 'rgba(178,164,255,0.15)' }]}>
+              <Text style={[styles.quickPctText, { color: C.accent }]}>
                 {totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}%
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+            <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
           </TouchableOpacity>
         </FadeIn>
 
@@ -503,20 +521,20 @@ export default function HomeScreen() {
         {currentSlot && (
           <FadeIn delay={390}>
             {slotDone ? (
-              <View style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: 0.6 }]}>
-                <View style={[styles.quickIcon, { backgroundColor: colors.muted }]}>
+              <View style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border, opacity: 0.6 }]}>
+                <View style={[styles.quickIcon, { backgroundColor: 'rgba(255,255,255,0.08)' }]}>
                   <Text style={{ fontSize: 20 }}>{getSlotConfig(currentSlot).emoji}</Text>
                 </View>
                 <View style={styles.quickText}>
-                  <Text style={[styles.quickTitle, { color: colors.foreground }]}>{getSlotConfig(currentSlot).label}</Text>
-                  <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>今日のゲームは終わったよ！また明日ね ✨</Text>
+                  <Text style={[styles.quickTitle, { color: C.text }]}>{getSlotConfig(currentSlot).label}</Text>
+                  <Text style={[styles.quickSub, { color: C.textMuted }]}>今日のゲームは終わったよ！また明日ね ✨</Text>
                 </View>
-                <View style={[styles.doneDot, { backgroundColor: colors.primary }]} />
-                <Text style={[styles.doneLabel, { color: colors.mutedForeground }]}>完了</Text>
+                <View style={[styles.doneDot, { backgroundColor: C.accent }]} />
+                <Text style={[styles.doneLabel, { color: C.textMuted }]}>完了</Text>
               </View>
             ) : (
               <TouchableOpacity
-                style={[styles.miniGameBanner, { borderColor: getSlotConfig(currentSlot).color + '66' }]}
+                style={[styles.miniGameBanner, { borderColor: getSlotConfig(currentSlot).color + '66', backgroundColor: C.card }]}
                 onPress={() => setShowMiniGame(true)}
                 activeOpacity={0.85}
               >
@@ -524,8 +542,8 @@ export default function HomeScreen() {
                   <Text style={{ fontSize: 22 }}>{getSlotConfig(currentSlot).emoji}</Text>
                 </View>
                 <View style={styles.quickText}>
-                  <Text style={[styles.quickTitle, { color: colors.foreground }]}>{getSlotConfig(currentSlot).label}</Text>
-                  <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
+                  <Text style={[styles.quickTitle, { color: C.text }]}>{getSlotConfig(currentSlot).label}</Text>
+                  <Text style={[styles.quickSub, { color: C.textMuted }]}>
                     {slotPlays > 0 ? `あと1回できるよ！ ` : ''}{getSlotConfig(currentSlot).rewardLabel}
                   </Text>
                 </View>
@@ -540,35 +558,35 @@ export default function HomeScreen() {
         {/* ── Mood quick-link ── */}
         <FadeIn delay={420}>
           {todayRecord ? (
-            <View style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border }]}>
               <View style={[styles.quickIcon, { backgroundColor: moodColors[todayRecord.mood] + '22' }]}>
                 <Ionicons name="happy-outline" size={22} color={moodColors[todayRecord.mood]} />
               </View>
               <View style={styles.quickText}>
-                <Text style={[styles.quickTitle, { color: colors.foreground }]}>今日の気分</Text>
+                <Text style={[styles.quickTitle, { color: C.text }]}>今日の気分</Text>
                 <Text style={[styles.quickSub, { color: moodColors[todayRecord.mood] }]}>
                   {moodLabels[todayRecord.mood]}
                 </Text>
               </View>
-              <View style={[styles.doneDot, { backgroundColor: colors.primary }]} />
-              <Text style={[styles.doneLabel, { color: colors.mutedForeground }]}>記録済</Text>
+              <View style={[styles.doneDot, { backgroundColor: C.accent }]} />
+              <Text style={[styles.doneLabel, { color: C.textMuted }]}>記録済</Text>
             </View>
           ) : (
             <TouchableOpacity
-              style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border }]}
               onPress={() => router.push('/(tabs)/record')}
               activeOpacity={0.82}
             >
-              <View style={[styles.quickIcon, { backgroundColor: colors.secondary + '22' }]}>
-                <Ionicons name="create-outline" size={22} color={colors.secondary} />
+              <View style={[styles.quickIcon, { backgroundColor: 'rgba(255,111,163,0.18)' }]}>
+                <Ionicons name="create-outline" size={22} color="#FF6FA3" />
               </View>
               <View style={styles.quickText}>
-                <Text style={[styles.quickTitle, { color: colors.foreground }]}>今日の気分を記録</Text>
-                <Text style={[styles.quickSub, { color: colors.mutedForeground }]}>
+                <Text style={[styles.quickTitle, { color: C.text }]}>今日の気分を記録</Text>
+                <Text style={[styles.quickSub, { color: C.textMuted }]}>
                   記録するとXP + 🪙5pt
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+              <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
             </TouchableOpacity>
           )}
         </FadeIn>
@@ -671,8 +689,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: 18, gap: 14 },
-  orb1: { position: 'absolute', width: 260, height: 260, borderRadius: 130, top: -80, right: -90 },
-  orb2: { position: 'absolute', width: 180, height: 180, borderRadius: 90, bottom: 240, left: -70 },
 
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
   greeting: { fontSize: 12, fontFamily: 'Inter_400Regular', marginBottom: 4 },
@@ -681,7 +697,7 @@ const styles = StyleSheet.create({
   // Logo
   logoImage: { width: 168, height: 25, marginTop: 6, marginBottom: 4 },
 
-  // Streak
+  // Streak — circular glass badge "3 DAYS"
   streakWrap: { alignItems: 'center', gap: 4 },
   headerRight: { alignItems: 'flex-end', gap: 8 },
   helpBtn: {
@@ -689,27 +705,76 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
   },
   helpText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
-  streakBadge: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18, minWidth: 72, gap: 0 },
-  streakFlame: { fontSize: 18, lineHeight: 22 },
+  streakCircle: {
+    width: 64, height: 64, borderRadius: 32,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.30)',
+    backgroundColor: 'rgba(26,16,53,0.40)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  streakDashed: {
+    position: 'absolute', top: 3, left: 3, right: 3, bottom: 3,
+    borderRadius: 29, borderWidth: 1, borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.30)',
+  },
   streakNum: { fontSize: 22, fontFamily: 'Inter_700Bold', color: '#FFF', lineHeight: 26 },
-  streakUnit: { fontSize: 9, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.8)', letterSpacing: 1 },
+  streakUnit: { fontSize: 8, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.8)', letterSpacing: 2 },
   streakLabel: { fontSize: 10, fontFamily: 'Inter_400Regular' },
 
-  mascotCard: { borderRadius: 26, padding: 20, borderWidth: 1, alignItems: 'center', gap: 10 },
+  // Cosmic hero
+  hero: { alignItems: 'center', gap: 10 },
   mascotTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' },
   mascotTopLeft: { flexDirection: 'column', gap: 6, alignItems: 'flex-start' },
-  stagePill: { paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, borderWidth: 1.5 },
+  stagePill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
   stageName: { fontSize: 13, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
   typePill: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 20, borderWidth: 1.5,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 20, borderWidth: 1,
   },
   typeEmoji: { fontSize: 12 },
   typeName:  { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
   levelPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
   levelText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
-  mascotCenter: { alignItems: 'center', gap: 6, paddingVertical: 4 },
+
+  // Glass bubble
+  bubbleWrap: { marginTop: 2, marginBottom: -34, zIndex: 2 },
+  bubble: {
+    width: 250, height: 250, borderRadius: 125,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.20)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  bubbleHighlight: {
+    position: 'absolute', top: 14, left: 24,
+    width: 150, height: 74,
+    borderTopWidth: 3, borderColor: 'rgba(255,255,255,0.35)',
+    borderRadius: 100,
+    transform: [{ rotate: '-25deg' }],
+  },
+  bubbleGlowSpot: {
+    position: 'absolute', bottom: 22, right: 22,
+    width: 110, height: 48, borderRadius: 60,
+    backgroundColor: 'rgba(178,164,255,0.16)',
+    transform: [{ rotate: '20deg' }],
+  },
+  bubbleText: {
+    textAlign: 'center', fontSize: 16, lineHeight: 28,
+    fontFamily: 'Inter_500Medium', color: 'rgba(255,255,255,0.95)',
+    letterSpacing: 1.5, paddingHorizontal: 26,
+  },
+  bubbleHint: {
+    fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 14, letterSpacing: 2,
+    fontFamily: 'Inter_400Regular',
+  },
+
+  // Mascot glow
+  mascotWrap: { alignItems: 'center', justifyContent: 'center', zIndex: 3 },
+  mascotGlow: {
+    position: 'absolute', width: 190, height: 190, borderRadius: 95,
+    backgroundColor: 'rgba(155,114,203,0.28)',
+  },
+
   stageDesc: { fontSize: 12, fontFamily: 'Inter_400Regular' },
 
   satietyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
@@ -733,7 +798,7 @@ const styles = StyleSheet.create({
   evoLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
   evoRemain: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
   evoTrack: { height: 8, borderRadius: 4, overflow: 'hidden', position: 'relative' },
-  maxBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16 },
+  maxBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, alignSelf: 'center' },
   maxText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
 
   sectionCard: { borderRadius: 20, padding: 18, borderWidth: 1, gap: 14 },
@@ -767,7 +832,6 @@ const styles = StyleSheet.create({
   miniGameBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16,
     borderRadius: 18, borderWidth: 1.5,
-    backgroundColor: 'transparent',
   },
   miniGameIconWrap: {
     width: 44, height: 44, borderRadius: 14,
@@ -781,10 +845,10 @@ const styles = StyleSheet.create({
   nameRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'center',
-    paddingHorizontal: 14, paddingVertical: 6,
+    paddingHorizontal: 16, paddingVertical: 8,
     borderRadius: 999,
   },
-  mascotNameText: { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
+  mascotNameText: { fontSize: 18, fontFamily: 'Inter_700Bold', letterSpacing: 1 },
   namePrompt: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
 
 
