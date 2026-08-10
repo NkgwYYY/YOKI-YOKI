@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, PanResponder, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -230,7 +230,64 @@ function MoodFadeLayer({ active, size, children }: { active: boolean; size: numb
   );
 }
 
-function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: number; rolling?: boolean }) {
+/* ── Web限定: たまごの元動画をそのままループ再生（egg-demo.html と同方式） ──
+   グレー背景は radial mask でふわっとなじませ、タップ(pokeKey)で最初から再生し直す。
+   表情は動画が1本（通常顔）しかないため、mood が normal のときだけ動画を使い、
+   それ以外（happy/sleepy/…・ころころ・起床シーケンス）は既存のフレーム方式にフォールバックする。 */
+function EggVideoWeb({ size, pokeKey }: { size: number; pokeKey: number }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    // iOS Safari 対策: 自動再生が拒否されたら初回タッチで開始
+    const v = videoRef.current;
+    if (!v) return;
+    const p = v.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(() => {
+        const kick = () => { videoRef.current?.play().catch(() => {}); };
+        document.addEventListener('touchstart', kick, { once: true });
+        document.addEventListener('pointerdown', kick, { once: true });
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pokeKey === 0) return;
+    const v = videoRef.current;
+    if (!v) return;
+    try { v.currentTime = 0; v.play().catch(() => {}); } catch {}
+  }, [pokeKey]);
+
+  // 動画内のたまご(高さ約60%)をPNGアセット(約71%)と同じ見た目サイズに揃える
+  const s = Math.round(size * 1.18);
+  const inset = Math.round((s - size) / 2);
+  return (
+    <View style={{ width: size, height: size, overflow: 'visible' }}>
+      {React.createElement('video', {
+        ref: videoRef,
+        src: '/egg_loop.mp4',
+        poster: '/egg_poster.jpg',
+        autoPlay: true,
+        muted: true,
+        loop: true,
+        playsInline: true,
+        style: {
+          position: 'absolute',
+          left: -inset,
+          top: -inset,
+          width: s,
+          height: s,
+          objectFit: 'contain',
+          pointerEvents: 'none',
+          WebkitMaskImage: 'radial-gradient(circle at 50% 52%, #000 58%, transparent 74%)',
+          maskImage: 'radial-gradient(circle at 50% 52%, #000 58%, transparent 74%)',
+        },
+      })}
+    </View>
+  );
+}
+
+function EggImage({ mood, size, rolling = false, pokeKey = 0 }: { mood: MascotMood; size: number; rolling?: boolean; pokeKey?: number }) {
   /* ぷにぷに呼吸（サイン波イージングでゆったり・シリコンのような柔らかさ） */
   const SINE = Easing.inOut(Easing.sin);
   const breath = useSharedValue(0);
@@ -360,6 +417,11 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
     );
   }
 
+  // Web かつ通常表情・シーケンス再生なし → 元動画をそのまま滑らかにループ再生
+  if (Platform.OS === 'web' && mood === 'normal' && seq === null) {
+    return <EggVideoWeb size={size} pokeKey={pokeKey} />;
+  }
+
   return (
     <Animated.View style={[breathStyle, { transformOrigin: 'bottom', width: size, height: size } as any]}>
       {/* 全表情レイヤーを常時重ねて、不透明度だけを0.3秒でクロスフェード */}
@@ -452,6 +514,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
   /* petting state */
   const [showHearts, setShowHearts] = useState(false);
   const [petKey,     setPetKey]     = useState(0);
+  const [pokeKey,    setPokeKey]    = useState(0); // タップ回数（Web動画たまごの再生リセット用）
   const glowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (glowTimer.current) clearTimeout(glowTimer.current); }, []);
   const onPressRef = useRef(onPress);
@@ -657,6 +720,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
         if (!wasPet && Math.abs(gs.dx) < 12 && Math.abs(gs.dy) < 12) {
           // plain tap
           wakeUpRef.current();
+          setPokeKey((k) => k + 1); // Web動画たまごを最初から再生し直す
           bounce.value = withSequence(
             withSpring(-22, { damping: 6, stiffness: 300 }),
             withSpring(0,   { damping: 8, stiffness: 200 }),
@@ -684,7 +748,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       <View>
         <Animated.View style={style}>
           {character.key === 'egg'
-            ? <EggImage mood={effMood} size={size} rolling={effIdle === 'rolling'} />
+            ? <EggImage mood={effMood} size={size} rolling={effIdle === 'rolling'} pokeKey={pokeKey} />
             : <CharacterImage charKey={character.key} mood={effMood} size={size} />}
         </Animated.View>
         {effIdle === 'sleeping' && <ZzzOverlay size={size} />}
