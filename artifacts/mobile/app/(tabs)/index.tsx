@@ -28,7 +28,7 @@ import Animated, {
 import { useApp } from '@/contexts/AppContext';
 import { Mascot } from '@/components/Mascot';
 import { FeedModal } from '@/components/FeedModal';
-import { CosmicBackground } from '@/components/CosmicBackground';
+import { SkyBackground } from '@/components/SkyBackground';
 import {
   getMascotStage,
   getMascotMood,
@@ -51,13 +51,13 @@ const C = {
   text: '#FFFFFF',
   textSub: 'rgba(255,255,255,0.72)',
   textMuted: 'rgba(255,255,255,0.55)',
-  card: 'rgba(28,18,61,0.55)',
-  border: 'rgba(255,255,255,0.12)',
-  pill: 'rgba(28,18,61,0.6)',
-  accent: '#B2A4FF',
-  track: 'rgba(255,255,255,0.12)',
-  sheet: '#1C123D',
-  input: 'rgba(255,255,255,0.08)',
+  card: 'rgba(84,64,148,0.42)',
+  border: 'rgba(255,255,255,0.28)',
+  pill: 'rgba(84,64,148,0.48)',
+  accent: '#EFE7FF',
+  track: 'rgba(255,255,255,0.28)',
+  sheet: '#2A1D55',
+  input: 'rgba(255,255,255,0.12)',
   primary: '#9B72CB',
 };
 
@@ -257,7 +257,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.flex}>
-      <CosmicBackground />
+      <SkyBackground />
 
       <ScrollView
         style={styles.flex}
@@ -698,8 +698,8 @@ const styles = StyleSheet.create({
   helpText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
   streakCircle: {
     width: 64, height: 64, borderRadius: 32,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.30)',
-    backgroundColor: 'rgba(26,16,53,0.40)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)',
+    backgroundColor: 'rgba(84,64,148,0.45)',
     alignItems: 'center', justifyContent: 'center',
   },
   streakDashed: {
@@ -731,39 +731,39 @@ const styles = StyleSheet.create({
   bubbleWrap: { marginTop: 2, marginBottom: -34, zIndex: 2 },
   bubble: {
     width: 250, height: 250, borderRadius: 125,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.20)',
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.65)',
+    backgroundColor: 'rgba(255,255,255,0.55)',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
   },
   bubbleHighlight: {
     position: 'absolute', top: 14, left: 24,
     width: 150, height: 74,
-    borderTopWidth: 3, borderColor: 'rgba(255,255,255,0.35)',
+    borderTopWidth: 3, borderColor: 'rgba(255,255,255,0.85)',
     borderRadius: 100,
     transform: [{ rotate: '-25deg' }],
   },
   bubbleGlowSpot: {
     position: 'absolute', bottom: 22, right: 22,
     width: 110, height: 48, borderRadius: 60,
-    backgroundColor: 'rgba(178,164,255,0.16)',
+    backgroundColor: 'rgba(178,164,255,0.22)',
     transform: [{ rotate: '20deg' }],
   },
   bubbleText: {
     textAlign: 'center', fontSize: 16, lineHeight: 28,
-    fontFamily: 'Inter_500Medium', color: 'rgba(255,255,255,0.95)',
+    fontFamily: 'Inter_600SemiBold', color: '#4A3C82',
     letterSpacing: 1.5, paddingHorizontal: 26,
   },
   bubbleHint: {
-    fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 14, letterSpacing: 2,
-    fontFamily: 'Inter_400Regular',
+    fontSize: 10, color: 'rgba(74,60,130,0.65)', marginTop: 14, letterSpacing: 2,
+    fontFamily: 'Inter_500Medium',
   },
 
   // Mascot glow
   mascotWrap: { alignItems: 'center', justifyContent: 'center', zIndex: 3 },
   mascotGlow: {
     position: 'absolute', width: 190, height: 190, borderRadius: 95,
-    backgroundColor: 'rgba(155,114,203,0.28)',
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
 
   stageDesc: { fontSize: 12, fontFamily: 'Inter_400Regular' },
