@@ -58,9 +58,11 @@
   },
   "dependencies": {
     "@clerk/expo": "^4.0.3",
+    "@react-native-masked-view/masked-view": "0.3.2",
     "expo-auth-session": "~7.0.11",
     "expo-av": "^16.0.8",
     "expo-crypto": "~15.0.9",
-    "expo-secure-store": "^15.0.8"
+    "expo-secure-store": "^15.0.8",
+    "expo-video": "~3.0.16"
   }
 }

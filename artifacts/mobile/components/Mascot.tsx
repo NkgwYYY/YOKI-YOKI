@@ -15,6 +15,8 @@ import Svg, {
 } from 'react-native-svg';
 import { Image } from 'react-native';
 import { MascotStage, MascotMood, IdleBehavior, EvolutionType, CharacterKey, getCharacter } from '@/utils/mascotUtils';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import MaskedView from '@react-native-masked-view/masked-view';
 
 /* ── たまごステージ: 動画から切り出した透過画像（気分ごとに表情切替） ── */
 const EGG_IMAGES: Record<MascotMood, ReturnType<typeof require>> = {
@@ -287,6 +289,59 @@ function EggVideoWeb({ size, pokeKey }: { size: number; pokeKey: number }) {
   );
 }
 
+/* ── ネイティブ(iOS/Android): expo-video で元動画をループ再生 ──
+   CSS mask が使えないため、SVGのラジアルグラデーションを MaskedView のマスクにして
+   グレー背景をふわっと円形になじませる（Web版と同じ見た目）。 */
+const EGG_VIDEO_SOURCE = require('../assets/videos/egg_loop.mp4');
+
+function EggVideoNative({ size, pokeKey }: { size: number; pokeKey: number }) {
+  const player = useVideoPlayer(EGG_VIDEO_SOURCE, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+
+  useEffect(() => {
+    if (pokeKey === 0) return;
+    try {
+      player.currentTime = 0;
+      player.play();
+    } catch {}
+  }, [pokeKey]);
+
+  // 動画内のたまご(高さ約60%)をPNGアセット(約71%)と同じ見た目サイズに揃える
+  const s = Math.round(size * 1.18);
+  const inset = Math.round((s - size) / 2);
+  return (
+    <View style={{ width: size, height: size }}>
+      <MaskedView
+        style={{ position: 'absolute', left: -inset, top: -inset, width: s, height: s }}
+        maskElement={
+          <Svg width={s} height={s} viewBox="0 0 100 100">
+            <Defs>
+              <RadialGradient id="eggVideoMask" cx="50%" cy="52%" r="50%">
+                <Stop offset="0%" stopColor="#fff" stopOpacity="1" />
+                <Stop offset="58%" stopColor="#fff" stopOpacity="1" />
+                <Stop offset="74%" stopColor="#fff" stopOpacity="0" />
+                <Stop offset="100%" stopColor="#fff" stopOpacity="0" />
+              </RadialGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100" height="100" fill="url(#eggVideoMask)" />
+          </Svg>
+        }
+      >
+        <VideoView
+          player={player}
+          style={{ width: s, height: s }}
+          contentFit="contain"
+          nativeControls={false}
+          pointerEvents="none"
+        />
+      </MaskedView>
+    </View>
+  );
+}
+
 function EggImage({ mood, size, rolling = false, pokeKey = 0 }: { mood: MascotMood; size: number; rolling?: boolean; pokeKey?: number }) {
   /* ぷにぷに呼吸（サイン波イージングでゆったり・シリコンのような柔らかさ） */
   const SINE = Easing.inOut(Easing.sin);
@@ -417,9 +472,11 @@ function EggImage({ mood, size, rolling = false, pokeKey = 0 }: { mood: MascotMo
     );
   }
 
-  // Web かつ通常表情・シーケンス再生なし → 元動画をそのまま滑らかにループ再生
-  if (Platform.OS === 'web' && mood === 'normal' && seq === null) {
-    return <EggVideoWeb size={size} pokeKey={pokeKey} />;
+  // 通常表情・シーケンス再生なし → 元動画をそのまま滑らかにループ再生（Web/ネイティブとも）
+  if (mood === 'normal' && seq === null) {
+    return Platform.OS === 'web'
+      ? <EggVideoWeb size={size} pokeKey={pokeKey} />
+      : <EggVideoNative size={size} pokeKey={pokeKey} />;
   }
 
   return (
