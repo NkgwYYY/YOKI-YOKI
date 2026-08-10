@@ -61,26 +61,11 @@ export function VariantE() {
             {/* Dreamy shadow applied to a background div to wrap the mascot */}
             <div className="absolute w-36 h-36 rounded-full shadow-[0_20px_50px_rgba(167,139,250,0.20),0_0_0_1px_rgba(255,182,215,0.15)] pointer-events-none"></div>
 
-            {/* Mascot Character — DO NOT MODIFY THIS BLOCK */}
-            <div className="relative w-44 h-44 mt-2 flex items-center justify-center animate-[bounce_4s_ease-in-out_infinite]">
-              <div className="absolute inset-0 bg-white rounded-full shadow-[inset_-12px_-16px_24px_rgba(0,0,0,0.02),0_20px_40px_rgba(0,0,0,0.10)] z-10"></div>
-              <div className="absolute -top-1 -left-2 w-16 h-16 bg-white rounded-full z-0"></div>
-              <div className="absolute top-5 -right-3 w-20 h-20 bg-white rounded-full z-0"></div>
-              <div className="absolute bottom-3 -left-4 w-18 h-18 bg-white rounded-full z-0"></div>
-              <div className="absolute -bottom-3 right-5 w-16 h-16 bg-white rounded-full z-0"></div>
-              <div className="relative z-20 flex flex-col items-center mt-6">
-                <div className="flex gap-8 mb-1">
-                  <div className="w-3.5 h-[18px] bg-[#1a1a2e] rounded-full"></div>
-                  <div className="w-3.5 h-[18px] bg-[#1a1a2e] rounded-full"></div>
-                </div>
-                <div className="absolute top-3 flex gap-14 opacity-50">
-                  <div className="w-5 h-2.5 bg-[#F48FB1] rounded-full blur-[2px]"></div>
-                  <div className="w-5 h-2.5 bg-[#F48FB1] rounded-full blur-[2px]"></div>
-                </div>
-                <div className="w-2.5 h-1 border-b-[2.5px] border-[#1a1a2e] rounded-full opacity-40 mt-1.5"></div>
-              </div>
-            </div>
-            {/* END Mascot */}
+            <img
+              src="/__mockup/images/mascot.png"
+              alt="よっきー"
+              className="w-44 h-44 object-contain drop-shadow-[0_20px_50px_rgba(167,139,250,0.25)] animate-[bounce_4s_ease-in-out_infinite]"
+            />
           </div>
 
           {/* Name Badge */}
