@@ -60,6 +60,55 @@ const CHAR_IMAGES: Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof requir
   lion:           require('../assets/images/characters/lion.png'),
 };
 
+/* ── 笑顔アニメ（アップロード動画から切り出した実フレーム: しかめ顔→まばたき→にっこり） ── */
+const SMILE_FRAMES: Partial<Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof require>[]>> = {
+  odango: [
+    require('../assets/images/characters/smile/odango/s_01.webp'),
+    require('../assets/images/characters/smile/odango/s_02.webp'),
+    require('../assets/images/characters/smile/odango/s_03.webp'),
+    require('../assets/images/characters/smile/odango/s_04.webp'),
+    require('../assets/images/characters/smile/odango/s_05.webp'),
+    require('../assets/images/characters/smile/odango/s_06.webp'),
+    require('../assets/images/characters/smile/odango/s_07.webp'),
+    require('../assets/images/characters/smile/odango/s_08.webp'),
+    require('../assets/images/characters/smile/odango/s_09.webp'),
+    require('../assets/images/characters/smile/odango/s_10.webp'),
+    require('../assets/images/characters/smile/odango/s_11.webp'),
+    require('../assets/images/characters/smile/odango/s_12.webp'),
+  ],
+  happa: [
+    require('../assets/images/characters/smile/happa/s_01.webp'),
+    require('../assets/images/characters/smile/happa/s_02.webp'),
+    require('../assets/images/characters/smile/happa/s_03.webp'),
+    require('../assets/images/characters/smile/happa/s_04.webp'),
+    require('../assets/images/characters/smile/happa/s_05.webp'),
+    require('../assets/images/characters/smile/happa/s_06.webp'),
+    require('../assets/images/characters/smile/happa/s_07.webp'),
+    require('../assets/images/characters/smile/happa/s_08.webp'),
+    require('../assets/images/characters/smile/happa/s_09.webp'),
+    require('../assets/images/characters/smile/happa/s_10.webp'),
+    require('../assets/images/characters/smile/happa/s_11.webp'),
+    require('../assets/images/characters/smile/happa/s_12.webp'),
+  ],
+  colorful_happa: [
+    require('../assets/images/characters/smile/colorful_happa/s_01.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_02.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_03.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_04.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_05.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_06.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_07.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_08.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_09.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_10.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_11.webp'),
+    require('../assets/images/characters/smile/colorful_happa/s_12.webp'),
+  ],
+};
+
+const SMILE_FRAME_MS = 120;    // 1コマの表示時間
+const SMILE_HOLD_MS = 1400;    // 最後の笑顔を保持する時間
+
 /* 進化後キャラ: 1枚画像に、たまごと同じ呼吸・ゆらぎ・ぷるんモーションを適用 */
 function CharacterImage({ charKey, mood, size }: { charKey: Exclude<CharacterKey, 'egg'>; mood: MascotMood; size: number }) {
   const SINE = Easing.inOut(Easing.sin);
@@ -111,14 +160,56 @@ function CharacterImage({ charKey, mood, size }: { charKey: Exclude<CharacterKey
     ],
   }));
 
+  /* ── 笑顔アニメ再生（該当キャラのみ）: 数秒おきに動画フレームを一巡 ── */
+  const smileFrames = SMILE_FRAMES[charKey];
+  const [smileIdx, setSmileIdx] = useState<number | null>(null);
+  useEffect(() => {
+    if (!smileFrames || mood === 'sleepy' || mood === 'tired') {
+      setSmileIdx(null);
+      return;
+    }
+    let alive = true;
+    let timers: ReturnType<typeof setTimeout>[] = [];
+    const schedule = (firstDelay: number) => {
+      timers.push(setTimeout(() => {
+        if (!alive) return;
+        // 一巡再生
+        smileFrames.forEach((_, i) => {
+          timers.push(setTimeout(() => { if (alive) setSmileIdx(i); }, i * SMILE_FRAME_MS));
+        });
+        const total = smileFrames.length * SMILE_FRAME_MS + SMILE_HOLD_MS;
+        timers.push(setTimeout(() => {
+          if (!alive) return;
+          setSmileIdx(null);
+          schedule(7000 + Math.random() * 6000);
+        }, total));
+      }, firstDelay));
+    };
+    schedule(2500 + Math.random() * 2000);
+    return () => { alive = false; timers.forEach(clearTimeout); };
+  }, [charKey, mood]);
+
   return (
     <Animated.View style={[breathStyle, { width: size, height: size }]}>
       <Image
         source={CHAR_IMAGES[charKey] as any}
-        style={{ width: size, height: size }}
+        style={{ width: size, height: size, opacity: smileIdx === null ? 1 : 0 }}
         resizeMode="contain"
         fadeDuration={0}
       />
+      {smileFrames?.map((src, i) => (
+        <Image
+          key={i}
+          source={src as any}
+          style={{
+            position: 'absolute', top: 0, left: 0,
+            width: size, height: size,
+            opacity: smileIdx === i ? 1 : 0,
+          }}
+          resizeMode="contain"
+          fadeDuration={0}
+        />
+      ))}
     </Animated.View>
   );
 }
