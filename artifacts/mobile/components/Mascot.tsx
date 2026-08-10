@@ -197,19 +197,18 @@ function CharacterImage({ charKey, mood, size }: { charKey: Exclude<CharacterKey
         resizeMode="contain"
         fadeDuration={0}
       />
-      {smileFrames?.map((src, i) => (
+      {/* 再生中の1コマだけをマウント（全コマ常時マウントはメモリ負荷が大きいため） */}
+      {smileFrames && smileIdx !== null && (
         <Image
-          key={i}
-          source={src as any}
+          source={smileFrames[smileIdx] as any}
           style={{
             position: 'absolute', top: 0, left: 0,
             width: size, height: size,
-            opacity: smileIdx === i ? 1 : 0,
           }}
           resizeMode="contain"
           fadeDuration={0}
         />
-      ))}
+      )}
     </Animated.View>
   );
 }
@@ -322,18 +321,19 @@ function EggImage({ mood, size, rolling = false }: { mood: MascotMood; size: num
     let i = from === 'normal' ? 0 : 1; // 寝起きは目閉じフレームから
     setSeq(i);
     seqOp.value = 1;
+    let fadeTimer: ReturnType<typeof setTimeout> | null = null;
     const iv = setInterval(() => {
       i += 1;
       if (i >= EGG_WAKE_FRAMES.length) {
         clearInterval(iv);
         // 最終フレームを残したままフェードアウトして通常レイヤーへ繋ぐ
         seqOp.value = withTiming(0, { duration: 220 });
-        setTimeout(() => setSeq(null), 240);
+        fadeTimer = setTimeout(() => setSeq(null), 240);
       } else {
         setSeq(i);
       }
     }, 130);
-    return () => clearInterval(iv);
+    return () => { clearInterval(iv); if (fadeTimer) clearTimeout(fadeTimer); };
   }, [mood]);
   const seqStyle = useAnimatedStyle(() => ({ opacity: seqOp.value }));
 

@@ -3,17 +3,44 @@ import { openai } from "@workspace/integrations-openai-ai-server";
 
 const homeCommentRouter = Router();
 
+/* 簡易レート制限（IPごとに1分あたり6回まで）— 無認証のLLM呼び出しコスト濫用対策 */
+const rateMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 6;
+const RATE_WINDOW_MS = 60_000;
+function checkRate(ip: string): boolean {
+  const now = Date.now();
+  const e = rateMap.get(ip);
+  if (!e || now > e.resetAt) {
+    rateMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return true;
+  }
+  e.count += 1;
+  return e.count <= RATE_LIMIT;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of rateMap) if (now > v.resetAt) rateMap.delete(k);
+}, RATE_WINDOW_MS).unref?.();
+
 /**
  * ホーム画面「今日の一言」生成。
  * ユーザーの記録・直近チャットに関連づけた、自然でさっぱりしたコメントを1つ返す。
  */
 homeCommentRouter.post("/home-comment", async (req, res) => {
   try {
-    const { mascotName = "こころん", context, recentChat } = req.body as {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    if (!checkRate(ip)) {
+      res.status(429).json({ error: "リクエストが多すぎます" });
+      return;
+    }
+    const body = req.body as {
       mascotName?: string;
       context?: string;
       recentChat?: string;
     };
+    const mascotName = String(body.mascotName ?? "こころん").slice(0, 20);
+    const context = body.context;
+    const recentChat = body.recentChat;
 
     const systemPrompt = `あなたはメンタルケアアプリのマスコット「${mascotName}」。ホーム画面に表示する「今日の一言」を1つだけ生成する。
 
@@ -45,16 +72,16 @@ ${String(recentChat ?? "").slice(0, 800) || "（まだ会話なし）"}
 
     const response = await openai.chat.completions.create({
       model: "gpt-5.6-terra",
-      max_completion_tokens: 2048,
+      max_completion_tokens: 1024,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
     });
 
-    const comment =
-      response.choices[0]?.message?.content?.trim().replace(/^["「『]|["」』]$/g, "") ??
-      "";
+    const comment = (
+      response.choices[0]?.message?.content?.trim().replace(/^["「『]|["」』]$/g, "") ?? ""
+    ).slice(0, 120);
     res.json({ comment });
   } catch (err) {
     console.error("Home comment error:", err);
