@@ -15,6 +15,7 @@ import { MiniGameModal } from '@/components/MiniGameModal';
 import { EvolutionVideoModal } from '@/components/EvolutionVideoModal';
 import { getCurrentSlot, getSlotConfig, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -44,7 +45,9 @@ import {
   IdleBehavior,
 } from '@/utils/mascotUtils';
 import { getGreeting, formatDateJP, getTodayDate } from '@/utils/dateUtils';
-import { getAllActivities } from '@/utils/dailyActivity';
+
+const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
+const HOME_COMMENT_KEY = '@mentore/home_comment_v1';
 
 /* ── Cosmic theme palette ── */
 const C = {
@@ -88,7 +91,7 @@ function FillBar({ pct, color, delay = 0 }: { pct: number; color: string; delay?
 }
 
 /* ── Floating glass bubble (speech) ── */
-function GlassBubble({ message, onPress }: { message: string; onPress: () => void }) {
+function GlassBubble({ message }: { message: string }) {
   const y = useSharedValue(0);
   useEffect(() => {
     y.value = withRepeat(withTiming(-10, { duration: 2500 }), -1, true);
@@ -96,13 +99,13 @@ function GlassBubble({ message, onPress }: { message: string; onPress: () => voi
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   return (
     <Animated.View style={style}>
-      <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.bubble}>
+      <View style={styles.bubble}>
         {/* inner highlight */}
         <View style={styles.bubbleHighlight} />
         <View style={styles.bubbleGlowSpot} />
+        <Text style={styles.bubbleTitle}>─ 今日の一言 ─</Text>
         <Text style={styles.bubbleText}>{message}</Text>
-        <Text style={styles.bubbleHint}>タップで変更</Text>
-      </TouchableOpacity>
+      </View>
     </Animated.View>
   );
 }
@@ -187,7 +190,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const [msgIndex, setMsgIndex] = useState(0);
   const [showNameModal, setShowNameModal] = useState(false);
   const [showFeedModal, setShowFeedModal] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -212,26 +214,82 @@ export default function HomeScreen() {
   const handlePet = React.useCallback(() => {
     // アニメーション・ハートのみ — 吹き出しは変えない
   }, []);
-  const msgs = React.useMemo(() => {
-    const m = getMascotMessage(mood);
-    const idleMsg =
-      idleBehavior === 'rolling'  ? 'ごろごろ〜♪' :
-      idleBehavior === 'sleeping' ? 'zzz…すやすや…' :
-      idleBehavior === 'playing'  ? 'あそんでたよ！' :
-      m;
-    const fixed = [
-      idleMsg, m,
-      'タップしてみてね！', '一緒に頑張ろう！',
-      '今日も来てくれたね♪', 'そばにいるよ〜',
-      'なにか話しかけてみて！', 'きょうはどんな日だった？',
-    ];
-    // 日課メッセージ（全40種）をシャッフルして追加
-    const activities = getAllActivities();
-    const seed = Date.now() % activities.length;
-    const shuffled = [...activities.slice(seed), ...activities.slice(0, seed)];
-    return [...fixed, ...shuffled];
-  }, [mood, idleBehavior]);
-  const currentMsg = msgs[msgIndex % msgs.length];
+
+  /* ── 今日の一言（記録・チャットに関連づけたAIコメント、1日1回生成してキャッシュ） ── */
+  const [homeComment, setHomeComment] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const today = getTodayDate();
+      // 記録の有無が変わったら作り直す（記録後に内容が反映されるように）
+      const sig = `${today}|${todayRecord ? 'rec' : 'no'}|${records.length}`;
+      try {
+        const cachedRaw = await AsyncStorage.getItem(HOME_COMMENT_KEY);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw) as { sig: string; text: string };
+          if (cached.sig === sig && cached.text) {
+            if (!cancelled) setHomeComment(cached.text);
+            return;
+          }
+        }
+      } catch {}
+
+      try {
+        // 記録コンテキスト（チャットと同じ要約方式）
+        const recent = records.slice(-14);
+        const avgOf = (nums: number[]) =>
+          nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : null;
+        const ctxParts: string[] = [];
+        if (recent.length) {
+          ctxParts.push(`直近${recent.length}日: 平均気分${avgOf(recent.map(r => r.mood))}/5, 平均睡眠${avgOf(recent.map(r => r.sleep))}h`);
+        }
+        if (todayRecord) {
+          ctxParts.push(
+            `今日の記録: 気分${todayRecord.mood}/5, 睡眠${todayRecord.sleep}h` +
+            (todayRecord.behaviors.length ? `, したこと[${todayRecord.behaviors.join(',')}]` : '') +
+            (todayRecord.win ? `, 小さな成功「${todayRecord.win}」` : '')
+          );
+        }
+        const recentWins = recent.map(r => r.win).filter(Boolean).slice(-3);
+        if (recentWins.length) ctxParts.push(`最近の小さな成功: ${recentWins.join(' / ')}`);
+        if (progress?.streak) ctxParts.push(`連続記録${progress.streak}日目`);
+
+        // 直近チャット抜粋（端末ローカル履歴から）
+        let recentChat = '';
+        try {
+          const raw = await AsyncStorage.getItem('@mentore/chat_history_v1');
+          if (raw) {
+            const msgs = JSON.parse(raw) as { role: string; content: string }[];
+            recentChat = msgs
+              .slice(-8)
+              .map(m => `${m.role === 'user' ? 'ユーザー' : 'マスコット'}: ${String(m.content).slice(0, 80)}`)
+              .join('\n');
+          }
+        } catch {}
+
+        const res = await fetch(`${API_BASE}/home-comment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mascotName: mascotName || 'よっきー',
+            context: ctxParts.join('\n') || undefined,
+            recentChat: recentChat || undefined,
+          }),
+        });
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const data = await res.json();
+        if (data.comment && !cancelled) {
+          setHomeComment(data.comment);
+          AsyncStorage.setItem(HOME_COMMENT_KEY, JSON.stringify({ sig, text: data.comment })).catch(() => {});
+        }
+      } catch {
+        // 失敗時はフォールバック（下のcurrentMsg）を表示したまま
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [records.length, todayRecord?.id]);
+
+  const currentMsg = homeComment ?? getMascotMessage(mood);
 
   const nextStageLevel = getNextStageLevel(progress.level);
   const stageInfo = STAGE_LEVEL_MAP.find((s) => s.stage === stage)!;
@@ -345,7 +403,7 @@ export default function HomeScreen() {
 
             {/* Floating glass bubble */}
             <View style={styles.bubbleWrap}>
-              <GlassBubble message={currentMsg} onPress={() => setMsgIndex((i) => i + 1)} />
+              <GlassBubble message={currentMsg} />
             </View>
 
             {/* Mascot with glow */}
@@ -357,7 +415,6 @@ export default function HomeScreen() {
                 evolutionType={evolutionType}
                 size={150}
                 idleBehavior={idleBehavior}
-                onPress={() => setMsgIndex((i) => i + 1)}
                 onPet={handlePet}
               />
             </View>
@@ -730,11 +787,15 @@ const styles = StyleSheet.create({
   // Glass bubble
   bubbleWrap: { marginTop: 2, marginBottom: -34, zIndex: 2 },
   bubble: {
-    width: 250, height: 250, borderRadius: 125,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.65)',
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    width: 260, height: 260, borderRadius: 130,
+    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.82)',
     alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden',
+  },
+  bubbleTitle: {
+    fontSize: 11, color: 'rgba(106,90,180,0.9)', letterSpacing: 3,
+    fontFamily: 'Inter_600SemiBold', marginBottom: 10,
   },
   bubbleHighlight: {
     position: 'absolute', top: 14, left: 24,
@@ -751,12 +812,8 @@ const styles = StyleSheet.create({
   },
   bubbleText: {
     textAlign: 'center', fontSize: 16, lineHeight: 28,
-    fontFamily: 'Inter_600SemiBold', color: '#4A3C82',
-    letterSpacing: 1.5, paddingHorizontal: 26,
-  },
-  bubbleHint: {
-    fontSize: 10, color: 'rgba(74,60,130,0.65)', marginTop: 14, letterSpacing: 2,
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_600SemiBold', color: '#3A2E6E',
+    letterSpacing: 1, paddingHorizontal: 28,
   },
 
   // Mascot glow
