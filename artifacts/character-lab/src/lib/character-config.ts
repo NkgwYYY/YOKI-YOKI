@@ -26,6 +26,12 @@ export interface PartsManifest {
   mouth: PartBox;
   leftCheek?: PartBox;
   rightCheek?: PartBox;
+  /** 元パーツから生成した表情バリエーション(色・質感は元パーツ由来) */
+  leftEyeHappy?: PartBox;
+  rightEyeHappy?: PartBox;
+  mouthSmile?: PartBox;
+  mouthOpen?: PartBox;
+  mouthO?: PartBox;
 }
 
 export interface CharacterConfig {
