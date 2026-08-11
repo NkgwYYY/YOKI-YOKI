@@ -160,6 +160,7 @@ export default function HomeScreen() {
     mascotName, setMascotName,
     currentSatiety, inactivityHours, feedState,
     miniGameState, completeMiniGame,
+    isLoading,
   } = useApp();
 
   const [showMiniGame, setShowMiniGame] = useState(false);
@@ -199,7 +200,10 @@ export default function HomeScreen() {
   const prevStageRef = React.useRef<string | null>(null);
 
   useEffect(() => {
-    // 初回レンダー時は prevStage を設定するだけ（映像は表示しない）
+    // データ読込中は判定しない（読込前は stage が 'egg' 扱いになり、
+    // 読込完了時に本来のステージへ変わって誤って映像が流れてしまうため）
+    if (isLoading) return;
+    // 読込完了後の初回は prevStage を設定するだけ（映像は表示しない）
     if (prevStageRef.current === null) {
       prevStageRef.current = stage;
       return;
@@ -209,7 +213,7 @@ export default function HomeScreen() {
       prevStageRef.current = stage;
       setShowEvolutionVideo(true);
     }
-  }, [stage]);
+  }, [stage, isLoading]);
 
   const handlePet = React.useCallback(() => {
     // アニメーション・ハートのみ — 吹き出しは変えない
