@@ -10,5 +10,8 @@ description: What works for fetching/generating photos and audio assets in this 
 - Night (22–6時) forces sleepy mood; users testing at night think the character is broken — wake-on-tap override (90s) solved this.
 - **How to apply:** mobile app assets go in `artifacts/mobile/assets/`; after any change run `npx expo export --platform web --output-dir ../../static-build/web` then commit. Publish is manual by the user.
 
+## スプライトシート笑顔アニメも6キャラで却下（2026-08-11）
+3x3スプライトシート方式の笑顔9コマは、おだんご・はっぱ系では通ったが、おにぎり・タコ・エビフライ・ねこ・うさぎ・ライオンの6キャラでは「笑顔がひどい」と却下→ロールバック。複雑な顔立ちのキャラはAI生成で表情だけ変えても顔が崩れる。表情追加の依頼は少数キャラで先にユーザー確認を取ってから展開すること。
+
 ## 360度回転ビューはNG（2026-08-11）
 AI生成のターンアラウンドシートで4キャラの8方向回転ビューを作ったが、ユーザーが「顔が変わっちゃってる」と却下し全面ロールバック。斜め・横向きはAI生成だと顔のデザインが維持できない。今後、回転・別アングル系の依頼が来たら「AI生成では顔の一貫性が保てない」旨を先に伝えること。
