@@ -98,14 +98,15 @@ export class CharacterRig {
     body.setAttribute('height', '512');
     this.rootGroup.appendChild(body);
 
-    // 頬(元画像切り出し、常時表示 = 元画像どおり)
-    const p = config.parts;
-    if (p.leftCheek) this.leftCheek = this.createPart('leftCheek', p.leftCheek);
-    if (p.rightCheek) this.rightCheek = this.createPart('rightCheek', p.rightCheek);
     // 口・目
+    const p = config.parts;
     this.mouth = this.createPart('mouth', p.mouth);
     this.leftEye = this.createPart('leftEye', p.leftEye);
     this.rightEye = this.createPart('rightEye', p.rightEye);
+    // 頬(元画像切り出し、常時表示 = 元画像どおり)
+    // ※目のスプライト矩形の半透明ピクセルに頬が隠れないよう、頬を一番上に描画する
+    if (p.leftCheek) this.leftCheek = this.createPart('leftCheek', p.leftCheek);
+    if (p.rightCheek) this.rightCheek = this.createPart('rightCheek', p.rightCheek);
 
     this.startLoop();
   }
