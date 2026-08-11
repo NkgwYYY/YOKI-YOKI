@@ -164,7 +164,8 @@ export class CharacterRig {
   // ボーン階層
   private root: Bone;
   private body: Bone;
-  private face: Bone;
+  /** 顔グループ: SoftBodyに完全追従(独立した物理演算なし) */
+  private face: SVGGElement;
   private sprout: Bone | null = null;
 
   // SoftBody(柔らかい身体)レイヤー
@@ -255,12 +256,10 @@ export class CharacterRig {
       this.sprout.group.appendChild(sproutImg);
     }
 
-    // Face: 骨格側。SoftBody内に置くので位置は身体に完全追従するが、
-    // faceComp で圧縮を弱める(芯は完全には潰れない)
-    this.face = new Bone(this.softBody, {
-      follow: 0.04, stiffness: 0.5, damping: 0.55,
-    });
-    this.body.addChild(this.face);
+    // Face: 骨格側。SoftBodyの子として身体に「完全」追従する(独立した物理なし)。
+    // faceComp で圧縮だけを弱める(芯は完全には潰れない)
+    this.face = document.createElementNS(SVG_NS, 'g');
+    this.softBody.appendChild(this.face);
 
     const p = config.parts;
     // 顔の中心(骨格補正の基準点) = 目と口の中心
@@ -268,7 +267,7 @@ export class CharacterRig {
     const faceCy = (p.leftEye.y + p.mouth.y + p.mouth.h) / 2;
     this.faceComp = document.createElementNS(SVG_NS, 'g');
     this.faceComp.style.transformOrigin = `${faceCx}px ${faceCy}px`;
-    this.face.group.appendChild(this.faceComp);
+    this.face.appendChild(this.faceComp);
 
     // 描画順: Body → Mouth → Eye → Cheek(頬は常に最前面)
     this.mouth = this.createPart('mouth', p.mouth);
@@ -435,7 +434,7 @@ export class CharacterRig {
 
   /** 歩く: 右へ移動して戻る(Bodyの慣性つき) */
   public walk() {
-    if (this.walking) return;
+    if (this.walking || this.shaking) return;
     this.walking = true;
     this.root.x.target = 70;
     this.after(() => { this.root.x.target = -70; }, 900);
@@ -444,6 +443,7 @@ export class CharacterRig {
   }
 
   public shake() {
+    if (this.walking || this.shaking) return;
     this.shaking = true;
     this.after(() => {
       this.shaking = false;
@@ -525,8 +525,16 @@ export class CharacterRig {
 
       // --- SoftBodyの圧縮(Spring/Damperで2〜3回の反発を経て収束) ---
       this.squash.target = 0;
-      let c = this.squash.update(dtScale);
-      c = Math.max(-PHYSICS.maxStretch, Math.min(PHYSICS.maxSquash, c));
+      this.squash.update(dtScale);
+      // 上限をバネの内部状態にも適用(隠れたオーバーシュートを残さない)
+      if (this.squash.value > PHYSICS.maxSquash) {
+        this.squash.value = PHYSICS.maxSquash;
+        if (this.squash.velocity > 0) this.squash.velocity = 0;
+      } else if (this.squash.value < -PHYSICS.maxStretch) {
+        this.squash.value = -PHYSICS.maxStretch;
+        if (this.squash.velocity < 0) this.squash.velocity = 0;
+      }
+      const c = this.squash.value;
       const sy = 1 - c;
       const sx = 1 + c * PHYSICS.lateralRatio;
 
@@ -553,7 +561,6 @@ export class CharacterRig {
       // --- ボーン更新(親→子の順。慣性が伝播する) ---
       this.root.update(dtScale, 0, this.airY);
       this.body.update(dtScale, 0, bodyAddY, bodyAddRot);
-      this.face.update(dtScale);
       if (this.sprout) {
         const sway = this.breathing ? Math.sin(this.time * 1.6 + 1) * 1.5 : 0;
         this.sprout.update(dtScale, 0, 0, sway);
