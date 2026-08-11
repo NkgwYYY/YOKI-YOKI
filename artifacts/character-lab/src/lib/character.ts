@@ -1,4 +1,4 @@
-import { CharacterConfig } from './character-config';
+import { CharacterConfig, PartBox } from './character-config';
 
 export type Emotion = 'normal' | 'happy' | 'angry' | 'sad' | 'fun' | 'surprised';
 
@@ -26,29 +26,34 @@ class Spring {
   }
 }
 
+/**
+ * キャラクターリグ(元画像パーツ方式)
+ *
+ * 【最重要ルール】元画像 = 正解。
+ * 顔パーツ(目・口・頬)はすべて「元画像から切り出したPNG」を
+ * 元画像と同じ座標に配置して表示する。SVGで顔を描き直すことはしない。
+ * 表情・アクションは既存パーツの 位置/回転/スケール/透明度 の
+ * アニメーションだけで表現する(眉毛などの新パーツ追加は禁止)。
+ */
 export class CharacterRig {
   private config: CharacterConfig;
   private container: SVGElement;
   private rootGroup: SVGGElement;
-  private imageGroup: SVGGElement;
-  private faceGroup: SVGGElement;
-  
+
   // Springs for animation
   private bodyScaleY = new Spring(1, 0.15, 0.8);
   private bodyScaleX = new Spring(1, 0.15, 0.8);
   private bodyTranslateY = new Spring(0, 0.1, 0.8);
   private bodyTranslateX = new Spring(0, 0.1, 0.8);
   private bodyRotate = new Spring(0, 0.1, 0.8);
-  
+
   private eyeScaleY = new Spring(1, 0.3, 0.6);
-  private pupilTranslateX = new Spring(0, 0.1, 0.7);
-  private pupilTranslateY = new Spring(0, 0.1, 0.7);
-  
-  private mouthScaleY = new Spring(1, 0.2, 0.7);
-  private mouthTranslateY = new Spring(0, 0.2, 0.7);
-  private eyebrowRotate = new Spring(0, 0.2, 0.7);
-  private eyebrowTranslateY = new Spring(0, 0.2, 0.7);
-  private cheekOpacity = new Spring(0, 0.1, 0.9);
+  private eyeScaleX = new Spring(1, 0.3, 0.6);
+  private gazeX = new Spring(0, 0.1, 0.7);
+  private gazeY = new Spring(0, 0.1, 0.7);
+  private faceOffsetY = new Spring(0, 0.15, 0.8);
+  private mouthScaleY = new Spring(1, 0.25, 0.7);
+  private cheekScale = new Spring(1, 0.1, 0.85);
 
   // State
   private emotion: Emotion = 'normal';
@@ -61,178 +66,101 @@ export class CharacterRig {
   private winkSide: 'left' | 'right' = 'right';
   private animationFrameId = 0;
 
-  // DOM Elements
-  private leftEye: SVGGElement;
-  private rightEye: SVGGElement;
-  private mouth: SVGPathElement;
-  private leftEyebrow: SVGPathElement;
-  private rightEyebrow: SVGPathElement;
-  private leftCheek: SVGEllipseElement;
-  private rightCheek: SVGEllipseElement;
+  // DOM Elements (すべて元画像から切り出した <image>)
+  private leftEye: SVGImageElement;
+  private rightEye: SVGImageElement;
+  private mouth: SVGImageElement;
+  private leftCheek: SVGImageElement | null = null;
+  private rightCheek: SVGImageElement | null = null;
 
   constructor(svgElement: SVGElement, config: CharacterConfig) {
     this.container = svgElement;
     this.config = config;
-    
+
     this.container.innerHTML = '';
     this.container.setAttribute('viewBox', '0 0 512 512');
-    
-    // Main wrapper
+
     this.rootGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     this.rootGroup.style.transformOrigin = '256px 450px';
     this.container.appendChild(this.rootGroup);
 
-    // Image layer
-    this.imageGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    const img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-    img.setAttribute('href', `${import.meta.env.BASE_URL}characters/${config.image}`);
-    img.setAttribute('width', '512');
-    img.setAttribute('height', '512');
-    img.setAttribute('x', '0');
-    img.setAttribute('y', '0');
-    this.imageGroup.appendChild(img);
-    this.rootGroup.appendChild(this.imageGroup);
+    // Body (顔除去済み)
+    const body = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+    body.setAttribute('href', `${import.meta.env.BASE_URL}characters/${config.body}`);
+    body.setAttribute('width', '512');
+    body.setAttribute('height', '512');
+    this.rootGroup.appendChild(body);
 
-    // Face layer
-    this.faceGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    this.rootGroup.appendChild(this.faceGroup);
-
-    const { x: cx, y: cy } = config.faceCenter;
-    const es = config.eyeSpacing / 2;
-    const mo = config.mouthOffset;
-    const s = config.partScale;
-
-    // Cheeks
-    const cheekY = cy + config.parts.cheek.offsetY;
-    this.leftCheek = this.createCheek(cx - es * 1.55, cheekY, s);
-    this.rightCheek = this.createCheek(cx + es * 1.55, cheekY, s);
-    this.faceGroup.appendChild(this.leftCheek);
-    this.faceGroup.appendChild(this.rightCheek);
-
-    // Mouth
-    this.mouth = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    this.mouth.setAttribute('fill', 'none');
-    this.mouth.setAttribute('stroke', config.parts.mouth.color);
-    this.mouth.setAttribute('stroke-width', config.parts.mouth.stroke.toString());
-    this.mouth.setAttribute('stroke-linecap', 'round');
-    this.mouth.setAttribute('stroke-linejoin', 'round');
-    this.faceGroup.appendChild(this.mouth);
-
-    // Eyes
-    this.leftEye = this.createEye(cx - es, cy, s);
-    this.rightEye = this.createEye(cx + es, cy, s);
-    this.faceGroup.appendChild(this.leftEye);
-    this.faceGroup.appendChild(this.rightEye);
-
-    // Eyebrows
-    this.leftEyebrow = this.createEyebrow(cx - es, cy - 35 * s, s);
-    this.rightEyebrow = this.createEyebrow(cx + es, cy - 35 * s, s);
-    this.faceGroup.appendChild(this.leftEyebrow);
-    this.faceGroup.appendChild(this.rightEyebrow);
+    // 頬(元画像切り出し、常時表示 = 元画像どおり)
+    const p = config.parts;
+    if (p.leftCheek) this.leftCheek = this.createPart('leftCheek', p.leftCheek);
+    if (p.rightCheek) this.rightCheek = this.createPart('rightCheek', p.rightCheek);
+    // 口・目
+    this.mouth = this.createPart('mouth', p.mouth);
+    this.leftEye = this.createPart('leftEye', p.leftEye);
+    this.rightEye = this.createPart('rightEye', p.rightEye);
 
     this.startLoop();
   }
 
-  private createEye(x: number, y: number, scale: number) {
-    const st = this.config.parts.eye;
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.style.transformOrigin = `${x}px ${y}px`;
-    
-    const eye = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-    eye.setAttribute('cx', x.toString());
-    eye.setAttribute('cy', y.toString());
-    eye.setAttribute('rx', st.rx.toString());
-    eye.setAttribute('ry', st.ry.toString());
-    eye.setAttribute('fill', st.color);
-    g.appendChild(eye);
-
-    if (st.highlight) {
-      const highlight = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      highlight.setAttribute('cx', (x + st.rx * 0.28).toString());
-      highlight.setAttribute('cy', (y - st.ry * 0.3).toString());
-      highlight.setAttribute('r', Math.max(2.5, st.rx * 0.3).toString());
-      highlight.setAttribute('fill', 'white');
-      highlight.classList.add('pupil-highlight'); // For easy targeting
-      g.appendChild(highlight);
-    }
-    void scale;
-    
-    return g;
+  /** 元画像から切り出したパーツPNGを、元画像と同じ座標に置く */
+  private createPart(name: string, box: PartBox): SVGImageElement {
+    const img = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+    img.setAttribute('href', `${import.meta.env.BASE_URL}characters/parts/${this.config.id}/${name}.png`);
+    img.setAttribute('x', box.x.toString());
+    img.setAttribute('y', box.y.toString());
+    img.setAttribute('width', box.w.toString());
+    img.setAttribute('height', box.h.toString());
+    img.style.transformOrigin = `${box.x + box.w / 2}px ${box.y + box.h / 2}px`;
+    this.rootGroup.appendChild(img);
+    return img;
   }
 
-  private createEyebrow(x: number, y: number, scale: number) {
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', `M ${x - 12 * scale} ${y} Q ${x} ${y - 8 * scale} ${x + 12 * scale} ${y}`);
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', this.config.parts.eye.color);
-    path.setAttribute('stroke-width', (7 * scale).toString());
-    path.setAttribute('stroke-linecap', 'round');
-    path.style.transformOrigin = `${x}px ${y}px`;
-    path.style.opacity = '0'; // Hidden by default
-    return path;
-  }
-
-  private createCheek(x: number, y: number, scale: number) {
-    const st = this.config.parts.cheek;
-    const ellipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-    ellipse.setAttribute('cx', x.toString());
-    ellipse.setAttribute('cy', y.toString());
-    ellipse.setAttribute('rx', st.rx.toString());
-    ellipse.setAttribute('ry', st.ry.toString());
-    ellipse.setAttribute('fill', st.color);
-    ellipse.style.opacity = '0';
-    void scale;
-    return ellipse;
-  }
-
+  /**
+   * 表情 = 既存パーツの動きだけで表現(パーツ追加・形状描き直しなし)
+   */
   public setEmotion(emotion: Emotion) {
     this.emotion = emotion;
-    
-    // Reset defaults (body画像から頬も除去済みなので、頬パーツは常時うっすら表示する)
+
+    // Reset
     this.bodyScaleX.target = 1;
     this.bodyScaleY.target = 1;
-    this.eyebrowRotate.target = 0;
-    this.eyebrowTranslateY.target = 0;
-    this.cheekOpacity.target = 0.45;
-    
+    this.eyeScaleY.target = 1;
+    this.eyeScaleX.target = 1;
+    this.mouthScaleY.target = 1;
+    this.cheekScale.target = 1;
+    this.faceOffsetY.target = 0;
+
     switch (emotion) {
       case 'happy':
-        this.cheekOpacity.target = 0.75;
-        this.eyeScaleY.target = 0.8;
-        this.leftEyebrow.style.opacity = '0';
-        this.rightEyebrow.style.opacity = '0';
+        // 目を少し細め、頬を少し強調、体は弾む(ループ側)
+        this.eyeScaleY.target = 0.75;
+        this.cheekScale.target = 1.12;
         break;
       case 'angry':
-        this.cheekOpacity.target = 0.25;
-        this.eyeScaleY.target = 0.9;
-        this.eyebrowRotate.target = 25;
-        this.eyebrowTranslateY.target = 10;
-        this.leftEyebrow.style.opacity = '1';
-        this.rightEyebrow.style.opacity = '1';
+        // 目をやや細めて下げる + 小さな震え(ループ側)。眉毛は使わない
+        this.eyeScaleY.target = 0.8;
+        this.faceOffsetY.target = 4;
         break;
       case 'sad':
-        this.cheekOpacity.target = 0.3;
-        this.eyeScaleY.target = 0.9;
-        this.bodyScaleY.target = 0.95;
-        this.bodyScaleX.target = 1.05;
-        this.eyebrowRotate.target = -15;
-        this.eyebrowTranslateY.target = 5;
-        this.leftEyebrow.style.opacity = '1';
-        this.rightEyebrow.style.opacity = '1';
+        // 目線を下げ、顔全体を少し下げ、体を少し縮める
+        this.gazeY.target = 4;
+        this.faceOffsetY.target = 7;
+        this.bodyScaleY.target = 0.96;
+        this.bodyScaleX.target = 1.03;
         break;
       case 'fun':
-        this.cheekOpacity.target = 0.6;
+        // 目を少し細め、体を左右に揺らす(ループ側)
         this.eyeScaleY.target = 0.85;
-        this.leftEyebrow.style.opacity = '0';
-        this.rightEyebrow.style.opacity = '0';
+        this.cheekScale.target = 1.08;
         break;
       case 'surprised':
-        this.eyeScaleY.target = 1.2;
-        this.bodyScaleY.target = 1.1;
-        this.bodyScaleX.target = 0.9;
-        this.eyebrowTranslateY.target = -15;
-        this.leftEyebrow.style.opacity = '1';
-        this.rightEyebrow.style.opacity = '1';
+        // 目と口を「元デザインと分かる範囲で」少し大きく + 体が伸びる
+        this.eyeScaleY.target = 1.18;
+        this.eyeScaleX.target = 1.12;
+        this.mouthScaleY.target = 1.35;
+        this.bodyScaleY.target = 1.08;
+        this.bodyScaleX.target = 0.94;
         setTimeout(() => {
           if (this.emotion === 'surprised') {
             this.bodyScaleY.target = 1;
@@ -242,67 +170,14 @@ export class CharacterRig {
         break;
       case 'normal':
       default:
-        this.eyeScaleY.target = 1;
-        this.leftEyebrow.style.opacity = '0';
-        this.rightEyebrow.style.opacity = '0';
         break;
     }
-    
-    this.updateMouthShape();
-  }
-
-  private updateMouthShape() {
-    const { x: cx, y: cy } = this.config.faceCenter;
-    const mo = this.config.mouthOffset;
-    const mx = cx + mo.x;
-    const my = cy + mo.y;
-    const s = this.config.partScale;
-    const mp = this.config.parts.mouth;
-    
-    let d = '';
-    const w = mp.halfWidth * 0.8;
-    
-    // Base mouth shapes
-    if (this.talking) {
-      const openAmount = (Math.sin(this.time * 20) * 0.5 + 0.5) * 20 * s + 5 * s;
-      d = `M ${mx - w} ${my} Q ${mx} ${my + openAmount} ${mx + w} ${my}`;
-      this.mouth.setAttribute('fill', mp.color);
-      this.mouth.setAttribute('stroke-width', (mp.stroke * 0.5).toString());
-    } else {
-      this.mouth.setAttribute('fill', 'none');
-      this.mouth.setAttribute('stroke-width', mp.stroke.toString());
-      
-      switch (this.emotion) {
-        case 'happy':
-        case 'fun':
-          d = `M ${mx - w} ${my - 2*s} Q ${mx} ${my + 10*s} ${mx + w} ${my - 2*s}`;
-          break;
-        case 'angry':
-          d = `M ${mx - w} ${my + 5*s} Q ${mx} ${my - 5*s} ${mx + w} ${my + 5*s}`;
-          break;
-        case 'sad':
-          d = `M ${mx - w} ${my + 3*s} Q ${mx} ${my - 8*s} ${mx + w} ${my + 3*s}`;
-          break;
-        case 'surprised': {
-          const r = Math.max(6, mp.halfWidth * 0.45);
-          d = `M ${mx - r} ${my + 5*s} A ${r} ${r * 1.25} 0 1 0 ${mx + r} ${my + 5*s} A ${r} ${r * 1.25} 0 1 0 ${mx - r} ${my + 5*s}`;
-          this.mouth.setAttribute('fill', mp.color);
-          break;
-        }
-        case 'normal':
-        default:
-          d = `M ${mx - w} ${my} Q ${mx} ${my - 2*s} ${mx + w} ${my}`;
-          break;
-      }
-    }
-    
-    this.mouth.setAttribute('d', d);
   }
 
   public blink() {
     // ウィンク中は両目閉じにならないよう抑止
     if (Date.now() < this.winkingUntil) return;
-    this.eyeScaleY.value = 0.1;
+    this.eyeScaleY.value = 0.08;
   }
 
   /** 片目を閉じる（side: 'left' | 'right'） */
@@ -323,26 +198,22 @@ export class CharacterRig {
   public jump() {
     if (this.jumping) return;
     this.jumping = true;
-    
-    // Squash down
+
     this.bodyScaleY.target = 0.7;
     this.bodyScaleX.target = 1.3;
     this.bodyTranslateY.target = 20;
-    
+
     setTimeout(() => {
-      // Leap up
       this.bodyScaleY.target = 1.2;
       this.bodyScaleX.target = 0.8;
       this.bodyTranslateY.target = -150;
-      
+
       setTimeout(() => {
-        // Fall down
         this.bodyScaleY.target = 0.9;
         this.bodyScaleX.target = 1.1;
         this.bodyTranslateY.target = 0;
-        
+
         setTimeout(() => {
-          // Recover
           this.bodyScaleY.target = 1;
           this.bodyScaleX.target = 1;
           this.jumping = false;
@@ -359,31 +230,32 @@ export class CharacterRig {
     }, 1000);
   }
 
-  /** 目線を動かす。nx, ny は -1〜1 */
+  /** 目線を動かす。nx, ny は -1〜1(目パーツごと少し平行移動) */
   public lookAt(nx: number, ny: number) {
     const cx = Math.max(-1, Math.min(1, nx));
     const cy = Math.max(-1, Math.min(1, ny));
-    const amp = this.config.parts.eye.rx * 0.55;
-    this.pupilTranslateX.target = cx * amp;
-    this.pupilTranslateY.target = cy * amp;
+    const amp = Math.max(4, this.config.parts.leftEye.w * 0.14);
+    this.gazeX.target = cx * amp;
+    this.gazeY.target = cy * amp;
   }
 
+  /** 喋る = 元画像の口の開閉(縦スケール)アニメーション */
   public talk() {
     if (this.talking) return;
     this.talking = true;
-    
+
     setTimeout(() => {
       this.talking = false;
-      this.updateMouthShape();
+      this.mouthScaleY.target = this.emotion === 'surprised' ? 1.35 : 1;
     }, 2000);
   }
 
   private startLoop() {
     let lastBlink = Date.now();
-    
+
     const tick = () => {
       this.time += 0.016;
-      
+
       // Auto blink
       if (Date.now() - lastBlink > 3000 + Math.random() * 4000) {
         this.blink();
@@ -393,23 +265,30 @@ export class CharacterRig {
       // Breathing / idle animations
       let bY = 0;
       let bR = 0;
-      
+
       if (!this.jumping && this.breathing) {
-        // Default breathing
         bY = Math.sin(this.time * 2) * 5;
-        
+
         if (this.emotion === 'happy') {
-          bY = Math.abs(Math.sin(this.time * 6)) * -15; // Bobbing up
+          bY = Math.abs(Math.sin(this.time * 6)) * -15;
         } else if (this.emotion === 'sad') {
-          bY += 10; // Droop down
+          bY += 10;
         } else if (this.emotion === 'fun') {
-          bR = Math.sin(this.time * 3) * 5; // Swaying
+          bR = Math.sin(this.time * 3) * 5;
+        } else if (this.emotion === 'angry') {
+          // 眉毛の代わりに小刻みな震えで怒りを表現
+          bY += Math.sin(this.time * 40) * 1.2;
         }
       }
-      
+
       if (this.shaking) {
         this.bodyTranslateX.target = (Math.random() - 0.5) * 20;
         bY += (Math.random() - 0.5) * 10;
+      }
+
+      // 喋り: 口パーツの開閉
+      if (this.talking) {
+        this.mouthScaleY.target = 1 + (Math.sin(this.time * 18) * 0.5 + 0.5) * 0.8;
       }
 
       // Update springs
@@ -418,45 +297,34 @@ export class CharacterRig {
       const ty = this.bodyTranslateY.update() + bY;
       const tx = this.bodyTranslateX.update();
       const rot = this.bodyRotate.update() + bR;
-      
-      const ey = this.eyeScaleY.update();
-      const px = this.pupilTranslateX.update();
-      const py = this.pupilTranslateY.update();
-      
-      const er = this.eyebrowRotate.update();
-      const ety = this.eyebrowTranslateY.update();
-      
-      const co = this.cheekOpacity.update();
 
-      // Apply transforms
+      const ey = this.eyeScaleY.update();
+      const ex = this.eyeScaleX.update();
+      const gx = this.gazeX.update();
+      const gy = this.gazeY.update();
+      const fo = this.faceOffsetY.update();
+      const my = this.mouthScaleY.update();
+      const cs = this.cheekScale.update();
+
       this.rootGroup.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${sx}, ${sy})`;
-      
-      // Face elements transforms (ウィンク中は片目だけ閉じる)
+
+      // 目: 平行移動(目線) + 縦スケール(瞬き/ウィンク)
       const winking = Date.now() < this.winkingUntil;
       const leftEy = winking && this.winkSide === 'left' ? 0.08 : ey;
       const rightEy = winking && this.winkSide === 'right' ? 0.08 : ey;
-      this.leftEye.style.transform = `scale(1, ${leftEy})`;
-      this.rightEye.style.transform = `scale(1, ${rightEy})`;
-      
-      // Move pupils (we select the highlight to move it)
-      const highlights = this.faceGroup.querySelectorAll('.pupil-highlight');
-      highlights.forEach(el => {
-        (el as SVGCircleElement).style.transform = `translate(${px}px, ${py}px)`;
-      });
+      this.leftEye.style.transform = `translate(${gx}px, ${gy + fo}px) scale(${ex}, ${leftEy})`;
+      this.rightEye.style.transform = `translate(${gx}px, ${gy + fo}px) scale(${ex}, ${rightEy})`;
 
-      this.leftEyebrow.style.transform = `translateY(${ety}px) rotate(${-er}deg)`;
-      this.rightEyebrow.style.transform = `translateY(${ety}px) rotate(${er}deg)`;
-      
-      this.leftCheek.style.opacity = co.toString();
-      this.rightCheek.style.opacity = co.toString();
+      // 口: 開閉スケールのみ(形は元画像のまま)
+      this.mouth.style.transform = `translate(${gx * 0.3}px, ${fo}px) scale(1, ${my})`;
 
-      if (this.talking) {
-        this.updateMouthShape();
-      }
+      // 頬: 元画像どおり常時表示。感情で少しだけスケール
+      if (this.leftCheek) this.leftCheek.style.transform = `translate(0px, ${fo * 0.6}px) scale(${cs})`;
+      if (this.rightCheek) this.rightCheek.style.transform = `translate(0px, ${fo * 0.6}px) scale(${cs})`;
 
       this.animationFrameId = requestAnimationFrame(tick);
     };
-    
+
     this.animationFrameId = requestAnimationFrame(tick);
   }
 
