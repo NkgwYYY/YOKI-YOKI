@@ -5,10 +5,8 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
 import { UserProfile } from '@/contexts/AppContext';
 
 const AGE_RANGES = ['10代', '20代', '30代', '40代', '50代', '60代', '70代以上', '回答しない'];
@@ -38,8 +36,6 @@ interface Props {
 
 export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Props) {
   const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
 
   const [nickname, setNickname] = useState(initial?.nickname ?? '');
   const [ageRange, setAgeRange] = useState(initial?.ageRange ?? '');
@@ -97,13 +93,11 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
     </TouchableOpacity>
   );
 
-  const cardGradient = isDark ? (['#1A1430', '#0F1030'] as const) : (['#FFF', '#F7F0FF'] as const);
-
   return (
     <View style={{ gap: 16 }}>
       {/* 必須 */}
       <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-        <LinearGradient colors={cardGradient} style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
+        <View style={[StyleSheet.absoluteFill, { borderRadius: 22, backgroundColor: colors.card }]} />
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>基本情報</Text>
 
         <Text style={[styles.label, { color: colors.mutedForeground }]}>ニックネーム *</Text>
@@ -113,7 +107,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
           maxLength={20}
           placeholder="例: ゆき"
           placeholderTextColor={colors.mutedForeground + '99'}
-          style={[styles.input, { backgroundColor: isDark ? '#241C42' : '#FFFFFF', color: colors.foreground, borderColor: isDark ? '#6B58A8' : '#A78BDA' }]}
+          style={[styles.input, { backgroundColor: '#241C42', color: colors.foreground, borderColor: '#6B58A8' }]}
         />
 
         <Text style={[styles.label, { color: colors.mutedForeground }]}>年代 *</Text>
@@ -133,7 +127,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
 
       {/* 目標 */}
       <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-        <LinearGradient colors={cardGradient} style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
+        <View style={[StyleSheet.absoluteFill, { borderRadius: 22, backgroundColor: colors.card }]} />
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>🎯 今の目標（任意）</Text>
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
           AIからのアドバイスがあなたの目標に合わせたものになります
@@ -147,7 +141,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
 
       {/* 任意 */}
       <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-        <LinearGradient colors={cardGradient} style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
+        <View style={[StyleSheet.absoluteFill, { borderRadius: 22, backgroundColor: colors.card }]} />
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>もっと教えて（任意・スキップOK）</Text>
         <Text style={[styles.hint, { color: colors.mutedForeground }]}>
           参考情報として使います。実際のあなたの記録を優先して分析します
@@ -174,7 +168,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
           maxLength={30}
           placeholder="例: 会社員、学生、フリーランス"
           placeholderTextColor={colors.mutedForeground + '99'}
-          style={[styles.input, { backgroundColor: isDark ? '#241C42' : '#FFFFFF', color: colors.foreground, borderColor: isDark ? '#6B58A8' : '#A78BDA' }]}
+          style={[styles.input, { backgroundColor: '#241C42', color: colors.foreground, borderColor: '#6B58A8' }]}
         />
 
         <Text style={[styles.label, { color: colors.mutedForeground }]}>いま気になっていること</Text>

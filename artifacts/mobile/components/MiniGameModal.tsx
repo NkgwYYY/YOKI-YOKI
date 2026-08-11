@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors, COSMIC_SHEET } from '@/constants/cosmicTheme';
 import { GameSlot, getSlotConfig } from '@/utils/miniGameUtils';
 import { Analytics } from '@/utils/analytics';
 
@@ -339,7 +339,7 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
       <View style={s.overlay}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={phase !== 'playing' ? onClose : undefined} />
 
-        <View style={[s.sheet, { backgroundColor: colors.card }]}>
+        <View style={[s.sheet, { backgroundColor: COSMIC_SHEET }]}>
           {/* Header */}
           <LinearGradient colors={cfg.gradient} style={s.header}>
             <Text style={s.headerEmoji}>{cfg.emoji}</Text>

@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { CosmicBackground } from '@/components/CosmicBackground';
 import { useApp, UserProfile } from '@/contexts/AppContext';
 import { ProfileForm } from '@/components/ProfileForm';
 
 export default function OnboardingScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const router = useRouter();
   const { saveProfile } = useApp();
   const [saving, setSaving] = useState(false);
@@ -26,15 +24,11 @@ export default function OnboardingScreen() {
     }
   };
 
-  const bgColors = isDark
-    ? (['#0E0A1C', '#130D28'] as const)
-    : (['#FAF7FF', '#F0F5FF'] as const);
-
   const topPad = Platform.OS === 'web' ? 40 : insets.top + 16;
 
   return (
-    <View style={styles.flex}>
-      <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
+    <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      <CosmicBackground />
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[styles.content, { paddingTop: topPad, paddingBottom: insets.bottom + 40 }]}

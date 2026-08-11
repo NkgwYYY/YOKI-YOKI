@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { CosmicBackground } from '@/components/CosmicBackground';
 
 type SectionProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -15,20 +15,13 @@ type SectionProps = {
 export default function GuideScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const router = useRouter();
-
-  const bgColors = isDark
-    ? (['#0E0A1C', '#130D28'] as const)
-    : (['#FAF7FF', '#F0F5FF'] as const);
-  const cardGradient = isDark ? (['#1A1430', '#0F1030'] as const) : (['#FFF', '#F7F0FF'] as const);
 
   const topPad = Platform.OS === 'web' ? 24 : insets.top + 8;
 
   const Section = ({ icon, title, children }: SectionProps) => (
     <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-      <LinearGradient colors={cardGradient} style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
+      <View style={[StyleSheet.absoluteFill, { borderRadius: 22, backgroundColor: colors.card }]} />
       <View style={styles.sectionHeader}>
         <View style={[styles.iconCircle, { backgroundColor: colors.primary + '22' }]}>
           <Ionicons name={icon} size={20} color={colors.primary} />
@@ -53,8 +46,8 @@ export default function GuideScreen() {
   );
 
   return (
-    <View style={styles.flex}>
-      <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
+    <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      <CosmicBackground />
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[styles.content, { paddingTop: topPad, paddingBottom: insets.bottom + 40 }]}

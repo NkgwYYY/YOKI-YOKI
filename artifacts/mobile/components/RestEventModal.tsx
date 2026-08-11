@@ -10,7 +10,7 @@ import Svg, {
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors, COSMIC_SHEET } from '@/constants/cosmicTheme';
 import { Mascot } from '@/components/Mascot';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { Analytics } from '@/utils/analytics';
@@ -754,7 +754,7 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
 
         {/* Choose phase */}
         {phase === 'choose' && (
-          <View style={[m.sheet, { backgroundColor: colors.card }]}>
+          <View style={[m.sheet, { backgroundColor: COSMIC_SHEET }]}>
             <LinearGradient colors={['#1A0A3C', '#0D0820']} style={m.chooseHeader}>
               <Mascot stage={mascotStage} mood="sleepy" size={72} />
               <Text style={m.chooseTitle}>今日は一緒に休もう。</Text>
