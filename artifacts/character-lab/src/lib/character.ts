@@ -230,6 +230,7 @@ export class CharacterRig {
   /** 指の速度推定用の履歴 */
   private pointerTrail: { x: number; y: number; t: number }[] = [];
   private onPointerDown: (e: PointerEvent) => void;
+  private onTouchMove!: (e: TouchEvent) => void;
   private onPointerMove: (e: PointerEvent) => void;
   private onPointerUp: (e: PointerEvent) => void;
 
@@ -329,11 +330,13 @@ export class CharacterRig {
     if (p.rightCheek) this.rightCheek = this.createPart('rightCheek', p.rightCheek);
 
     // ─── Grab / Lift / Drop: Pointer Events(マウス・タッチ共通) ───
-    // キャラクター領域(このSVG)だけタッチスクロールを止める。ページ全体は止めない
-    (this.container as unknown as HTMLElement).style.touchAction = 'none';
+    // 縦スクロールは通す(pan-y)。掴んでいる間だけ touchmove を止めてスクロールを防ぐ
+    (this.container as unknown as HTMLElement).style.touchAction = 'pan-y';
     this.onPointerDown = (e) => this.handlePointerDown(e);
     this.onPointerMove = (e) => this.handlePointerMove(e);
     this.onPointerUp = (e) => this.handlePointerUp(e);
+    this.onTouchMove = (e: TouchEvent) => { if (this.grabbed) e.preventDefault(); };
+    this.container.addEventListener('touchmove', this.onTouchMove, { passive: false });
     this.container.addEventListener('pointerdown', this.onPointerDown);
     this.container.addEventListener('pointermove', this.onPointerMove);
     this.container.addEventListener('pointerup', this.onPointerUp);
@@ -360,7 +363,7 @@ export class CharacterRig {
   }
 
   private handlePointerDown(e: PointerEvent) {
-    e.preventDefault();
+    // preventDefaultしない: 縦スクロール開始を妨げない(掴み成立後はtouchmoveで止める)
     this.pointerDown = true;
     this.pointerTrail = [];
     const p = this.toLocal(e);
@@ -834,6 +837,7 @@ export class CharacterRig {
     this.transitionTimers.forEach((t) => clearTimeout(t));
     this.actionTimers.forEach((t) => clearTimeout(t));
     if (this.grabTimer !== null) clearTimeout(this.grabTimer);
+    this.container.removeEventListener('touchmove', this.onTouchMove);
     this.container.removeEventListener('pointerdown', this.onPointerDown);
     this.container.removeEventListener('pointermove', this.onPointerMove);
     this.container.removeEventListener('pointerup', this.onPointerUp);

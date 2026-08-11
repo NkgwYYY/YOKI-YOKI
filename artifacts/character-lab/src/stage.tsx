@@ -56,7 +56,7 @@ function Stage() {
 
   useEffect(() => { rigRef.current?.setEmotion(emotion); }, [emotion]);
 
-  /* 親からの更新(postMessage) */
+  /* 親からの更新(postMessage)。リスナー登録後にreadyを通知して初期状態を受け取る */
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       const d = e.data;
@@ -68,6 +68,8 @@ function Stage() {
       }));
     };
     window.addEventListener('message', onMessage);
+    // ハンドシェイク: 親はこれを受けて最新状態を送り直す
+    window.parent?.postMessage({ type: 'yokky-stage-ready' }, '*');
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
@@ -87,7 +89,7 @@ function Stage() {
     >
       <svg
         ref={svgRef}
-        style={{ width: '100%', height: '100%', overflow: 'visible', touchAction: 'none', userSelect: 'none' }}
+        style={{ width: '100%', height: '100%', overflow: 'visible', userSelect: 'none' }}
       />
     </div>
   );

@@ -8,6 +8,7 @@
  */
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Platform, View } from 'react-native';
+// Web専用: MessageEvent はブラウザ環境でのみ使用される
 import { Mascot } from '@/components/Mascot';
 import type { MascotStage, MascotMood } from '@/utils/mascotUtils';
 import { getCharacter } from '@/utils/mascotUtils';
@@ -44,13 +45,31 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* char / mood / growthSize の変更をpostMessageで反映 */
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
+  /* 最新状態を保持し、変更時とステージ側のready通知時に送る(初回同期漏れ防止) */
+  const latest = useRef({ char, mood, scale: growthSize });
+  latest.current = { char, mood, scale: growthSize };
+
+  const sendState = () => {
     const win = iframeRef.current?.contentWindow;
     if (!win) return;
-    win.postMessage({ type: 'yokky-stage', char, mood, scale: growthSize }, '*');
+    win.postMessage({ type: 'yokky-stage', ...latest.current }, '*');
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    sendState();
   }, [char, mood, growthSize]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'yokky-stage-ready' && e.source === iframeRef.current?.contentWindow) {
+        sendState();
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   if (Platform.OS !== 'web') {
     return (
