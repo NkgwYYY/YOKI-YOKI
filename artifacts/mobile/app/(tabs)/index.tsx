@@ -41,7 +41,7 @@ import {
   pickIdleBehavior,
   IdleBehavior,
 } from '@/utils/mascotUtils';
-import { getGreeting, formatDateJP, getTodayDate } from '@/utils/dateUtils';
+import { getGreeting, formatDateJP, getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
 import { MAX_GROWTH_SCALE } from '@/utils/growth';
 import { Dimensions } from 'react-native';
 
@@ -185,24 +185,29 @@ export default function HomeScreen() {
   } = useApp();
 
   // ── 今日の自分の一歩(チェックリスト先頭5件) ──
+  // 日付が変わった直後の古いチェック状態は「未チェック」として扱う
+  const checksAreToday = checkedState.date === getTodayDate();
   const stepItems = checklistItems.slice(0, 5).map((item) => ({
     ...item,
-    checked: checkedState.items.find((c) => c.id === item.id)?.checked ?? false,
+    checked: checksAreToday
+      ? (checkedState.items.find((c) => c.id === item.id)?.checked ?? false)
+      : false,
   }));
+  const stepDone = checksAreToday ? getCompletedCount() : 0;
 
-  // ── 昨日の自分より(記録の充実度を比較) ──
+  // ── 昨日の自分より(記録の充実度を「昨日」と厳密に比較。チェックは含めない) ──
   const recScore = (r?: { behaviors: string[]; activities?: Record<string, number>; notes?: string; win?: string }) =>
     r
       ? r.behaviors.length +
         Object.values(r.activities ?? {}).reduce((s, n) => s + (n || 0), 0) +
         (r.notes ? 1 : 0) + (r.win ? 1 : 0)
       : 0;
-  const sortedRecent = [...records].sort((a, b) => a.date.localeCompare(b.date));
-  const todayRec = sortedRecent.find((r) => r.date === getTodayDate());
-  const prevRec = [...sortedRecent].reverse().find((r) => r.date < getTodayDate());
-  const todayScore = recScore(todayRec) + getCompletedCount();
-  const prevScore = recScore(prevRec);
-  const stepDeltaPct = prevScore > 0 || todayScore > 0
+  const todayRec = records.find((r) => r.date === getTodayDate());
+  const yesterdayRec = records.find((r) => r.date === getYesterdayDate());
+  const todayScore = recScore(todayRec);
+  const prevScore = recScore(yesterdayRec);
+  const hasComparison = !!yesterdayRec && !!todayRec;
+  const stepDeltaPct = hasComparison
     ? Math.max(-99, Math.min(99, ((todayScore - prevScore) / Math.max(prevScore, 1)) * 100))
     : 0;
 
@@ -568,7 +573,7 @@ export default function HomeScreen() {
               <Text style={[styles.stepTitle, { color: C.text }]}>今日の自分の一歩</Text>
               <View style={[styles.stepRing, { borderColor: C.accent }]}>
                 <Text style={[styles.stepRingText, { color: C.accent }]}>
-                  {completedCount}<Text style={{ fontSize: 10, color: C.textMuted }}>/{totalCount}</Text>
+                  {stepDone}<Text style={{ fontSize: 10, color: C.textMuted }}>/{totalCount}</Text>
                 </Text>
               </View>
             </View>
@@ -598,19 +603,25 @@ export default function HomeScreen() {
         <FadeIn delay={350}>
           <View style={[styles.stepCard, { backgroundColor: C.card, borderColor: C.border }]}>
             <Text style={[styles.stepTitle, { color: C.text }]}>昨日の自分より</Text>
-            <View style={styles.deltaRow}>
-              <Text style={[styles.deltaValue, { color: stepDeltaPct >= 0 ? '#7FDCA4' : '#FFB86B' }]}>
-                {stepDeltaPct >= 0 ? '+' : ''}{stepDeltaPct.toFixed(1)}%
-              </Text>
-              <Ionicons
-                name={stepDeltaPct >= 0 ? 'trending-up' : 'trending-down'}
-                size={22}
-                color={stepDeltaPct >= 0 ? '#7FDCA4' : '#FFB86B'}
-              />
-            </View>
+            {hasComparison ? (
+              <View style={styles.deltaRow}>
+                <Text style={[styles.deltaValue, { color: stepDeltaPct >= 0 ? '#7FDCA4' : '#FFB86B' }]}>
+                  {stepDeltaPct >= 0 ? '+' : ''}{stepDeltaPct.toFixed(1)}%
+                </Text>
+                <Ionicons
+                  name={stepDeltaPct >= 0 ? 'trending-up' : 'trending-down'}
+                  size={22}
+                  color={stepDeltaPct >= 0 ? '#7FDCA4' : '#FFB86B'}
+                />
+              </View>
+            ) : (
+              <Text style={[styles.deltaValue, { color: C.textSub, fontSize: 20 }]}>--</Text>
+            )}
             <Text style={[styles.deltaSub, { color: C.textMuted }]}>
-              {todayScore === 0
+              {!todayRec
                 ? '今日の記録をつけると、前進が見えるよ'
+                : !yesterdayRec
+                ? '昨日の記録がないから、今日から比べていこう'
                 : stepDeltaPct >= 0
                 ? '今日もちょっと前進してるよ'
                 : 'ゆっくりでだいじょうぶだよ'}
