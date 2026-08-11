@@ -3,7 +3,7 @@ import { CharacterConfig, PartBox } from './character-config';
 export type Emotion = 'normal' | 'happy' | 'angry' | 'sad' | 'fun' | 'surprised';
 
 /** 画像差し替え時にインクリメントしてブラウザキャッシュを回避する */
-const ASSET_VERSION = 2;
+const ASSET_VERSION = 3;
 
 // Smooths transitions between values
 class Spring {
