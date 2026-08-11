@@ -450,9 +450,10 @@ export default function HomeScreen() {
               {/* Mascot with glow */}
               <View style={styles.mascotWrap}>
                 <View style={styles.mascotGlow} />
-                {Platform.OS === 'web' ? (
-                /* Web: ラボの物理エンジン(掴んで投げる・ぷるん)を透明iframeで埋め込み。
-                   スケールはステージ側がGrowth Sizeで反映する */
+                {/* ラボの物理エンジン(掴んで投げる・ぷるん)を埋め込み。
+                    Webはiframe、ネイティブはWebView(本番ステージURL)。
+                    読み込み失敗時はコンポーネント内でMascotへフォールバック。
+                    スケールはステージ側がGrowth Sizeで反映する */}
                 <StageCharacter
                   stage={stage}
                   mood={mood}
@@ -461,17 +462,6 @@ export default function HomeScreen() {
                   idleBehavior={idleBehavior}
                   onPet={handlePet}
                 />
-                ) : (
-                  <GrowthScaleWrap growthSize={growth.growthSize} baseSize={150}>
-                    <Mascot
-                      stage={stage}
-                      mood={mood}
-                      size={150}
-                      idleBehavior={idleBehavior}
-                      onPet={handlePet}
-                    />
-                  </GrowthScaleWrap>
-                )}
               </View>
 
               {/* 円形ガラスボタン(6個・実データ連動) */}

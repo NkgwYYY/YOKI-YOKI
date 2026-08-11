@@ -80,9 +80,11 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
-  /* ── フォールバック(ネイティブ読み込み失敗時) ── */
+  /* ── フォールバック(ネイティブ読み込み失敗時)。成長スケールも反映 ── */
   const fallback = (
-    <Mascot stage={stage} mood={mood} size={size} idleBehavior={idleBehavior} onPet={onPet} />
+    <View style={{ transform: [{ scale: growthSize }] }}>
+      <Mascot stage={stage} mood={mood} size={size} idleBehavior={idleBehavior} onPet={onPet} />
+    </View>
   );
 
   if (Platform.OS !== 'web') {
