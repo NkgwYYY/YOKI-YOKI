@@ -29,6 +29,7 @@ import {
   DEFAULT_MINI_GAME_STATE,
   resolveMiniGameState,
   GameSlot,
+  MAX_PLAYS_PER_SLOT,
 } from '@/utils/miniGameUtils';
 
 export type { MiniGameState, GameSlot };
@@ -664,6 +665,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [pushDataToCloud]);
 
   const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp?: number; xp?: number }) => {
+    // スロット上限に達していたら加算も報酬付与もしない (二重付与・上限回避の防止)
+    if ((miniGameState[slot] || 0) >= MAX_PLAYS_PER_SLOT) return;
     // Mark slot as done
     const next: MiniGameState = { ...miniGameState, [slot]: (miniGameState[slot] || 0) + 1 };
     setMiniGameState(next);

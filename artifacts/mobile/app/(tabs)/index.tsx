@@ -472,7 +472,7 @@ export default function HomeScreen() {
                 onPress={() => setShowFeedModal(true)} />
               <OrbButton pos={styles.orbMR} emoji="🎮" label="ミニゲーム"
                 sub={slotDone ? 'また後で' : 'あそべるよ'}
-                onPress={() => setShowMiniGame(true)} />
+                onPress={() => { if (!slotDone) setShowMiniGame(true); }} />
               <OrbButton pos={styles.orbBL} emoji="✅" label="今日の一歩"
                 sub={`${stepDone}/${totalCount}`}
                 onPress={() => router.push('/(tabs)/check')} />
