@@ -55,7 +55,7 @@ export function BadgeCard({ badge, unlocked }: BadgeCardProps) {
         {badge.description}
       </Text>
       {!isUnlocked && (
-        <View style={[styles.lockOverlay, { backgroundColor: colors.muted + 'AA' }]}>
+        <View style={[styles.lockOverlay, { backgroundColor: 'rgba(20,13,45,0.72)' }]}>
           <Ionicons name="lock-closed" size={16} color={colors.mutedForeground} />
         </View>
       )}

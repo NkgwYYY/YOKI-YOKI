@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
-  useColorScheme,
   TouchableOpacity,
   Alert,
   Modal,

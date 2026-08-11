@@ -1,6 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
-import { useColors } from '@/hooks/useColors';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';

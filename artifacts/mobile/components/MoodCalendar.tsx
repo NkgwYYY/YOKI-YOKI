@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal,
-  ScrollView, useColorScheme,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
