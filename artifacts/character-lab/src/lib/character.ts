@@ -56,6 +56,9 @@ export class CharacterRig {
   private talking = false;
   private jumping = false;
   private shaking = false;
+  private breathing = true;
+  private winkingUntil = 0;
+  private winkSide: 'left' | 'right' = 'right';
   private animationFrameId = 0;
 
   // DOM Elements
@@ -100,16 +103,17 @@ export class CharacterRig {
     const s = config.partScale;
 
     // Cheeks
-    this.leftCheek = this.createCheek(cx - es * 1.5, cy + 15, s);
-    this.rightCheek = this.createCheek(cx + es * 1.5, cy + 15, s);
+    const cheekY = cy + config.parts.cheek.offsetY;
+    this.leftCheek = this.createCheek(cx - es * 1.55, cheekY, s);
+    this.rightCheek = this.createCheek(cx + es * 1.55, cheekY, s);
     this.faceGroup.appendChild(this.leftCheek);
     this.faceGroup.appendChild(this.rightCheek);
 
     // Mouth
     this.mouth = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     this.mouth.setAttribute('fill', 'none');
-    this.mouth.setAttribute('stroke', '#1a1a1a');
-    this.mouth.setAttribute('stroke-width', (8 * s).toString());
+    this.mouth.setAttribute('stroke', config.parts.mouth.color);
+    this.mouth.setAttribute('stroke-width', config.parts.mouth.stroke.toString());
     this.mouth.setAttribute('stroke-linecap', 'round');
     this.mouth.setAttribute('stroke-linejoin', 'round');
     this.faceGroup.appendChild(this.mouth);
@@ -130,24 +134,28 @@ export class CharacterRig {
   }
 
   private createEye(x: number, y: number, scale: number) {
+    const st = this.config.parts.eye;
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.style.transformOrigin = `${x}px ${y}px`;
     
     const eye = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
     eye.setAttribute('cx', x.toString());
     eye.setAttribute('cy', y.toString());
-    eye.setAttribute('rx', (16 * scale).toString());
-    eye.setAttribute('ry', (20 * scale).toString());
-    eye.setAttribute('fill', '#1a1a1a');
+    eye.setAttribute('rx', st.rx.toString());
+    eye.setAttribute('ry', st.ry.toString());
+    eye.setAttribute('fill', st.color);
     g.appendChild(eye);
 
-    const highlight = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    highlight.setAttribute('cx', (x + 4 * scale).toString());
-    highlight.setAttribute('cy', (y - 5 * scale).toString());
-    highlight.setAttribute('r', (5 * scale).toString());
-    highlight.setAttribute('fill', 'white');
-    highlight.classList.add('pupil-highlight'); // For easy targeting
-    g.appendChild(highlight);
+    if (st.highlight) {
+      const highlight = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      highlight.setAttribute('cx', (x + st.rx * 0.28).toString());
+      highlight.setAttribute('cy', (y - st.ry * 0.3).toString());
+      highlight.setAttribute('r', Math.max(2.5, st.rx * 0.3).toString());
+      highlight.setAttribute('fill', 'white');
+      highlight.classList.add('pupil-highlight'); // For easy targeting
+      g.appendChild(highlight);
+    }
+    void scale;
     
     return g;
   }
@@ -156,7 +164,7 @@ export class CharacterRig {
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     path.setAttribute('d', `M ${x - 12 * scale} ${y} Q ${x} ${y - 8 * scale} ${x + 12 * scale} ${y}`);
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', '#1a1a1a');
+    path.setAttribute('stroke', this.config.parts.eye.color);
     path.setAttribute('stroke-width', (7 * scale).toString());
     path.setAttribute('stroke-linecap', 'round');
     path.style.transformOrigin = `${x}px ${y}px`;
@@ -165,13 +173,15 @@ export class CharacterRig {
   }
 
   private createCheek(x: number, y: number, scale: number) {
+    const st = this.config.parts.cheek;
     const ellipse = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
     ellipse.setAttribute('cx', x.toString());
     ellipse.setAttribute('cy', y.toString());
-    ellipse.setAttribute('rx', (24 * scale).toString());
-    ellipse.setAttribute('ry', (14 * scale).toString());
-    ellipse.setAttribute('fill', '#ff99aa');
+    ellipse.setAttribute('rx', st.rx.toString());
+    ellipse.setAttribute('ry', st.ry.toString());
+    ellipse.setAttribute('fill', st.color);
     ellipse.style.opacity = '0';
+    void scale;
     return ellipse;
   }
 
@@ -247,19 +257,20 @@ export class CharacterRig {
     const mx = cx + mo.x;
     const my = cy + mo.y;
     const s = this.config.partScale;
+    const mp = this.config.parts.mouth;
     
     let d = '';
-    const w = 15 * s;
+    const w = mp.halfWidth * 0.8;
     
     // Base mouth shapes
     if (this.talking) {
       const openAmount = (Math.sin(this.time * 20) * 0.5 + 0.5) * 20 * s + 5 * s;
       d = `M ${mx - w} ${my} Q ${mx} ${my + openAmount} ${mx + w} ${my}`;
-      this.mouth.setAttribute('fill', '#1a1a1a');
-      this.mouth.setAttribute('stroke-width', (4 * s).toString());
+      this.mouth.setAttribute('fill', mp.color);
+      this.mouth.setAttribute('stroke-width', (mp.stroke * 0.5).toString());
     } else {
       this.mouth.setAttribute('fill', 'none');
-      this.mouth.setAttribute('stroke-width', (8 * s).toString());
+      this.mouth.setAttribute('stroke-width', mp.stroke.toString());
       
       switch (this.emotion) {
         case 'happy':
@@ -272,10 +283,12 @@ export class CharacterRig {
         case 'sad':
           d = `M ${mx - w} ${my + 3*s} Q ${mx} ${my - 8*s} ${mx + w} ${my + 3*s}`;
           break;
-        case 'surprised':
-          d = `M ${mx - 8*s} ${my + 5*s} A ${8*s} ${10*s} 0 1 0 ${mx + 8*s} ${my + 5*s} A ${8*s} ${10*s} 0 1 0 ${mx - 8*s} ${my + 5*s}`;
-          this.mouth.setAttribute('fill', '#1a1a1a');
+        case 'surprised': {
+          const r = Math.max(6, mp.halfWidth * 0.45);
+          d = `M ${mx - r} ${my + 5*s} A ${r} ${r * 1.25} 0 1 0 ${mx + r} ${my + 5*s} A ${r} ${r * 1.25} 0 1 0 ${mx - r} ${my + 5*s}`;
+          this.mouth.setAttribute('fill', mp.color);
           break;
+        }
         case 'normal':
         default:
           d = `M ${mx - w} ${my} Q ${mx} ${my - 2*s} ${mx + w} ${my}`;
@@ -288,6 +301,21 @@ export class CharacterRig {
 
   public blink() {
     this.eyeScaleY.value = 0.1;
+  }
+
+  /** 片目を閉じる（side: 'left' | 'right'） */
+  public wink(side: 'left' | 'right' = 'right') {
+    this.winkSide = side;
+    this.winkingUntil = Date.now() + 500;
+  }
+
+  /** 呼吸(アイドル)アニメーションの ON/OFF */
+  public setBreathing(enabled: boolean) {
+    this.breathing = enabled;
+  }
+
+  public breathe() {
+    this.setBreathing(true);
   }
 
   public jump() {
@@ -329,9 +357,13 @@ export class CharacterRig {
     }, 1000);
   }
 
+  /** 目線を動かす。nx, ny は -1〜1 */
   public lookAt(nx: number, ny: number) {
-    this.pupilTranslateX.target = nx * 10 * this.config.partScale;
-    this.pupilTranslateY.target = ny * 10 * this.config.partScale;
+    const cx = Math.max(-1, Math.min(1, nx));
+    const cy = Math.max(-1, Math.min(1, ny));
+    const amp = this.config.parts.eye.rx * 0.55;
+    this.pupilTranslateX.target = cx * amp;
+    this.pupilTranslateY.target = cy * amp;
   }
 
   public talk() {
@@ -360,7 +392,7 @@ export class CharacterRig {
       let bY = 0;
       let bR = 0;
       
-      if (!this.jumping) {
+      if (!this.jumping && this.breathing) {
         // Default breathing
         bY = Math.sin(this.time * 2) * 5;
         
@@ -397,9 +429,12 @@ export class CharacterRig {
       // Apply transforms
       this.rootGroup.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${sx}, ${sy})`;
       
-      // Face elements transforms
-      this.leftEye.style.transform = `scale(1, ${ey})`;
-      this.rightEye.style.transform = `scale(1, ${ey})`;
+      // Face elements transforms (ウィンク中は片目だけ閉じる)
+      const winking = Date.now() < this.winkingUntil;
+      const leftEy = winking && this.winkSide === 'left' ? 0.08 : ey;
+      const rightEy = winking && this.winkSide === 'right' ? 0.08 : ey;
+      this.leftEye.style.transform = `scale(1, ${leftEy})`;
+      this.rightEye.style.transform = `scale(1, ${rightEy})`;
       
       // Move pupils (we select the highlight to move it)
       const highlights = this.faceGroup.querySelectorAll('.pupil-highlight');

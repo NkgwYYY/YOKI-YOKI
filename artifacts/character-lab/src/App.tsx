@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { CharacterRig, Emotion } from '@/lib/character';
 import { CHARACTERS, CharacterId, CharacterConfig } from '@/lib/character-config';
-import { ChevronLeft, ChevronRight, Sparkles, Zap, MessageCircle, ArrowUpCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles, Zap, MessageCircle, ArrowUpCircle, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function App() {
   const [characterId, setCharacterId] = useState<CharacterId>('egg');
   const [emotion, setEmotion] = useState<Emotion>('normal');
+  const [breathing, setBreathing] = useState(true);
+  const [followPointer, setFollowPointer] = useState(true);
+  const followRef = useRef(true);
+  followRef.current = followPointer;
   const svgRef = useRef<SVGSVGElement>(null);
   const rigRef = useRef<CharacterRig | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -25,6 +29,7 @@ export default function App() {
     // Create new rig
     rigRef.current = new CharacterRig(svgRef.current, characterConfig);
     rigRef.current.setEmotion(emotion);
+    rigRef.current.setBreathing(breathing);
     
     return () => {
       if (rigRef.current) {
@@ -41,8 +46,13 @@ export default function App() {
   }, [emotion]); // Update emotion without recreating rig
 
   useEffect(() => {
+    rigRef.current?.setBreathing(breathing);
+  }, [breathing]);
+
+  useEffect(() => {
     // Pointer tracking for eyes
     const handlePointerMove = (e: PointerEvent) => {
+      if (!followRef.current) return;
       if (!rigRef.current || !containerRef.current) return;
       
       const rect = containerRef.current.getBoundingClientRect();
@@ -57,7 +67,7 @@ export default function App() {
     };
 
     const handlePointerLeave = () => {
-      if (rigRef.current) {
+      if (followRef.current && rigRef.current) {
         rigRef.current.lookAt(0, 0);
       }
     };
@@ -83,10 +93,15 @@ export default function App() {
     setEmotion('normal'); // Reset emotion
   };
 
-  const handleAction = (action: 'blink' | 'jump' | 'shake' | 'talk') => {
+  const handleAction = (action: 'blink' | 'jump' | 'shake' | 'talk' | 'wink') => {
     if (rigRef.current) {
       rigRef.current[action]();
     }
+  };
+
+  const handleGaze = (nx: number, ny: number) => {
+    setFollowPointer(false);
+    rigRef.current?.lookAt(nx, ny);
   };
 
   return (
@@ -205,6 +220,55 @@ export default function App() {
               <MessageCircle className="w-5 h-5 mb-1" />
               <span className="font-display font-bold text-[10px]">喋る</span>
             </button>
+
+            <button
+              onClick={() => handleAction('wink')}
+              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
+            >
+              <Eye className="w-5 h-5 mb-1" />
+              <span className="font-display font-bold text-[10px]">ウィンク</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Gaze & Toggles */}
+        <div className="flex gap-6 items-start">
+          <div className="space-y-3">
+            <p className="text-xs font-bold text-muted-foreground ml-2">目線 (GAZE)</p>
+            <div className="grid grid-cols-3 gap-1.5 w-fit">
+              {[
+                { nx: -1, ny: -1, label: '↖' }, { nx: 0, ny: -1, label: '↑' }, { nx: 1, ny: -1, label: '↗' },
+                { nx: -1, ny: 0, label: '←' }, { nx: 0, ny: 0, label: '●' }, { nx: 1, ny: 0, label: '→' },
+                { nx: -1, ny: 1, label: '↙' }, { nx: 0, ny: 1, label: '↓' }, { nx: 1, ny: 1, label: '↘' },
+              ].map((g) => (
+                <button
+                  key={g.label}
+                  onClick={() => handleGaze(g.nx, g.ny)}
+                  className="w-10 h-10 flex items-center justify-center bg-white border-2 border-slate-100 rounded-xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 font-bold lab-button"
+                  aria-label={`目線 ${g.label}`}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3 flex-1">
+            <p className="text-xs font-bold text-muted-foreground ml-2">リアルタイム (LIVE)</p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setBreathing(b => !b)}
+                className={`py-3 px-4 rounded-xl font-display font-bold text-sm lab-button transition-colors border-2 ${breathing ? 'bg-emerald-100 border-emerald-200 text-emerald-700' : 'bg-white border-slate-100 text-slate-400'}`}
+              >
+                呼吸 {breathing ? 'ON' : 'OFF'}
+              </button>
+              <button
+                onClick={() => setFollowPointer(f => { if (!f) rigRef.current?.lookAt(0, 0); return !f; })}
+                className={`py-3 px-4 rounded-xl font-display font-bold text-sm lab-button transition-colors border-2 ${followPointer ? 'bg-sky-100 border-sky-200 text-sky-700' : 'bg-white border-slate-100 text-slate-400'}`}
+              >
+                マウス追従 {followPointer ? 'ON' : 'OFF'}
+              </button>
+            </div>
           </div>
         </div>
 
