@@ -28,6 +28,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useApp } from '@/contexts/AppContext';
 import { Mascot } from '@/components/Mascot';
+import { StageCharacter } from '@/components/StageCharacter';
 import { FeedModal } from '@/components/FeedModal';
 import { SkyBackground } from '@/components/SkyBackground';
 import {
@@ -430,15 +431,28 @@ export default function HomeScreen() {
             {/* Mascot with glow */}
             <View style={styles.mascotWrap}>
               <View style={styles.mascotGlow} />
-              <GrowthScaleWrap growthSize={growth.growthSize} baseSize={150}>
-                <Mascot
+              {Platform.OS === 'web' ? (
+                /* Web: ラボの物理エンジン(掴んで投げる・ぷるん)を透明iframeで埋め込み。
+                   スケールはステージ側がGrowth Sizeで反映する */
+                <StageCharacter
                   stage={stage}
                   mood={mood}
                   size={150}
+                  growthSize={growth.growthSize}
                   idleBehavior={idleBehavior}
                   onPet={handlePet}
                 />
-              </GrowthScaleWrap>
+              ) : (
+                <GrowthScaleWrap growthSize={growth.growthSize} baseSize={150}>
+                  <Mascot
+                    stage={stage}
+                    mood={mood}
+                    size={150}
+                    idleBehavior={idleBehavior}
+                    onPet={handlePet}
+                  />
+                </GrowthScaleWrap>
+              )}
             </View>
 
             {/* Name display */}
