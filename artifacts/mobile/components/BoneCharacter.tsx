@@ -86,6 +86,13 @@ const PHYSICS = {
   squashStiffness: 0.14,
   squashDamping: 0.88,
   skeletonRigidity: 0.5,
+  /* 慣性・遅れ追従(二次モーション): 顔=芯がルートの動きに少し遅れてついてくる */
+  faceLagStiffness: 0.10,
+  faceLagDamping: 0.78,
+  faceLagFactor: 0.018,   // 上下速度 → 顔の遅れ量(512座標系px)
+  faceLagMax: 13,
+  hopTiltFactor: 0.006,   // 上下速度 → 体のわずかな前傾(deg)
+  hopTiltMax: 2.5,
 };
 
 const GROUND_Y = 462; // SoftBody変形の基準(下端=地面)
@@ -133,6 +140,10 @@ export default function BoneCharacter({ charKey, mood, size, hop = true, animate
   const eyeOpenTarget = useSharedValue(1);
   const breathSpeed = useSharedValue(2);
   const hopEnabled = useSharedValue(hop ? 1 : 0);
+  /* 慣性・遅れ追従: 顔の遅れオフセットと体の傾き(スプリング追従) */
+  const faceLagY = useSharedValue(0);
+  const faceLagV = useSharedValue(0);
+  const bodyTilt = useSharedValue(0);
 
   useEffect(() => {
     eyeOpenTarget.value = sleepy ? 0.38 : grumpy ? 0.62 : 1;
@@ -177,6 +188,17 @@ export default function BoneCharacter({ charKey, mood, size, hop = true, animate
       if (squashV.value < 0) squashV.value = 0;
     }
 
+    // --- 慣性・遅れ追従(二次モーション) ---
+    // 顔(芯)はルートの上下速度と逆方向に遅れてついてくる → 着地・ホップで自然な揺れ
+    const vy = inAir.value === 1 ? airV.value : 0;
+    const lagTarget = Math.max(-PHYSICS.faceLagMax, Math.min(PHYSICS.faceLagMax, -vy * PHYSICS.faceLagFactor));
+    const lagForce = (lagTarget - faceLagY.value) * PHYSICS.faceLagStiffness * dtScale;
+    faceLagV.value = (faceLagV.value + lagForce) * Math.pow(PHYSICS.faceLagDamping, dtScale);
+    faceLagY.value += faceLagV.value * dtScale;
+    // 体はホップ中だけごくわずかに傾く(なめらかに追従)
+    const tiltTarget = Math.max(-PHYSICS.hopTiltMax, Math.min(PHYSICS.hopTiltMax, vy * PHYSICS.hopTiltFactor));
+    bodyTilt.value += (tiltTarget - bodyTilt.value) * Math.min(0.12 * dtScale, 1);
+
     // --- 瞬き(表情システム。物理と独立) ---
     if (t >= nextBlinkAt.value) {
       eyeOpen.value = 0.08;
@@ -195,7 +217,7 @@ export default function BoneCharacter({ charKey, mood, size, hop = true, animate
   const bodyStyle = useAnimatedStyle(() => ({
     transform: [
       { translateY: Math.sin(time.value * breathSpeed.value) * 4 * k },
-      { rotate: `${Math.sin(time.value * 1.3) * 0.6}deg` },
+      { rotate: `${Math.sin(time.value * 1.3) * 0.6 + bodyTilt.value}deg` },
     ],
   }));
 
@@ -228,6 +250,7 @@ export default function BoneCharacter({ charKey, mood, size, hop = true, animate
     const compY = Math.pow(sy, PHYSICS.skeletonRigidity) / sy;
     return {
       transform: [
+        { translateY: faceLagY.value * k },
         { translateX: facePivotX },
         { translateY: facePivotY },
         { scaleX: compX },
