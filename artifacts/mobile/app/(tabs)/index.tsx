@@ -36,9 +36,6 @@ import {
   getMascotMessage,
   calcStatus,
   getNextStageLevel,
-  calcEvolutionType,
-  calcDevelopingType,
-  EVOLUTION_TYPE_INFO,
   STAGE_LEVEL_MAP,
   getStageName,
   pickIdleBehavior,
@@ -298,20 +295,6 @@ export default function HomeScreen() {
   const nextStageLevel = getNextStageLevel(progress.level);
   const stageInfo = STAGE_LEVEL_MAP.find((s) => s.stage === stage)!;
 
-  // 進化系統：Lv6以上で確定、Lv3-5は予告表示
-  const evolutionType = React.useMemo(
-    () => (stage === 'egg' ? null : calcEvolutionType(records, progress.streak)),
-    [records, progress.streak, stage],
-  );
-  const developingType = React.useMemo(
-    () => (stage === 'odango' ? calcDevelopingType(records, progress.streak) : null),
-    [records, progress.streak, stage],
-  );
-  const typeInfo = evolutionType && (stage === 'stage3' || stage === 'stage4' || stage === 'stage5')
-    ? EVOLUTION_TYPE_INFO[evolutionType]
-    : null;
-  const devTypeInfo = developingType ? EVOLUTION_TYPE_INFO[developingType] : null;
-
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
   const moodColors = ['', '#EF4444', '#FF6B35', '#FFB800', '#00C4A7', '#00D4AA'];
@@ -378,26 +361,9 @@ export default function HomeScreen() {
               <View style={styles.mascotTopLeft}>
                 <View style={[styles.stagePill, { backgroundColor: C.pill, borderColor: C.border }]}>
                   <Text style={[styles.stageName, { color: C.text }]}>
-                    {getStageName(stage, evolutionType ?? developingType)}
+                    {getStageName(stage)}
                   </Text>
                 </View>
-                {/* 系統バッジ：Lv6以上で確定表示、Lv3-5で予告 */}
-                {typeInfo && (
-                  <View style={[styles.typePill, { backgroundColor: C.pill, borderColor: C.border }]}>
-                    <Text style={styles.typeEmoji}>{typeInfo.emoji}</Text>
-                    <Text style={[styles.typeName, { color: C.textSub }]}>
-                      {typeInfo.name}
-                    </Text>
-                  </View>
-                )}
-                {devTypeInfo && !typeInfo && (
-                  <View style={[styles.typePill, { backgroundColor: C.pill, borderColor: C.border }]}>
-                    <Text style={styles.typeEmoji}>🔮</Text>
-                    <Text style={[styles.typeName, { color: C.textSub }]}>
-                      {devTypeInfo.name}になりそう…
-                    </Text>
-                  </View>
-                )}
               </View>
               <View style={[styles.levelPill, { backgroundColor: C.pill, borderColor: C.border, borderWidth: 1 }]}>
                 <Ionicons name="star" size={11} color={C.accent} />
@@ -416,7 +382,6 @@ export default function HomeScreen() {
               <Mascot
                 stage={stage}
                 mood={mood}
-                evolutionType={evolutionType}
                 size={150}
                 idleBehavior={idleBehavior}
                 onPet={handlePet}

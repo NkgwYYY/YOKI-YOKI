@@ -14,7 +14,7 @@ import Svg, {
   RadialGradient, Stop, Line, Rect,
 } from 'react-native-svg';
 import { Image } from 'react-native';
-import { MascotStage, MascotMood, IdleBehavior, EvolutionType, CharacterKey, getCharacter } from '@/utils/mascotUtils';
+import { MascotStage, MascotMood, IdleBehavior, CharacterKey, getCharacter } from '@/utils/mascotUtils';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import MaskedView from '@react-native-masked-view/masked-view';
 
@@ -52,14 +52,8 @@ const ALL_MOODS: MascotMood[] = ['normal', 'happy', 'excited', 'grumpy', 'tired'
 /* ── 進化後キャラクター画像（ストレージの素材から取り込み） ── */
 const CHAR_IMAGES: Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof require>> = {
   odango:         require('../assets/images/characters/odango.png'),
-  onigiri:        require('../assets/images/characters/onigiri.png'),
-  tako:           require('../assets/images/characters/tako.png'),
-  ebifurai:       require('../assets/images/characters/ebifurai.png'),
   happa:          require('../assets/images/characters/happa.png'),
   colorful_happa: require('../assets/images/characters/colorful_happa.png'),
-  neko:           require('../assets/images/characters/neko.png'),
-  usagi:          require('../assets/images/characters/usagi.png'),
-  lion:           require('../assets/images/characters/lion.png'),
 };
 
 /* ── 笑顔アニメ（アップロード動画から切り出した実フレーム: しかめ顔→まばたき→にっこり） ── */
@@ -473,7 +467,6 @@ function EggImage({ mood, size, rolling = false, pokeKey = 0 }: { mood: MascotMo
 interface MascotProps {
   stage: MascotStage;
   mood: MascotMood;
-  evolutionType?: EvolutionType | null;
   size?: number;
   onPress?: () => void;
   onPet?: () => void;
@@ -521,7 +514,7 @@ function PetGlow({ size, petKey }: { size: number; petKey: number }) {
 
 /* ─── per-mood eye + mouth shapes ─── */
 /* ─── Main component ─── */
-export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet, idleBehavior = 'normal', isEating = false }: MascotProps) {
+export function Mascot({ stage, mood, size = 140, onPress, onPet, idleBehavior = 'normal', isEating = false }: MascotProps) {
   const bounce = useSharedValue(0);
   const scaleX = useSharedValue(1);
   const scaleY = useSharedValue(1);
@@ -757,7 +750,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
     ],
   }));
 
-  const character = getCharacter(stage, evolutionType);
+  const character = getCharacter(stage);
 
   return (
     <View {...panResponder.panHandlers}>

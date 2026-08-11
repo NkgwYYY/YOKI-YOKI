@@ -1,16 +1,11 @@
 import manifest from './parts-manifest.json';
 
-export type CharacterId = 
-  | 'egg' 
-  | 'odango' 
-  | 'happa' 
-  | 'colorful_happa' 
-  | 'onigiri' 
-  | 'tako' 
-  | 'ebifurai' 
-  | 'neko' 
-  | 'usagi' 
-  | 'lion';
+/** 進化順: たまご → おだんご → ハッパ → カラフルハッパ */
+export type CharacterId =
+  | 'egg'
+  | 'odango'
+  | 'happa'
+  | 'colorful_happa';
 
 /** 元画像から切り出したパーツの配置(512x512座標系、元画像の位置そのまま) */
 export interface PartBox {
@@ -52,12 +47,6 @@ const NAMES: Record<CharacterId, string> = {
   odango: 'オダンゴ',
   happa: 'ハッパ',
   colorful_happa: 'カラフルハッパ',
-  onigiri: 'オニギリ',
-  tako: 'タコ',
-  ebifurai: 'エビフライ',
-  neko: 'ネコ',
-  usagi: 'ウサギ',
-  lion: 'ライオン',
 };
 
 /**
@@ -66,11 +55,7 @@ const NAMES: Record<CharacterId, string> = {
  * 再デザイン・描き直しは一切していない。配置座標も元画像と同一。
  */
 /** キャラごとの表情変化の強さ。個性に合わせて調整する(未指定は1) */
-const EXPRESSIVENESS: Partial<Record<CharacterId, number>> = {
-  tako: 0.9,      // 顔が小さめなので控えめに
-  ebifurai: 0.7,  // 目・口が小さく縦長のため変化量を抑える
-  usagi: 0.9,
-};
+const EXPRESSIVENESS: Partial<Record<CharacterId, number>> = {};
 
 export const CHARACTERS: CharacterConfig[] = (Object.keys(NAMES) as CharacterId[]).map((id) => ({
   id,

@@ -4,20 +4,12 @@ import { Mascot } from '../components/Mascot';
 
 const ITEMS: {
   label: string; sub: string;
-  stage: 'egg' | 'odango' | 'stage3' | 'stage4' | 'stage5';
-  evolutionType?: 'heart' | 'star' | 'crown' | null;
+  stage: 'egg' | 'odango' | 'stage3' | 'stage4';
 }[] = [
-  { label: 'たまご', sub: 'Lv.1〜（1段階目・全タイプ共通）', stage: 'egg' },
-  { label: 'おだんご', sub: 'Lv.3〜（2段階目・全タイプ共通）', stage: 'odango' },
-  { label: '塩おにぎり 🍙食物', sub: 'Lv.6〜（3段階目）', stage: 'stage3', evolutionType: 'heart' },
-  { label: 'はっぱ 🌱植物', sub: 'Lv.6〜（3段階目）', stage: 'stage3', evolutionType: 'crown' },
-  { label: 'ねこ 🐾動物', sub: 'Lv.6〜（3段階目）', stage: 'stage3', evolutionType: 'star' },
-  { label: 'タコ 🍙食物', sub: 'Lv.15〜（4段階目）', stage: 'stage4', evolutionType: 'heart' },
-  { label: 'カラフルはっぱ 🌱植物', sub: 'Lv.15〜（4段階目）', stage: 'stage4', evolutionType: 'crown' },
-  { label: 'うさぎ 🐾動物', sub: 'Lv.15〜（4段階目）', stage: 'stage4', evolutionType: 'star' },
-  { label: 'エビフライ 🍙食物', sub: 'Lv.25〜（5段階目）', stage: 'stage5', evolutionType: 'heart' },
-  { label: '？？？ 🌱植物', sub: 'Lv.25〜（5段階目・検討中）', stage: 'stage5', evolutionType: 'crown' },
-  { label: 'ライオン 🐾動物', sub: 'Lv.25〜（5段階目）', stage: 'stage5', evolutionType: 'star' },
+  { label: 'たまご', sub: 'Lv.1〜（1段階目）', stage: 'egg' },
+  { label: 'おだんご', sub: 'Lv.3〜（2段階目）', stage: 'odango' },
+  { label: 'はっぱ', sub: 'Lv.6〜（3段階目）', stage: 'stage3' },
+  { label: 'カラフルはっぱ', sub: 'Lv.15〜（4段階目）', stage: 'stage4' },
 ];
 
 export default function GalleryScreen() {
@@ -27,7 +19,7 @@ export default function GalleryScreen() {
       <View style={styles.grid}>
         {ITEMS.map((it) => (
           <View key={it.label} style={styles.card}>
-            <Mascot stage={it.stage} mood="happy" evolutionType={it.evolutionType ?? null} size={110} />
+            <Mascot stage={it.stage} mood="happy" size={110} />
             <Text style={styles.label}>{it.label}</Text>
             <Text style={styles.sub}>{it.sub}</Text>
           </View>

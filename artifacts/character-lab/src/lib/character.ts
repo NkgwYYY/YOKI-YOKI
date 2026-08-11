@@ -180,13 +180,8 @@ export class CharacterRig {
 
     switch (emotion) {
       case 'happy':
-        // 目: 弧の笑い目 / 口: 開いた笑い口 / 頬: 強調 / 体: 弾む(ループ側)
-        stage(() => this.setFaceSprites('happy', 'mouthOpen'), 0);
-        stage(() => { this.cheekScale.target = lerp(1, 0.35); }, 140);
-        this.faceOffsetY.target = -2 * ex;
-        break;
       case 'fun':
-        // 目: 弧の笑い目 / 口: 笑いカーブ / 体: 左右に揺れる(ループ側)
+        // 喜と楽は同じ表情(元「楽」): 目: 弧の笑い目 / 口: 笑いカーブ / 体: 左右に揺れる(ループ側)
         stage(() => this.setFaceSprites('happy', 'mouthSmile'), 0);
         stage(() => { this.cheekScale.target = lerp(1, 0.25); }, 140);
         break;
@@ -349,12 +344,10 @@ export class CharacterRig {
         const ex = this.config.expressiveness;
         bY = Math.sin(this.time * 2) * 5;
 
-        if (this.emotion === 'happy') {
-          bY = Math.abs(Math.sin(this.time * 6)) * -15 * ex;
+        if (this.emotion === 'happy' || this.emotion === 'fun') {
+          bR = Math.sin(this.time * 3) * 5 * ex;
         } else if (this.emotion === 'sad') {
           bY += 10 * ex;
-        } else if (this.emotion === 'fun') {
-          bR = Math.sin(this.time * 3) * 5 * ex;
         } else if (this.emotion === 'angry') {
           // 眉毛の代わりに小刻みな震えで怒りを表現
           bY += Math.sin(this.time * 40) * 1.2 * ex;
