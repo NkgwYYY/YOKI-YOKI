@@ -11,6 +11,7 @@ export default function App() {
   const [followPointer, setFollowPointer] = useState(true);
   const followRef = useRef(true);
   followRef.current = followPointer;
+  const gazeRef = useRef<{ nx: number; ny: number }>({ nx: 0, ny: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
   const rigRef = useRef<CharacterRig | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -30,6 +31,10 @@ export default function App() {
     rigRef.current = new CharacterRig(svgRef.current, characterConfig);
     rigRef.current.setEmotion(emotion);
     rigRef.current.setBreathing(breathing);
+    // 手動目線はキャラ切替後も維持する
+    if (!followRef.current) {
+      rigRef.current.lookAt(gazeRef.current.nx, gazeRef.current.ny);
+    }
     
     return () => {
       if (rigRef.current) {
@@ -101,6 +106,7 @@ export default function App() {
 
   const handleGaze = (nx: number, ny: number) => {
     setFollowPointer(false);
+    gazeRef.current = { nx, ny };
     rigRef.current?.lookAt(nx, ny);
   };
 
@@ -140,7 +146,7 @@ export default function App() {
       </header>
 
       {/* Stage Area */}
-      <main className="flex-1 w-full max-w-md mx-auto relative flex items-center justify-center overflow-hidden">
+      <main className="flex-1 min-h-[220px] w-full max-w-md mx-auto relative flex items-center justify-center overflow-hidden">
         {/* Stage background decorations */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
@@ -156,7 +162,7 @@ export default function App() {
       </main>
 
       {/* Control Panel */}
-      <footer className="w-full max-w-md mx-auto bg-white/90 backdrop-blur-md rounded-t-3xl lab-shadow-inset border-t border-white p-6 pb-8 z-20 flex flex-col gap-6">
+      <footer className="w-full max-w-md mx-auto max-h-[52dvh] overflow-y-auto bg-white/90 backdrop-blur-md rounded-t-3xl lab-shadow-inset border-t border-white p-6 pb-8 z-20 flex flex-col gap-6">
         
         {/* Emotion Controls */}
         <div className="space-y-3">

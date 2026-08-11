@@ -300,6 +300,8 @@ export class CharacterRig {
   }
 
   public blink() {
+    // ウィンク中は両目閉じにならないよう抑止
+    if (Date.now() < this.winkingUntil) return;
     this.eyeScaleY.value = 0.1;
   }
 
