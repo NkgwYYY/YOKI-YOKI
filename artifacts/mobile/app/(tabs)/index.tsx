@@ -138,10 +138,6 @@ function GlassBubble({ message }: { message: string }) {
   return (
     <Animated.View style={style}>
       <View style={styles.bubble}>
-        {/* inner highlight */}
-        <View style={styles.bubbleHighlight} />
-        <View style={styles.bubbleGlowSpot} />
-        <Text style={styles.bubbleTitle}>─ 今日の一言 ─</Text>
         <Text style={styles.bubbleText}>{message}</Text>
       </View>
     </Animated.View>
@@ -904,43 +900,27 @@ const styles = StyleSheet.create({
   levelPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
   levelText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
 
-  // Glass bubble
-  bubbleWrap: { marginTop: 2, marginBottom: -34, zIndex: 2 },
+  // Glass bubble(コメントだけの最小限の吹き出し)
+  bubbleWrap: { marginTop: 2, marginBottom: 4, zIndex: 2, alignItems: 'center' },
   bubble: {
-    width: 260, height: 260, borderRadius: 130,
+    maxWidth: '84%',
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderRadius: 18,
     borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.9)',
-    backgroundColor: 'rgba(255,255,255,0.82)',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center', justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  bubbleTitle: {
-    fontSize: 11, color: 'rgba(106,90,180,0.9)', letterSpacing: 3,
-    fontFamily: 'Inter_600SemiBold', marginBottom: 10,
-  },
-  bubbleHighlight: {
-    position: 'absolute', top: 14, left: 24,
-    width: 150, height: 74,
-    borderTopWidth: 3, borderColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 100,
-    transform: [{ rotate: '-25deg' }],
-  },
-  bubbleGlowSpot: {
-    position: 'absolute', bottom: 22, right: 22,
-    width: 110, height: 48, borderRadius: 60,
-    backgroundColor: 'rgba(178,164,255,0.22)',
-    transform: [{ rotate: '20deg' }],
   },
   bubbleText: {
-    textAlign: 'center', fontSize: 16, lineHeight: 28,
+    textAlign: 'center', fontSize: 13.5, lineHeight: 20,
     fontFamily: 'Inter_600SemiBold', color: '#3A2E6E',
-    letterSpacing: 1, paddingHorizontal: 28,
+    letterSpacing: 0.4,
   },
 
   // Mascot glow
   /* ── 円形メニュー(オービット)── */
   orbitStage: {
     width: '100%',
-    height: 340,
+    height: 372,
     alignItems: 'center',
     justifyContent: 'center',
   },

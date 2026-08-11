@@ -99,7 +99,7 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
       return fallback;
     }
     return (
-      <View style={{ width: size * 1.5, height: size * 1.5 }}>
+      <View style={{ width: size * 1.7, height: size * 2.4 }}>
         <WebView
           ref={webviewRef}
           source={{ uri: src }}
@@ -135,7 +135,7 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
 
   // Web: 透明iframe。ステージ側が物理・掴み操作を全て処理する
   return (
-    <View style={{ width: size * 1.5, height: size * 1.5 }}>
+    <View style={{ width: size * 1.7, height: size * 2.4 }}>
       {React.createElement('iframe', {
         ref: iframeRef,
         src,

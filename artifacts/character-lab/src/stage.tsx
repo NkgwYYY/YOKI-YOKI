@@ -76,23 +76,26 @@ function Stage() {
   }, []);
 
   return (
-    <div
-      style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'transparent',
-        transform: `scale(${scale})`,
-        transformOrigin: 'center bottom',
-        transition: 'transform 4s ease',
-      }}
-    >
-      <svg
-        ref={svgRef}
-        style={{ width: '100%', height: '100%', overflow: 'visible', userSelect: 'none' }}
-      />
+    /* キャラは下部に接地させ、上側に「持ち上げ」用のヘッドルームを確保する。
+       svg自体は下55%だが overflow:visible なので持ち上げ中も枠内に描画される */
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', background: 'transparent', overflow: 'hidden' }}>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: '50%',
+          width: '100%',
+          height: '55%',
+          transform: `translateX(-50%) scale(${scale})`,
+          transformOrigin: 'center bottom',
+          transition: 'transform 4s ease',
+        }}
+      >
+        <svg
+          ref={svgRef}
+          style={{ width: '100%', height: '100%', overflow: 'visible', userSelect: 'none' }}
+        />
+      </div>
     </div>
   );
 }
