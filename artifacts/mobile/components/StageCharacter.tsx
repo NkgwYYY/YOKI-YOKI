@@ -42,6 +42,8 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
   const iframeRef = useRef<any>(null);
   const webviewRef = useRef<any>(null);
   const [nativeFailed, setNativeFailed] = useState(false);
+  // ステージからready通知が来たか(来なければ誤ったページ=旧ビルド等 → フォールバック)
+  const nativeReadyRef = useRef(false);
 
   const src = useMemo(() => {
     const base = `${stageOrigin()}/character-lab/stage.html`;
@@ -110,10 +112,20 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
           bounces={false}
           onError={() => setNativeFailed(true)}
           onHttpError={() => setNativeFailed(true)}
+          onLoadEnd={() => {
+            // ready欠落時の初期同期補強 + ステージ以外のページ(旧ビルド等)を検出してフォールバック
+            sendState();
+            setTimeout(() => {
+              if (!nativeReadyRef.current) setNativeFailed(true);
+            }, 6000);
+          }}
           onMessage={(e: any) => {
             try {
               const d = JSON.parse(e.nativeEvent.data);
-              if (d?.type === 'yokky-stage-ready') sendState();
+              if (d?.type === 'yokky-stage-ready') {
+                nativeReadyRef.current = true;
+                sendState();
+              }
             } catch {}
           }}
         />
