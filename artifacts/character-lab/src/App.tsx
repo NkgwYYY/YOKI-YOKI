@@ -98,7 +98,7 @@ export default function App() {
     setEmotion('normal'); // Reset emotion
   };
 
-  const handleAction = (action: 'blink' | 'jump' | 'shake' | 'talk' | 'wink') => {
+  const handleAction = (action: 'blink' | 'jump' | 'shake' | 'talk' | 'wink' | 'walk' | 'land' | 'bounce') => {
     if (rigRef.current) {
       rigRef.current[action]();
     }
@@ -225,6 +225,30 @@ export default function App() {
             >
               <MessageCircle className="w-5 h-5 mb-1" />
               <span className="font-display font-bold text-[10px]">喋る</span>
+            </button>
+
+            <button
+              onClick={() => handleAction('walk')}
+              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
+            >
+              <ChevronRight className="w-5 h-5 mb-1" />
+              <span className="font-display font-bold text-[10px]">歩く</span>
+            </button>
+
+            <button
+              onClick={() => handleAction('land')}
+              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
+            >
+              <ArrowUpCircle className="w-5 h-5 mb-1 rotate-180" />
+              <span className="font-display font-bold text-[10px]">着地</span>
+            </button>
+
+            <button
+              onClick={() => handleAction('bounce')}
+              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
+            >
+              <Sparkles className="w-5 h-5 mb-1" />
+              <span className="font-display font-bold text-[10px]">バウンド</span>
             </button>
 
             <button

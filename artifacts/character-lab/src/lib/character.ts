@@ -8,7 +8,34 @@ const ASSET_VERSION = 3;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 // ============================================================
+// 物理パラメータ(調整用)
+// ============================================================
+const PHYSICS = {
+  /** 重力(px/s^2) */
+  gravity: 2600,
+  /** ジャンプ初速(px/s) */
+  jumpVelocity: 900,
+  /** 着地圧縮の最大値(縦方向の縮み率)。0.10 = 10% */
+  maxSquash: 0.10,
+  /** 離陸時の伸びの最大値 */
+  maxStretch: 0.06,
+  /** 横方向の広がり = 圧縮量 × この係数(体積感の維持) */
+  lateralRatio: 0.6,
+  /** 着地速度 → 圧縮量 の変換係数 */
+  impactSensitivity: 0.00011,
+  /** SoftBody圧縮バネ: 硬さ(低め=柔らかい) */
+  squashStiffness: 0.14,
+  /** SoftBody圧縮バネ: 減衰(高め=2〜3回の小さな反発で収束) */
+  squashDamping: 0.88,
+  /** 骨格の硬さ: 顔(骨格側)は SoftBody の圧縮の平方根しか受けない(0.5乗) */
+  skeletonRigidity: 0.5,
+  /** バウンド時の反発係数 */
+  restitution: 0.42,
+};
+
+// ============================================================
 // Spring / Damper (自然な追従・慣性・柔らかい反動)
+// dtScale = 実フレーム時間 / 60fps基準。フレームレート非依存。
 // ============================================================
 class Spring {
   value: number;
@@ -25,10 +52,10 @@ class Spring {
     this.damping = damping;
   }
 
-  update() {
-    const force = (this.target - this.value) * this.stiffness;
-    this.velocity = (this.velocity + force) * this.damping;
-    this.value += this.velocity;
+  update(dtScale = 1) {
+    const force = (this.target - this.value) * this.stiffness * dtScale;
+    this.velocity = (this.velocity + force) * Math.pow(this.damping, dtScale);
+    this.value += this.velocity * dtScale;
     return this.value;
   }
 }
@@ -40,10 +67,8 @@ class Spring {
 interface BoneOptions {
   /** 親の移動に対する遅れ追従の強さ(0 = 遅れなし)。大きいほど揺れる */
   follow?: number;
-  /** バネの硬さ・減衰 */
   stiffness?: number;
   damping?: number;
-  /** 回転の基準点(SVG座標) */
   originX?: number;
   originY?: number;
 }
@@ -76,16 +101,10 @@ class Bone {
     this.children.push(bone);
   }
 
-  /**
-   * 骨を更新して transform を適用する。
-   * addX/addY/addRot はループ由来の付加的な揺れ(呼吸など)。
-   * 自分の移動量(速度)を子に伝え、子は逆向きの慣性を受けて
-   * 「少し遅れて追従 → 行き過ぎ → 戻る」動きになる。
-   */
-  update(addX = 0, addY = 0, addRot = 0) {
-    const x = this.x.update();
-    const y = this.y.update();
-    const r = this.rot.update();
+  update(dtScale = 1, addX = 0, addY = 0, addRot = 0) {
+    const x = this.x.update(dtScale);
+    const y = this.y.update(dtScale);
+    const r = this.rot.update(dtScale);
     // 付加的な揺れ(呼吸など)も含めた「実際に適用された移動量」を子へ伝える
     const appliedX = x + addX;
     const appliedY = y + addY;
@@ -107,26 +126,36 @@ class Bone {
   }
 }
 
+type JumpPhase = 'idle' | 'crouch' | 'air';
+
 /**
- * キャラクターリグ(元画像パーツ方式 + 2Dボーンシステム)
+ * キャラクターリグ(元画像パーツ方式 + 骨格 + 柔らかい身体)
  *
  * 【最重要ルール】元画像 = 正解。
  * 顔パーツ(目・口・頬)はすべて「元画像から切り出したPNG」を
  * 元画像と同じ座標に配置して表示する。SVGで顔を描き直すことはしない。
  *
- * 【ボーン構造】(全キャラ共通。存在しないパーツは自動的に無視)
- * Root(位置・全体回転のみ。scale禁止)
- * └── Body(小さな上下・揺れ・傾き。輪郭は変形しない)
- *     ├── Face(Bodyに少し遅れて追従)
- *     │   ├── Eye_L / Eye_R(視線・瞬き。引き伸ばし禁止)
- *     │   ├── Mouth(スプライト切替 + 口パク)
- *     │   └── Cheek_L / Cheek_R(位置・透明度のみ。常に最前面)
- *     └── Sprout(存在するキャラのみ。遅れて揺れる)
+ * 【構造】= 硬い芯(骨格) + 柔らかい表面(SoftBody)
+ * Root(位置のみ。ジャンプ・着地の運動学)
+ * └── Body(骨格の中心。ごく小さな慣性)
+ *     └── SoftBody(柔らかい身体。着地時に下端基準で圧縮・横に膨張)
+ *         ├── body画像(SoftBodyの変形をそのまま受ける = 柔らかい表面)
+ *         ├── Sprout(存在するキャラのみ。少し遅れて揺れる)
+ *         └── Face(骨格側。SoftBodyの圧縮を平方根だけ受ける
+ *                    = 芯は完全には潰れない。位置はSoftBodyに完全追従)
+ *             ├── Eye_L / Eye_R / Mouth
+ *             └── Cheek_L / Cheek_R(常に最前面。形状固定)
  *
- * 【表情とボーンの分離】
- * Emotion System   → setEmotion(): 目・口のスプライト切替と顔パーツの微調整のみ
- * Bone Animation   → ループ内: Root/Body/Face/Sprout の位置・回転のみ
- * 表情変更で Body/Root が変形・移動することは絶対にない。
+ * 【SoftBodyの物理】
+ * 圧縮量 c は Spring/Damper で管理し、着地速度(impactVelocity)に
+ * 比例した圧縮が入り(上限あり)、2〜3回の小さな反発で収束する。
+ * scaleY = 1 - c / scaleX = 1 + c×lateralRatio(体積感の維持)。
+ * 全体への単純なscaleではなく、SoftBodyレイヤーの変形として
+ * 下端(地面)基準で適用する。顔は骨格として圧縮を半分だけ受ける。
+ *
+ * 【表情との分離】
+ * Emotion System → 目・口のスプライト切替と顔パーツ内の表現のみ。
+ * Physics System → Root/Body/SoftBody。表情がBodyを動かすことはない。
  */
 export class CharacterRig {
   private config: CharacterConfig;
@@ -137,6 +166,19 @@ export class CharacterRig {
   private body: Bone;
   private face: Bone;
   private sprout: Bone | null = null;
+
+  // SoftBody(柔らかい身体)レイヤー
+  private softBody: SVGGElement;
+  /** 骨格補正レイヤー(顔は圧縮を弱く受ける) */
+  private faceComp: SVGGElement;
+  /** 圧縮量 c (+ = 縦に潰れる / - = 縦に伸びる)。target は常に 0 */
+  private squash = new Spring(0, PHYSICS.squashStiffness, PHYSICS.squashDamping);
+
+  // 垂直方向の運動学(ジャンプ・着地)
+  private jumpPhase: JumpPhase = 'idle';
+  private airY = 0;          // 0 = 地面。負 = 上空
+  private airVelocity = 0;   // px/s(正 = 下向き)
+  private bouncesLeft = 0;
 
   // 顔パーツ内アニメ用 Spring(パーツ自体の表現。骨とは独立)
   private eyeScaleY = new Spring(1, 0.3, 0.6);
@@ -153,8 +195,8 @@ export class CharacterRig {
   private emotion: Emotion = 'normal';
   private time = 0;
   private talking = false;
-  private jumping = false;
   private shaking = false;
+  private walking = false;
   private breathing = true;
   private winkingUntil = 0;
   private winkSide: 'left' | 'right' = 'right';
@@ -176,27 +218,33 @@ export class CharacterRig {
     this.container.innerHTML = '';
     this.container.setAttribute('viewBox', '0 0 512 512');
 
-    // --- ボーン階層の構築 ---
-    // Root: キャラクター全体の位置と回転のみ
+    // --- 骨格の構築 ---
+    // Root: 移動・ジャンプ・着地(位置のみ)
     this.root = new Bone(this.container, {
       stiffness: 0.12, damping: 0.8, originX: 256, originY: 450,
     });
-    // Body: Rootに少し遅れて追従(慣性)
+    // Body: 骨格の中心。Rootにごく小さく遅れて追従(慣性)
     this.body = new Bone(this.root.group, {
-      follow: 0.35, stiffness: 0.14, damping: 0.78, originX: 256, originY: 450,
+      follow: 0.12, stiffness: 0.22, damping: 0.7, originX: 256, originY: 450,
     });
     this.root.addChild(this.body);
 
-    // Body画像(顔除去済み)。骨自体は変形しないので輪郭は常に元画像のまま
+    // --- SoftBody(柔らかい身体)レイヤー ---
+    // 着地時の圧縮・膨張はこのレイヤーだけに適用する(下端 = 地面基準)
+    this.softBody = document.createElementNS(SVG_NS, 'g');
+    this.softBody.style.transformOrigin = '256px 462px';
+    this.body.group.appendChild(this.softBody);
+
+    // Body画像(顔除去済み) = 柔らかい表面。SoftBodyの変形を100%受ける
     const bodyImg = document.createElementNS(SVG_NS, 'image');
     bodyImg.setAttribute('href', `${import.meta.env.BASE_URL}characters/${config.body}?v=${ASSET_VERSION}`);
     bodyImg.setAttribute('width', '512');
     bodyImg.setAttribute('height', '512');
-    this.body.group.appendChild(bodyImg);
+    this.softBody.appendChild(bodyImg);
 
-    // Sprout(頭の葉など): 存在するキャラのみ。Bodyにさらに遅れて揺れる
+    // Sprout(頭の葉など): 存在するキャラのみ。少し遅れて揺れる柔らかいパーツ
     if (config.parts.sprout) {
-      this.sprout = new Bone(this.body.group, {
+      this.sprout = new Bone(this.softBody, {
         follow: 0.35, stiffness: 0.12, damping: 0.78,
         originX: config.parts.sprout.x + config.parts.sprout.w / 2,
         originY: config.parts.sprout.y + config.parts.sprout.h,
@@ -207,15 +255,22 @@ export class CharacterRig {
       this.sprout.group.appendChild(sproutImg);
     }
 
-    // Face: Bodyにほぼ完全追従(独立した物理演算はOFF)。
-    // followはBody移動量の数%程度・即収束で、「顔が浮く」ズレは発生しない
-    this.face = new Bone(this.body.group, {
+    // Face: 骨格側。SoftBody内に置くので位置は身体に完全追従するが、
+    // faceComp で圧縮を弱める(芯は完全には潰れない)
+    this.face = new Bone(this.softBody, {
       follow: 0.04, stiffness: 0.5, damping: 0.55,
     });
     this.body.addChild(this.face);
 
-    // 描画順: Body → Mouth → Eye → Cheek(頬は常に最前面)
     const p = config.parts;
+    // 顔の中心(骨格補正の基準点) = 目と口の中心
+    const faceCx = (p.leftEye.x + p.rightEye.x + p.rightEye.w) / 2;
+    const faceCy = (p.leftEye.y + p.mouth.y + p.mouth.h) / 2;
+    this.faceComp = document.createElementNS(SVG_NS, 'g');
+    this.faceComp.style.transformOrigin = `${faceCx}px ${faceCy}px`;
+    this.face.group.appendChild(this.faceComp);
+
+    // 描画順: Body → Mouth → Eye → Cheek(頬は常に最前面)
     this.mouth = this.createPart('mouth', p.mouth);
     this.leftEye = this.createPart('leftEye', p.leftEye);
     this.rightEye = this.createPart('rightEye', p.rightEye);
@@ -225,11 +280,11 @@ export class CharacterRig {
     this.startLoop();
   }
 
-  /** 元画像から切り出したパーツPNGを、元画像と同じ座標に置く(Faceボーン配下) */
+  /** 元画像から切り出したパーツPNGを、元画像と同じ座標に置く(Face骨格配下) */
   private createPart(name: string, box: PartBox): SVGImageElement {
     const img = document.createElementNS(SVG_NS, 'image');
     this.applySpriteTo(img, name, box);
-    this.face.group.appendChild(img);
+    this.faceComp.appendChild(img);
     return img;
   }
 
@@ -262,12 +317,11 @@ export class CharacterRig {
 
   /**
    * 【Emotion System】表情切り替え。
-   * 目・口のスプライト切替と、目の傾き・視線・顔の微小な位置変化のみ。
-   * Body/Root には一切触らない(表情とボーンの完全分離)。
+   * 目・口のスプライト切替と、目の傾き・視線のみ。
+   * Body/Root/SoftBody には一切触らない(表情と物理の完全分離)。
    */
   public setEmotion(emotion: Emotion) {
     this.emotion = emotion;
-    // 進行中の段階遷移をキャンセル
     this.transitionTimers.forEach((t) => clearTimeout(t));
     this.transitionTimers = [];
 
@@ -292,12 +346,9 @@ export class CharacterRig {
     switch (emotion) {
       case 'happy':
       case 'fun':
-        // 目: 弧の笑い目 / 口: 笑いカーブ(スプライト切替のみ。体は変形しない)
         stage(() => this.setFaceSprites('happy', 'mouthSmile'), 0);
         break;
       case 'angry':
-        // 目: 内側に鋭く傾け細める(開閉のみ) / 体: 小刻みな震え(ループ側)
-        // ※口の形状変形は禁止。位置の微調整のみ
         stage(() => {
           this.setFaceSprites('normal', 'mouth');
           this.eyeRotate.target = 17 * ex;
@@ -305,7 +356,6 @@ export class CharacterRig {
         }, 0);
         break;
       case 'sad':
-        // 目: 外側に垂らして悲しげに / 目線: 下 / 口: 弱い「へ」を下げる
         stage(() => {
           this.setFaceSprites('normal', 'mouth');
           this.eyeRotate.target = -12 * ex;
@@ -314,7 +364,6 @@ export class CharacterRig {
         }, 0);
         break;
       case 'surprised':
-        // 目: 大きく見開く(開きのみ。横伸ばしはしない) / 口: 「o」スプライト
         stage(() => {
           this.setFaceSprites('normal', 'mouthO');
           this.eyeScaleY.target = lerp(1, 0.4);
@@ -328,7 +377,6 @@ export class CharacterRig {
   }
 
   public blink() {
-    // ウィンク中は両目閉じにならないよう抑止
     if (Date.now() < this.winkingUntil) return;
     this.eyeScaleY.value = 0.08;
   }
@@ -339,7 +387,6 @@ export class CharacterRig {
     this.winkingUntil = Date.now() + 500;
   }
 
-  /** 呼吸(アイドル)アニメーションの ON/OFF */
   public setBreathing(enabled: boolean) {
     this.breathing = enabled;
   }
@@ -349,30 +396,51 @@ export class CharacterRig {
   }
 
   /**
-   * ジャンプ: Rootの上下移動のみ。scaleによる潰し・伸ばしは使わない。
-   * BodyとFaceがfollow慣性で少し遅れて追従し、着地時に自然に沈んで戻る。
+   * ジャンプ(物理ベース):
+   * しゃがみ(小さく圧縮) → 離陸(少し縦に伸びる+初速) → 空中(重力・通常形状)
+   * → 着地(速度に比例した圧縮・横に広がる) → 2〜3回の小さな反発 → 静止
    */
   public jump() {
-    if (this.jumping) return;
-    this.jumping = true;
+    if (this.jumpPhase !== 'idle') return;
+    this.jumpPhase = 'crouch';
+    this.bouncesLeft = 0;
 
-    // しゃがみ(位置のみ少し沈む)
-    this.root.y.target = 12;
+    // しゃがみ: SoftBodyを小さく圧縮(力を溜める)
+    this.squash.velocity += 0.035;
 
     this.after(() => {
-      // 跳躍
-      this.root.y.target = -150;
+      // 離陸: ほんの少し縦に伸びて地面を離れる
+      this.squash.velocity -= 0.05;
+      this.airVelocity = -PHYSICS.jumpVelocity;
+      this.jumpPhase = 'air';
+    }, 130);
+  }
 
-      this.after(() => {
-        // 着地: 少し沈み込む(慣性で Body/Face が柔らかく揺れる)
-        this.root.y.target = 8;
+  /** 上空から落として着地(Squash & Stretchの確認用) */
+  public land() {
+    if (this.jumpPhase !== 'idle') return;
+    this.jumpPhase = 'air';
+    this.bouncesLeft = 0;
+    this.airY = -240;
+    this.airVelocity = 0;
+  }
 
-        this.after(() => {
-          this.root.y.target = 0;
-          this.jumping = false;
-        }, 160);
-      }, 220);
-    }, 110);
+  /** 小さく2回弾む */
+  public bounce() {
+    if (this.jumpPhase !== 'idle') return;
+    this.jumpPhase = 'air';
+    this.bouncesLeft = 2;
+    this.airVelocity = -PHYSICS.jumpVelocity * 0.55;
+  }
+
+  /** 歩く: 右へ移動して戻る(Bodyの慣性つき) */
+  public walk() {
+    if (this.walking) return;
+    this.walking = true;
+    this.root.x.target = 70;
+    this.after(() => { this.root.x.target = -70; }, 900);
+    this.after(() => { this.root.x.target = 0; }, 1800);
+    this.after(() => { this.walking = false; }, 2700);
   }
 
   public shake() {
@@ -405,20 +473,24 @@ export class CharacterRig {
 
     this.after(() => {
       this.talking = false;
-      // 現在の表情の口の状態に戻す
       this.setEmotion(this.emotion);
     }, 2000);
   }
 
   /**
-   * 【Bone Animation System】メインループ。
-   * Root/Body/Face/Sprout の位置・回転のみを更新する。scaleは一切使わない。
+   * 【Physics System】メインループ(deltaTimeベース)。
+   * Root/Body の位置・回転と SoftBody の圧縮のみを更新する。
    */
   private startLoop() {
     let lastBlink = Date.now();
+    let lastTs = performance.now();
 
-    const tick = () => {
-      this.time += 0.016;
+    const tick = (ts: number) => {
+      // deltaTime(秒)。タブ復帰などの巨大なdtはクランプ
+      const dt = Math.min((ts - lastTs) / 1000, 0.05);
+      lastTs = ts;
+      const dtScale = dt * 60; // 60fps基準のスケール
+      this.time += dt;
       const exp = this.config.expressiveness;
 
       // Auto blink
@@ -427,14 +499,44 @@ export class CharacterRig {
         lastBlink = Date.now();
       }
 
-      // --- 待機(呼吸)アニメーション: Bodyがごく小さく上下、揺れは回転のみ ---
+      // --- 垂直方向の運動学(ジャンプ・落下・着地) ---
+      if (this.jumpPhase === 'air') {
+        this.airVelocity += PHYSICS.gravity * dt;
+        this.airY += this.airVelocity * dt;
+
+        if (this.airY >= 0) {
+          // 着地: 衝撃速度に比例した圧縮(上限つき)をSoftBodyへ
+          this.airY = 0;
+          const impact = Math.min(
+            this.airVelocity * PHYSICS.impactSensitivity,
+            PHYSICS.maxSquash,
+          );
+          this.squash.velocity += impact;
+
+          if (this.bouncesLeft > 0) {
+            this.bouncesLeft--;
+            this.airVelocity = -this.airVelocity * PHYSICS.restitution * 1.6;
+          } else {
+            this.airVelocity = 0;
+            this.jumpPhase = 'idle';
+          }
+        }
+      }
+
+      // --- SoftBodyの圧縮(Spring/Damperで2〜3回の反発を経て収束) ---
+      this.squash.target = 0;
+      let c = this.squash.update(dtScale);
+      c = Math.max(-PHYSICS.maxStretch, Math.min(PHYSICS.maxSquash, c));
+      const sy = 1 - c;
+      const sx = 1 + c * PHYSICS.lateralRatio;
+
+      // --- 待機(呼吸): Bodyがごく小さく上下 + ごく小さな回転 ---
+      // 表情はBodyの動きに影響しない(表情システムと物理の完全分離)
       let bodyAddY = 0;
       let bodyAddRot = 0;
-
-      // 表情はBodyの動きに影響しない(表情システムとボーンの完全分離)
-      if (!this.jumping && this.breathing) {
+      if (this.jumpPhase === 'idle' && this.breathing) {
         bodyAddY = Math.sin(this.time * 2) * 4;
-        bodyAddRot = Math.sin(this.time * 1.3) * 0.6 * exp; // ごく小さな自然な揺れ
+        bodyAddRot = Math.sin(this.time * 1.3) * 0.6 * exp;
       }
 
       if (this.shaking) {
@@ -449,24 +551,30 @@ export class CharacterRig {
       }
 
       // --- ボーン更新(親→子の順。慣性が伝播する) ---
-      this.root.update();
-      this.body.update(0, bodyAddY, bodyAddRot);
-      this.face.update();
+      this.root.update(dtScale, 0, this.airY);
+      this.body.update(dtScale, 0, bodyAddY, bodyAddRot);
+      this.face.update(dtScale);
       if (this.sprout) {
-        // 葉はさらに遅れて小さく揺れる
         const sway = this.breathing ? Math.sin(this.time * 1.6 + 1) * 1.5 : 0;
-        this.sprout.update(0, 0, sway);
+        this.sprout.update(dtScale, 0, 0, sway);
       }
 
-      // --- 顔パーツ内アニメ(骨とは独立した表現) ---
-      const ey = this.eyeScaleY.update();
-      const exs = this.eyeScaleX.update();
-      const er = this.eyeRotate.update();
-      const gx = this.gazeX.update();
-      const gy = this.gazeY.update();
-      const my = this.mouthScaleY.update();
-      const mxs = this.mouthScaleX.update();
-      const co = this.cheekOpacity.update();
+      // --- SoftBody変形の適用(下端=地面基準。柔らかい表面だけが潰れる) ---
+      this.softBody.style.transform = `scale(${sx}, ${sy})`;
+      // 骨格補正: 顔(芯)は圧縮を rigidity 乗しか受けない = 完全には潰れない
+      const compX = Math.pow(sx, PHYSICS.skeletonRigidity) / sx;
+      const compY = Math.pow(sy, PHYSICS.skeletonRigidity) / sy;
+      this.faceComp.style.transform = `scale(${compX}, ${compY})`;
+
+      // --- 顔パーツ内アニメ(表情システム。物理とは独立) ---
+      const ey = this.eyeScaleY.update(dtScale);
+      const exs = this.eyeScaleX.update(dtScale);
+      const er = this.eyeRotate.update(dtScale);
+      const gx = this.gazeX.update(dtScale);
+      const gy = this.gazeY.update(dtScale);
+      const my = this.mouthScaleY.update(dtScale);
+      const mxs = this.mouthScaleX.update(dtScale);
+      const co = this.cheekOpacity.update(dtScale);
 
       // 目: 平行移動(目線) + 縦スケール(瞬き/ウィンク) ※引き伸ばしはしない
       const winking = Date.now() < this.winkingUntil;
