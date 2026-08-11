@@ -177,48 +177,6 @@ const SMILE_FRAMES: Partial<Record<Exclude<CharacterKey, 'egg'>, ReturnType<type
 const SMILE_FRAME_MS = 120;    // 1コマの表示時間
 const SMILE_HOLD_MS = 1400;    // 最後の笑顔を保持する時間
 
-/* ── 360度回転ビュー（AI生成の回転シートから切り出し）: index 0..6 = 45,90,135,180,225,270,315度。0度は既存の正面アセット ── */
-const TURN_FRAMES: Partial<Record<CharacterKey, ReturnType<typeof require>[]>> = {
-  egg: [
-    require('../assets/images/characters/turn/egg/v_1.webp'),
-    require('../assets/images/characters/turn/egg/v_2.webp'),
-    require('../assets/images/characters/turn/egg/v_3.webp'),
-    require('../assets/images/characters/turn/egg/v_4.webp'),
-    require('../assets/images/characters/turn/egg/v_5.webp'),
-    require('../assets/images/characters/turn/egg/v_6.webp'),
-    require('../assets/images/characters/turn/egg/v_7.webp'),
-  ],
-  odango: [
-    require('../assets/images/characters/turn/odango/v_1.webp'),
-    require('../assets/images/characters/turn/odango/v_2.webp'),
-    require('../assets/images/characters/turn/odango/v_3.webp'),
-    require('../assets/images/characters/turn/odango/v_4.webp'),
-    require('../assets/images/characters/turn/odango/v_5.webp'),
-    require('../assets/images/characters/turn/odango/v_6.webp'),
-    require('../assets/images/characters/turn/odango/v_7.webp'),
-  ],
-  happa: [
-    require('../assets/images/characters/turn/happa/v_1.webp'),
-    require('../assets/images/characters/turn/happa/v_2.webp'),
-    require('../assets/images/characters/turn/happa/v_3.webp'),
-    require('../assets/images/characters/turn/happa/v_4.webp'),
-    require('../assets/images/characters/turn/happa/v_5.webp'),
-    require('../assets/images/characters/turn/happa/v_6.webp'),
-    require('../assets/images/characters/turn/happa/v_7.webp'),
-  ],
-  colorful_happa: [
-    require('../assets/images/characters/turn/colorful_happa/v_1.webp'),
-    require('../assets/images/characters/turn/colorful_happa/v_2.webp'),
-    require('../assets/images/characters/turn/colorful_happa/v_3.webp'),
-    require('../assets/images/characters/turn/colorful_happa/v_4.webp'),
-    require('../assets/images/characters/turn/colorful_happa/v_5.webp'),
-    require('../assets/images/characters/turn/colorful_happa/v_6.webp'),
-    require('../assets/images/characters/turn/colorful_happa/v_7.webp'),
-  ],
-};
-const TURN_DEG_PER_PX = 0.6;   // 横ドラッグ1pxあたりの回転角
-const TURN_RETURN_MS = 55;     // 離した後、1ステップ戻る間隔
-
 /* 進化後キャラ: 1枚画像に、たまごと同じ呼吸・ゆらぎ・ぷるんモーションを適用 */
 function CharacterImage({ charKey, mood, size }: { charKey: Exclude<CharacterKey, 'egg'>; mood: MascotMood; size: number }) {
   const SINE = Easing.inOut(Easing.sin);
@@ -703,39 +661,6 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
   const wakeUpRef = useRef(wakeUp);
   useEffect(() => { wakeUpRef.current = wakeUp; });
 
-  /* ── 360度回転ビュー: 横ドラッグで回す（ゆっくりドラッグ=回転、速いスワイプ=なでなで） ── */
-  const characterForTurn = getCharacter(stage, evolutionType);
-  const turnFrames = TURN_FRAMES[characterForTurn.key];
-  const turnFramesRef = useRef(turnFrames);
-  useEffect(() => { turnFramesRef.current = turnFrames; }, [turnFrames]);
-  const [turnIdx, setTurnIdx] = useState(0); // 0=正面, 1..7 = 45度刻み
-  const turnIdxRef = useRef(0);
-  const setTurn = (idx: number) => {
-    if (turnIdxRef.current !== idx) { turnIdxRef.current = idx; setTurnIdx(idx); }
-  };
-  const returnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (returnTimer.current) clearTimeout(returnTimer.current); }, []);
-  /* 離したら最短方向で1コマずつ正面に戻り、最後に小さくぷるん */
-  const springBackToFront = () => {
-    if (returnTimer.current) clearTimeout(returnTimer.current);
-    const step = () => {
-      const cur = turnIdxRef.current;
-      if (cur === 0) {
-        scaleX.value = withSequence(
-          withTiming(1.06, { duration: 90 }),
-          withSpring(1, { damping: 5, stiffness: 220 }),
-        );
-        return;
-      }
-      const dir = cur <= 4 ? -1 : 1;
-      setTurn((cur + dir + 8) % 8);
-      returnTimer.current = setTimeout(step, TURN_RETURN_MS);
-    };
-    returnTimer.current = setTimeout(step, TURN_RETURN_MS);
-  };
-  const springBackRef = useRef(springBackToFront);
-  useEffect(() => { springBackRef.current = springBackToFront; });
-
   /* 起床/にっこりへの変身は EggImage 側が動画の実フレーム(EGG_WAKE_FRAMES)で再生する */
   const effMood: MascotMood =
     awake && (mood === 'sleepy' || mood === 'tired') ? 'happy' : mood;
@@ -885,7 +810,6 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
   /* ── pan responder: swipe = pet, tap = bounce ── */
   const panResponder = useMemo(() => {
     let wasPet = false;
-    let turning = false;
 
     return PanResponder.create({
       // タッチ開始時点でResponderを取得（ScrollViewより先に）
@@ -897,42 +821,27 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
       onMoveShouldSetPanResponderCapture: (_, gs) =>
         Math.abs(gs.dx) > 12 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5,
 
-      onPanResponderGrant: () => { wasPet = false; turning = false; },
+      onPanResponderGrant: () => { wasPet = false; },
 
       onPanResponderMove: (_, gs) => {
-        if (turning) {
-          // ドラッグ量 → 角度 → 最寄りの45度ビュー
-          const deg = gs.dx * TURN_DEG_PER_PX;
-          const idx = ((Math.round(deg / 45) % 8) + 8) % 8;
-          setTurn(idx);
-          return;
-        }
-        if (wasPet || Math.abs(gs.dx) <= 25 || Math.abs(gs.dy) >= 60) return;
-        // 回転ビューのあるキャラ: ゆっくり横ドラッグ=回転、速いスワイプ=なでなで
-        if (turnFramesRef.current && Math.abs(gs.vx) < 1.2) {
-          turning = true;
-          if (returnTimer.current) clearTimeout(returnTimer.current);
+        // y0チェック不要 — マスコット全体への横スワイプをペットと認識
+        if (
+          !wasPet &&
+          Math.abs(gs.dx) > 25 &&
+          Math.abs(gs.dy) < 60
+        ) {
+          wasPet = true;
           wakeUpRef.current();
-          const deg = gs.dx * TURN_DEG_PER_PX;
-          setTurn(((Math.round(deg / 45) % 8) + 8) % 8);
-          return;
+          doPetAnimation();
+          setShowHearts(true);
+          setPetKey(k => k + 1);
+          if (glowTimer.current) clearTimeout(glowTimer.current);
+          glowTimer.current = setTimeout(() => setShowHearts(false), 1400);
+          onPetRef.current?.();
         }
-        wasPet = true;
-        wakeUpRef.current();
-        doPetAnimation();
-        setShowHearts(true);
-        setPetKey(k => k + 1);
-        if (glowTimer.current) clearTimeout(glowTimer.current);
-        glowTimer.current = setTimeout(() => setShowHearts(false), 1400);
-        onPetRef.current?.();
       },
 
       onPanResponderRelease: (_, gs) => {
-        if (turning) {
-          // 指を離したら最短方向で正面へスプリングバック
-          springBackRef.current();
-          return;
-        }
         if (!wasPet && Math.abs(gs.dx) < 12 && Math.abs(gs.dy) < 12) {
           // plain tap
           wakeUpRef.current();
@@ -943,10 +852,6 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
           );
           onPressRef.current?.();
         }
-      },
-
-      onPanResponderTerminate: () => {
-        if (turning) springBackRef.current();
       },
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -967,15 +872,7 @@ export function Mascot({ stage, mood, evolutionType, size = 140, onPress, onPet,
     <View {...panResponder.panHandlers}>
       <View>
         <Animated.View style={style}>
-          {turnFrames && turnIdx !== 0 ? (
-            /* 回転中: 最寄りの45度ビューを表示（呼吸・表情は正面復帰後に再開） */
-            <Image
-              source={turnFrames[turnIdx - 1] as any}
-              style={{ width: size, height: size }}
-              resizeMode="contain"
-              fadeDuration={0}
-            />
-          ) : character.key === 'egg'
+          {character.key === 'egg'
             ? <EggImage mood={effMood} size={size} rolling={effIdle === 'rolling'} pokeKey={pokeKey} />
             : <CharacterImage charKey={character.key} mood={effMood} size={size} />}
         </Animated.View>
