@@ -16,13 +16,13 @@ const PHYSICS = {
   /** ジャンプ初速(px/s) */
   jumpVelocity: 900,
   /** 着地圧縮の最大値(縦方向の縮み率)。0.16 = 16% */
-  maxSquash: 0.22,
+  maxSquash: 0.40,
   /** 離陸時の伸びの最大値 */
   maxStretch: 0.06,
   /** 横方向の広がり = 圧縮量 × この係数(体積感の維持) */
   lateralRatio: 0.6,
   /** 着地速度 → 圧縮量 の変換係数 */
-  impactSensitivity: 0.00024,
+  impactSensitivity: 0.00044,
   /** SoftBody圧縮バネ: 硬さ(低め=柔らかい) */
   squashStiffness: 0.14,
   /** SoftBody圧縮バネ: 減衰(高め=2〜3回の小さな反発で収束) */
