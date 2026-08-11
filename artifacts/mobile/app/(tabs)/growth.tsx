@@ -32,6 +32,11 @@ import { MoodCalendar } from '@/components/MoodCalendar';
 import { InsightCard } from '@/components/InsightCard';
 import { BADGE_DEFINITIONS } from '@/data/badges';
 import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
+import { Image } from 'react-native';
+import { ACTIVITY_DEFS, totalActivityCount } from '@/utils/activities';
+import { getTodayDate } from '@/utils/dateUtils';
+
+const EGG_IMG = require('../../assets/images/egg/normal.png');
 
 function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   const opacity = useSharedValue(0);
@@ -89,6 +94,38 @@ export default function GrowthScreen() {
   const avgSleep = last7.length > 0
     ? (last7.reduce((s, r) => s + r.sleep, 0) / last7.length).toFixed(1)
     : '--';
+
+  // ─── 今月の積み重ね(日ごとの活動カウント)と月間ふりかえり ───
+  const today = getTodayDate(); // YYYY-MM-DD
+  const monthPrefix = today.slice(0, 7);
+  const monthRecords = records.filter((r) => r.date.startsWith(monthPrefix));
+  const daysInMonth = new Date(Number(monthPrefix.slice(0, 4)), Number(monthPrefix.slice(5, 7)), 0).getDate();
+  const dailyCounts: number[] = Array.from({ length: daysInMonth }, (_, i) => {
+    const d = `${monthPrefix}-${String(i + 1).padStart(2, '0')}`;
+    const rec = monthRecords.find((r) => r.date === d);
+    if (!rec) return 0;
+    return totalActivityCount(rec.activities) + rec.behaviors.length;
+  });
+  const maxDaily = Math.max(1, ...dailyCounts);
+  const monthLabel = `${Number(monthPrefix.slice(0, 4))}年${Number(monthPrefix.slice(5, 7))}月`;
+  // カテゴリ別の月間合計
+  const categoryTotals = ACTIVITY_DEFS.map((a) => ({
+    ...a,
+    total: monthRecords.reduce((s, r) => s + (r.activities?.[a.key] || 0), 0),
+  }));
+  const monthReviewStats = [
+    ...categoryTotals.filter((c) => c.total > 0).slice(0, 3).map((c) => ({
+      label: c.label, value: `${c.total}回`, icon: c.icon, color: c.color,
+    })),
+    { label: '続けた日', value: `${monthRecords.length}日`, icon: 'flame', color: '#FF6FA3' },
+    { label: 'ふりかえり', value: `${monthRecords.filter((r) => r.notes || r.win).length}日`, icon: 'create-outline', color: colors.primary },
+    { label: '大切にした日', value: `${monthRecords.filter((r) => (r.activities?.selfCare || 0) > 0).length}日`, icon: 'heart-outline', color: '#FF9ECD' },
+  ].slice(0, 6);
+
+  // ─── たまごの成長(はじめ vs 今) ───
+  const firstGrowth = growth.history[0]?.growthSize ?? 1.0;
+  const growthPct = (v: number) => `${(v * 100).toFixed(1)}%`;
+  const hasGrown = growth.growthSize - firstGrowth > 0.0005;
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
@@ -272,6 +309,123 @@ export default function GrowthScreen() {
           </View>
         </FadeIn>
 
+        {/* 今月の積み重ね(活動バーチャート) */}
+        <FadeIn delay={320}>
+          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
+            <LinearGradient
+              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
+              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+            />
+            <View style={styles.cardHeader}>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>今月の積み重ね</Text>
+              <Text style={[styles.avgLabel, { color: colors.mutedForeground }]}>{monthLabel}</Text>
+            </View>
+            <View style={styles.barChart}>
+              {dailyCounts.map((c, i) => (
+                <View key={i} style={styles.barSlot}>
+                  <View
+                    style={[
+                      styles.bar,
+                      {
+                        height: c > 0 ? Math.max(4, (c / maxDaily) * 72) : 2,
+                        backgroundColor: c > 0 ? colors.accent : colors.muted,
+                      },
+                    ]}
+                  />
+                </View>
+              ))}
+            </View>
+            <View style={styles.barAxis}>
+              <Text style={[styles.barAxisText, { color: colors.mutedForeground }]}>1日</Text>
+              <Text style={[styles.barAxisText, { color: colors.mutedForeground }]}>{daysInMonth}日</Text>
+            </View>
+          </View>
+        </FadeIn>
+
+        {/* 今月のふりかえり */}
+        <FadeIn delay={340}>
+          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
+            <LinearGradient
+              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
+              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+            />
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>今月のふりかえり</Text>
+            <View style={styles.reviewGrid}>
+              {monthReviewStats.map((s) => (
+                <View key={s.label} style={[styles.reviewItem, { backgroundColor: colors.muted }]}>
+                  <Ionicons name={s.icon as any} size={18} color={s.color} />
+                  <Text style={[styles.reviewValue, { color: colors.foreground }]}>{s.value}</Text>
+                  <Text style={[styles.reviewLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </FadeIn>
+
+        {/* たまごの成長(はじめ vs 今) */}
+        <FadeIn delay={360}>
+          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
+            <LinearGradient
+              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
+              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+            />
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>たまごの成長</Text>
+            <View style={styles.eggCompareRow}>
+              <View style={styles.eggCompareItem}>
+                <View style={styles.eggImgBox}>
+                  <Image source={EGG_IMG} style={{ width: 64 * firstGrowth, height: 64 * firstGrowth }} resizeMode="contain" />
+                </View>
+                <Text style={[styles.eggCompareLabel, { color: colors.mutedForeground }]}>はじめの頃</Text>
+                <Text style={[styles.eggComparePct, { color: colors.mutedForeground }]}>{growthPct(firstGrowth)}</Text>
+              </View>
+              <Ionicons name="arrow-forward" size={20} color={colors.mutedForeground} />
+              <View style={styles.eggCompareItem}>
+                <View style={styles.eggImgBox}>
+                  <Image source={EGG_IMG} style={{ width: 64 * growth.growthSize, height: 64 * growth.growthSize }} resizeMode="contain" />
+                </View>
+                <Text style={[styles.eggCompareLabel, { color: colors.foreground }]}>いま</Text>
+                <Text style={[styles.eggComparePct, { color: colors.primary }]}>{growthPct(growth.growthSize)}</Text>
+              </View>
+            </View>
+            <Text style={[styles.growthNote, { color: colors.mutedForeground, marginTop: 0 }]}>
+              {hasGrown ? '一緒にすごした時間がぼくの成長になったよ' : 'これから少しずつ大きくなっていくよ'}
+            </Text>
+          </View>
+        </FadeIn>
+
+        {/* マイヒストリー */}
+        {growth.history.length > 1 && (
+          <FadeIn delay={380}>
+            <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
+              <LinearGradient
+                colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
+                style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+              />
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>マイヒストリー</Text>
+              <View style={styles.historyRow}>
+                {[0, 14, 29, 59]
+                  .map((offset) => growth.history[Math.min(offset, growth.history.length - 1)])
+                  .filter((snap, i, arr) => snap && arr.findIndex((s) => s?.date === snap.date) === i)
+                  .map((snap, i) => (
+                    <View key={snap.date} style={styles.historyItem}>
+                      <Image
+                        source={EGG_IMG}
+                        style={{ width: 34 * snap.growthSize, height: 34 * snap.growthSize, opacity: 0.6 + i * 0.13 }}
+                        resizeMode="contain"
+                      />
+                      <Text style={[styles.historyDay, { color: colors.foreground }]}>
+                        {i === 0 ? 'はじめの日' : `${snap.date.slice(5).replace('-', '/')}`}
+                      </Text>
+                      <Text style={[styles.historyPct, { color: colors.mutedForeground }]}>
+                        {growthPct(snap.growthSize)}
+                      </Text>
+                    </View>
+                  ))}
+              </View>
+            </View>
+          </FadeIn>
+        )}
+
         {/* Monthly Mood Calendar */}
         <FadeIn delay={350}>
           <MoodCalendar records={records} />
@@ -337,6 +491,24 @@ const styles = StyleSheet.create({
   summaryItem: { flex: 1, alignItems: 'center', padding: 14, borderRadius: 16, gap: 6 },
   summaryValue: { fontSize: 18, fontFamily: 'Inter_700Bold' },
   summaryLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  barChart: { flexDirection: 'row', alignItems: 'flex-end', height: 76, gap: 2 },
+  barSlot: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  bar: { width: '100%', borderRadius: 2 },
+  barAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -6 },
+  barAxisText: { fontSize: 10, fontFamily: 'Inter_400Regular' },
+  reviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  reviewItem: { width: '30%', flexGrow: 1, alignItems: 'center', padding: 12, borderRadius: 14, gap: 4 },
+  reviewValue: { fontSize: 16, fontFamily: 'Inter_700Bold' },
+  reviewLabel: { fontSize: 10.5, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  eggCompareRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly' },
+  eggCompareItem: { alignItems: 'center', gap: 4 },
+  eggImgBox: { height: 76, alignItems: 'center', justifyContent: 'flex-end' },
+  eggCompareLabel: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  eggComparePct: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  historyRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end' },
+  historyItem: { alignItems: 'center', gap: 3 },
+  historyDay: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  historyPct: { fontSize: 10, fontFamily: 'Inter_400Regular' },
   badgeSection: { gap: 14 },
   badgeCount: { fontSize: 13, fontFamily: 'Inter_400Regular' },
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },

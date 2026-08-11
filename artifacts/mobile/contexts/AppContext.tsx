@@ -45,6 +45,8 @@ export interface DailyRecord {
   meal?: number;     // 1=乱れた 2=ふつう 3=整ってた
   social?: number;   // 1=しんどい 2=ふつう 3=温かい
   win?: string;      // 今日の小さな成功(1行)
+  /** 活動カウント(読書・運動など。タップで+1) */
+  activities?: Record<string, number>;
 }
 
 export interface UserProfile {
@@ -63,6 +65,7 @@ export interface RecordExtras {
   meal?: number;
   social?: number;
   win?: string;
+  activities?: Record<string, number>;
 }
 
 export interface CheckedItem {
@@ -591,6 +594,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         meal: extras?.meal,
         social: extras?.social,
         win: extras?.win?.trim() || undefined,
+        activities: extras?.activities,
       };
 
       const newRecords = isNew

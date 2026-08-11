@@ -23,6 +23,8 @@ import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
 import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
+import { ACTIVITY_DEFS } from '@/utils/activities';
+import BoneCharacter from '@/components/BoneCharacter';
 
 const MOOD_OPTIONS = [
   { value: 1, label: '最悪', icon: 'sad-outline' as const, color: '#EF4444' },
@@ -121,6 +123,7 @@ export default function RecordScreen() {
   const [meal, setMeal] = useState<number | undefined>(todayRecord?.meal);
   const [social, setSocial] = useState<number | undefined>(todayRecord?.social);
   const [win, setWin] = useState(todayRecord?.win ?? '');
+  const [activities, setActivities] = useState<Record<string, number>>(todayRecord?.activities ?? {});
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -134,8 +137,19 @@ export default function RecordScreen() {
       setMeal(todayRecord.meal);
       setSocial(todayRecord.social);
       setWin(todayRecord.win ?? '');
+      setActivities(todayRecord.activities ?? {});
     }
   }, [todayRecord?.id]);
+
+  const bumpActivity = (key: string) =>
+    setActivities((prev) => ({ ...prev, [key]: Math.min(99, (prev[key] || 0) + 1) }));
+  const decActivity = (key: string) =>
+    setActivities((prev) => {
+      const n = (prev[key] || 0) - 1;
+      const next = { ...prev };
+      if (n <= 0) delete next[key]; else next[key] = n;
+      return next;
+    });
 
   const scaleValues = { exercise, meal, social };
   const scaleSetters = { exercise: setExercise, meal: setMeal, social: setSocial };
@@ -149,7 +163,10 @@ export default function RecordScreen() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await saveRecord(mood, sleep, behaviors, notes, { exercise, meal, social, win });
+      await saveRecord(mood, sleep, behaviors, notes, {
+        exercise, meal, social, win,
+        activities: Object.keys(activities).length > 0 ? activities : undefined,
+      });
       Analytics.moodRecorded(mood);
       setSaved(true);
       setTimeout(() => setSaved(false), 2200);
@@ -195,6 +212,46 @@ export default function RecordScreen() {
             <Text style={[styles.editBadgeText, { color: colors.primary }]}>本日の記録を編集中</Text>
           </View>
         )}
+
+        {/* 今日の記録: やったことカウント */}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.cardTitle, { color: colors.foreground }]}>やったことを教えてね</Text>
+          <Text style={[styles.activityHint, { color: colors.mutedForeground }]}>
+            タップで +1(長押しで -1)
+          </Text>
+          <View style={styles.activityGrid}>
+            {ACTIVITY_DEFS.map((a) => {
+              const count = activities[a.key] || 0;
+              const active = count > 0;
+              return (
+                <TouchableOpacity
+                  key={a.key}
+                  onPress={() => bumpActivity(a.key)}
+                  onLongPress={() => decActivity(a.key)}
+                  activeOpacity={0.8}
+                  style={[
+                    styles.activityCell,
+                    {
+                      backgroundColor: active ? a.color + '1E' : colors.muted,
+                      borderColor: active ? a.color : 'transparent',
+                      borderWidth: active ? 1.5 : 0,
+                    },
+                  ]}
+                >
+                  <Ionicons name={a.icon as any} size={26} color={active ? a.color : colors.mutedForeground} />
+                  <Text style={[styles.activityLabel, { color: active ? a.color : colors.foreground }]}>
+                    {a.label}
+                  </Text>
+                  {active && (
+                    <View style={[styles.activityBadge, { backgroundColor: a.color }]}>
+                      <Text style={styles.activityBadgeText}>+{count}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
 
         {/* Mood */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -371,6 +428,21 @@ export default function RecordScreen() {
           />
         </View>
 
+        {/* キャラのひとこと */}
+        <View style={styles.mascotRow}>
+          <View style={[styles.speechBubble, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.speechText, { color: colors.foreground }]}>
+              {saved
+                ? 'ばっちりだね!ぼくも成長したよ〜'
+                : Object.keys(activities).length > 0
+                ? 'いっぱいがんばったね!'
+                : '今日はどんな一日だった?'}
+            </Text>
+            <View style={[styles.speechTail, { backgroundColor: colors.card, borderColor: colors.border }]} />
+          </View>
+          <BoneCharacter charKey="odango" size={64} animate hop={false} mood={saved ? 'happy' : 'normal'} />
+        </View>
+
         {/* Save button */}
         <Animated.View style={saveStyle}>
           <TouchableOpacity
@@ -454,4 +526,25 @@ const styles = StyleSheet.create({
   saveBtnWrap: { borderRadius: 16, overflow: 'hidden', marginTop: 4 },
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 18 },
   saveBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  activityHint: { fontSize: 11.5, fontFamily: 'Inter_400Regular', marginTop: -8 },
+  activityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  activityCell: {
+    width: '30.5%', flexGrow: 1, aspectRatio: 1.15, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  activityLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', textAlign: 'center' },
+  activityBadge: {
+    position: 'absolute', top: 6, right: 6, borderRadius: 9,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  activityBadgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#1A1033' },
+  mascotRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'flex-end', gap: 10, paddingRight: 4 },
+  speechBubble: {
+    flex: 1, borderRadius: 16, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 11,
+  },
+  speechText: { fontSize: 13, fontFamily: 'Inter_500Medium', lineHeight: 19 },
+  speechTail: {
+    position: 'absolute', right: -5, bottom: 14, width: 10, height: 10,
+    transform: [{ rotate: '45deg' }], borderWidth: 1, borderLeftWidth: 0, borderBottomWidth: 0,
+  },
 });

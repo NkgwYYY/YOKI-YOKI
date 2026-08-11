@@ -181,7 +181,30 @@ export default function HomeScreen() {
     currentSatiety, inactivityHours, feedState,
     miniGameState, completeMiniGame,
     isLoading, growth,
+    checkedState, checklistItems,
   } = useApp();
+
+  // ── 今日の自分の一歩(チェックリスト先頭5件) ──
+  const stepItems = checklistItems.slice(0, 5).map((item) => ({
+    ...item,
+    checked: checkedState.items.find((c) => c.id === item.id)?.checked ?? false,
+  }));
+
+  // ── 昨日の自分より(記録の充実度を比較) ──
+  const recScore = (r?: { behaviors: string[]; activities?: Record<string, number>; notes?: string; win?: string }) =>
+    r
+      ? r.behaviors.length +
+        Object.values(r.activities ?? {}).reduce((s, n) => s + (n || 0), 0) +
+        (r.notes ? 1 : 0) + (r.win ? 1 : 0)
+      : 0;
+  const sortedRecent = [...records].sort((a, b) => a.date.localeCompare(b.date));
+  const todayRec = sortedRecent.find((r) => r.date === getTodayDate());
+  const prevRec = [...sortedRecent].reverse().find((r) => r.date < getTodayDate());
+  const todayScore = recScore(todayRec) + getCompletedCount();
+  const prevScore = recScore(prevRec);
+  const stepDeltaPct = prevScore > 0 || todayScore > 0
+    ? Math.max(-99, Math.min(99, ((todayScore - prevScore) / Math.max(prevScore, 1)) * 100))
+    : 0;
 
   const [showMiniGame, setShowMiniGame] = useState(false);
   const currentSlot = getCurrentSlot();
@@ -534,6 +557,67 @@ export default function HomeScreen() {
           </View>
         </FadeIn>
 
+        {/* ── 今日の自分の一歩 ── */}
+        <FadeIn delay={340}>
+          <TouchableOpacity
+            style={[styles.stepCard, { backgroundColor: C.card, borderColor: C.border }]}
+            onPress={() => router.push('/(tabs)/check')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.stepHeader}>
+              <Text style={[styles.stepTitle, { color: C.text }]}>今日の自分の一歩</Text>
+              <View style={[styles.stepRing, { borderColor: C.accent }]}>
+                <Text style={[styles.stepRingText, { color: C.accent }]}>
+                  {completedCount}<Text style={{ fontSize: 10, color: C.textMuted }}>/{totalCount}</Text>
+                </Text>
+              </View>
+            </View>
+            {stepItems.map((item) => (
+              <View key={item.id} style={styles.stepRow}>
+                <Ionicons
+                  name={item.checked ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={16}
+                  color={item.checked ? C.accent : C.textMuted}
+                />
+                <Text
+                  style={[
+                    styles.stepText,
+                    { color: item.checked ? C.textSub : C.textMuted },
+                    item.checked && { textDecorationLine: 'line-through' },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {item.text}
+                </Text>
+              </View>
+            ))}
+          </TouchableOpacity>
+        </FadeIn>
+
+        {/* ── 昨日の自分より ── */}
+        <FadeIn delay={350}>
+          <View style={[styles.stepCard, { backgroundColor: C.card, borderColor: C.border }]}>
+            <Text style={[styles.stepTitle, { color: C.text }]}>昨日の自分より</Text>
+            <View style={styles.deltaRow}>
+              <Text style={[styles.deltaValue, { color: stepDeltaPct >= 0 ? '#7FDCA4' : '#FFB86B' }]}>
+                {stepDeltaPct >= 0 ? '+' : ''}{stepDeltaPct.toFixed(1)}%
+              </Text>
+              <Ionicons
+                name={stepDeltaPct >= 0 ? 'trending-up' : 'trending-down'}
+                size={22}
+                color={stepDeltaPct >= 0 ? '#7FDCA4' : '#FFB86B'}
+              />
+            </View>
+            <Text style={[styles.deltaSub, { color: C.textMuted }]}>
+              {todayScore === 0
+                ? '今日の記録をつけると、前進が見えるよ'
+                : stepDeltaPct >= 0
+                ? '今日もちょっと前進してるよ'
+                : 'ゆっくりでだいじょうぶだよ'}
+            </Text>
+          </View>
+        </FadeIn>
+
         {/* ── Today Checklist quick-link ── */}
         <FadeIn delay={360}>
           <TouchableOpacity
@@ -861,6 +945,19 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 22, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
   statLabel: { fontSize: 10, fontFamily: 'Inter_400Regular' },
 
+  stepCard: { borderRadius: 20, borderWidth: 1, padding: 18, gap: 10 },
+  stepHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  stepTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  stepRing: {
+    width: 46, height: 46, borderRadius: 23, borderWidth: 2.5,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepRingText: { fontSize: 15, fontFamily: 'Inter_700Bold' },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stepText: { fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 },
+  deltaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  deltaValue: { fontSize: 30, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
+  deltaSub: { fontSize: 12, fontFamily: 'Inter_400Regular' },
   quickCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, borderWidth: 1 },
   quickIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   quickText: { flex: 1, gap: 2 },
