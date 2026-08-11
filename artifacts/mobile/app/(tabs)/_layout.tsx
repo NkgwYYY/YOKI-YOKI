@@ -36,23 +36,20 @@ function NativeTabLayout() {
 }
 
 function ClassicTabLayout() {
-  const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
+        tabBarActiveTintColor: '#EFE7FF',
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.45)',
         headerShown: false,
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: isIOS ? 'transparent' : colors.background,
+          backgroundColor: isIOS ? 'transparent' : '#0F0925',
           borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: colors.border,
+          borderTopColor: 'rgba(255,255,255,0.12)',
           elevation: 0,
           ...(isWeb ? { height: 84 } : {}),
         },
@@ -60,14 +57,14 @@ function ClassicTabLayout() {
           isIOS ? (
             <BlurView
               intensity={100}
-              tint={isDark ? 'dark' : 'light'}
+              tint="dark"
               style={StyleSheet.absoluteFill}
             />
           ) : isWeb ? (
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: colors.background },
+                { backgroundColor: '#0F0925' },
               ]}
             />
           ) : null,

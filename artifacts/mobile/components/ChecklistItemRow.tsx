@@ -9,7 +9,7 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
 
 interface ChecklistItemRowProps {
   id: string;

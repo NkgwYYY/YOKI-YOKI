@@ -20,7 +20,8 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { CosmicBackground } from '@/components/CosmicBackground';
 import { useApp } from '@/contexts/AppContext';
 import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
 
@@ -110,8 +111,6 @@ function MoodButton({
 export default function RecordScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const { saveRecord, getTodayRecord } = useApp();
 
   const todayRecord = getTodayRecord();
@@ -174,13 +173,9 @@ export default function RecordScreen() {
   const selectedMood = MOOD_OPTIONS.find((m) => m.value === mood);
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
 
-  const bgColors = isDark
-    ? (['#0E0A1C', '#130D28'] as const)
-    : (['#FAF7FF', '#F0F5FF'] as const);
-
   return (
-    <View style={styles.flex}>
-      <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
+    <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      <CosmicBackground />
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[
@@ -204,10 +199,6 @@ export default function RecordScreen() {
 
         {/* Mood */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <LinearGradient
-            colors={isDark ? ['#1A1430', '#1A1430'] : ['#FFF', '#FAF7FF']}
-            style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-          />
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>今日の気分</Text>
           <View style={styles.moodRow}>
             {MOOD_OPTIONS.map((option) => (
@@ -231,10 +222,6 @@ export default function RecordScreen() {
 
         {/* Sleep */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <LinearGradient
-            colors={isDark ? ['#1A1430', '#1A1430'] : ['#FFF', '#FAF7FF']}
-            style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-          />
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>睡眠時間</Text>
           <View style={styles.sleepRow}>
             <TouchableOpacity
@@ -276,10 +263,6 @@ export default function RecordScreen() {
 
         {/* Condition scales: exercise / meal / relationships */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <LinearGradient
-            colors={isDark ? ['#1A1430', '#1A1430'] : ['#FFF', '#FAF7FF']}
-            style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-          />
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>今日のコンディション</Text>
           {CONDITION_SCALES.map((scale) => {
             const value = scaleValues[scale.key];
@@ -327,10 +310,6 @@ export default function RecordScreen() {
 
         {/* Small win */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <LinearGradient
-            colors={isDark ? ['#1A1430', '#1A1430'] : ['#FFF', '#FAF7FF']}
-            style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-          />
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>🏆 今日の小さな成功（任意）</Text>
           <TextInput
             style={[
@@ -347,10 +326,6 @@ export default function RecordScreen() {
 
         {/* Behavior Tags */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <LinearGradient
-            colors={isDark ? ['#1A1430', '#1A1430'] : ['#FFF', '#FAF7FF']}
-            style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-          />
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>今日したこと</Text>
           <View style={styles.tagsWrap}>
             {BEHAVIOR_TAGS.map((tag) => {
@@ -381,10 +356,6 @@ export default function RecordScreen() {
 
         {/* Notes */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <LinearGradient
-            colors={isDark ? ['#1A1430', '#1A1430'] : ['#FFF', '#FAF7FF']}
-            style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-          />
           <Text style={[styles.cardTitle, { color: colors.foreground }]}>メモ（任意）</Text>
           <TextInput
             style={[

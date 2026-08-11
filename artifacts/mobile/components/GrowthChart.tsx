@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Polyline, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop, Polygon } from 'react-native-svg';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
 import { DailyRecord } from '@/contexts/AppContext';
 import { getLast7Days, getDayLabel } from '@/utils/dateUtils';
 

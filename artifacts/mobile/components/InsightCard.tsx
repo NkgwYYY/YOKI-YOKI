@@ -5,7 +5,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileToContext } from '@/utils/profileContext';
@@ -30,7 +30,7 @@ function todayStr() {
 
 export function InsightCard() {
   const colors = useColors();
-  const isDark = useColorScheme() === 'dark';
+  const isDark = true; // 宇宙テーマ固定
   const { records, progress, checkedState, unlockedBadges, mascotName, profile } = useApp();
   const { getToken } = useAuth();
 
@@ -111,7 +111,7 @@ export function InsightCard() {
   return (
     <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
       <LinearGradient
-        colors={isDark ? ['#241430', '#12103A'] : ['#FFF7FB', '#F0F0FF']}
+        colors={['rgba(40,24,72,0.72)', 'rgba(20,14,50,0.6)']}
         style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
       />
       <View style={styles.header}>

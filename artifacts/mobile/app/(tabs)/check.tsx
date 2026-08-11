@@ -15,7 +15,8 @@ import Animated, {
 const easeOut = (t: number) => t * (2 - t);
 const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
 
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors, COSMIC_SHEET } from '@/constants/cosmicTheme';
+import { CosmicBackground } from '@/components/CosmicBackground';
 import { useApp } from '@/contexts/AppContext';
 import { ChecklistItemRow } from '@/components/ChecklistItemRow';
 import {
@@ -98,7 +99,6 @@ function CompleteBanner() {
 export default function CheckScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
   const {
     checkedState, checklistItems,
     toggleCheckItem, addChecklistItem, removeChecklistItem, resetChecklistToDefaults,
@@ -110,7 +110,7 @@ export default function CheckScreen() {
   const [addCategory, setAddCategory]   = useState<ChecklistCategory>('basics');
   const [newText, setNewText]           = useState('');
 
-  const catColors  = colorScheme === 'dark' ? CATEGORY_COLORS_DARK : CATEGORY_COLORS_LIGHT;
+  const catColors  = CATEGORY_COLORS_DARK; // 宇宙テーマ固定
   const completed  = getCompletedCount();
   const total      = getTotalCheckCount();
   const progressPct = total > 0 ? (completed / total) * 100 : 0;
@@ -159,10 +159,7 @@ export default function CheckScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={colorScheme === 'dark' ? ['#0E0A1C', '#130D28'] : ['#FAF7FF', '#F0F5FF']}
-        style={StyleSheet.absoluteFill}
-      />
+      <CosmicBackground />
 
       {/* Sticky Header */}
       <View style={[styles.header, { paddingTop: topPad + 14, borderBottomColor: colors.border }]}>
@@ -301,7 +298,7 @@ export default function CheckScreen() {
       <Modal visible={showAddSheet} transparent animationType="slide" onRequestClose={() => setShowAddSheet(false)}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setShowAddSheet(false)} />
-          <View style={[styles.sheet, { backgroundColor: colors.card, paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 16 }]}>
+          <View style={[styles.sheet, { backgroundColor: COSMIC_SHEET, paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 16 }]}>
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
             <Text style={[styles.sheetTitle, { color: colors.foreground }]}>チェック項目を追加</Text>
 

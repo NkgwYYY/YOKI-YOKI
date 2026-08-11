@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
 import { BadgeDef } from '@/data/badges';
 import { UnlockedBadge } from '@/contexts/AppContext';
 

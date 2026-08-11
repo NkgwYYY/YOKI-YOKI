@@ -4,7 +4,7 @@ import {
   ScrollView, useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
 import { DailyRecord } from '@/contexts/AppContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MascotFace, MoodLevel } from '@/components/MascotFace';
@@ -43,7 +43,7 @@ interface Props {
 
 export function MoodCalendar({ records }: Props) {
   const colors = useColors();
-  const isDark = useColorScheme() === 'dark';
+  const isDark = true; // 宇宙テーマ固定
 
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -92,7 +92,7 @@ export function MoodCalendar({ records }: Props) {
     return max;
   })();
 
-  const cardBg = isDark ? ['#1A1430', '#0F1030'] as const : ['#FFF', '#F7F0FF'] as const;
+  const cardBg = ['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)'] as const;
 
   return (
     <>

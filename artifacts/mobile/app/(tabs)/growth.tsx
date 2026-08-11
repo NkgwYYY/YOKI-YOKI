@@ -22,7 +22,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const easeOut = (t: number) => t * (2 - t);
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors, COSMIC_SHEET } from '@/constants/cosmicTheme';
+import { CosmicBackground } from '@/components/CosmicBackground';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
@@ -63,8 +64,6 @@ function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
 export default function GrowthScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const { progress, records, unlockedBadges } = useApp();
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -86,16 +85,12 @@ export default function GrowthScreen() {
     ? (last7.reduce((s, r) => s + r.sleep, 0) / last7.length).toFixed(1)
     : '--';
 
-  const bgColors = isDark
-    ? (['#0E0A1C', '#130D28'] as const)
-    : (['#FAF7FF', '#F0F5FF'] as const);
-
   return (
-    <View style={styles.flex}>
-      <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
+    <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      <CosmicBackground />
 
       {/* Decorative orb */}
-      <View style={[styles.orb, { backgroundColor: colors.secondary + (isDark ? '12' : '0E') }]} />
+      <View style={[styles.orb, { backgroundColor: colors.secondary + '12' }]} />
 
       <ScrollView
         style={styles.flex}
@@ -126,7 +121,7 @@ export default function GrowthScreen() {
         {/* Logout modal */}
         <Modal visible={showLogout} transparent animationType="fade" onRequestClose={() => setShowLogout(false)}>
           <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowLogout(false)}>
-            <TouchableOpacity activeOpacity={1} style={[styles.logoutCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+            <TouchableOpacity activeOpacity={1} style={[styles.logoutCard, { backgroundColor: COSMIC_SHEET, borderColor: colors.border }]}>
               <Ionicons name="person-circle" size={40} color={colors.primary} style={{ marginBottom: 8 }} />
               {user?.email && (
                 <Text style={[styles.logoutEmail, { color: colors.mutedForeground }]}>{user.email}</Text>
@@ -166,7 +161,7 @@ export default function GrowthScreen() {
         <FadeIn delay={100}>
           <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
             <LinearGradient
-              colors={isDark ? ['#1A1430', '#0F1030'] : ['#FFF', '#F7F0FF']}
+              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
               style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
             />
             <View style={styles.levelHeader}>
@@ -223,7 +218,7 @@ export default function GrowthScreen() {
         <FadeIn delay={200}>
           <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
             <LinearGradient
-              colors={isDark ? ['#1A1430', '#0F1030'] : ['#FFF', '#F7F0FF']}
+              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
               style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
             />
             <View style={styles.cardHeader}>
@@ -245,7 +240,7 @@ export default function GrowthScreen() {
         <FadeIn delay={300}>
           <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
             <LinearGradient
-              colors={isDark ? ['#1A1430', '#0F1030'] : ['#FFF', '#F7F0FF']}
+              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
               style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
             />
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>週間サマリー</Text>

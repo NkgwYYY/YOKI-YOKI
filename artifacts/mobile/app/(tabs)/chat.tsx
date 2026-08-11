@@ -13,7 +13,8 @@ import Animated, {
   useSharedValue, useAnimatedStyle,
   withRepeat, withSequence, withTiming, withSpring, withDelay,
 } from 'react-native-reanimated';
-import { useColors } from '@/hooks/useColors';
+import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { CosmicBackground } from '@/components/CosmicBackground';
 import { useApp } from '@/contexts/AppContext';
 import { profileToContext } from '@/utils/profileContext';
 import { Mascot } from '@/components/Mascot';
@@ -141,8 +142,6 @@ const MAX_CONTEXT = 20; // send last 20 to API
 /* ── Main screen ── */
 export default function ChatScreen() {
   const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
           currentSatiety, inactivityHours, profile } = useApp();
@@ -277,14 +276,13 @@ export default function ChatScreen() {
   const sendBtnStyle = useAnimatedStyle(() => ({ transform: [{ scale: sendScale.value }] }));
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const bgColors = isDark ? ['#0E0A1C', '#130D28'] as const : ['#FAF7FF', '#F0F5FF'] as const;
 
   const showChips = messages.length <= 1;
   const CHIPS = ['今日あったこと話したい', '少し落ち込んでる', 'がんばった！聞いて', '雑談しよう'];
 
   return (
-    <View style={styles.root}>
-      <LinearGradient colors={bgColors} style={StyleSheet.absoluteFill} />
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <CosmicBackground />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 10, borderBottomColor: colors.border }]}>
@@ -343,7 +341,7 @@ export default function ChatScreen() {
       <View style={[
         styles.inputArea,
         {
-          backgroundColor: colors.card,
+          backgroundColor: 'rgba(20,13,45,0.85)',
           borderTopColor: colors.border,
           paddingBottom: TAB_BAR_HEIGHT + (Platform.OS === 'ios' ? insets.bottom : 8),
         },
