@@ -136,10 +136,12 @@ function GlassBubble({ message }: { message: string }) {
   }, []);
   const style = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   return (
-    <Animated.View style={style}>
+    <Animated.View style={[style, { alignItems: 'center' }]}>
       <View style={styles.bubble}>
         <Text style={styles.bubbleText}>{message}</Text>
       </View>
+      {/* キャラに向かうしっぽ(下向き三角) */}
+      <View style={styles.bubbleTail} />
     </Animated.View>
   );
 }
@@ -445,7 +447,6 @@ export default function HomeScreen() {
             <View style={styles.orbitStage}>
               {/* Mascot with glow */}
               <View style={styles.mascotWrap}>
-                <View style={styles.mascotGlow} />
                 {/* ラボの物理エンジン(掴んで投げる・ぷるん)を埋め込み。
                     Webはiframe、ネイティブはWebView(本番ステージURL)。
                     読み込み失敗時はコンポーネント内でMascotへフォールバック。
@@ -915,6 +916,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold', color: '#3A2E6E',
     letterSpacing: 0.4,
   },
+  bubbleTail: {
+    width: 0, height: 0,
+    borderLeftWidth: 8, borderRightWidth: 8, borderTopWidth: 10,
+    borderLeftColor: 'transparent', borderRightColor: 'transparent',
+    borderTopColor: 'rgba(255,255,255,0.85)',
+    marginTop: -1,
+  },
 
   // Mascot glow
   /* ── 円形メニュー(オービット)── */
@@ -944,18 +952,14 @@ const styles = StyleSheet.create({
   orbEmoji: { fontSize: 20, lineHeight: 24 },
   orbLabel: { fontSize: 9.5, fontWeight: '700', color: '#FFFFFF', marginTop: 1 },
   orbSub: { fontSize: 8.5, color: 'rgba(255,255,255,0.65)', marginTop: 0.5 },
-  orbTL: { top: 6, left: 14 },
-  orbTR: { top: 6, right: 14 },
-  orbML: { top: 132, left: 2 },
-  orbMR: { top: 132, right: 2 },
-  orbBL: { bottom: 6, left: 14 },
-  orbBR: { bottom: 6, right: 14 },
+  /* 六角形に均等配置(キャラ中心からの距離感を揃える) */
+  orbTL: { top: 22, left: 30 },
+  orbTR: { top: 22, right: 30 },
+  orbML: { top: 148, left: 6 },
+  orbMR: { top: 148, right: 6 },
+  orbBL: { bottom: 20, left: 30 },
+  orbBR: { bottom: 20, right: 30 },
   mascotWrap: { alignItems: 'center', justifyContent: 'center', zIndex: 3 },
-  mascotGlow: {
-    position: 'absolute', width: 190, height: 190, borderRadius: 95,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-  },
-
   stageDesc: { fontSize: 12, fontFamily: 'Inter_400Regular' },
 
   satietyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
