@@ -3,7 +3,7 @@ import { CharacterRig, Emotion } from '@/lib/character';
 import { CHARACTERS, CharacterId } from '@/lib/character-config';
 import {
   ChevronLeft, ChevronRight, MessageCircle, ArrowUpCircle, Zap,
-  Sparkles, Eye, Footprints, SlidersHorizontal, X,
+  Sparkles, Eye, Footprints, SlidersHorizontal, X, UtensilsCrossed,
 } from 'lucide-react';
 
 /* ── キャラごとの背景テーマ(キャラ自身の色は一切変更しない) ── */
@@ -62,6 +62,12 @@ export default function App() {
   const [followPointer, setFollowPointer] = useState(true);
   const [labOpen, setLabOpen] = useState(false);
   const [message, setMessage] = useState(() => pickMessage('normal'));
+  /* ごはん: その日の回数だけをローカルに保存(実データのみ、ダミーなし) */
+  const feedKey = `lab_feed_${new Date().toISOString().slice(0, 10)}`;
+  const [feedCount, setFeedCount] = useState<number>(() => {
+    const v = Number(localStorage.getItem(feedKey));
+    return Number.isFinite(v) ? v : 0;
+  });
   const followRef = useRef(true);
   followRef.current = followPointer;
   const gazeRef = useRef<{ nx: number; ny: number }>({ nx: 0, ny: 0 });
@@ -96,8 +102,13 @@ export default function App() {
   useEffect(() => { rigRef.current?.setBreathing(breathing); }, [breathing]);
 
   /* 一言メッセージ: 感情変更時に即更新、あとは12秒ごとにローテーション */
+  const skipNextAutoMessage = useRef(false);
   useEffect(() => {
-    setMessage(pickMessage(emotion));
+    if (skipNextAutoMessage.current) {
+      skipNextAutoMessage.current = false;
+    } else {
+      setMessage(pickMessage(emotion));
+    }
     const t = setInterval(() => setMessage(pickMessage(emotion)), 12000);
     return () => clearInterval(t);
   }, [emotion, characterId]);
@@ -131,6 +142,17 @@ export default function App() {
     rigRef.current?.[action]();
   };
 
+  const feed = () => {
+    const n = Math.min(feedCount + 1, 99);
+    setFeedCount(n);
+    localStorage.setItem(feedKey, String(n));
+    skipNextAutoMessage.current = true;
+    setEmotion('happy');
+    act('bounce');
+    act('talk');
+    setMessage(['もぐもぐ……おいしい!', 'ごちそうさま!元気が出たよ', 'えへへ、ありがとう!'][Math.floor(Math.random() * 3)]);
+  };
+
   const handleGaze = (nx: number, ny: number) => {
     setFollowPointer(false);
     gazeRef.current = { nx, ny };
@@ -144,7 +166,7 @@ export default function App() {
     { key: 'pet',    label: 'なでる',     sub: '元気をあげる', icon: <Sparkles className="w-6 h-6" />,      pos: 'left-0 top-[46%]',  on: () => { act('wink'); act('bounce'); } },
     { key: 'shake',  label: 'ブルブル',   sub: '気分転換',     icon: <Zap className="w-6 h-6" />,           pos: 'right-0 top-[46%]', on: () => act('shake') },
     { key: 'walk',   label: '歩く',       sub: 'おさんぽ',     icon: <Footprints className="w-6 h-6" />,    pos: 'left-[6%] bottom-[-4%]', on: () => act('walk') },
-    { key: 'bounce', label: 'バウンド',   sub: 'ぷるんぷるん', icon: <ArrowUpCircle className="w-6 h-6 rotate-180" />, pos: 'right-[6%] bottom-[-4%]', on: () => act('bounce') },
+    { key: 'feed',   label: 'ごはん',     sub: feedCount > 0 ? `きょう ${feedCount}回` : 'あげてみよう', icon: <UtensilsCrossed className="w-6 h-6" />, pos: 'right-[6%] bottom-[-4%]', on: feed },
   ];
 
   return (
@@ -273,6 +295,7 @@ export default function App() {
                 { label: 'ウィンク', icon: <Eye className="w-5 h-5" />, on: () => act('wink') },
                 { label: '着地', icon: <ArrowUpCircle className="w-5 h-5 rotate-180" />, on: () => act('land') },
                 { label: '喋る', icon: <MessageCircle className="w-5 h-5" />, on: () => act('talk') },
+                { label: 'バウンド', icon: <ArrowUpCircle className="w-5 h-5 rotate-180" />, on: () => act('bounce') },
               ].map(a => (
                 <button key={a.label} onClick={a.on} className="flex flex-col items-center gap-1 py-3 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 text-slate-600 lab-button">
                   {a.icon}
