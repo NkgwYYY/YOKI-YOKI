@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Mascot } from '@/components/Mascot';
+import { useApp } from '@/contexts/AppContext';
+import { getMascotStage } from '@/utils/mascotUtils';
 import { Song, Difficulty, RhythmMode, PlayResult, starRating } from '@/utils/rhythm/types';
 import { SONGS } from '@/utils/rhythm/songs';
 import { getChart } from '@/utils/rhythm/charts';
@@ -51,6 +54,8 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
   const [mode, setMode] = useState<RhythmMode>('tap');
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [result, setResult] = useState<PlayResult | null>(null);
+  const { progress } = useApp();
+  const mascotStage = getMascotStage(progress.level);
   const preview = useSongClock();
   const previewIdRef = useRef<string | null>(null);
 
@@ -209,8 +214,11 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
         <Text style={st.resultMeta}>MAX COMBO {result.maxCombo}・プレイ時間 {fmtTime(result.playTime)}</Text>
         <Text style={st.starsLabel}>今日のリズム</Text>
         <Text style={st.stars}>{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</Text>
-        <View style={st.commentBubble}>
-          <Text style={st.commentTxt}>{characterComment(result)}</Text>
+        <View style={st.resultMascotRow}>
+          <Mascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />
+          <View style={[st.commentBubble, { flex: 1, marginTop: 0 }]}>
+            <Text style={st.commentTxt}>{characterComment(result)}</Text>
+          </View>
         </View>
         <TouchableOpacity style={st.primaryBtn} onPress={onClose} activeOpacity={0.85}>
           <Text style={st.primaryTxt}>とじる</Text>
@@ -281,6 +289,7 @@ const st = StyleSheet.create({
   resultMeta: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 2 },
   starsLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 8 },
   stars: { fontSize: 30, color: '#FFD75E', textAlign: 'center', letterSpacing: 4 },
+  resultMascotRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
   commentBubble: {
     backgroundColor: 'rgba(255,255,255,0.09)', borderRadius: 18, padding: 14, marginTop: 6,
   },

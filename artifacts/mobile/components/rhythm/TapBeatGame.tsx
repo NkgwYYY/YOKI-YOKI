@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Mascot } from '@/components/Mascot';
+import { useApp } from '@/contexts/AppContext';
+import { getMascotStage, MascotMood } from '@/utils/mascotUtils';
 import {
   Song, Chart, Note, PlayResult, Judgment,
   JUDGE_PERFECT_MS, JUDGE_GREAT_MS, JUDGE_GOOD_MS, SCORE_PER,
@@ -37,6 +40,18 @@ interface Props {
 
 export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
   const clock = useSongClock();
+  const { progress } = useApp();
+  const mascotStage = getMascotStage(progress.level);
+  /* キャラは判定に合わせてリアクション (既存キャラシステムをそのまま利用) */
+  const [mascotMood, setMascotMood] = useState<MascotMood>('normal');
+  const moodTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reactMascot = useCallback((j: Judgment) => {
+    const mood: MascotMood = j === 'perfect' ? 'excited' : j === 'miss' ? 'normal' : 'happy';
+    setMascotMood(mood);
+    if (moodTimerRef.current) clearTimeout(moodTimerRef.current);
+    moodTimerRef.current = setTimeout(() => setMascotMood('normal'), j === 'perfect' ? 900 : 600);
+  }, []);
+  useEffect(() => () => { if (moodTimerRef.current) clearTimeout(moodTimerRef.current); }, []);
   const [now, setNow] = useState(-3);
   const [started, setStarted] = useState(false);
   const [needsTap, setNeedsTap] = useState(false); // Web自動再生ブロック時
@@ -97,6 +112,7 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
       setScore(scoreRef.current);
     }
     showJudge(j);
+    reactMascot(j);
   };
 
   /* メインループ: 実再生位置基準 */
@@ -187,9 +203,12 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
 
   return (
     <View style={st.root}>
-      {/* トップ: スコア/コンボ */}
+      {/* トップ: スコア/キャラ/コンボ — キャラが判定に合わせてリアクション */}
       <View style={st.topRow}>
         <Text style={st.score}>SCORE {score}</Text>
+        <View style={st.mascotWrap}>
+          <Mascot stage={mascotStage} mood={mascotMood} size={54} />
+        </View>
         <Text style={st.combo}>{combo > 1 ? `♪ ${combo}` : ' '}</Text>
       </View>
 
@@ -253,7 +272,8 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
 
 const st = StyleSheet.create({
   root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 8, alignItems: 'stretch' },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, minHeight: 24 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, minHeight: 56 },
+  mascotWrap: { alignItems: 'center', justifyContent: 'center' },
   score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.92)' },
   combo: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFD75E' },
   laneArea: {
