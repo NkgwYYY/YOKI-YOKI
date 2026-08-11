@@ -93,9 +93,10 @@ export class CharacterRig {
 
     // Patch to cover original face
     if (config.patchColor && config.patchSize) {
+      const pc = config.patchCenter ?? config.faceCenter;
       this.patchElement = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-      this.patchElement.setAttribute('cx', config.faceCenter.x.toString());
-      this.patchElement.setAttribute('cy', config.faceCenter.y.toString());
+      this.patchElement.setAttribute('cx', pc.x.toString());
+      this.patchElement.setAttribute('cy', pc.y.toString());
       this.patchElement.setAttribute('rx', (config.patchSize.w / 2).toString());
       this.patchElement.setAttribute('ry', (config.patchSize.h / 2).toString());
       this.patchElement.setAttribute('fill', config.patchColor);
