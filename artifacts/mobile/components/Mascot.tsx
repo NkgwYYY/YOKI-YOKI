@@ -15,6 +15,7 @@ import Svg, {
 } from 'react-native-svg';
 import { Image } from 'react-native';
 import { MascotStage, MascotMood, IdleBehavior, CharacterKey, getCharacter } from '@/utils/mascotUtils';
+import BoneCharacter from '@/components/BoneCharacter';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import MaskedView from '@react-native-masked-view/masked-view';
 
@@ -758,7 +759,7 @@ export function Mascot({ stage, mood, size = 140, onPress, onPet, idleBehavior =
         <Animated.View style={style}>
           {character.key === 'egg'
             ? <EggImage mood={effMood} size={size} rolling={effIdle === 'rolling'} pokeKey={pokeKey} />
-            : <CharacterImage charKey={character.key} mood={effMood} size={size} />}
+            : <BoneCharacter charKey={character.key} mood={effMood} size={size} hop={size >= 90} />}
         </Animated.View>
         {effIdle === 'sleeping' && <ZzzOverlay size={size} />}
         {showHearts && <PetGlow size={size} petKey={petKey} />}
