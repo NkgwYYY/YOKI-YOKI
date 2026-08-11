@@ -387,6 +387,7 @@ export class CharacterRig {
     this.grabDY = INTERACTION.grabOffset ? py - charY : 0;
     this.holdTargetX = charX;
     this.holdTargetY = charY;
+    this.holdVY = 0; // 前回のドラッグの速度を持ち越さない
     // 掴まれた反応: ぷにっと少し沈む + 小さく目が動く(既存素材のみ)
     this.squash.velocity += 0.035;
     this.gazeY.target = 3;
@@ -444,8 +445,10 @@ export class CharacterRig {
     this.root.x.velocity = 0;
     this.root.x.target = 0;
     this.throwVX = vx;
-    if (this.airY < 0) {
+    if (this.airY < 0 || vy < 0) {
+      // 空中で離した / 地面近くでも上向きに投げた → 速度を引き継いで落下運動へ
       this.jumpPhase = 'air';
+      this.airY = Math.min(this.airY, 0);
       this.airVelocity = vy;
     } else {
       this.airY = 0;
@@ -686,9 +689,14 @@ export class CharacterRig {
           * Math.pow(dmp, dtScale);
         this.throwX += (this.throwVX / 60) * dtScale;
         // 持ち上げ中の姿勢: 上向きに動くとSoftBodyの下側が少し遅れる(控えめな伸び)
-        const hang = Math.max(-PHYSICS.maxStretch * 0.6,
-          Math.min(0, this.holdVY * 60 * INTERACTION.hangStretchFactor * -1));
-        if (this.holdVY < 0) this.squash.velocity += hang * 0.06 * dtScale;
+        // holdVY < 0(上向き)のとき負のsquash(=伸び)を少しだけ注入する
+        if (this.holdVY < 0) {
+          const hang = Math.max(
+            -PHYSICS.maxStretch * 0.6,
+            this.holdVY * 60 * INTERACTION.hangStretchFactor,
+          );
+          this.squash.velocity += hang * 0.06 * dtScale;
+        }
       }
 
       // --- 垂直方向の運動学(ジャンプ・落下・着地) ---
