@@ -759,7 +759,7 @@ export function Mascot({ stage, mood, size = 140, onPress, onPet, idleBehavior =
         <Animated.View style={style}>
           {character.key === 'egg'
             ? <EggImage mood={effMood} size={size} rolling={effIdle === 'rolling'} pokeKey={pokeKey} />
-            : <BoneCharacter charKey={character.key} mood={effMood} size={size} hop={size >= 90} />}
+            : <BoneCharacter charKey={character.key} mood={effMood} size={size} hop={size >= 90} animate={size >= 60} />}
         </Animated.View>
         {effIdle === 'sleeping' && <ZzzOverlay size={size} />}
         {showHearts && <PetGlow size={size} petKey={petKey} />}

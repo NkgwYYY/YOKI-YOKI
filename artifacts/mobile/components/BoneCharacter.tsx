@@ -94,11 +94,13 @@ interface Props {
   charKey: BoneCharKey;
   mood: MascotMood;
   size: number;
-  /** 小さい表示(チャット等)は物理を軽く */
+  /** 待機ホップの有無 */
   hop?: boolean;
+  /** false で物理ループを完全停止(小さいアバター等の負荷対策) */
+  animate?: boolean;
 }
 
-export default function BoneCharacter({ charKey, mood, size, hop = true }: Props) {
+export default function BoneCharacter({ charKey, mood, size, hop = true, animate = true }: Props) {
   const parts = MANIFEST[charKey];
   const sprites = SPRITES[charKey];
   const k = size / 512;
@@ -182,7 +184,7 @@ export default function BoneCharacter({ charKey, mood, size, hop = true }: Props
     const eForce = (eyeOpenTarget.value - eyeOpen.value) * 0.3 * dtScale;
     eyeOpenV.value = (eyeOpenV.value + eForce) * Math.pow(0.6, dtScale);
     eyeOpen.value += eyeOpenV.value * dtScale;
-  }, true);
+  }, animate);
 
   /* --- スタイル --- */
   const rootStyle = useAnimatedStyle(() => ({
