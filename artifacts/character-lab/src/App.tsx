@@ -1,14 +1,67 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CharacterRig, Emotion } from '@/lib/character';
-import { CHARACTERS, CharacterId, CharacterConfig } from '@/lib/character-config';
-import { ChevronLeft, ChevronRight, Sparkles, Zap, MessageCircle, ArrowUpCircle, Eye } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { CHARACTERS, CharacterId } from '@/lib/character-config';
+import {
+  ChevronLeft, ChevronRight, MessageCircle, ArrowUpCircle, Zap,
+  Sparkles, Eye, Footprints, SlidersHorizontal, X,
+} from 'lucide-react';
+
+/* ── キャラごとの背景テーマ(キャラ自身の色は一切変更しない) ── */
+const THEMES: Record<CharacterId, { sky: string; glow: string; accent: string }> = {
+  egg:            { sky: 'linear-gradient(180deg,#fdf6e3 0%,#fceecb 40%,#f9e0c8 75%,#f6d4c4 100%)', glow: 'rgba(255,225,160,0.55)', accent: '#c99a3f' },
+  odango:         { sky: 'linear-gradient(180deg,#e6dcf7 0%,#e9d5f0 40%,#f3cfe0 75%,#f8d3cf 100%)', glow: 'rgba(220,190,255,0.55)', accent: '#8b6bc9' },
+  happa:          { sky: 'linear-gradient(180deg,#e2f4e4 0%,#d7f0dd 40%,#d1ead9 75%,#e8f2d9 100%)', glow: 'rgba(180,235,190,0.55)', accent: '#4d9a63' },
+  colorful_happa: { sky: 'linear-gradient(180deg,#e3ecfb 0%,#ecdff5 40%,#fbe3e9 75%,#fdf0da 100%)', glow: 'rgba(255,210,230,0.55)', accent: '#b06bb3' },
+};
+
+/* ── 今日の一言(感情×時間帯で変化。毎回ランダムに選ぶ) ── */
+const MESSAGES: Record<string, string[]> = {
+  morning: ['おはよう!今日も会いに来てくれたんだね', 'あさだよ〜、いっしょにがんばろう!', 'おはよう!きょうは何する?'],
+  day:     ['今日も一緒にがんばろうね!', 'きみが来ると、うれしいな', 'なでてくれてもいいんだよ?', 'ちょっとジャンプしてみようかな'],
+  night:   ['今日もおつかれさま', 'ちょっと眠い……', '夜だね。ゆっくりしよう', '今日はどんな一日だった?'],
+  happy:   ['えへへ、うれしい!', 'やったー!', 'きみのおかげで元気いっぱい!'],
+  angry:   ['ぷんぷん!……なんてね', 'むむむ……'],
+  sad:     ['ちょっとしょんぼり……', 'ぎゅってして……'],
+  fun:     ['たのしいね〜!', 'もっとあそぼ!'],
+  surprised: ['わわっ!びっくりした!', 'えっ、なになに?'],
+};
+
+function pickMessage(emotion: Emotion): string {
+  let pool: string[];
+  if (emotion !== 'normal' && MESSAGES[emotion]) {
+    pool = MESSAGES[emotion];
+  } else {
+    const h = new Date().getHours();
+    pool = h < 10 ? MESSAGES.morning : h < 18 ? MESSAGES.day : MESSAGES.night;
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/* ── 星パーティクル(固定シードで生成、ゆっくり瞬く) ── */
+const STARS = Array.from({ length: 22 }, (_, i) => ({
+  left: (i * 37 + 13) % 100,
+  top: (i * 53 + 7) % 88,
+  size: 2 + (i % 3),
+  delay: (i * 0.7) % 6,
+  dur: 4 + (i % 5),
+}));
+
+const EMOTIONS: { id: Emotion; label: string; emoji: string }[] = [
+  { id: 'normal', label: '通常', emoji: '😌' },
+  { id: 'happy', label: '喜', emoji: '😊' },
+  { id: 'angry', label: '怒', emoji: '😠' },
+  { id: 'sad', label: '哀', emoji: '🥺' },
+  { id: 'fun', label: '楽', emoji: '🥳' },
+  { id: 'surprised', label: '驚', emoji: '😮' },
+];
 
 export default function App() {
   const [characterId, setCharacterId] = useState<CharacterId>('egg');
   const [emotion, setEmotion] = useState<Emotion>('normal');
   const [breathing, setBreathing] = useState(true);
   const [followPointer, setFollowPointer] = useState(true);
+  const [labOpen, setLabOpen] = useState(false);
+  const [message, setMessage] = useState(() => pickMessage('normal'));
   const followRef = useRef(true);
   followRef.current = followPointer;
   const gazeRef = useRef<{ nx: number; ny: number }>({ nx: 0, ny: 0 });
@@ -18,90 +71,64 @@ export default function App() {
 
   const characterConfig = CHARACTERS.find(c => c.id === characterId)!;
   const currentIndex = CHARACTERS.findIndex(c => c.id === characterId);
+  const theme = THEMES[characterId];
+
+  const dateLabel = useMemo(() => {
+    const d = new Date();
+    const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+    return `${d.getMonth() + 1}月${d.getDate()}日(${w})`;
+  }, []);
 
   useEffect(() => {
     if (!svgRef.current) return;
-    
-    // Clean up old rig
-    if (rigRef.current) {
-      rigRef.current.destroy();
-    }
-    
-    // Create new rig
+    if (rigRef.current) rigRef.current.destroy();
     rigRef.current = new CharacterRig(svgRef.current, characterConfig);
     rigRef.current.setEmotion(emotion);
     rigRef.current.setBreathing(breathing);
-    // 手動目線はキャラ切替後も維持する
-    if (!followRef.current) {
-      rigRef.current.lookAt(gazeRef.current.nx, gazeRef.current.ny);
-    }
-    
+    if (!followRef.current) rigRef.current.lookAt(gazeRef.current.nx, gazeRef.current.ny);
     return () => {
-      if (rigRef.current) {
-        rigRef.current.destroy();
-        rigRef.current = null;
-      }
+      rigRef.current?.destroy();
+      rigRef.current = null;
     };
-  }, [characterId]); // Recreate rig only when character changes
+  }, [characterId]);
+
+  useEffect(() => { rigRef.current?.setEmotion(emotion); }, [emotion]);
+  useEffect(() => { rigRef.current?.setBreathing(breathing); }, [breathing]);
+
+  /* 一言メッセージ: 感情変更時に即更新、あとは12秒ごとにローテーション */
+  useEffect(() => {
+    setMessage(pickMessage(emotion));
+    const t = setInterval(() => setMessage(pickMessage(emotion)), 12000);
+    return () => clearInterval(t);
+  }, [emotion, characterId]);
 
   useEffect(() => {
-    if (rigRef.current) {
-      rigRef.current.setEmotion(emotion);
-    }
-  }, [emotion]); // Update emotion without recreating rig
-
-  useEffect(() => {
-    rigRef.current?.setBreathing(breathing);
-  }, [breathing]);
-
-  useEffect(() => {
-    // Pointer tracking for eyes
     const handlePointerMove = (e: PointerEvent) => {
-      if (!followRef.current) return;
-      if (!rigRef.current || !containerRef.current) return;
-      
+      if (!followRef.current || !rigRef.current || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      
-      // Normalize to -1..1 relative to center
-      const nx = (x / rect.width) * 2 - 1;
-      const ny = (y / rect.height) * 2 - 1;
-      
+      const nx = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const ny = ((e.clientY - rect.top) / rect.height) * 2 - 1;
       rigRef.current.lookAt(nx, ny);
     };
-
     const handlePointerLeave = () => {
-      if (followRef.current && rigRef.current) {
-        rigRef.current.lookAt(0, 0);
-      }
+      if (followRef.current && rigRef.current) rigRef.current.lookAt(0, 0);
     };
-
     window.addEventListener('pointermove', handlePointerMove);
     document.body.addEventListener('pointerleave', handlePointerLeave);
-    
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       document.body.removeEventListener('pointerleave', handlePointerLeave);
     };
   }, []);
 
-  const nextCharacter = () => {
-    const nextIdx = (currentIndex + 1) % CHARACTERS.length;
-    setCharacterId(CHARACTERS[nextIdx].id);
-    setEmotion('normal'); // Reset emotion
+  const switchCharacter = (dir: 1 | -1) => {
+    const idx = (currentIndex + dir + CHARACTERS.length) % CHARACTERS.length;
+    setCharacterId(CHARACTERS[idx].id);
+    setEmotion('normal');
   };
 
-  const prevCharacter = () => {
-    const prevIdx = (currentIndex - 1 + CHARACTERS.length) % CHARACTERS.length;
-    setCharacterId(CHARACTERS[prevIdx].id);
-    setEmotion('normal'); // Reset emotion
-  };
-
-  const handleAction = (action: 'blink' | 'jump' | 'shake' | 'talk' | 'wink' | 'walk' | 'land' | 'bounce') => {
-    if (rigRef.current) {
-      rigRef.current[action]();
-    }
+  const act = (action: 'blink' | 'jump' | 'shake' | 'talk' | 'wink' | 'walk' | 'land' | 'bounce') => {
+    rigRef.current?.[action]();
   };
 
   const handleGaze = (nx: number, ny: number) => {
@@ -110,199 +137,192 @@ export default function App() {
     rigRef.current?.lookAt(nx, ny);
   };
 
+  /* 円形メニュー(キャラを中心に楕円軌道で配置) */
+  const orbitButtons = [
+    { key: 'talk',   label: '話しかける', sub: 'おしゃべり', icon: <MessageCircle className="w-6 h-6" />, pos: 'left-[2%] top-[6%]',    on: () => { act('talk'); setMessage(pickMessage(emotion)); } },
+    { key: 'jump',   label: 'ジャンプ',   sub: '元気にぴょん', icon: <ArrowUpCircle className="w-6 h-6" />, pos: 'right-[2%] top-[6%]',   on: () => act('jump') },
+    { key: 'pet',    label: 'なでる',     sub: '元気をあげる', icon: <Sparkles className="w-6 h-6" />,      pos: 'left-[-2%] top-[46%]',  on: () => { act('wink'); act('bounce'); } },
+    { key: 'shake',  label: 'ブルブル',   sub: '気分転換',     icon: <Zap className="w-6 h-6" />,           pos: 'right-[-2%] top-[46%]', on: () => act('shake') },
+    { key: 'walk',   label: '歩く',       sub: 'おさんぽ',     icon: <Footprints className="w-6 h-6" />,    pos: 'left-[8%] bottom-[-4%]', on: () => act('walk') },
+    { key: 'bounce', label: 'バウンド',   sub: 'ぷるんぷるん', icon: <ArrowUpCircle className="w-6 h-6 rotate-180" />, pos: 'right-[8%] bottom-[-4%]', on: () => act('bounce') },
+  ];
+
   return (
-    <div className="min-h-[100dvh] w-full flex flex-col items-center bg-background" ref={containerRef}>
-      
-      {/* Header / Selector */}
-      <header className="w-full max-w-md mx-auto flex items-center justify-between p-4 z-10">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={prevCharacter}
-          className="rounded-full hover:bg-white/50 lab-button"
-        >
-          <ChevronLeft className="w-6 h-6 text-primary" />
-        </Button>
-        
-        <div className="flex flex-col items-center">
-          <div className="bg-white/80 backdrop-blur-sm px-6 py-2 rounded-full lab-shadow border border-white/50 text-center">
-            <h1 className="font-display font-bold text-xl text-primary drop-shadow-sm tracking-wide">
-              {characterConfig.name}
+    <div
+      ref={containerRef}
+      className="min-h-[100dvh] w-full relative overflow-hidden transition-[background] duration-1000"
+      style={{ background: theme.sky }}
+    >
+      {/* ── ゆっくり動く背景(光のブロブ+星) ── */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="orbit-blob" style={{ background: theme.glow, width: '55vmin', height: '55vmin', left: '-10%', top: '5%' }} />
+        <div className="orbit-blob orbit-blob-2" style={{ background: 'rgba(255,255,255,0.5)', width: '45vmin', height: '45vmin', right: '-8%', top: '30%' }} />
+        {STARS.map((s, i) => (
+          <div
+            key={i}
+            className="star-dot"
+            style={{
+              left: `${s.left}%`, top: `${s.top}%`,
+              width: s.size, height: s.size,
+              animationDelay: `${s.delay}s`, animationDuration: `${s.dur}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="relative z-10 w-full max-w-md mx-auto min-h-[100dvh] flex flex-col px-4 pt-5 pb-6">
+
+        {/* ── 上部UI ── */}
+        <header className="flex items-start justify-between">
+          <div>
+            <h1 className="font-display font-bold text-3xl tracking-wide drop-shadow-sm" style={{ color: theme.accent }}>
+              CHARACTER LAB
             </h1>
+            <p className="text-sm font-bold text-foreground/60 mt-1">{dateLabel}</p>
           </div>
-          <p className="text-xs font-bold text-muted-foreground mt-2 opacity-70 tracking-widest uppercase">
-            CHARACTER LAB
-          </p>
+          <button
+            onClick={() => setLabOpen(true)}
+            className="glass-chip flex items-center gap-1.5 px-4 py-2 rounded-full lab-button text-sm font-bold text-foreground/70"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            ラボ
+          </button>
+        </header>
+
+        {/* キャラクター名+切り替え */}
+        <div className="flex items-center justify-center gap-3 mt-3">
+          <button onClick={() => switchCharacter(-1)} className="glass-chip w-9 h-9 rounded-full flex items-center justify-center lab-button" aria-label="前のキャラクター">
+            <ChevronLeft className="w-5 h-5 text-foreground/60" />
+          </button>
+          <div className="glass-chip px-6 py-1.5 rounded-full">
+            <span className="font-display font-bold text-lg" style={{ color: theme.accent }}>{characterConfig.name}</span>
+          </div>
+          <button onClick={() => switchCharacter(1)} className="glass-chip w-9 h-9 rounded-full flex items-center justify-center lab-button" aria-label="次のキャラクター">
+            <ChevronRight className="w-5 h-5 text-foreground/60" />
+          </button>
         </div>
 
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={nextCharacter}
-          className="rounded-full hover:bg-white/50 lab-button"
-        >
-          <ChevronRight className="w-6 h-6 text-primary" />
-        </Button>
-      </header>
-
-      {/* Stage Area */}
-      <main className="flex-1 min-h-[220px] w-full max-w-md mx-auto relative flex items-center justify-center overflow-hidden">
-        {/* Stage background decorations */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
-          <div className="absolute w-full h-1/2 bottom-0 bg-gradient-to-t from-background via-background to-transparent" />
+        {/* ── 一言吹き出し ── */}
+        <div className="flex justify-center mt-4 z-20">
+          <div key={message} className="speech-pop glass-card px-5 py-2.5 rounded-3xl relative">
+            <p className="text-sm font-bold text-foreground/80">{message}</p>
+            <div className="speech-tail" />
+          </div>
         </div>
-        
-        {/* The SVG Container */}
-        <svg 
-          ref={svgRef} 
-          className="w-full h-full max-w-[400px] max-h-[400px] drop-shadow-xl select-none touch-none z-10"
-          style={{ overflow: 'visible' }}
-        />
-      </main>
 
-      {/* Control Panel */}
-      <footer className="w-full max-w-md mx-auto max-h-[52dvh] overflow-y-auto bg-white/90 backdrop-blur-md rounded-t-3xl lab-shadow-inset border-t border-white p-6 pb-8 z-20 flex flex-col gap-6">
-        
-        {/* Emotion Controls */}
-        <div className="space-y-3">
-          <p className="text-xs font-bold text-muted-foreground ml-2">感情 (EMOTIONS)</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { id: 'normal', label: '通常', color: 'bg-slate-100 hover:bg-slate-200 text-slate-700' },
-              { id: 'happy', label: '喜', color: 'bg-pink-100 hover:bg-pink-200 text-pink-700' },
-              { id: 'angry', label: '怒', color: 'bg-red-100 hover:bg-red-200 text-red-700' },
-              { id: 'sad', label: '哀', color: 'bg-blue-100 hover:bg-blue-200 text-blue-700' },
-              { id: 'fun', label: '楽', color: 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700' },
-              { id: 'surprised', label: '驚', color: 'bg-purple-100 hover:bg-purple-200 text-purple-700' },
-            ].map((emo) => (
+        {/* ── 中央ステージ+円形メニュー ── */}
+        <main className="relative flex-1 min-h-[380px] flex items-center justify-center">
+          {/* 足元の光 */}
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-[6%] w-[60%] h-16 rounded-full blur-xl opacity-70 pointer-events-none" style={{ background: theme.glow }} />
+
+          <svg
+            ref={svgRef}
+            className="w-full h-full max-w-[340px] max-h-[380px] drop-shadow-xl select-none touch-none z-10"
+            style={{ overflow: 'visible' }}
+          />
+
+          {orbitButtons.map(b => (
+            <button
+              key={b.key}
+              onClick={b.on}
+              className={`orbit-btn absolute ${b.pos} lab-button z-20`}
+            >
+              <span style={{ color: theme.accent }}>{b.icon}</span>
+              <span className="font-display font-bold text-[11px] text-foreground/80 leading-tight">{b.label}</span>
+              <span className="text-[9px] text-foreground/50 leading-tight">{b.sub}</span>
+            </button>
+          ))}
+        </main>
+
+        {/* ── きぶんセレクター ── */}
+        <div className="glass-card rounded-3xl px-4 py-3 mt-2">
+          <p className="text-[10px] font-bold text-foreground/50 tracking-widest mb-2 ml-1">きぶん</p>
+          <div className="flex justify-between gap-1">
+            {EMOTIONS.map(e => (
               <button
-                key={emo.id}
-                onClick={() => setEmotion(emo.id as Emotion)}
-                className={`
-                  py-3 px-4 rounded-xl font-display font-bold text-sm lab-button transition-colors
-                  ${emotion === emo.id ? 'ring-2 ring-primary ring-offset-2 scale-95' : ''}
-                  ${emo.color}
-                `}
+                key={e.id}
+                onClick={() => setEmotion(e.id)}
+                className={`flex flex-col items-center gap-0.5 flex-1 py-2 rounded-2xl lab-button transition-colors ${emotion === e.id ? 'bg-white/70 shadow-sm' : 'hover:bg-white/40'}`}
               >
-                {emo.label}
+                <span className="text-xl leading-none">{e.emoji}</span>
+                <span className="text-[10px] font-bold text-foreground/60">{e.label}</span>
               </button>
             ))}
           </div>
         </div>
+      </div>
 
-        {/* Action Controls */}
-        <div className="space-y-3">
-          <p className="text-xs font-bold text-muted-foreground ml-2">アクション (ACTIONS)</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <button
-              onClick={() => handleAction('blink')}
-              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
-            >
-              <Sparkles className="w-5 h-5 mb-1" />
-              <span className="font-display font-bold text-[10px]">瞬き</span>
-            </button>
-            
-            <button
-              onClick={() => handleAction('jump')}
-              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
-            >
-              <ArrowUpCircle className="w-5 h-5 mb-1" />
-              <span className="font-display font-bold text-[10px]">ジャンプ</span>
-            </button>
-            
-            <button
-              onClick={() => handleAction('shake')}
-              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
-            >
-              <Zap className="w-5 h-5 mb-1" />
-              <span className="font-display font-bold text-[10px]">ブルブル</span>
-            </button>
-            
-            <button
-              onClick={() => handleAction('talk')}
-              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
-            >
-              <MessageCircle className="w-5 h-5 mb-1" />
-              <span className="font-display font-bold text-[10px]">喋る</span>
-            </button>
+      {/* ── ラボパネル(詳細コントロール) ── */}
+      {labOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setLabOpen(false)}>
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
+          <div
+            className="relative w-full max-w-md bg-white/90 backdrop-blur-md rounded-t-3xl p-6 pb-8 lab-shadow panel-pop"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display font-bold text-lg text-foreground/80">ラボ設定</h2>
+              <button onClick={() => setLabOpen(false)} className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center lab-button" aria-label="閉じる">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
 
-            <button
-              onClick={() => handleAction('walk')}
-              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
-            >
-              <ChevronRight className="w-5 h-5 mb-1" />
-              <span className="font-display font-bold text-[10px]">歩く</span>
-            </button>
-
-            <button
-              onClick={() => handleAction('land')}
-              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
-            >
-              <ArrowUpCircle className="w-5 h-5 mb-1 rotate-180" />
-              <span className="font-display font-bold text-[10px]">着地</span>
-            </button>
-
-            <button
-              onClick={() => handleAction('bounce')}
-              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
-            >
-              <Sparkles className="w-5 h-5 mb-1" />
-              <span className="font-display font-bold text-[10px]">バウンド</span>
-            </button>
-
-            <button
-              onClick={() => handleAction('wink')}
-              className="flex flex-col items-center gap-1 py-3 px-2 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 lab-button"
-            >
-              <Eye className="w-5 h-5 mb-1" />
-              <span className="font-display font-bold text-[10px]">ウィンク</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Gaze & Toggles */}
-        <div className="flex gap-6 items-start">
-          <div className="space-y-3">
-            <p className="text-xs font-bold text-muted-foreground ml-2">目線 (GAZE)</p>
-            <div className="grid grid-cols-3 gap-1.5 w-fit">
+            <div className="grid grid-cols-4 gap-2 mb-5">
               {[
-                { nx: -1, ny: -1, label: '↖' }, { nx: 0, ny: -1, label: '↑' }, { nx: 1, ny: -1, label: '↗' },
-                { nx: -1, ny: 0, label: '←' }, { nx: 0, ny: 0, label: '●' }, { nx: 1, ny: 0, label: '→' },
-                { nx: -1, ny: 1, label: '↙' }, { nx: 0, ny: 1, label: '↓' }, { nx: 1, ny: 1, label: '↘' },
-              ].map((g) => (
-                <button
-                  key={g.label}
-                  onClick={() => handleGaze(g.nx, g.ny)}
-                  className="w-10 h-10 flex items-center justify-center bg-white border-2 border-slate-100 rounded-xl hover:border-primary/30 hover:bg-primary/5 text-slate-600 font-bold lab-button"
-                  aria-label={`目線 ${g.label}`}
-                >
-                  {g.label}
+                { label: '瞬き', icon: <Sparkles className="w-5 h-5" />, on: () => act('blink') },
+                { label: 'ウィンク', icon: <Eye className="w-5 h-5" />, on: () => act('wink') },
+                { label: '着地', icon: <ArrowUpCircle className="w-5 h-5 rotate-180" />, on: () => act('land') },
+                { label: '喋る', icon: <MessageCircle className="w-5 h-5" />, on: () => act('talk') },
+              ].map(a => (
+                <button key={a.label} onClick={a.on} className="flex flex-col items-center gap-1 py-3 bg-white border-2 border-slate-100 rounded-2xl hover:border-primary/30 text-slate-600 lab-button">
+                  {a.icon}
+                  <span className="font-display font-bold text-[10px]">{a.label}</span>
                 </button>
               ))}
             </div>
-          </div>
 
-          <div className="space-y-3 flex-1">
-            <p className="text-xs font-bold text-muted-foreground ml-2">リアルタイム (LIVE)</p>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => setBreathing(b => !b)}
-                className={`py-3 px-4 rounded-xl font-display font-bold text-sm lab-button transition-colors border-2 ${breathing ? 'bg-emerald-100 border-emerald-200 text-emerald-700' : 'bg-white border-slate-100 text-slate-400'}`}
-              >
-                呼吸 {breathing ? 'ON' : 'OFF'}
-              </button>
-              <button
-                onClick={() => setFollowPointer(f => { if (!f) rigRef.current?.lookAt(0, 0); return !f; })}
-                className={`py-3 px-4 rounded-xl font-display font-bold text-sm lab-button transition-colors border-2 ${followPointer ? 'bg-sky-100 border-sky-200 text-sky-700' : 'bg-white border-slate-100 text-slate-400'}`}
-              >
-                マウス追従 {followPointer ? 'ON' : 'OFF'}
-              </button>
+            <div className="flex gap-6 items-start">
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-muted-foreground ml-1">目線 (GAZE)</p>
+                <div className="grid grid-cols-3 gap-1.5 w-fit">
+                  {[
+                    { nx: -1, ny: -1, label: '↖' }, { nx: 0, ny: -1, label: '↑' }, { nx: 1, ny: -1, label: '↗' },
+                    { nx: -1, ny: 0, label: '←' }, { nx: 0, ny: 0, label: '●' }, { nx: 1, ny: 0, label: '→' },
+                    { nx: -1, ny: 1, label: '↙' }, { nx: 0, ny: 1, label: '↓' }, { nx: 1, ny: 1, label: '↘' },
+                  ].map(g => (
+                    <button
+                      key={g.label}
+                      onClick={() => handleGaze(g.nx, g.ny)}
+                      className="w-10 h-10 flex items-center justify-center bg-white border-2 border-slate-100 rounded-xl hover:border-primary/30 text-slate-600 font-bold lab-button"
+                      aria-label={`目線 ${g.label}`}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2 flex-1">
+                <p className="text-xs font-bold text-muted-foreground ml-1">リアルタイム</p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => setBreathing(b => !b)}
+                    className={`py-3 px-4 rounded-xl font-display font-bold text-sm lab-button border-2 ${breathing ? 'bg-emerald-100 border-emerald-200 text-emerald-700' : 'bg-white border-slate-100 text-slate-400'}`}
+                  >
+                    呼吸 {breathing ? 'ON' : 'OFF'}
+                  </button>
+                  <button
+                    onClick={() => setFollowPointer(f => { if (!f) rigRef.current?.lookAt(0, 0); return !f; })}
+                    className={`py-3 px-4 rounded-xl font-display font-bold text-sm lab-button border-2 ${followPointer ? 'bg-sky-100 border-sky-200 text-sky-700' : 'bg-white border-slate-100 text-slate-400'}`}
+                  >
+                    マウス追従 {followPointer ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-
-      </footer>
+      )}
     </div>
   );
 }

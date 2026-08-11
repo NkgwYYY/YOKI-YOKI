@@ -112,6 +112,105 @@
   }
 }
 
+/* ── 育成ホームUI ── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 8px 24px -12px rgba(80, 60, 120, 0.25);
+}
+
+.glass-chip {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 14px -6px rgba(80, 60, 120, 0.2);
+}
+
+.orbit-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 88px;
+  height: 88px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 10px 24px -10px rgba(80, 60, 120, 0.3);
+  animation: orbit-float 5s ease-in-out infinite;
+}
+
+.orbit-btn:nth-child(odd) { animation-delay: -2.5s; }
+
+@media (max-width: 380px) {
+  .orbit-btn { width: 76px; height: 76px; }
+}
+
+@keyframes orbit-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+.orbit-btn:active { transform: scale(0.9); }
+
+.orbit-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(60px);
+  animation: blob-drift 26s ease-in-out infinite alternate;
+}
+
+.orbit-blob-2 { animation-duration: 34s; animation-direction: alternate-reverse; }
+
+@keyframes blob-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to { transform: translate(8vmin, 6vmin) scale(1.15); }
+}
+
+.star-dot {
+  position: absolute;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.9);
+  animation: star-twinkle 5s ease-in-out infinite;
+}
+
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.9; }
+}
+
+.speech-pop { animation: speech-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+@keyframes speech-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.speech-tail {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  transform: translateX(-50%) rotate(45deg);
+  background: rgba(255, 255, 255, 0.45);
+  border-right: 1px solid rgba(255, 255, 255, 0.65);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.65);
+}
+
+.panel-pop { animation: panel-in 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes panel-in {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 /* Character Lab Specific Styles */
 .lab-shadow {
   box-shadow: 0 8px 32px -8px rgba(0,0,0,0.08), 0 4px 16px -4px rgba(0,0,0,0.04);
