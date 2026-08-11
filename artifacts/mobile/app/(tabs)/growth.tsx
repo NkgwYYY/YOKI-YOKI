@@ -32,11 +32,18 @@ import { MoodCalendar } from '@/components/MoodCalendar';
 import { InsightCard } from '@/components/InsightCard';
 import { BADGE_DEFINITIONS } from '@/data/badges';
 import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
+import { getMascotStage, getCharacter } from '@/utils/mascotUtils';
 import { Image } from 'react-native';
 import { ACTIVITY_DEFS, totalActivityCount } from '@/utils/activities';
 import { getTodayDate } from '@/utils/dateUtils';
 
-const EGG_IMG = require('../../assets/images/egg/normal.png');
+// ステージごとのキャラ画像(進化に合わせて成長比較の見た目も切り替える)
+const STAGE_IMAGES: Record<string, ReturnType<typeof require>> = {
+  egg: require('../../assets/images/egg/normal.png'),
+  odango: require('../../assets/images/characters/odango.png'),
+  happa: require('../../assets/images/characters/happa.png'),
+  colorful_happa: require('../../assets/images/characters/colorful_happa.png'),
+};
 
 function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   const opacity = useSharedValue(0);
@@ -122,10 +129,12 @@ export default function GrowthScreen() {
     { label: '大切にした日', value: `${monthRecords.filter((r) => (r.activities?.selfCare || 0) > 0).length}日`, icon: 'heart-outline', color: '#FF9ECD' },
   ].slice(0, 6);
 
-  // ─── たまごの成長(はじめ vs 今) ───
+  // ─── キャラの成長(はじめ vs 今)。進化後は現在のキャラ画像で表示 ───
   const firstGrowth = growth.history[0]?.growthSize ?? 1.0;
   const growthPct = (v: number) => `${(v * 100).toFixed(1)}%`;
   const hasGrown = growth.growthSize - firstGrowth > 0.0005;
+  const currentChar = getCharacter(getMascotStage(progress.level));
+  const CHAR_IMG = STAGE_IMAGES[currentChar.key] ?? STAGE_IMAGES.egg;
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
@@ -362,18 +371,18 @@ export default function GrowthScreen() {
           </View>
         </FadeIn>
 
-        {/* たまごの成長(はじめ vs 今) */}
+        {/* キャラの成長(はじめ vs 今)。進化に合わせて画像・名前も変わる */}
         <FadeIn delay={360}>
           <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
             <LinearGradient
               colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
               style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
             />
-            <Text style={[styles.cardTitle, { color: colors.foreground }]}>たまごの成長</Text>
+            <Text style={[styles.cardTitle, { color: colors.foreground }]}>{currentChar.name}の成長</Text>
             <View style={styles.eggCompareRow}>
               <View style={styles.eggCompareItem}>
                 <View style={styles.eggImgBox}>
-                  <Image source={EGG_IMG} style={{ width: 64 * firstGrowth, height: 64 * firstGrowth }} resizeMode="contain" />
+                  <Image source={CHAR_IMG} style={{ width: 64 * firstGrowth, height: 64 * firstGrowth }} resizeMode="contain" />
                 </View>
                 <Text style={[styles.eggCompareLabel, { color: colors.mutedForeground }]}>はじめの頃</Text>
                 <Text style={[styles.eggComparePct, { color: colors.mutedForeground }]}>{growthPct(firstGrowth)}</Text>
@@ -381,7 +390,7 @@ export default function GrowthScreen() {
               <Ionicons name="arrow-forward" size={20} color={colors.mutedForeground} />
               <View style={styles.eggCompareItem}>
                 <View style={styles.eggImgBox}>
-                  <Image source={EGG_IMG} style={{ width: 64 * growth.growthSize, height: 64 * growth.growthSize }} resizeMode="contain" />
+                  <Image source={CHAR_IMG} style={{ width: 64 * growth.growthSize, height: 64 * growth.growthSize }} resizeMode="contain" />
                 </View>
                 <Text style={[styles.eggCompareLabel, { color: colors.foreground }]}>いま</Text>
                 <Text style={[styles.eggComparePct, { color: colors.primary }]}>{growthPct(growth.growthSize)}</Text>
@@ -409,7 +418,7 @@ export default function GrowthScreen() {
                   .map((snap, i) => (
                     <View key={snap.date} style={styles.historyItem}>
                       <Image
-                        source={EGG_IMG}
+                        source={CHAR_IMG}
                         style={{ width: 34 * snap.growthSize, height: 34 * snap.growthSize, opacity: 0.6 + i * 0.13 }}
                         resizeMode="contain"
                       />
