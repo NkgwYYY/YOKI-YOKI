@@ -3,12 +3,12 @@
  * 慣性揺れ)をそのまま使うための埋め込みステージ。
  *
  * Web(ブラウザ/PWA)では ラボの /stage.html を透明iframeで埋め込み、
- * ネイティブでは従来の Mascot 表示にフォールバックする。
+ * ネイティブでは react-native-webview で本番URLのステージを表示する。
+ * 読み込み失敗時は従来の Mascot 表示にフォールバック。
  * 本体からは char / mood / growthSize を渡すだけ。データは本体側が持つ。
  */
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
-// Web専用: MessageEvent はブラウザ環境でのみ使用される
 import { Mascot } from '@/components/Mascot';
 import type { MascotStage, MascotMood } from '@/utils/mascotUtils';
 import { getCharacter } from '@/utils/mascotUtils';
@@ -18,16 +18,19 @@ interface Props {
   mood: MascotMood;
   size: number;
   growthSize: number;
-  /** ネイティブフォールバック用 */
+  /** フォールバック表示用 */
   idleBehavior?: any;
   onPet?: () => void;
 }
 
-/** ラボのステージページURL(同一オリジンのパス。開発中のexpoドメインではラボ側ドメインへ向ける) */
+/** ネイティブから参照する本番のラボURL */
+const PROD_LAB_ORIGIN = 'https://yoki-yoki.replit.app';
+
+/** ラボのステージページURL(Web: 同一オリジン相対。開発中のexpoドメインではプロキシ側へ読み替え) */
 function stageOrigin(): string {
+  if (Platform.OS !== 'web') return PROD_LAB_ORIGIN;
   if (typeof window === 'undefined') return '';
   const host = window.location.hostname;
-  // Expo開発ドメイン(…​.expo.<cluster>.replit.dev)からはプロキシ側ドメインに読み替える
   if (host.includes('.expo.') && host.endsWith('.replit.dev')) {
     return `https://${host.replace('.expo.', '.')}`;
   }
@@ -37,11 +40,13 @@ function stageOrigin(): string {
 export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, onPet }: Props) {
   const char = getCharacter(stage).key; // egg | odango | happa | colorful_happa
   const iframeRef = useRef<any>(null);
+  const webviewRef = useRef<any>(null);
+  const [nativeFailed, setNativeFailed] = useState(false);
 
   const src = useMemo(() => {
     const base = `${stageOrigin()}/character-lab/stage.html`;
     return `${base}?char=${char}&mood=${mood}&scale=${growthSize.toFixed(3)}`;
-    // 初回URLのみ。以後の変更はpostMessageで反映(iframe再読込を避ける)
+    // 初回URLのみ。以後の変更はpostMessageで反映(再読込を避ける)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -50,13 +55,17 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
   latest.current = { char, mood, scale: growthSize };
 
   const sendState = () => {
-    const win = iframeRef.current?.contentWindow;
-    if (!win) return;
-    win.postMessage({ type: 'yokky-stage', ...latest.current }, '*');
+    const msg = { type: 'yokky-stage', ...latest.current };
+    if (Platform.OS === 'web') {
+      iframeRef.current?.contentWindow?.postMessage(msg, '*');
+    } else {
+      webviewRef.current?.injectJavaScript(
+        `window.postMessage(${JSON.stringify(msg)}, '*'); true;`,
+      );
+    }
   };
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
     sendState();
   }, [char, mood, growthSize]);
 
@@ -71,9 +80,42 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
+  /* ── フォールバック(ネイティブ読み込み失敗時) ── */
+  const fallback = (
+    <Mascot stage={stage} mood={mood} size={size} idleBehavior={idleBehavior} onPet={onPet} />
+  );
+
   if (Platform.OS !== 'web') {
+    if (nativeFailed) return fallback;
+    // 遅延require: Web(expo export)バンドルにネイティブ専用モジュールを含めない
+    let WebView: any;
+    try {
+      WebView = require('react-native-webview').WebView;
+    } catch {
+      return fallback;
+    }
     return (
-      <Mascot stage={stage} mood={mood} size={size} idleBehavior={idleBehavior} onPet={onPet} />
+      <View style={{ width: size * 1.5, height: size * 1.5 }}>
+        <WebView
+          ref={webviewRef}
+          source={{ uri: src }}
+          style={{ flex: 1, backgroundColor: 'transparent' }}
+          containerStyle={{ backgroundColor: 'transparent' }}
+          javaScriptEnabled
+          domStorageEnabled={false}
+          scrollEnabled={false}
+          overScrollMode="never"
+          bounces={false}
+          onError={() => setNativeFailed(true)}
+          onHttpError={() => setNativeFailed(true)}
+          onMessage={(e: any) => {
+            try {
+              const d = JSON.parse(e.nativeEvent.data);
+              if (d?.type === 'yokky-stage-ready') sendState();
+            } catch {}
+          }}
+        />
+      </View>
     );
   }
 

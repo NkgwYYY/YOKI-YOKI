@@ -70,6 +70,8 @@ function Stage() {
     window.addEventListener('message', onMessage);
     // ハンドシェイク: 親はこれを受けて最新状態を送り直す
     window.parent?.postMessage({ type: 'yokky-stage-ready' }, '*');
+    // React Native WebView埋め込み(ネイティブアプリ)向けのready通知
+    (window as any).ReactNativeWebView?.postMessage(JSON.stringify({ type: 'yokky-stage-ready' }));
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
