@@ -110,10 +110,11 @@ export default function BoneCharacter({ charKey, mood, size, hop = true, animate
   const grumpy = mood === 'grumpy';
 
   /* --- 表情(スプライト選択のみ。物理に影響しない) --- */
-  const eyeL = happy && parts.leftEyeHappy ? sprites.leftEyeHappy : sprites.leftEye;
-  const eyeR = happy && parts.rightEyeHappy ? sprites.rightEyeHappy : sprites.rightEye;
-  const eyeLBox = happy && parts.leftEyeHappy ? parts.leftEyeHappy : parts.leftEye;
-  const eyeRBox = happy && parts.rightEyeHappy ? parts.rightEyeHappy : parts.rightEye;
+  // 喜・楽でも目は元画像のまま(笑い目スプライトは使わない)。口だけ笑う
+  const eyeL = sprites.leftEye;
+  const eyeR = sprites.rightEye;
+  const eyeLBox = parts.leftEye;
+  const eyeRBox = parts.rightEye;
   const mouthImg = happy && parts.mouthSmile ? sprites.mouthSmile : sprites.mouth;
   const mouthBox = happy && parts.mouthSmile ? parts.mouthSmile : parts.mouth;
 

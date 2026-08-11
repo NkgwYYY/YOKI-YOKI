@@ -345,7 +345,7 @@ export class CharacterRig {
     switch (emotion) {
       case 'happy':
       case 'fun':
-        stage(() => this.setFaceSprites('happy', 'mouthSmile'), 0);
+        stage(() => this.setFaceSprites('normal', 'mouthSmile'), 0);
         break;
       case 'angry':
         stage(() => {
