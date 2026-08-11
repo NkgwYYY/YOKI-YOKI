@@ -121,6 +121,9 @@ export class CharacterRig {
    */
   public setEmotion(emotion: Emotion) {
     this.emotion = emotion;
+    // キャラごとの表情変化の強さ。1からの差分をex倍する
+    const ex = this.config.expressiveness;
+    const lerp = (base: number, delta: number) => base + delta * ex;
 
     // Reset
     this.bodyScaleX.target = 1;
@@ -134,33 +137,33 @@ export class CharacterRig {
     switch (emotion) {
       case 'happy':
         // 目を少し細め、頬を少し強調、体は弾む(ループ側)
-        this.eyeScaleY.target = 0.75;
-        this.cheekScale.target = 1.12;
+        this.eyeScaleY.target = lerp(1, -0.25);
+        this.cheekScale.target = lerp(1, 0.12);
         break;
       case 'angry':
         // 目をやや細めて下げる + 小さな震え(ループ側)。眉毛は使わない
-        this.eyeScaleY.target = 0.8;
-        this.faceOffsetY.target = 4;
+        this.eyeScaleY.target = lerp(1, -0.2);
+        this.faceOffsetY.target = 4 * ex;
         break;
       case 'sad':
         // 目線を下げ、顔全体を少し下げ、体を少し縮める
-        this.gazeY.target = 4;
-        this.faceOffsetY.target = 7;
-        this.bodyScaleY.target = 0.96;
-        this.bodyScaleX.target = 1.03;
+        this.gazeY.target = 4 * ex;
+        this.faceOffsetY.target = 7 * ex;
+        this.bodyScaleY.target = lerp(1, -0.04);
+        this.bodyScaleX.target = lerp(1, 0.03);
         break;
       case 'fun':
         // 目を少し細め、体を左右に揺らす(ループ側)
-        this.eyeScaleY.target = 0.85;
-        this.cheekScale.target = 1.08;
+        this.eyeScaleY.target = lerp(1, -0.15);
+        this.cheekScale.target = lerp(1, 0.08);
         break;
       case 'surprised':
         // 目と口を「元デザインと分かる範囲で」少し大きく + 体が伸びる
-        this.eyeScaleY.target = 1.18;
-        this.eyeScaleX.target = 1.12;
-        this.mouthScaleY.target = 1.35;
-        this.bodyScaleY.target = 1.08;
-        this.bodyScaleX.target = 0.94;
+        this.eyeScaleY.target = lerp(1, 0.18);
+        this.eyeScaleX.target = lerp(1, 0.12);
+        this.mouthScaleY.target = lerp(1, 0.35);
+        this.bodyScaleY.target = lerp(1, 0.08);
+        this.bodyScaleX.target = lerp(1, -0.06);
         setTimeout(() => {
           if (this.emotion === 'surprised') {
             this.bodyScaleY.target = 1;
@@ -267,17 +270,18 @@ export class CharacterRig {
       let bR = 0;
 
       if (!this.jumping && this.breathing) {
+        const ex = this.config.expressiveness;
         bY = Math.sin(this.time * 2) * 5;
 
         if (this.emotion === 'happy') {
-          bY = Math.abs(Math.sin(this.time * 6)) * -15;
+          bY = Math.abs(Math.sin(this.time * 6)) * -15 * ex;
         } else if (this.emotion === 'sad') {
-          bY += 10;
+          bY += 10 * ex;
         } else if (this.emotion === 'fun') {
-          bR = Math.sin(this.time * 3) * 5;
+          bR = Math.sin(this.time * 3) * 5 * ex;
         } else if (this.emotion === 'angry') {
           // 眉毛の代わりに小刻みな震えで怒りを表現
-          bY += Math.sin(this.time * 40) * 1.2;
+          bY += Math.sin(this.time * 40) * 1.2 * ex;
         }
       }
 
