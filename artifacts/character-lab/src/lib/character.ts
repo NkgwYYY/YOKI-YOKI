@@ -59,7 +59,6 @@ export class CharacterRig {
   private gazeY = new Spring(0, 0.1, 0.7);
   private faceOffsetY = new Spring(0, 0.15, 0.8);
   private mouthScaleY = new Spring(1, 0.25, 0.7);
-  private cheekScale = new Spring(1, 0.1, 0.85);
 
   // State
   private emotion: Emotion = 'normal';
@@ -187,7 +186,6 @@ export class CharacterRig {
       case 'fun':
         // 喜と楽は同じ表情(元「楽」): 目: 弧の笑い目 / 口: 笑いカーブ / 体: 左右に揺れる(ループ側)
         stage(() => this.setFaceSprites('happy', 'mouthSmile'), 0);
-        stage(() => { this.cheekScale.target = lerp(1, 0.25); }, 140);
         break;
       case 'angry':
         // 目: 内側に鋭く傾け細める / 口: 「へ」を強調 / 体: 小さく構えて震える(ループ側)
@@ -200,11 +198,6 @@ export class CharacterRig {
           this.mouthScaleY.target = lerp(1, 0.5);
           this.mouthScaleX.target = lerp(1, -0.15);
         }, 110);
-        stage(() => {
-          this.cheekScale.target = lerp(1, -0.15);
-          this.bodyScaleY.target = lerp(1, -0.05);
-          this.bodyScaleX.target = lerp(1, 0.04);
-        }, 220);
         this.faceOffsetY.target = 5 * ex;
         break;
       case 'sad':
@@ -221,9 +214,6 @@ export class CharacterRig {
         }, 110);
         stage(() => {
           this.faceOffsetY.target = 9 * ex;
-          this.bodyScaleY.target = lerp(1, -0.07);
-          this.bodyScaleX.target = lerp(1, 0.05);
-          this.cheekScale.target = lerp(1, -0.1);
         }, 220);
         break;
       case 'surprised':
@@ -233,16 +223,6 @@ export class CharacterRig {
           this.eyeScaleY.target = lerp(1, 0.4);
           this.eyeScaleX.target = lerp(1, 0.25);
         }, 0);
-        stage(() => {
-          this.bodyScaleY.target = lerp(1, 0.1);
-          this.bodyScaleX.target = lerp(1, -0.07);
-        }, 90);
-        stage(() => {
-          if (this.emotion === 'surprised') {
-            this.bodyScaleY.target = 1;
-            this.bodyScaleX.target = 1;
-          }
-        }, 450);
         break;
       case 'normal':
       default:
@@ -383,7 +363,6 @@ export class CharacterRig {
       const fo = this.faceOffsetY.update();
       const my = this.mouthScaleY.update();
       const mxs = this.mouthScaleX.update();
-      const cs = this.cheekScale.update();
 
       this.rootGroup.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${sx}, ${sy})`;
 
@@ -397,9 +376,9 @@ export class CharacterRig {
       // 口: 開閉スケールのみ(形は元画像 or 元画像由来スプライトのまま)
       this.mouth.style.transform = `translate(${gx * 0.3}px, ${fo}px) scale(${mxs}, ${my})`;
 
-      // 頬: 元画像どおり常時表示。感情で少しだけスケール
-      if (this.leftCheek) this.leftCheek.style.transform = `translate(0px, ${fo * 0.6}px) scale(${cs})`;
-      if (this.rightCheek) this.rightCheek.style.transform = `translate(0px, ${fo * 0.6}px) scale(${cs})`;
+      // 頬: 元画像どおり常時表示。スケール・変形は一切しない(位置の追従のみ)
+      if (this.leftCheek) this.leftCheek.style.transform = `translate(0px, ${fo * 0.6}px)`;
+      if (this.rightCheek) this.rightCheek.style.transform = `translate(0px, ${fo * 0.6}px)`;
 
       this.animationFrameId = requestAnimationFrame(tick);
     };
