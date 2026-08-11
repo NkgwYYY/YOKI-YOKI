@@ -61,6 +61,11 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
 
   useEffect(() => { onPlayingChange?.(step === 'playing'); }, [step]);
 
+  /* 曲選択画面以外では試聴を必ず停止 (戻る/閉じる経路も含めて音が残らないように) */
+  useEffect(() => {
+    if (step !== 'song') stopPreview();
+  }, [step]);
+
   /* 曲カードタップ → 選択 + プレビュー再生 (サビ付近から小さめ音量) */
   const selectSong = useCallback(async (s: Song) => {
     setSong(s);
