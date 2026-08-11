@@ -177,7 +177,6 @@ export class CharacterRig {
     this.eyeRotate.target = 0;
     this.mouthScaleY.target = 1;
     this.mouthScaleX.target = 1;
-    this.cheekScale.target = 1;
     this.faceOffsetY.target = 0;
     if (this.gazeX.target === 0) this.gazeY.target = 0;
 
