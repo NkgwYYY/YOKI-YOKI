@@ -42,6 +42,29 @@ import {
   IdleBehavior,
 } from '@/utils/mascotUtils';
 import { getGreeting, formatDateJP, getTodayDate } from '@/utils/dateUtils';
+import { MAX_GROWTH_SCALE } from '@/utils/growth';
+import { Dimensions } from 'react-native';
+
+/* ── サイズ成長の表示ラッパー ──
+   GrowthSize(内部の成長値)と ScreenFit(画面に収める調整)を分離。
+   更新時は数秒かけてふわっと変化し、派手な演出はしない。 */
+function GrowthScaleWrap({ growthSize, baseSize, children }: {
+  growthSize: number; baseSize: number; children: React.ReactNode;
+}) {
+  // ScreenFit: 画面幅の55%を超えない範囲に表示スケールを制限
+  const fitCap = Math.min(
+    MAX_GROWTH_SCALE,
+    (Dimensions.get('window').width * 0.55) / baseSize,
+  );
+  const displayScale = Math.min(growthSize, fitCap);
+  const scale = useSharedValue(displayScale);
+  useEffect(() => {
+    // ふわっと数秒かけて追従(初回マウント時は即座に反映済み)
+    scale.value = withTiming(displayScale, { duration: 4000 });
+  }, [displayScale]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const HOME_COMMENT_KEY = '@mentore/home_comment_v1';
@@ -157,7 +180,7 @@ export default function HomeScreen() {
     mascotName, setMascotName,
     currentSatiety, inactivityHours, feedState,
     miniGameState, completeMiniGame,
-    isLoading,
+    isLoading, growth,
   } = useApp();
 
   const [showMiniGame, setShowMiniGame] = useState(false);
@@ -379,13 +402,15 @@ export default function HomeScreen() {
             {/* Mascot with glow */}
             <View style={styles.mascotWrap}>
               <View style={styles.mascotGlow} />
-              <Mascot
-                stage={stage}
-                mood={mood}
-                size={150}
-                idleBehavior={idleBehavior}
-                onPet={handlePet}
-              />
+              <GrowthScaleWrap growthSize={growth.growthSize} baseSize={150}>
+                <Mascot
+                  stage={stage}
+                  mood={mood}
+                  size={150}
+                  idleBehavior={idleBehavior}
+                  onPet={handlePet}
+                />
+              </GrowthScaleWrap>
             </View>
 
             {/* Name display */}

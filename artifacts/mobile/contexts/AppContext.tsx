@@ -20,6 +20,11 @@ import {
 } from '@/data/foodItems';
 import { useAuth, API_BASE } from './AuthContext';
 import {
+  GrowthRecord,
+  createGrowthRecord,
+  applyGrowth,
+} from '@/utils/growth';
+import {
   MiniGameState,
   DEFAULT_MINI_GAME_STATE,
   resolveMiniGameState,
@@ -104,6 +109,7 @@ const KEYS = {
   LAST_OPENED: '@mentore/last_opened_v1',
   MINI_GAME: '@mentore/mini_game_v1',
   PROFILE: '@mentore/profile_v1',
+  GROWTH: '@mentore/growth_v1',
 };
 
 /** Compute current satiety based on elapsed time since last feed */
@@ -149,6 +155,10 @@ interface AppContextType {
   feedMascot: (foodId: string) => Promise<{ success: boolean; message: string; newSatiety: number }>;
   completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number }) => Promise<void>;
   pushDataToCloud: () => Promise<void>;
+  /** サイズ成長(Level/Evolutionとは独立)。マスコットは進化しても同一個体として成長を引き継ぐ */
+  growth: GrowthRecord;
+  /** 成長表示を見たことを記録(控えめメッセージ用) */
+  markGrowthSeen: () => Promise<void>;
 }
 
 const defaultProgress: UserProgress = {
@@ -188,6 +198,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [miniGameState, setMiniGameState] = useState<MiniGameState>(DEFAULT_MINI_GAME_STATE);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [cloudSynced, setCloudSynced] = useState(false);
+  // マスコットは進化しても同一個体なので characterId は固定 'mascot'
+  const [growth, setGrowth] = useState<GrowthRecord>(() => createGrowthRecord('mascot'));
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
@@ -283,7 +295,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr] =
+      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
           AsyncStorage.getItem(KEYS.RECORDS),
@@ -296,7 +308,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.LAST_OPENED),
           AsyncStorage.getItem(KEYS.MINI_GAME),
           AsyncStorage.getItem(KEYS.PROFILE),
+          AsyncStorage.getItem(KEYS.GROWTH),
         ]);
+
+      // ── サイズ成長: 保存値を読み、経過時間ぶんの成長を適用 ──
+      {
+        let g: GrowthRecord;
+        try {
+          g = growthStr ? (JSON.parse(growthStr) as GrowthRecord) : createGrowthRecord('mascot');
+        } catch {
+          g = createGrowthRecord('mascot');
+        }
+        const updated = applyGrowth(g);
+        setGrowth(updated);
+        await AsyncStorage.setItem(KEYS.GROWTH, JSON.stringify(updated));
+      }
 
       if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
       await AsyncStorage.setItem(KEYS.LAST_OPENED, new Date().toISOString());
@@ -355,6 +381,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
   };
+
+  // ── サイズ成長: 1時間ごとに経過時間ぶんを再計算(時間ベース。開いた回数は無関係) ──
+  useEffect(() => {
+    if (isLoading) return;
+    const timer = setInterval(() => {
+      setGrowth((prev) => {
+        const next = applyGrowth(prev);
+        if (next !== prev) {
+          AsyncStorage.setItem(KEYS.GROWTH, JSON.stringify(next)).catch(() => {});
+        }
+        return next;
+      });
+    }, 3_600_000);
+    return () => clearInterval(timer);
+  }, [isLoading]);
+
+  const markGrowthSeen = useCallback(async () => {
+    setGrowth((prev) => {
+      if (prev.lastSeenSize === prev.growthSize) return prev;
+      const next = { ...prev, lastSeenSize: prev.growthSize };
+      AsyncStorage.setItem(KEYS.GROWTH, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
 
   const saveFeedState = async (next: FeedState) => {
     setFeedState(next);
@@ -669,6 +719,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         feedMascot,
         completeMiniGame,
         pushDataToCloud,
+        growth,
+        markGrowthSeen,
       }}
     >
       {children}

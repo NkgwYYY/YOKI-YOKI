@@ -63,7 +63,13 @@ function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
 export default function GrowthScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { progress, records, unlockedBadges } = useApp();
+  const { progress, records, unlockedBadges, growth, markGrowthSeen } = useApp();
+  // 成長表示を見た記録(控えめメッセージは次回以降消える)
+  const grownSinceSeen = growth.growthSize - growth.lastSeenSize >= 0.005;
+  useEffect(() => {
+    const t = setTimeout(() => { markGrowthSeen(); }, 3000);
+    return () => clearTimeout(t);
+  }, [growth.growthSize]);
   const { user, logout } = useAuth();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
@@ -194,6 +200,7 @@ export default function GrowthScreen() {
                 { icon: 'flame', color: '#FF6FA3', value: progress.streak, label: '連続' },
                 { icon: 'calendar-outline', color: colors.primary, value: progress.totalDays, label: '記録日数' },
                 { icon: 'flash', color: colors.accent, value: progress.experience, label: '総XP' },
+                { icon: 'resize-outline', color: '#7FDCA4', value: `${(growth.growthSize * 100).toFixed(1)}%`, label: '成長' },
               ].map((s, i) => (
                 <React.Fragment key={s.label}>
                   {i > 0 && <View style={[styles.statDivider, { backgroundColor: colors.border }]} />}
@@ -205,6 +212,12 @@ export default function GrowthScreen() {
                 </React.Fragment>
               ))}
             </View>
+
+            {grownSinceSeen && (
+              <Text style={[styles.growthNote, { color: colors.mutedForeground }]}>
+                前回より少し大きくなったよ
+              </Text>
+            )}
           </View>
         </FadeIn>
 
@@ -315,6 +328,7 @@ const styles = StyleSheet.create({
   statItem: { alignItems: 'center', gap: 4, flex: 1 },
   statValue: { fontSize: 20, fontFamily: 'Inter_700Bold' },
   statLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  growthNote: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 10 },
   statDivider: { width: 1, height: 40 },
   avgBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   avgLabel: { fontSize: 12, fontFamily: 'Inter_400Regular' },
