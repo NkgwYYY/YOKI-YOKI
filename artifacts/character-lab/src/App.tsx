@@ -141,10 +141,10 @@ export default function App() {
   const orbitButtons = [
     { key: 'talk',   label: '話しかける', sub: 'おしゃべり', icon: <MessageCircle className="w-6 h-6" />, pos: 'left-[2%] top-[6%]',    on: () => { act('talk'); setMessage(pickMessage(emotion)); } },
     { key: 'jump',   label: 'ジャンプ',   sub: '元気にぴょん', icon: <ArrowUpCircle className="w-6 h-6" />, pos: 'right-[2%] top-[6%]',   on: () => act('jump') },
-    { key: 'pet',    label: 'なでる',     sub: '元気をあげる', icon: <Sparkles className="w-6 h-6" />,      pos: 'left-[-2%] top-[46%]',  on: () => { act('wink'); act('bounce'); } },
-    { key: 'shake',  label: 'ブルブル',   sub: '気分転換',     icon: <Zap className="w-6 h-6" />,           pos: 'right-[-2%] top-[46%]', on: () => act('shake') },
-    { key: 'walk',   label: '歩く',       sub: 'おさんぽ',     icon: <Footprints className="w-6 h-6" />,    pos: 'left-[8%] bottom-[-4%]', on: () => act('walk') },
-    { key: 'bounce', label: 'バウンド',   sub: 'ぷるんぷるん', icon: <ArrowUpCircle className="w-6 h-6 rotate-180" />, pos: 'right-[8%] bottom-[-4%]', on: () => act('bounce') },
+    { key: 'pet',    label: 'なでる',     sub: '元気をあげる', icon: <Sparkles className="w-6 h-6" />,      pos: 'left-0 top-[46%]',  on: () => { act('wink'); act('bounce'); } },
+    { key: 'shake',  label: 'ブルブル',   sub: '気分転換',     icon: <Zap className="w-6 h-6" />,           pos: 'right-0 top-[46%]', on: () => act('shake') },
+    { key: 'walk',   label: '歩く',       sub: 'おさんぽ',     icon: <Footprints className="w-6 h-6" />,    pos: 'left-[6%] bottom-[-4%]', on: () => act('walk') },
+    { key: 'bounce', label: 'バウンド',   sub: 'ぷるんぷるん', icon: <ArrowUpCircle className="w-6 h-6 rotate-180" />, pos: 'right-[6%] bottom-[-4%]', on: () => act('bounce') },
   ];
 
   return (
@@ -217,7 +217,7 @@ export default function App() {
 
           <svg
             ref={svgRef}
-            className="w-full h-full max-w-[340px] max-h-[380px] drop-shadow-xl select-none touch-none z-10"
+            className="w-[56vw] max-w-[280px] h-full max-h-[380px] drop-shadow-xl select-none touch-none z-10"
             style={{ overflow: 'visible' }}
           />
 

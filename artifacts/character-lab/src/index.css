@@ -149,7 +149,7 @@
 .orbit-btn:nth-child(odd) { animation-delay: -2.5s; }
 
 @media (max-width: 380px) {
-  .orbit-btn { width: 76px; height: 76px; }
+  .orbit-btn { width: 72px; height: 72px; }
 }
 
 @keyframes orbit-float {
