@@ -307,37 +307,51 @@ function useRhythmAudio() {
   const kaRef = useRef<Audio.Sound | null>(null);
   const bgmRef = useRef<Audio.Sound | null>(null);
 
+  const bgmStartedRef = useRef(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      try {
-        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-        const [don, ka, bgm] = await Promise.all([
-          Audio.Sound.createAsync(RHYTHM_SOUNDS.don, { volume: 1.0 }),
-          Audio.Sound.createAsync(RHYTHM_SOUNDS.ka, { volume: 1.0 }),
-          Audio.Sound.createAsync(RHYTHM_SOUNDS.bgm, { isLooping: true, volume: 0.45 }),
-        ]);
-        if (cancelled) {
-          don.sound.unloadAsync(); ka.sound.unloadAsync(); bgm.sound.unloadAsync();
-          return;
-        }
-        donRef.current = don.sound;
-        kaRef.current = ka.sound;
-        bgmRef.current = bgm.sound;
-        await bgm.sound.playAsync();
-      } catch (_) {} // 音が使えなくてもゲームは続行
+      try { await Audio.setAudioModeAsync({ playsInSilentModeIOS: true }); } catch (_) {}
+      const results = await Promise.allSettled([
+        Audio.Sound.createAsync(RHYTHM_SOUNDS.don, { volume: 1.0 }),
+        Audio.Sound.createAsync(RHYTHM_SOUNDS.ka, { volume: 1.0 }),
+        Audio.Sound.createAsync(RHYTHM_SOUNDS.bgm, { isLooping: true, volume: 0.45 }),
+      ]);
+      const loaded = results.map(r => (r.status === 'fulfilled' ? r.value.sound : null));
+      if (cancelled) {
+        loaded.forEach(snd => snd?.unloadAsync().catch(() => {}));
+        return;
+      }
+      donRef.current = loaded[0];
+      kaRef.current = loaded[1];
+      bgmRef.current = loaded[2];
+      if (loaded[2]) {
+        try {
+          await loaded[2].playAsync();
+          bgmStartedRef.current = true;
+        } catch (_) {} // Webの自動再生ブロック等 → 最初のタップで再試行
+      }
     })();
     return () => {
       cancelled = true;
-      [donRef, kaRef, bgmRef].forEach(r => {
-        r.current?.stopAsync().catch(() => {});
-        r.current?.unloadAsync().catch(() => {});
-        r.current = null;
-      });
+      const sounds = [donRef.current, kaRef.current, bgmRef.current];
+      donRef.current = null; kaRef.current = null; bgmRef.current = null;
+      // unloadAsync は再生も停止する。直列化して停止/破棄の競合を避ける
+      (async () => {
+        for (const snd of sounds) {
+          if (snd) { try { await snd.unloadAsync(); } catch (_) {} }
+        }
+      })();
     };
   }, []);
 
   const playHit = useCallback((kind: NoteKind) => {
+    // Webの自動再生ブロック対策: 最初のユーザー操作でBGM開始を再試行
+    if (!bgmStartedRef.current && bgmRef.current) {
+      bgmStartedRef.current = true;
+      bgmRef.current.playAsync().catch(() => { bgmStartedRef.current = false; });
+    }
     const snd = kind === 'don' ? donRef.current : kaRef.current;
     snd?.replayAsync().catch(() => {});
   }, []);
@@ -564,7 +578,12 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
   }[slot];
 
   useEffect(() => {
-    if (visible) { setPhase('intro'); Analytics.miniGameStarted(slot); }
+    if (visible) {
+      setPhase('intro'); Analytics.miniGameStarted(slot);
+    } else {
+      // 非表示になったら進行中のゲームを確実にアンマウント（音・タイマーの残留防止）
+      setPhase('intro'); setReward(null);
+    }
   }, [visible]);
 
   const handleMorningFinish = (score: number) => {
