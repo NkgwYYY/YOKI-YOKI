@@ -91,7 +91,6 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
           background: 'transparent',
           display: 'block',
         },
-        allowTransparency: true,
         scrolling: 'no',
       })}
     </View>

@@ -111,6 +111,23 @@ function FillBar({ pct, color, delay = 0 }: { pct: number; color: string; delay?
   return <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: color, borderRadius: 6 }, style]} />;
 }
 
+/* ── 円形ガラスボタン(ラボ風オービットメニュー) ── */
+function OrbButton({ pos, emoji, label, sub, onPress }: {
+  pos: any; emoji: string; label: string; sub?: string; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.orbBtn, pos]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      <Text style={styles.orbEmoji}>{emoji}</Text>
+      <Text style={styles.orbLabel} numberOfLines={1}>{label}</Text>
+      {sub ? <Text style={styles.orbSub} numberOfLines={1}>{sub}</Text> : null}
+    </TouchableOpacity>
+  );
+}
+
 /* ── Floating glass bubble (speech) ── */
 function GlassBubble({ message }: { message: string }) {
   const y = useSharedValue(0);
@@ -428,10 +445,12 @@ export default function HomeScreen() {
               <GlassBubble message={currentMsg} />
             </View>
 
-            {/* Mascot with glow */}
-            <View style={styles.mascotWrap}>
-              <View style={styles.mascotGlow} />
-              {Platform.OS === 'web' ? (
+            {/* ── キャラ中心の円形メニュー(ラボ風) ── */}
+            <View style={styles.orbitStage}>
+              {/* Mascot with glow */}
+              <View style={styles.mascotWrap}>
+                <View style={styles.mascotGlow} />
+                {Platform.OS === 'web' ? (
                 /* Web: ラボの物理エンジン(掴んで投げる・ぷるん)を透明iframeで埋め込み。
                    スケールはステージ側がGrowth Sizeで反映する */
                 <StageCharacter
@@ -442,17 +461,37 @@ export default function HomeScreen() {
                   idleBehavior={idleBehavior}
                   onPet={handlePet}
                 />
-              ) : (
-                <GrowthScaleWrap growthSize={growth.growthSize} baseSize={150}>
-                  <Mascot
-                    stage={stage}
-                    mood={mood}
-                    size={150}
-                    idleBehavior={idleBehavior}
-                    onPet={handlePet}
-                  />
-                </GrowthScaleWrap>
-              )}
+                ) : (
+                  <GrowthScaleWrap growthSize={growth.growthSize} baseSize={150}>
+                    <Mascot
+                      stage={stage}
+                      mood={mood}
+                      size={150}
+                      idleBehavior={idleBehavior}
+                      onPet={handlePet}
+                    />
+                  </GrowthScaleWrap>
+                )}
+              </View>
+
+              {/* 円形ガラスボタン(6個・実データ連動) */}
+              <OrbButton pos={styles.orbTL} emoji="💬" label="話しかける"
+                onPress={() => router.push('/(tabs)/chat')} />
+              <OrbButton pos={styles.orbTR} emoji="✏️" label="今日を記録"
+                sub={todayRecord ? '記録済み' : '未記録'}
+                onPress={() => router.push('/(tabs)/record')} />
+              <OrbButton pos={styles.orbML} emoji="🍽️" label="ごはん"
+                sub={`🪙${feedState.points}pt`}
+                onPress={() => setShowFeedModal(true)} />
+              <OrbButton pos={styles.orbMR} emoji="🎮" label="ミニゲーム"
+                sub={slotDone ? 'また後で' : 'あそべるよ'}
+                onPress={() => setShowMiniGame(true)} />
+              <OrbButton pos={styles.orbBL} emoji="✅" label="今日の一歩"
+                sub={`${stepDone}/${totalCount}`}
+                onPress={() => router.push('/(tabs)/check')} />
+              <OrbButton pos={styles.orbBR} emoji="🌱" label="成長"
+                sub={`Lv.${progress.level}`}
+                onPress={() => router.push('/(tabs)/growth')} />
             </View>
 
             {/* Name display */}
@@ -491,19 +530,7 @@ export default function HomeScreen() {
             {/* Satiety bar */}
             <SatietyBar satiety={currentSatiety} />
 
-            {/* Feed button */}
-            <TouchableOpacity
-              style={[styles.feedBtn, { backgroundColor: '#9B72CB' }]}
-              onPress={() => setShowFeedModal(true)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.feedBtnEmoji}>🍽️</Text>
-              <Text style={styles.feedBtnText}>ごはんをあげる</Text>
-              <View style={[styles.feedPtBadge, { backgroundColor: 'rgba(255,255,255,0.25)' }]}>
-                <Text style={styles.feedPtText}>🪙 {feedState.points}pt</Text>
-              </View>
-            </TouchableOpacity>
-
+            {/* ごはんは円形メニューの「ごはん」ボタンから(重複ボタンは削除) */}
             {/* XP bar to next evolution */}
             {nextStageLevel ? (
               <View style={styles.evoWrap}>
@@ -920,6 +947,39 @@ const styles = StyleSheet.create({
   },
 
   // Mascot glow
+  /* ── 円形メニュー(オービット)── */
+  orbitStage: {
+    width: '100%',
+    height: 340,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orbBtn: {
+    position: 'absolute',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(84,64,148,0.48)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+    zIndex: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  orbEmoji: { fontSize: 20, lineHeight: 24 },
+  orbLabel: { fontSize: 9.5, fontWeight: '700', color: '#FFFFFF', marginTop: 1 },
+  orbSub: { fontSize: 8.5, color: 'rgba(255,255,255,0.65)', marginTop: 0.5 },
+  orbTL: { top: 6, left: 14 },
+  orbTR: { top: 6, right: 14 },
+  orbML: { top: 132, left: 2 },
+  orbMR: { top: 132, right: 2 },
+  orbBL: { bottom: 6, left: 14 },
+  orbBR: { bottom: 6, right: 14 },
   mascotWrap: { alignItems: 'center', justifyContent: 'center', zIndex: 3 },
   mascotGlow: {
     position: 'absolute', width: 190, height: 190, borderRadius: 95,
