@@ -311,6 +311,7 @@ function RhythmGame({ onFinish }: { onFinish: (result: { perfect: number; good: 
   const notesRef = useRef<RhythmNote[]>([]);
   const doneRef = useRef(0);
   const finishedRef = useRef(false);
+  const mountedRef = useRef(true);
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const laneWidth = SW - 32;
 
@@ -327,20 +328,22 @@ function RhythmGame({ onFinish }: { onFinish: (result: { perfect: number; good: 
     if (doneRef.current >= NOTE_COUNT && !finishedRef.current) {
       finishedRef.current = true;
       const c = countsRef.current;
-      const t = setTimeout(() => onFinish({ ...c, score: c.perfect * 2 + c.good }), 600);
+      const t = setTimeout(() => {
+        if (mountedRef.current) onFinish({ ...c, score: c.perfect * 2 + c.good });
+      }, 600);
       timeoutsRef.current.push(t);
     }
   }, [onFinish]);
 
   const missNote = useCallback((note: RhythmNote) => {
-    if (note.judged) return;
+    if (note.judged || finishedRef.current) return;
     note.judged = true;
     countsRef.current.miss += 1;
     comboRef.current = 0;
     setCombo(0);
     showJudge('ミス…', '#8A83B8');
     RNAnimated.timing(note.opacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
-      setNotes(prev => prev.filter(n => n.id !== note.id));
+      if (mountedRef.current) setNotes(prev => prev.filter(n => n.id !== note.id));
     });
     noteDone();
   }, [noteDone]);
@@ -376,10 +379,16 @@ function RhythmGame({ onFinish }: { onFinish: (result: { perfect: number; good: 
       timeoutsRef.current.push(t1, t2);
     });
 
-    return () => { timeoutsRef.current.forEach(clearTimeout); };
+    return () => {
+      mountedRef.current = false;
+      finishedRef.current = true; // 以降の判定・報酬コールバックを完全停止
+      timeoutsRef.current.forEach(clearTimeout);
+      notesRef.current.forEach(n => { n.x.stopAnimation(); n.opacity.stopAnimation(); });
+    };
   }, []);
 
   const hit = useCallback((kind: NoteKind) => {
+    if (finishedRef.current) return;
     const t = now();
     // 判定範囲内で最も近い未判定ノーツ
     let best: RhythmNote | null = null;
@@ -417,7 +426,7 @@ function RhythmGame({ onFinish }: { onFinish: (result: { perfect: number; good: 
     const target = best;
     RNAnimated.parallel([
       RNAnimated.timing(target.opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
-    ]).start(() => setNotes(prev => prev.filter(n => n.id !== target.id)));
+    ]).start(() => { if (mountedRef.current) setNotes(prev => prev.filter(n => n.id !== target.id)); });
     noteDone();
   }, [noteDone]);
 
@@ -534,7 +543,7 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={phase !== 'playing' ? onClose : () => {}}>
       <View style={s.overlay}>
         <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={phase !== 'playing' ? onClose : undefined} />
 
