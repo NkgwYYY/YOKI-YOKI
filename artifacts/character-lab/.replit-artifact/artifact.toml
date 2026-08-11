@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/character-lab/"
+title = "キャラクターラボ"
+description = "YOKKYの元キャラクター画像をそのまま使い、ブラウザ上でリアルタイムに表情（喜・怒・哀・楽・驚）と動き（瞬き・ジャンプ・震え・呼吸・目線・喋り）をJavaScriptで制御できる2Dキャラクター操作アプリ。"
+version = "1.0.0"
+id = "artifacts/character-lab"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/character-lab/" ]
+localPort = 24224
+
+[services.development]
+run = "pnpm --filter @workspace/character-lab run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/character-lab", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/character-lab/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24224"
+BASE_PATH = "/character-lab/"
