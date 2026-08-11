@@ -106,7 +106,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
           onChangeText={setNickname}
           maxLength={20}
           placeholder="例: ゆき"
-          placeholderTextColor={colors.mutedForeground + '99'}
+          placeholderTextColor={'rgba(255,255,255,0.4)'}
           style={[styles.input, { backgroundColor: '#241C42', color: colors.foreground, borderColor: '#6B58A8' }]}
         />
 
@@ -167,7 +167,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
           onChangeText={setOccupation}
           maxLength={30}
           placeholder="例: 会社員、学生、フリーランス"
-          placeholderTextColor={colors.mutedForeground + '99'}
+          placeholderTextColor={'rgba(255,255,255,0.4)'}
           style={[styles.input, { backgroundColor: '#241C42', color: colors.foreground, borderColor: '#6B58A8' }]}
         />
 

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCosmicColors as useColors, COSMIC_SHEET } from '@/constants/cosmicTheme';
+import { COSMIC_SHEET } from '@/constants/cosmicTheme';
 import { GameSlot, getSlotConfig } from '@/utils/miniGameUtils';
 import { Analytics } from '@/utils/analytics';
 
@@ -289,7 +289,6 @@ type NoonVariant = 'chest' | 'balloon';
 type NightVariant = 'star' | 'moon';
 
 export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
-  const colors = useColors();
   const [phase, setPhase] = useState<Phase>('intro');
   const [reward, setReward] = useState<Reward | null>(null);
   const [morningVariant] = useState<MorningVariant>(() => Math.random() < 0.5 ? 'sun' : 'flower');
@@ -412,8 +411,8 @@ const s = StyleSheet.create({
   closeTxt: { color: '#FFF', fontSize: 14, fontFamily: 'Inter_700Bold' },
 
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 14 },
-  descText: { fontSize: 17, fontFamily: 'Inter_600SemiBold', color: '#333', textAlign: 'center' },
-  rewardHint: { fontSize: 13, color: '#888', fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  descText: { fontSize: 17, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.92)', textAlign: 'center' },
+  rewardHint: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter_400Regular', textAlign: 'center' },
   startBtn: { paddingHorizontal: 40, paddingVertical: 16, borderRadius: 20, marginTop: 8 },
   startTxt: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
 
@@ -424,13 +423,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 14, paddingBottom: 4, zIndex: 10,
   },
   timerText: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#FF6B35' },
-  scoreText: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#333' },
+  scoreText: { fontSize: 18, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.92)' },
   tapWrap: { position: 'absolute' },
   tapEmoji: { fontSize: 44 },
 
   // noon chests
   chestArea: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24, padding: 20 },
-  chestHint: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: '#555' },
+  chestHint: { fontSize: 18, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.8)' },
   chestRow: { flexDirection: 'row', gap: 16, flexWrap: 'wrap', justifyContent: 'center' },
   chestBtn: { width: 80, height: 80, borderRadius: 20, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
   chestEmoji: { fontSize: 42 },
@@ -445,7 +444,7 @@ const s = StyleSheet.create({
 
   // result
   resultEmoji: { fontSize: 52 },
-  resultMsg: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#333', textAlign: 'center' },
+  resultMsg: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.92)', textAlign: 'center' },
   rewardTag: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 16, fontSize: 15, fontFamily: 'Inter_700Bold', overflow: 'hidden' },
-  seeYouText: { fontSize: 13, color: '#888', fontFamily: 'Inter_400Regular' },
+  seeYouText: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter_400Regular' },
 });
