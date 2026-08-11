@@ -33,12 +33,12 @@ import { InsightCard } from '@/components/InsightCard';
 import { BADGE_DEFINITIONS } from '@/data/badges';
 import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
 import { getMascotStage, getCharacter } from '@/utils/mascotUtils';
-import { Image } from 'react-native';
+import { Image, ImageSourcePropType } from 'react-native';
 import { ACTIVITY_DEFS, totalActivityCount } from '@/utils/activities';
 import { getTodayDate } from '@/utils/dateUtils';
 
 // ステージごとのキャラ画像(進化に合わせて成長比較の見た目も切り替える)
-const STAGE_IMAGES: Record<string, ReturnType<typeof require>> = {
+const STAGE_IMAGES: Record<string, ImageSourcePropType> = {
   egg: require('../../assets/images/egg/normal.png'),
   odango: require('../../assets/images/characters/odango.png'),
   happa: require('../../assets/images/characters/happa.png'),
