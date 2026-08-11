@@ -12,3 +12,24 @@ id = "hI80Bt4CdXqUZZ8Fa_9lL"
 uri = "file://attached_assets/character_gallery.jpg"
 type = "image"
 title = "進化キャラクター一覧"
+
+[[outputs]]
+id = "1_ery1JYgIuhbPMrXoRXg"
+uri = "file://attached_assets/generated_audio/taiko_ka.mp3"
+type = "audio"
+title = "taiko ka"
+description = "Generated sound effect: Japanese taiko drum rim click 'ka', bright wooden rimshot, very short, crisp, game sound effect"
+
+[[outputs]]
+id = "zAa5TPLZm6MQwR3tnOMms"
+uri = "file://attached_assets/generated_audio/taiko_don.mp3"
+type = "audio"
+title = "taiko don"
+description = "Generated sound effect: Japanese taiko drum single deep hit 'don', punchy, short, clean, no reverb tail, game sound effect"
+
+[[outputs]]
+id = "dWajlr1nKUO2XTcxB68H7"
+uri = "file://attached_assets/generated_audio/cosmic_rhythm_bgm.mp3"
+type = "audio"
+title = "cosmic rhythm bgm 97bpm"
+description = "Generated music: Cheerful spacey chiptune-like rhythm game background loop at 97 BPM, steady 4/4 pulse, warm synths, light percussion, kawaii cosmic mood, seamless loop, instrumental"

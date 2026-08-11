@@ -4,6 +4,7 @@ import {
   Dimensions, Platform, Animated as RNAnimated,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COSMIC_SHEET } from '@/constants/cosmicTheme';
 import { GameSlot, getSlotConfig } from '@/utils/miniGameUtils';
@@ -294,6 +295,60 @@ interface RhythmNote {
   opacity: RNAnimated.Value;
 }
 
+const RHYTHM_SOUNDS = {
+  don: require('@/assets/sounds/taiko_don.mp3'),
+  ka:  require('@/assets/sounds/taiko_ka.mp3'),
+  bgm: require('@/assets/sounds/cosmic_rhythm_bgm.mp3'),
+};
+
+/** 太鼓SE＋BGM。プリロードし、タップ時は replayAsync で低遅延再生。音が出なくても遊べる。 */
+function useRhythmAudio() {
+  const donRef = useRef<Audio.Sound | null>(null);
+  const kaRef = useRef<Audio.Sound | null>(null);
+  const bgmRef = useRef<Audio.Sound | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+        const [don, ka, bgm] = await Promise.all([
+          Audio.Sound.createAsync(RHYTHM_SOUNDS.don, { volume: 1.0 }),
+          Audio.Sound.createAsync(RHYTHM_SOUNDS.ka, { volume: 1.0 }),
+          Audio.Sound.createAsync(RHYTHM_SOUNDS.bgm, { isLooping: true, volume: 0.45 }),
+        ]);
+        if (cancelled) {
+          don.sound.unloadAsync(); ka.sound.unloadAsync(); bgm.sound.unloadAsync();
+          return;
+        }
+        donRef.current = don.sound;
+        kaRef.current = ka.sound;
+        bgmRef.current = bgm.sound;
+        await bgm.sound.playAsync();
+      } catch (_) {} // 音が使えなくてもゲームは続行
+    })();
+    return () => {
+      cancelled = true;
+      [donRef, kaRef, bgmRef].forEach(r => {
+        r.current?.stopAsync().catch(() => {});
+        r.current?.unloadAsync().catch(() => {});
+        r.current = null;
+      });
+    };
+  }, []);
+
+  const playHit = useCallback((kind: NoteKind) => {
+    const snd = kind === 'don' ? donRef.current : kaRef.current;
+    snd?.replayAsync().catch(() => {});
+  }, []);
+
+  const stopBgm = useCallback(() => {
+    bgmRef.current?.stopAsync().catch(() => {});
+  }, []);
+
+  return { playHit, stopBgm };
+}
+
 const NOTE_TRAVEL_MS = 1800;   // 出現→判定円までの時間
 const PERFECT_MS = 130;
 const GOOD_MS = 280;
@@ -314,6 +369,7 @@ function RhythmGame({ onFinish }: { onFinish: (result: { perfect: number; good: 
   const mountedRef = useRef(true);
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const laneWidth = SW - 32;
+  const { playHit, stopBgm } = useRhythmAudio();
 
   const now = () => Date.now();
 
@@ -327,6 +383,7 @@ function RhythmGame({ onFinish }: { onFinish: (result: { perfect: number; good: 
     doneRef.current += 1;
     if (doneRef.current >= NOTE_COUNT && !finishedRef.current) {
       finishedRef.current = true;
+      stopBgm();
       const c = countsRef.current;
       const t = setTimeout(() => {
         if (mountedRef.current) onFinish({ ...c, score: c.perfect * 2 + c.good });
@@ -399,9 +456,11 @@ function RhythmGame({ onFinish }: { onFinish: (result: { perfect: number; good: 
       if (diff <= GOOD_MS && diff < bestDiff) { best = n; bestDiff = diff; }
     }
     if (!best) {
+      playHit(kind); // 空振りでも音は鳴らす（太鼓らしさ）
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return; // 空振りはノーカウント
     }
+    playHit(kind);
     best.judged = true;
     if (best.kind !== kind) {
       // 色違いはミス扱い
