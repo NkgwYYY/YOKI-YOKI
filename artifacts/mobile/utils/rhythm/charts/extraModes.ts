@@ -124,13 +124,13 @@ export const COPY_PHRASES: Record<string, Record<Difficulty, CopyPhrase[]>> = {
       { start: 2, len: 2, beats: [0, 2, 3, 4] },
       { start: 6, len: 2, beats: [0, 1, 4, 6] },
       { start: 10, len: 2, beats: [0, 2, 4, 5] },
-      { start: 14, len: 2, beats: [0, 3, 4, 6] },
+      { start: 14, len: 2, beats: [0, 3, 4, 5] },
     ],
     hard: [
       { start: 2, len: 2, beats: [0, 2, 3, 4, 6] },
       { start: 6, len: 2, beats: [0, 1, 2, 4, 5] },
       { start: 10, len: 2, beats: [0, 2, 2.5, 4, 6] }, // ぽん ぽぽん…
-      { start: 14, len: 2, beats: [0, 1.5, 2, 4, 6] },
+      { start: 14, len: 2, beats: [0, 1.5, 2, 4, 5] },
     ],
   },
   // ゆったり曲 = 1小節提示 + 1小節再現

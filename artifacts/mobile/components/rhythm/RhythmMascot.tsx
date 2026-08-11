@@ -5,7 +5,7 @@
  * (Squash & Stretch と同じ原理: 離陸で伸び、着地で縦圧縮+横膨張→バネで復元)。
  * 曲の雰囲気(BPM/mood)でリアクションの大きさ・速さが変わる。
  */
-import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Animated as RNAnimated, View } from 'react-native';
 import { Mascot } from '@/components/Mascot';
 import { useApp } from '@/contexts/AppContext';
@@ -48,10 +48,13 @@ export const RhythmMascot = forwardRef<RhythmMascotHandle, Props>(function Rhyth
 
   const [mood, setMood] = useState<MascotMood>(baseMood);
   const moodTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cheerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
   const setMoodFor = (m: MascotMood, ms: number) => {
+    if (!mountedRef.current) return;
     setMood(m);
     if (moodTimer.current) clearTimeout(moodTimer.current);
-    moodTimer.current = setTimeout(() => setMood(baseMood), ms);
+    moodTimer.current = setTimeout(() => { if (mountedRef.current) setMood(baseMood); }, ms);
   };
 
   const ty = useRef(new RNAnimated.Value(0)).current;
@@ -59,6 +62,14 @@ export const RhythmMascot = forwardRef<RhythmMascotHandle, Props>(function Rhyth
   const rot = useRef(new RNAnimated.Value(0)).current; // deg
   const sx = useRef(new RNAnimated.Value(1)).current;
   const sy = useRef(new RNAnimated.Value(1)).current;
+
+  /* アンマウント時: タイマーとアニメーションをすべて解放 */
+  useEffect(() => () => {
+    mountedRef.current = false;
+    if (moodTimer.current) clearTimeout(moodTimer.current);
+    if (cheerTimer.current) clearTimeout(cheerTimer.current);
+    [ty, tx, rot, sx, sy].forEach(v => v.stopAnimation());
+  }, []);
 
   const t = (v: RNAnimated.Value, toValue: number, duration: number) =>
     RNAnimated.timing(v, { toValue, duration: duration * speed, useNativeDriver: true });
@@ -135,7 +146,8 @@ export const RhythmMascot = forwardRef<RhythmMascotHandle, Props>(function Rhyth
     cheer: () => {
       setMoodFor('excited', 1400);
       doJump(jumpH * 0.8);
-      setTimeout(() => doJump(jumpH * 0.5), 420 * speed);
+      if (cheerTimer.current) clearTimeout(cheerTimer.current);
+      cheerTimer.current = setTimeout(() => { if (mountedRef.current) doJump(jumpH * 0.5); }, 420 * speed);
     },
   }));
 
