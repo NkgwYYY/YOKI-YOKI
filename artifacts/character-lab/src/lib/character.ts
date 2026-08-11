@@ -33,6 +33,36 @@ const PHYSICS = {
   restitution: 0.42,
 };
 
+/**
+ * Grab / Lift / Drop(掴んで持ち上げて落とす)のパラメータ。
+ * キャラごとに上書きできる(CharacterConfig.interaction 想定の共通既定値)。
+ * リアル寄り・柔らかめの初期値。
+ */
+const INTERACTION = {
+  /** 長押しでGrabと判定するまでの時間(ms)。短いタップは通常リアクション */
+  grabThresholdMs: 180,
+  /** 掴んだ点とキャラ中心のオフセットを保持(指に中心を固定しない) */
+  grabOffset: true,
+  /** 指への追従の強さ(大きいほど機敏。小さいほど重く感じる) */
+  dragResponsiveness: 0.16,
+  /** 追従の減衰(小さいほどよく揺れる) */
+  dragDamping: 0.72,
+  /** 離した瞬間の速度の引き継ぎ率(大きすぎると飛んでいく) */
+  releaseVelocityMultiplier: 0.55,
+  /** 重さ(1が標準。大きいほど追従が遅くなる) */
+  mass: 1.0,
+  /** 離した時の速度の上限(px/s, 512座標系) */
+  maxReleaseSpeed: 1400,
+  /** 横方向の地面摩擦(着地後に横速度が減衰する係数/frame) */
+  groundFriction: 0.90,
+  /** 画面端マージン(512座標系。これ以上外へは持ち出せない) */
+  edgeMarginX: 150,
+  /** 持ち上げ高さの上限(負の値 = 上方向) */
+  minHoldY: -300,
+  /** 持ち上げ中、上向きに動くとSoftBody下側が遅れる(伸び)係数 */
+  hangStretchFactor: 0.00006,
+};
+
 // ============================================================
 // Spring / Damper (自然な追従・慣性・柔らかい反動)
 // dtScale = 実フレーム時間 / 60fps基準。フレームレート非依存。
@@ -180,6 +210,28 @@ export class CharacterRig {
   private airY = 0;          // 0 = 地面。負 = 上空
   private airVelocity = 0;   // px/s(正 = 下向き)
   private bouncesLeft = 0;
+  /** 横方向の投げ出し速度(px/s)。着地後は摩擦で減衰 */
+  private throwVX = 0;
+  /** 投げ出しによる横オフセット(rootのspringとは別) */
+  private throwX = 0;
+
+  // ─── Grab / Lift / Drop(Interaction Layer) ───
+  private grabbed = false;
+  private grabTimer: number | null = null;
+  private pointerDown = false;
+  /** 掴んだ点とキャラ中心のオフセット(512座標系) */
+  private grabDX = 0;
+  private grabDY = 0;
+  /** 指の目標位置(512座標系のオフセット) */
+  private holdTargetX = 0;
+  private holdTargetY = 0;
+  /** ドラッグ用の縦位置スプリング状態(airYを直接駆動) */
+  private holdVY = 0;
+  /** 指の速度推定用の履歴 */
+  private pointerTrail: { x: number; y: number; t: number }[] = [];
+  private onPointerDown: (e: PointerEvent) => void;
+  private onPointerMove: (e: PointerEvent) => void;
+  private onPointerUp: (e: PointerEvent) => void;
 
   // 顔パーツ内アニメ用 Spring(パーツ自体の表現。骨とは独立)
   private eyeScaleY = new Spring(1, 0.3, 0.6);
@@ -276,7 +328,129 @@ export class CharacterRig {
     if (p.leftCheek) this.leftCheek = this.createPart('leftCheek', p.leftCheek);
     if (p.rightCheek) this.rightCheek = this.createPart('rightCheek', p.rightCheek);
 
+    // ─── Grab / Lift / Drop: Pointer Events(マウス・タッチ共通) ───
+    // キャラクター領域(このSVG)だけタッチスクロールを止める。ページ全体は止めない
+    (this.container as unknown as HTMLElement).style.touchAction = 'none';
+    this.onPointerDown = (e) => this.handlePointerDown(e);
+    this.onPointerMove = (e) => this.handlePointerMove(e);
+    this.onPointerUp = (e) => this.handlePointerUp(e);
+    this.container.addEventListener('pointerdown', this.onPointerDown);
+    this.container.addEventListener('pointermove', this.onPointerMove);
+    this.container.addEventListener('pointerup', this.onPointerUp);
+    this.container.addEventListener('pointercancel', this.onPointerUp);
+
     this.startLoop();
+  }
+
+  /** クライアント座標 → 512座標系(キャラ中心からのオフセット) */
+  private toLocal(e: PointerEvent): { x: number; y: number } {
+    const rect = this.container.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 512 - 256;
+    const y = ((e.clientY - rect.top) / rect.height) * 512 - 450; // 450 ≒ 接地基準
+    return { x, y };
+  }
+
+  private trackPointer(x: number, y: number) {
+    const now = performance.now();
+    this.pointerTrail.push({ x, y, t: now });
+    // 直近120msだけ保持
+    while (this.pointerTrail.length > 2 && now - this.pointerTrail[0].t > 120) {
+      this.pointerTrail.shift();
+    }
+  }
+
+  private handlePointerDown(e: PointerEvent) {
+    e.preventDefault();
+    this.pointerDown = true;
+    this.pointerTrail = [];
+    const p = this.toLocal(e);
+    this.trackPointer(p.x, p.y);
+    this.container.setPointerCapture?.(e.pointerId);
+
+    // 長押しでGrab。短いタップは通常リアクション(ぷにっ + まばたき)
+    this.grabTimer = window.setTimeout(() => {
+      this.grabTimer = null;
+      if (!this.pointerDown) return;
+      this.beginGrab(p.x, p.y);
+    }, INTERACTION.grabThresholdMs);
+  }
+
+  private beginGrab(px: number, py: number) {
+    if (this.walking || this.shaking) return;
+    this.grabbed = true;
+    this.jumpPhase = 'idle';
+    this.bouncesLeft = 0;
+    // 掴んだ点とキャラ中心のオフセットを保持(指に中心を固定しない)
+    const charX = this.root.x.value + this.throwX;
+    const charY = this.airY;
+    this.grabDX = INTERACTION.grabOffset ? px - charX : 0;
+    this.grabDY = INTERACTION.grabOffset ? py - charY : 0;
+    this.holdTargetX = charX;
+    this.holdTargetY = charY;
+    // 掴まれた反応: ぷにっと少し沈む + 小さく目が動く(既存素材のみ)
+    this.squash.velocity += 0.035;
+    this.gazeY.target = 3;
+    this.after(() => { if (this.gazeX.target === 0) this.gazeY.target = 0; }, 600);
+  }
+
+  private handlePointerMove(e: PointerEvent) {
+    if (!this.pointerDown) return;
+    const p = this.toLocal(e);
+    this.trackPointer(p.x, p.y);
+    if (!this.grabbed) return;
+    e.preventDefault();
+    // 目標位置(自然な境界制限: 端に近づくほど動きが鈍る)
+    const rawX = p.x - this.grabDX;
+    const rawY = p.y - this.grabDY;
+    const mx = INTERACTION.edgeMarginX;
+    this.holdTargetX = Math.tanh(rawX / mx) * mx;
+    const my = -INTERACTION.minHoldY;
+    this.holdTargetY = rawY <= 0 ? -Math.tanh(-rawY / my) * my : 0;
+  }
+
+  private handlePointerUp(e: PointerEvent) {
+    this.pointerDown = false;
+    if (this.grabTimer !== null) {
+      // 短いタップ: 通常リアクション
+      clearTimeout(this.grabTimer);
+      this.grabTimer = null;
+      this.blink();
+      this.squash.velocity += 0.02;
+      return;
+    }
+    if (!this.grabbed) return;
+    this.grabbed = false;
+
+    // 離した瞬間の指の速度を推定して引き継ぐ(px/s)
+    let vx = 0; let vy = 0;
+    const trail = this.pointerTrail;
+    if (trail.length >= 2) {
+      const a = trail[0];
+      const b = trail[trail.length - 1];
+      const dt = (b.t - a.t) / 1000;
+      if (dt > 0.016) {
+        vx = (b.x - a.x) / dt;
+        vy = (b.y - a.y) / dt;
+      }
+    }
+    const m = INTERACTION.releaseVelocityMultiplier;
+    const cap = INTERACTION.maxReleaseSpeed;
+    vx = Math.max(-cap, Math.min(cap, vx * m));
+    vy = Math.max(-cap, Math.min(cap, vy * m));
+
+    // 落下開始(その場に固定せず速度を維持)
+    this.throwX = this.root.x.value + this.throwX;
+    this.root.x.value = 0;
+    this.root.x.velocity = 0;
+    this.root.x.target = 0;
+    this.throwVX = vx;
+    if (this.airY < 0) {
+      this.jumpPhase = 'air';
+      this.airVelocity = vy;
+    } else {
+      this.airY = 0;
+      this.squash.velocity += 0.02;
+    }
   }
 
   /** 元画像から切り出したパーツPNGを、元画像と同じ座標に置く(Face骨格配下) */
@@ -400,7 +574,7 @@ export class CharacterRig {
    * → 着地(速度に比例した圧縮・横に広がる) → 2〜3回の小さな反発 → 静止
    */
   public jump() {
-    if (this.jumpPhase !== 'idle') return;
+    if (this.jumpPhase !== 'idle' || this.grabbed) return;
     this.jumpPhase = 'crouch';
     this.bouncesLeft = 0;
 
@@ -417,7 +591,7 @@ export class CharacterRig {
 
   /** 上空から落として着地(Squash & Stretchの確認用) */
   public land() {
-    if (this.jumpPhase !== 'idle') return;
+    if (this.jumpPhase !== 'idle' || this.grabbed) return;
     this.jumpPhase = 'air';
     this.bouncesLeft = 0;
     this.airY = -240;
@@ -426,7 +600,7 @@ export class CharacterRig {
 
   /** 小さく2回弾む */
   public bounce() {
-    if (this.jumpPhase !== 'idle') return;
+    if (this.jumpPhase !== 'idle' || this.grabbed) return;
     this.jumpPhase = 'air';
     this.bouncesLeft = 2;
     this.airVelocity = -PHYSICS.jumpVelocity * 0.55;
@@ -434,7 +608,7 @@ export class CharacterRig {
 
   /** 歩く: 右へ移動して戻る(Bodyの慣性つき) */
   public walk() {
-    if (this.walking || this.shaking) return;
+    if (this.walking || this.shaking || this.grabbed) return;
     this.walking = true;
     this.root.x.target = 70;
     this.after(() => { this.root.x.target = -70; }, 900);
@@ -443,7 +617,7 @@ export class CharacterRig {
   }
 
   public shake() {
-    if (this.walking || this.shaking) return;
+    if (this.walking || this.shaking || this.grabbed) return;
     this.shaking = true;
     this.after(() => {
       this.shaking = false;
@@ -499,8 +673,26 @@ export class CharacterRig {
         lastBlink = Date.now();
       }
 
+      // --- Grab中: 指に少し遅れて追従(重さを感じるスプリング) ---
+      if (this.grabbed) {
+        const k = INTERACTION.dragResponsiveness / INTERACTION.mass;
+        const dmp = INTERACTION.dragDamping;
+        // 縦: airYを直接スプリング駆動
+        this.holdVY = (this.holdVY + (this.holdTargetY - this.airY) * k * dtScale)
+          * Math.pow(dmp, dtScale);
+        this.airY += this.holdVY * dtScale;
+        // 横: throwXをスプリング駆動
+        this.throwVX = (this.throwVX + (this.holdTargetX - this.throwX) * k * dtScale * 60)
+          * Math.pow(dmp, dtScale);
+        this.throwX += (this.throwVX / 60) * dtScale;
+        // 持ち上げ中の姿勢: 上向きに動くとSoftBodyの下側が少し遅れる(控えめな伸び)
+        const hang = Math.max(-PHYSICS.maxStretch * 0.6,
+          Math.min(0, this.holdVY * 60 * INTERACTION.hangStretchFactor * -1));
+        if (this.holdVY < 0) this.squash.velocity += hang * 0.06 * dtScale;
+      }
+
       // --- 垂直方向の運動学(ジャンプ・落下・着地) ---
-      if (this.jumpPhase === 'air') {
+      if (!this.grabbed && this.jumpPhase === 'air') {
         this.airVelocity += PHYSICS.gravity * dt;
         this.airY += this.airVelocity * dt;
 
@@ -521,6 +713,26 @@ export class CharacterRig {
             this.jumpPhase = 'idle';
           }
         }
+      }
+
+      // --- 投げ出しの横移動(離した後): 慣性 + 摩擦 + ゆっくり中央へ戻る ---
+      if (!this.grabbed && (this.throwX !== 0 || this.throwVX !== 0)) {
+        this.throwX += this.throwVX * dt;
+        // 摩擦: 接地中は強く、空中は弱く
+        const fr = this.jumpPhase === 'air' ? 0.995 : INTERACTION.groundFriction;
+        this.throwVX *= Math.pow(fr, dtScale);
+        // 接地して落ち着いたら、ゆっくり中央(定位置)へ戻る
+        if (this.jumpPhase !== 'air') {
+          this.throwX *= Math.pow(0.985, dtScale);
+          if (Math.abs(this.throwX) < 0.5 && Math.abs(this.throwVX) < 2) {
+            this.throwX = 0;
+            this.throwVX = 0;
+          }
+        }
+        // 画面端で止める(はみ出し防止)
+        const mx = INTERACTION.edgeMarginX;
+        if (this.throwX > mx) { this.throwX = mx; this.throwVX = Math.min(0, this.throwVX); }
+        if (this.throwX < -mx) { this.throwX = -mx; this.throwVX = Math.max(0, this.throwVX); }
       }
 
       // --- SoftBodyの圧縮(Spring/Damperで2〜3回の反発を経て収束) ---
@@ -559,7 +771,7 @@ export class CharacterRig {
       }
 
       // --- ボーン更新(親→子の順。慣性が伝播する) ---
-      this.root.update(dtScale, 0, this.airY);
+      this.root.update(dtScale, this.throwX, this.airY);
       this.body.update(dtScale, 0, bodyAddY, bodyAddRot);
       if (this.sprout) {
         const sway = this.breathing ? Math.sin(this.time * 1.6 + 1) * 1.5 : 0;
@@ -613,6 +825,11 @@ export class CharacterRig {
     cancelAnimationFrame(this.animationFrameId);
     this.transitionTimers.forEach((t) => clearTimeout(t));
     this.actionTimers.forEach((t) => clearTimeout(t));
+    if (this.grabTimer !== null) clearTimeout(this.grabTimer);
+    this.container.removeEventListener('pointerdown', this.onPointerDown);
+    this.container.removeEventListener('pointermove', this.onPointerMove);
+    this.container.removeEventListener('pointerup', this.onPointerUp);
+    this.container.removeEventListener('pointercancel', this.onPointerUp);
     this.container.innerHTML = '';
   }
 }
