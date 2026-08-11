@@ -32,7 +32,6 @@ export class CharacterRig {
   private rootGroup: SVGGElement;
   private imageGroup: SVGGElement;
   private faceGroup: SVGGElement;
-  private patchElement: SVGEllipseElement | null = null;
   
   // Springs for animation
   private bodyScaleY = new Spring(1, 0.15, 0.8);
@@ -90,35 +89,6 @@ export class CharacterRig {
     img.setAttribute('y', '0');
     this.imageGroup.appendChild(img);
     this.rootGroup.appendChild(this.imageGroup);
-
-    // Patch to cover original face
-    if (config.patchColor && config.patchSize) {
-      const pc = config.patchCenter ?? config.faceCenter;
-      this.patchElement = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-      this.patchElement.setAttribute('cx', pc.x.toString());
-      this.patchElement.setAttribute('cy', pc.y.toString());
-      this.patchElement.setAttribute('rx', (config.patchSize.w / 2).toString());
-      this.patchElement.setAttribute('ry', (config.patchSize.h / 2).toString());
-      this.patchElement.setAttribute('fill', config.patchColor);
-      
-      // Add soft blur to the patch to blend with fur
-      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-      const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-      filter.setAttribute('id', 'patch-blur');
-      filter.setAttribute('x', '-50%');
-      filter.setAttribute('y', '-50%');
-      filter.setAttribute('width', '200%');
-      filter.setAttribute('height', '200%');
-      const feGaussianBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-      feGaussianBlur.setAttribute('in', 'SourceGraphic');
-      feGaussianBlur.setAttribute('stdDeviation', '24');
-      filter.appendChild(feGaussianBlur);
-      defs.appendChild(filter);
-      this.container.appendChild(defs);
-      
-      this.patchElement.setAttribute('filter', 'url(#patch-blur)');
-      this.rootGroup.appendChild(this.patchElement);
-    }
 
     // Face layer
     this.faceGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -208,22 +178,22 @@ export class CharacterRig {
   public setEmotion(emotion: Emotion) {
     this.emotion = emotion;
     
-    // Reset defaults
+    // Reset defaults (body画像から頬も除去済みなので、頬パーツは常時うっすら表示する)
     this.bodyScaleX.target = 1;
     this.bodyScaleY.target = 1;
     this.eyebrowRotate.target = 0;
     this.eyebrowTranslateY.target = 0;
-    this.cheekOpacity.target = 0;
+    this.cheekOpacity.target = 0.45;
     
     switch (emotion) {
       case 'happy':
-        this.cheekOpacity.target = 0.6;
+        this.cheekOpacity.target = 0.75;
         this.eyeScaleY.target = 0.8;
         this.leftEyebrow.style.opacity = '0';
         this.rightEyebrow.style.opacity = '0';
         break;
       case 'angry':
-        this.cheekOpacity.target = 0;
+        this.cheekOpacity.target = 0.25;
         this.eyeScaleY.target = 0.9;
         this.eyebrowRotate.target = 25;
         this.eyebrowTranslateY.target = 10;
@@ -231,7 +201,7 @@ export class CharacterRig {
         this.rightEyebrow.style.opacity = '1';
         break;
       case 'sad':
-        this.cheekOpacity.target = 0;
+        this.cheekOpacity.target = 0.3;
         this.eyeScaleY.target = 0.9;
         this.bodyScaleY.target = 0.95;
         this.bodyScaleX.target = 1.05;
@@ -241,7 +211,7 @@ export class CharacterRig {
         this.rightEyebrow.style.opacity = '1';
         break;
       case 'fun':
-        this.cheekOpacity.target = 0.4;
+        this.cheekOpacity.target = 0.6;
         this.eyeScaleY.target = 0.85;
         this.leftEyebrow.style.opacity = '0';
         this.rightEyebrow.style.opacity = '0';
