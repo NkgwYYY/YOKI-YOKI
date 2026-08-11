@@ -27,6 +27,8 @@ export interface PartsManifest {
   mouthSmile?: PartBox;
   mouthOpen?: PartBox;
   mouthO?: PartBox;
+  /** 頭の葉・植物など(存在するキャラのみ)。ボーンで遅れて揺れる */
+  sprout?: PartBox;
 }
 
 export interface CharacterConfig {
