@@ -116,6 +116,29 @@ export function applyGrowth(record: GrowthRecord, now = new Date()): GrowthRecor
   return { ...record, growthSize: size, lastGrowthAt: now.toISOString(), history };
 }
 
+/**
+ * 音ゲー1プレイぶんのごく小さな成長ボーナス(+0.03%)。
+ * 1回では絶対に見えない変化(数週間続けてようやく気づく程度)。
+ * Level/Evolution とは独立で、時間ベース成長(applyGrowth)にも影響しない。
+ */
+export const PLAY_GROWTH_BONUS = 0.0003;
+
+/** リズムプレイ完了時の微小成長を適用した新しいレコードを返す */
+export function applyPlayGrowth(record: GrowthRecord, now = new Date()): GrowthRecord {
+  const size = Math.min(record.growthSize + PLAY_GROWTH_BONUS, MAX_GROWTH_SCALE);
+  if (size === record.growthSize) return record;
+  const today = now.toISOString().slice(0, 10);
+  const history = [...record.history];
+  const lastSnap = history[history.length - 1];
+  if (lastSnap && lastSnap.date === today) {
+    history[history.length - 1] = { date: today, growthSize: size };
+  } else {
+    history.push({ date: today, growthSize: size });
+  }
+  if (history.length > 400) history.splice(1, history.length - 400);
+  return { ...record, growthSize: size, history };
+}
+
 /** 表示用: "100.0%" 形式 */
 export function formatGrowth(size: number): string {
   return `${(size * 100).toFixed(1)}%`;

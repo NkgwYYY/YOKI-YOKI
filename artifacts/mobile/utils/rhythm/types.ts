@@ -35,6 +35,16 @@ export interface Note {
   direction?: 'left' | 'right' | 'up' | 'down';
 }
 
+/** RHYTHM COPY 用フレーズ: start小節から len小節でキャラが提示し、続く len小節でユーザーが再現 */
+export interface CopyPhrase {
+  /** 提示開始小節 (0始まり) */
+  start: number;
+  /** 提示の長さ (小節数)。レスポンス枠も同じ長さ */
+  len: number;
+  /** 提示スパン内の拍オフセット (0.5刻み) */
+  beats: number[];
+}
+
 export interface Chart {
   songId: string;
   mode: RhythmMode;

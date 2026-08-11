@@ -23,6 +23,7 @@ import {
   GrowthRecord,
   createGrowthRecord,
   applyGrowth,
+  applyPlayGrowth,
 } from '@/utils/growth';
 import {
   MiniGameState,
@@ -690,6 +691,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setProgress(newProgress);
       await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
     }
+
+    // メンタルケア連携: 音楽と楽しく過ごした記録として、ごく僅かな成長ボーナス
+    // (1回では見えない +0.03%。Level/Evolution とは独立、時間ベース成長にも影響しない)
+    setGrowth((prev) => {
+      const nextG = applyPlayGrowth(prev);
+      if (nextG !== prev) AsyncStorage.setItem(KEYS.GROWTH, JSON.stringify(nextG)).catch(() => {});
+      return nextG;
+    });
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     pushDataToCloud();

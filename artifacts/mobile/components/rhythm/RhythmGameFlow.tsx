@@ -9,15 +9,19 @@ import { SONGS } from '@/utils/rhythm/songs';
 import { getChart } from '@/utils/rhythm/charts';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
 import { TapBeatGame } from './TapBeatGame';
+import { RhythmJumpGame } from './RhythmJumpGame';
+import { RhythmSwipeGame } from './RhythmSwipeGame';
+import { RhythmCopyGame } from './RhythmCopyGame';
+import { RelaxRhythmGame } from './RelaxRhythmGame';
 
 type Step = 'song' | 'mode' | 'difficulty' | 'playing' | 'result';
 
 const MODES: { id: RhythmMode; title: string; emoji: string; desc: string; ready: boolean }[] = [
   { id: 'tap',   title: 'TAP BEAT',     emoji: '🎵', desc: '4レーンをリズムでタップ', ready: true },
-  { id: 'jump',  title: 'RHYTHM JUMP',  emoji: '🦘', desc: 'じゅんびちゅう', ready: false },
-  { id: 'swipe', title: 'RHYTHM SWIPE', emoji: '👉', desc: 'じゅんびちゅう', ready: false },
-  { id: 'copy',  title: 'RHYTHM COPY',  emoji: '🪞', desc: 'じゅんびちゅう', ready: false },
-  { id: 'relax', title: 'RHYTHM RELAX', emoji: '🌊', desc: 'じゅんびちゅう', ready: false },
+  { id: 'jump',  title: 'RHYTHM JUMP',  emoji: '🦘', desc: 'ビートに合わせてキャラがジャンプ', ready: true },
+  { id: 'swipe', title: 'RHYTHM SWIPE', emoji: '👉', desc: 'やじるしの方向にスワイプ', ready: true },
+  { id: 'copy',  title: 'RHYTHM COPY',  emoji: '🪞', desc: 'キャラのリズムをまねっこ', ready: true },
+  { id: 'relax', title: 'RHYTHM RELAX', emoji: '🌊', desc: 'ひろがる円をゆったりタップ', ready: true },
 ];
 
 const DIFFS: { id: Difficulty; label: string; color: string; desc: string }[] = [
@@ -27,9 +31,11 @@ const DIFFS: { id: Difficulty; label: string; color: string; desc: string }[] = 
 ];
 
 /** キャラの優しいコメント (高評価/普通/MISS多め) */
-function characterComment(r: PlayResult): string {
+function characterComment(r: PlayResult, mode: RhythmMode): string {
+  if (mode === 'relax') return 'いっしょにゆったりできて きもちよかった〜🌊';
   const missRate = r.totalNotes > 0 ? r.miss / r.totalNotes : 0;
   const stars = starRating(r);
+  if (mode === 'copy' && stars >= 4) return 'まねっこ、ばっちりだったね！うれしい〜！🪞✨';
   if (stars >= 4) return 'すごい！きみのリズム、キラキラしてたよ〜！✨';
   if (missRate > 0.4) return 'いっしょに音楽きけてうれしかった〜。またゆっくりやろうね🎵';
   return 'いいかんじ！つぎはもっと息が合いそうだね〜🎶';
@@ -163,7 +169,7 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
     return (
       <ScrollView contentContainerStyle={st.body}>
         <Text style={st.stepTitle}>むずかしさをえらぼう</Text>
-        <Text style={st.subTitle}>{song?.emoji} {song?.title} / TAP BEAT</Text>
+        <Text style={st.subTitle}>{song?.emoji} {song?.title} / {MODES.find(m => m.id === mode)?.title}</Text>
         {DIFFS.map(d => {
           const c = song ? getChart(song.id, mode, d.id) : null;
           return (
@@ -193,36 +199,54 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
 
   /* ── プレイ中 ── */
   if (step === 'playing' && song && chart) {
-    return (
-      <TapBeatGame
-        song={song}
-        chart={chart}
-        onFinish={handleFinish}
-        onQuit={() => setStep('difficulty')}
-      />
-    );
+    const gameProps = { song, chart, onFinish: handleFinish, onQuit: () => setStep('difficulty') };
+    if (mode === 'jump') return <RhythmJumpGame {...gameProps} />;
+    if (mode === 'swipe') return <RhythmSwipeGame {...gameProps} />;
+    if (mode === 'copy') {
+      return (
+        <RhythmCopyGame
+          song={song}
+          difficulty={difficulty}
+          onFinish={handleFinish}
+          onQuit={() => setStep('difficulty')}
+        />
+      );
+    }
+    if (mode === 'relax') return <RelaxRhythmGame {...gameProps} />;
+    return <TapBeatGame {...gameProps} />;
   }
 
   /* ── 結果 ── */
   if (step === 'result' && result) {
     const stars = starRating(result);
+    const isRelax = mode === 'relax';
     return (
       <ScrollView contentContainerStyle={st.body}>
-        <Text style={st.resultScoreLabel}>SCORE</Text>
-        <Text style={st.resultScore}>{result.score}</Text>
-        <View style={st.judgeGrid}>
-          <Text style={[st.judgeCell, { color: '#FFD75E' }]}>PERFECT {result.perfect}</Text>
-          <Text style={[st.judgeCell, { color: '#5EE0B8' }]}>GREAT {result.great}</Text>
-          <Text style={[st.judgeCell, { color: '#5EB8FF' }]}>GOOD {result.good}</Text>
-          <Text style={[st.judgeCell, { color: '#8A83B8' }]}>MISS {result.miss}</Text>
-        </View>
-        <Text style={st.resultMeta}>MAX COMBO {result.maxCombo}・プレイ時間 {fmtTime(result.playTime)}</Text>
+        {isRelax ? (
+          <>
+            <Text style={st.resultScoreLabel}>おつかれさま</Text>
+            <Text style={st.relaxDone}>こころが ととのった 🌊</Text>
+          </>
+        ) : (
+          <>
+            <Text style={st.resultScoreLabel}>SCORE</Text>
+            <Text style={st.resultScore}>{result.score}</Text>
+            <View style={st.judgeGrid}>
+              <Text style={[st.judgeCell, { color: '#FFD75E' }]}>PERFECT {result.perfect}</Text>
+              <Text style={[st.judgeCell, { color: '#5EE0B8' }]}>GREAT {result.great}</Text>
+              <Text style={[st.judgeCell, { color: '#5EB8FF' }]}>GOOD {result.good}</Text>
+              <Text style={[st.judgeCell, { color: '#8A83B8' }]}>MISS {result.miss}</Text>
+            </View>
+            <Text style={st.resultMeta}>MAX COMBO {result.maxCombo}・プレイ時間 {fmtTime(result.playTime)}</Text>
+          </>
+        )}
         <Text style={st.starsLabel}>今日のリズム</Text>
         <Text style={st.stars}>{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</Text>
+        <Text style={st.refreshTag}>🍃 今日のリフレッシュ +1</Text>
         <View style={st.resultMascotRow}>
           <Mascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />
           <View style={[st.commentBubble, { flex: 1, marginTop: 0 }]}>
-            <Text style={st.commentTxt}>{characterComment(result)}</Text>
+            <Text style={st.commentTxt}>{characterComment(result, mode)}</Text>
           </View>
         </View>
         <TouchableOpacity style={st.primaryBtn} onPress={onClose} activeOpacity={0.85}>
@@ -294,6 +318,8 @@ const st = StyleSheet.create({
   resultMeta: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 2 },
   starsLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 8 },
   stars: { fontSize: 30, color: '#FFD75E', textAlign: 'center', letterSpacing: 4 },
+  relaxDone: { fontSize: 24, fontFamily: 'Inter_700Bold', color: '#B8F5E4', textAlign: 'center', marginTop: 4 },
+  refreshTag: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#9BE8B8', textAlign: 'center', marginTop: 6 },
   resultMascotRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
   commentBubble: {
     backgroundColor: 'rgba(255,255,255,0.09)', borderRadius: 18, padding: 14, marginTop: 6,
