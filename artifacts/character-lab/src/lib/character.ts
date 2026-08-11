@@ -55,6 +55,8 @@ class Bone {
   readonly rot: Spring;
   private follow: number;
   private children: Bone[] = [];
+  private prevAppliedX = 0;
+  private prevAppliedY = 0;
 
   constructor(parent: SVGElement, opts: BoneOptions = {}) {
     this.group = document.createElementNS(SVG_NS, 'g');
@@ -81,13 +83,16 @@ class Bone {
    * 「少し遅れて追従 → 行き過ぎ → 戻る」動きになる。
    */
   update(addX = 0, addY = 0, addRot = 0) {
-    const px = this.x.value;
-    const py = this.y.value;
     const x = this.x.update();
     const y = this.y.update();
     const r = this.rot.update();
-    const dx = x - px;
-    const dy = y - py;
+    // 付加的な揺れ(呼吸など)も含めた「実際に適用された移動量」を子へ伝える
+    const appliedX = x + addX;
+    const appliedY = y + addY;
+    const dx = appliedX - this.prevAppliedX;
+    const dy = appliedY - this.prevAppliedY;
+    this.prevAppliedX = appliedX;
+    this.prevAppliedY = appliedY;
 
     // 子へ慣性を伝播(親が動くと子は一瞬取り残される)
     if (dx !== 0 || dy !== 0) {
@@ -98,7 +103,7 @@ class Bone {
     }
 
     this.group.style.transform =
-      `translate(${x + addX}px, ${y + addY}px) rotate(${r + addRot}deg)`;
+      `translate(${appliedX}px, ${appliedY}px) rotate(${r + addRot}deg)`;
   }
 }
 
@@ -156,6 +161,7 @@ export class CharacterRig {
   private winkSide: 'left' | 'right' = 'right';
   private animationFrameId = 0;
   private transitionTimers: number[] = [];
+  private actionTimers: number[] = [];
 
   // DOM Elements (すべて元画像から切り出した <image>)
   private leftEye: SVGImageElement;
@@ -291,16 +297,13 @@ export class CharacterRig {
         stage(() => this.setFaceSprites('happy', 'mouthSmile'), 0);
         break;
       case 'angry':
-        // 目: 内側に鋭く傾け細める / 口: 「へ」を強調 / 体: 小刻みな震え(ループ側)
+        // 目: 内側に鋭く傾け細める(開閉のみ) / 体: 小刻みな震え(ループ側)
+        // ※口の形状変形は禁止。位置の微調整のみ
         stage(() => {
           this.setFaceSprites('normal', 'mouth');
           this.eyeRotate.target = 17 * ex;
           this.eyeScaleY.target = lerp(1, -0.45);
         }, 0);
-        stage(() => {
-          this.mouthScaleY.target = lerp(1, 0.5);
-          this.mouthScaleX.target = lerp(1, -0.15);
-        }, 110);
         this.faceOffsetY.target = 5 * ex;
         break;
       case 'sad':
@@ -312,19 +315,14 @@ export class CharacterRig {
           this.gazeY.target = 5 * ex;
         }, 0);
         stage(() => {
-          this.mouthScaleY.target = lerp(1, 0.25);
-          this.mouthScaleX.target = lerp(1, -0.25);
-        }, 110);
-        stage(() => {
           this.faceOffsetY.target = 9 * ex;
         }, 220);
         break;
       case 'surprised':
-        // 目: 大きく見開く / 口: 「o」
+        // 目: 大きく見開く(開きのみ。横伸ばしはしない) / 口: 「o」スプライト
         stage(() => {
           this.setFaceSprites('normal', 'mouthO');
           this.eyeScaleY.target = lerp(1, 0.4);
-          this.eyeScaleX.target = lerp(1, 0.25);
         }, 0);
         break;
       case 'normal':
@@ -366,15 +364,15 @@ export class CharacterRig {
     // しゃがみ(位置のみ少し沈む)
     this.root.y.target = 12;
 
-    setTimeout(() => {
+    this.after(() => {
       // 跳躍
       this.root.y.target = -150;
 
-      setTimeout(() => {
+      this.after(() => {
         // 着地: 少し沈み込む(慣性で Body/Face が柔らかく揺れる)
         this.root.y.target = 8;
 
-        setTimeout(() => {
+        this.after(() => {
           this.root.y.target = 0;
           this.jumping = false;
         }, 160);
@@ -384,11 +382,16 @@ export class CharacterRig {
 
   public shake() {
     this.shaking = true;
-    setTimeout(() => {
+    this.after(() => {
       this.shaking = false;
       this.root.x.target = 0;
       this.root.rot.target = 0;
     }, 1000);
+  }
+
+  /** destroy時に必ず解放されるアクション用タイマー */
+  private after(fn: () => void, delay: number) {
+    this.actionTimers.push(window.setTimeout(fn, delay));
   }
 
   /** 目線を動かす。nx, ny は -1〜1(目パーツごと少し平行移動) */
@@ -405,7 +408,7 @@ export class CharacterRig {
     if (this.talking) return;
     this.talking = true;
 
-    setTimeout(() => {
+    this.after(() => {
       this.talking = false;
       // 現在の表情の口の状態に戻す
       this.setEmotion(this.emotion);
@@ -508,6 +511,7 @@ export class CharacterRig {
   public destroy() {
     cancelAnimationFrame(this.animationFrameId);
     this.transitionTimers.forEach((t) => clearTimeout(t));
+    this.actionTimers.forEach((t) => clearTimeout(t));
     this.container.innerHTML = '';
   }
 }
