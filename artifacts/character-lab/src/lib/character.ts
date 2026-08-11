@@ -147,7 +147,6 @@ export class CharacterRig {
   private mouthScaleY = new Spring(1, 0.25, 0.7);
   private gazeX = new Spring(0, 0.1, 0.7);
   private gazeY = new Spring(0, 0.1, 0.7);
-  private faceOffsetY = new Spring(0, 0.15, 0.8);
   private cheekOpacity = new Spring(1, 0.15, 0.8);
 
   // State
@@ -198,7 +197,7 @@ export class CharacterRig {
     // Sprout(頭の葉など): 存在するキャラのみ。Bodyにさらに遅れて揺れる
     if (config.parts.sprout) {
       this.sprout = new Bone(this.body.group, {
-        follow: 0.6, stiffness: 0.08, damping: 0.82,
+        follow: 0.35, stiffness: 0.12, damping: 0.78,
         originX: config.parts.sprout.x + config.parts.sprout.w / 2,
         originY: config.parts.sprout.y + config.parts.sprout.h,
       });
@@ -208,9 +207,10 @@ export class CharacterRig {
       this.sprout.group.appendChild(sproutImg);
     }
 
-    // Face: Bodyにさらに微細に遅れて追従
+    // Face: Bodyにほぼ完全追従(独立した物理演算はOFF)。
+    // followはBody移動量の数%程度・即収束で、「顔が浮く」ズレは発生しない
     this.face = new Bone(this.body.group, {
-      follow: 0.25, stiffness: 0.18, damping: 0.72,
+      follow: 0.04, stiffness: 0.5, damping: 0.55,
     });
     this.body.addChild(this.face);
 
@@ -286,7 +286,6 @@ export class CharacterRig {
     this.eyeRotate.target = 0;
     this.mouthScaleY.target = 1;
     this.mouthScaleX.target = 1;
-    this.faceOffsetY.target = 0;
     this.cheekOpacity.target = 1;
     if (this.gazeX.target === 0) this.gazeY.target = 0;
 
@@ -304,7 +303,6 @@ export class CharacterRig {
           this.eyeRotate.target = 17 * ex;
           this.eyeScaleY.target = lerp(1, -0.45);
         }, 0);
-        this.faceOffsetY.target = 5 * ex;
         break;
       case 'sad':
         // 目: 外側に垂らして悲しげに / 目線: 下 / 口: 弱い「へ」を下げる
@@ -314,9 +312,6 @@ export class CharacterRig {
           this.eyeScaleY.target = lerp(1, -0.3);
           this.gazeY.target = 5 * ex;
         }, 0);
-        stage(() => {
-          this.faceOffsetY.target = 9 * ex;
-        }, 220);
         break;
       case 'surprised':
         // 目: 大きく見開く(開きのみ。横伸ばしはしない) / 口: 「o」スプライト
@@ -436,18 +431,10 @@ export class CharacterRig {
       let bodyAddY = 0;
       let bodyAddRot = 0;
 
+      // 表情はBodyの動きに影響しない(表情システムとボーンの完全分離)
       if (!this.jumping && this.breathing) {
         bodyAddY = Math.sin(this.time * 2) * 4;
-
-        if (this.emotion === 'happy' || this.emotion === 'fun') {
-          // 左右スウェイは回転のみ(輪郭は変わらない)
-          bodyAddRot = Math.sin(this.time * 3) * 5 * exp;
-        } else if (this.emotion === 'sad') {
-          bodyAddY += 10 * exp;
-        } else if (this.emotion === 'angry') {
-          // 小刻みな震えで怒りを表現(位置のみ)
-          bodyAddY += Math.sin(this.time * 40) * 1.2 * exp;
-        }
+        bodyAddRot = Math.sin(this.time * 1.3) * 0.6 * exp; // ごく小さな自然な揺れ
       }
 
       if (this.shaking) {
@@ -477,7 +464,6 @@ export class CharacterRig {
       const er = this.eyeRotate.update();
       const gx = this.gazeX.update();
       const gy = this.gazeY.update();
-      const fo = this.faceOffsetY.update();
       const my = this.mouthScaleY.update();
       const mxs = this.mouthScaleX.update();
       const co = this.cheekOpacity.update();
@@ -486,19 +472,19 @@ export class CharacterRig {
       const winking = Date.now() < this.winkingUntil;
       const leftEy = winking && this.winkSide === 'left' ? 0.08 : ey;
       const rightEy = winking && this.winkSide === 'right' ? 0.08 : ey;
-      this.leftEye.style.transform = `translate(${gx}px, ${gy + fo}px) rotate(${er}deg) scale(${exs}, ${leftEy})`;
-      this.rightEye.style.transform = `translate(${gx}px, ${gy + fo}px) rotate(${-er}deg) scale(${exs}, ${rightEy})`;
+      this.leftEye.style.transform = `translate(${gx}px, ${gy}px) rotate(${er}deg) scale(${exs}, ${leftEy})`;
+      this.rightEye.style.transform = `translate(${gx}px, ${gy}px) rotate(${-er}deg) scale(${exs}, ${rightEy})`;
 
       // 口: 開閉スケールのみ(形は元画像 or 元画像由来スプライトのまま)
-      this.mouth.style.transform = `translate(${gx * 0.3}px, ${fo}px) scale(${mxs}, ${my})`;
+      this.mouth.style.transform = `translate(${gx * 0.3}px, 0px) scale(${mxs}, ${my})`;
 
-      // 頬: 位置・透明度のみ。形状・縦横比は固定。常に最前面
+      // 頬: Faceに完全追従(独立した移動なし)。透明度のみ変化可。常に最前面
       if (this.leftCheek) {
-        this.leftCheek.style.transform = `translate(0px, ${fo * 0.6}px)`;
+        this.leftCheek.style.transform = '';
         this.leftCheek.style.opacity = co.toString();
       }
       if (this.rightCheek) {
-        this.rightCheek.style.transform = `translate(0px, ${fo * 0.6}px)`;
+        this.rightCheek.style.transform = '';
         this.rightCheek.style.opacity = co.toString();
       }
 
