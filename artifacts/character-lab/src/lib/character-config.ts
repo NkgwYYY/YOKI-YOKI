@@ -44,7 +44,7 @@ const MANIFEST = manifest as Record<string, PartsManifest>;
 
 const NAMES: Record<CharacterId, string> = {
   egg: 'タマゴ',
-  odango: 'オダンゴ',
+  odango: 'モフモフ',
   happa: 'ハッパ',
   colorful_happa: 'カラフルハッパ',
 };

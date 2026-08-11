@@ -7,7 +7,7 @@ const ITEMS: {
   stage: 'egg' | 'odango' | 'stage3' | 'stage4';
 }[] = [
   { label: 'たまご', sub: 'Lv.1〜（1段階目）', stage: 'egg' },
-  { label: 'おだんご', sub: 'Lv.3〜（2段階目）', stage: 'odango' },
+  { label: 'モフモフ', sub: 'Lv.3〜（2段階目）', stage: 'odango' },
   { label: 'はっぱ', sub: 'Lv.6〜（3段階目）', stage: 'stage3' },
   { label: 'カラフルはっぱ', sub: 'Lv.15〜（4段階目）', stage: 'stage4' },
 ];

@@ -12,7 +12,7 @@ export function getCharacter(
 ): { key: CharacterKey; name: string } {
   switch (stage) {
     case 'egg':    return { key: 'egg',            name: 'たまご' };
-    case 'odango': return { key: 'odango',         name: 'おだんご' };
+    case 'odango': return { key: 'odango',         name: 'モフモフ' };
     case 'stage3': return { key: 'happa',          name: 'はっぱ' };
     case 'stage4': return { key: 'colorful_happa', name: 'カラフルはっぱ' };
   }
@@ -20,7 +20,7 @@ export function getCharacter(
 
 export const STAGE_LEVEL_MAP: { stage: MascotStage; minLevel: number; name: string; desc: string }[] = [
   { stage: 'egg',    minLevel: 1,  name: 'たまご',         desc: 'まだ眠っている…' },
-  { stage: 'odango', minLevel: 3,  name: 'おだんご',       desc: 'すこしずつ育っています' },
+  { stage: 'odango', minLevel: 3,  name: 'モフモフ',       desc: 'すこしずつ育っています' },
   { stage: 'stage3', minLevel: 6,  name: 'はっぱ',         desc: '元気いっぱいです！' },
   { stage: 'stage4', minLevel: 15, name: 'カラフルはっぱ', desc: 'ぐんぐん育っています' },
 ];

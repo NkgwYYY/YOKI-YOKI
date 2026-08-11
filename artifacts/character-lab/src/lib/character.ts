@@ -2,6 +2,9 @@ import { CharacterConfig, PartBox } from './character-config';
 
 export type Emotion = 'normal' | 'happy' | 'angry' | 'sad' | 'fun' | 'surprised';
 
+/** 画像差し替え時にインクリメントしてブラウザキャッシュを回避する */
+const ASSET_VERSION = 2;
+
 // Smooths transitions between values
 class Spring {
   value: number;
@@ -90,7 +93,7 @@ export class CharacterRig {
 
     // Body (顔除去済み)
     const body = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-    body.setAttribute('href', `${import.meta.env.BASE_URL}characters/${config.body}`);
+    body.setAttribute('href', `${import.meta.env.BASE_URL}characters/${config.body}?v=${ASSET_VERSION}`);
     body.setAttribute('width', '512');
     body.setAttribute('height', '512');
     this.rootGroup.appendChild(body);
@@ -116,7 +119,7 @@ export class CharacterRig {
   }
 
   private applySprite(img: SVGImageElement, name: string, box: PartBox) {
-    img.setAttribute('href', `${import.meta.env.BASE_URL}characters/parts/${this.config.id}/${name}.png`);
+    img.setAttribute('href', `${import.meta.env.BASE_URL}characters/parts/${this.config.id}/${name}.png?v=${ASSET_VERSION}`);
     img.setAttribute('x', box.x.toString());
     img.setAttribute('y', box.y.toString());
     img.setAttribute('width', box.w.toString());
