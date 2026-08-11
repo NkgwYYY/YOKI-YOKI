@@ -283,26 +283,213 @@ function StarGame({ emoji, onFinish }: { emoji: '⭐' | '🌙'; onFinish: (score
   );
 }
 
+/* ── Rhythm: 宇宙リズム（太鼓の達人風） ─────────── */
+type NoteKind = 'don' | 'ka';
+interface RhythmNote {
+  id: number;
+  kind: NoteKind;
+  hitAt: number;          // 判定円到達時刻 (ms, performance basis)
+  x: RNAnimated.Value;
+  judged: boolean;
+  opacity: RNAnimated.Value;
+}
+
+const NOTE_TRAVEL_MS = 1800;   // 出現→判定円までの時間
+const PERFECT_MS = 130;
+const GOOD_MS = 280;
+const NOTE_COUNT = 20;
+const NOTE_GAP_MS = 620;       // ノーツ間隔
+const HIT_X = 34;              // 判定円の左位置
+const NOTE_SIZE = 52;
+
+function RhythmGame({ onFinish }: { onFinish: (result: { perfect: number; good: number; miss: number; score: number }) => void }) {
+  const [notes, setNotes] = useState<RhythmNote[]>([]);
+  const [judgeLabel, setJudgeLabel] = useState<{ text: string; color: string } | null>(null);
+  const countsRef = useRef({ perfect: 0, good: 0, miss: 0 });
+  const [combo, setCombo] = useState(0);
+  const comboRef = useRef(0);
+  const notesRef = useRef<RhythmNote[]>([]);
+  const doneRef = useRef(0);
+  const finishedRef = useRef(false);
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const laneWidth = SW - 32;
+
+  const now = () => Date.now();
+
+  const showJudge = (text: string, color: string) => {
+    setJudgeLabel({ text, color });
+    const t = setTimeout(() => setJudgeLabel(prev => (prev?.text === text ? null : prev)), 400);
+    timeoutsRef.current.push(t);
+  };
+
+  const noteDone = useCallback(() => {
+    doneRef.current += 1;
+    if (doneRef.current >= NOTE_COUNT && !finishedRef.current) {
+      finishedRef.current = true;
+      const c = countsRef.current;
+      const t = setTimeout(() => onFinish({ ...c, score: c.perfect * 2 + c.good }), 600);
+      timeoutsRef.current.push(t);
+    }
+  }, [onFinish]);
+
+  const missNote = useCallback((note: RhythmNote) => {
+    if (note.judged) return;
+    note.judged = true;
+    countsRef.current.miss += 1;
+    comboRef.current = 0;
+    setCombo(0);
+    showJudge('ミス…', '#8A83B8');
+    RNAnimated.timing(note.opacity, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => {
+      setNotes(prev => prev.filter(n => n.id !== note.id));
+    });
+    noteDone();
+  }, [noteDone]);
+
+  useEffect(() => {
+    const start = now() + 900; // 少し間を置いてから1個目
+    const created: RhythmNote[] = [];
+    for (let i = 0; i < NOTE_COUNT; i++) {
+      const hitAt = start + NOTE_TRAVEL_MS + i * NOTE_GAP_MS;
+      created.push({
+        id: i,
+        kind: Math.random() < 0.55 ? 'don' : 'ka',
+        hitAt,
+        x: new RNAnimated.Value(laneWidth),
+        judged: false,
+        opacity: new RNAnimated.Value(1),
+      });
+    }
+    notesRef.current = created;
+    setNotes(created);
+
+    created.forEach(note => {
+      const spawnDelay = note.hitAt - NOTE_TRAVEL_MS - now();
+      const t1 = setTimeout(() => {
+        RNAnimated.timing(note.x, {
+          toValue: HIT_X,
+          duration: NOTE_TRAVEL_MS,
+          useNativeDriver: true,
+        }).start();
+      }, Math.max(0, spawnDelay));
+      // 判定猶予を過ぎたら自動ミス
+      const t2 = setTimeout(() => missNote(note), note.hitAt + GOOD_MS - now());
+      timeoutsRef.current.push(t1, t2);
+    });
+
+    return () => { timeoutsRef.current.forEach(clearTimeout); };
+  }, []);
+
+  const hit = useCallback((kind: NoteKind) => {
+    const t = now();
+    // 判定範囲内で最も近い未判定ノーツ
+    let best: RhythmNote | null = null;
+    let bestDiff = Infinity;
+    for (const n of notesRef.current) {
+      if (n.judged) continue;
+      const diff = Math.abs(n.hitAt - t);
+      if (diff <= GOOD_MS && diff < bestDiff) { best = n; bestDiff = diff; }
+    }
+    if (!best) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      return; // 空振りはノーカウント
+    }
+    best.judged = true;
+    if (best.kind !== kind) {
+      // 色違いはミス扱い
+      countsRef.current.miss += 1;
+      comboRef.current = 0;
+      setCombo(0);
+      showJudge('いろちがい！', '#8A83B8');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } else if (bestDiff <= PERFECT_MS) {
+      countsRef.current.perfect += 1;
+      comboRef.current += 1;
+      setCombo(comboRef.current);
+      showJudge('パーフェクト！', '#FFD75E');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      countsRef.current.good += 1;
+      comboRef.current += 1;
+      setCombo(comboRef.current);
+      showJudge('グッド！', '#80D0C7');
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    const target = best;
+    RNAnimated.parallel([
+      RNAnimated.timing(target.opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+    ]).start(() => setNotes(prev => prev.filter(n => n.id !== target.id)));
+    noteDone();
+  }, [noteDone]);
+
+  return (
+    <View style={s.rhythmArea}>
+      <View style={s.rhythmTopRow}>
+        <Text style={s.rhythmCombo}>{combo > 1 ? `${combo} コンボ！` : ' '}</Text>
+        {judgeLabel && <Text style={[s.rhythmJudge, { color: judgeLabel.color }]}>{judgeLabel.text}</Text>}
+      </View>
+
+      {/* レーン */}
+      <View style={s.rhythmLane}>
+        <View style={s.rhythmHitCircle} />
+        {notes.map(n => (
+          <RNAnimated.View
+            key={n.id}
+            style={[
+              s.rhythmNote,
+              { backgroundColor: n.kind === 'don' ? '#FF6B8A' : '#5EB8FF' },
+              { opacity: n.opacity, transform: [{ translateX: n.x }] },
+            ]}
+          >
+            <Text style={s.rhythmNoteTxt}>{n.kind === 'don' ? 'ドン' : 'カッ'}</Text>
+          </RNAnimated.View>
+        ))}
+      </View>
+
+      <Text style={s.rhythmHint}>まるが左のわくに重なったら 同じ色のボタンをタップ！</Text>
+
+      {/* ボタン */}
+      <View style={s.rhythmBtnRow}>
+        <TouchableOpacity style={[s.rhythmBtn, { backgroundColor: '#FF6B8A' }]} onPress={() => hit('don')} activeOpacity={0.7}>
+          <Text style={s.rhythmBtnTxt}>ドン</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.rhythmBtn, { backgroundColor: '#5EB8FF' }]} onPress={() => hit('ka')} activeOpacity={0.7}>
+          <Text style={s.rhythmBtnTxt}>カッ</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 /* ── Main Modal ─────────────────────────────────── */
-type MorningVariant = 'sun' | 'flower';
-type NoonVariant = 'chest' | 'balloon';
-type NightVariant = 'star' | 'moon';
+type MorningVariant = 'sun' | 'flower' | 'rhythm';
+type NoonVariant = 'chest' | 'balloon' | 'rhythm';
+type NightVariant = 'star' | 'moon' | 'rhythm';
+
+function pick3<T extends string>(a: T, b: T, c: T): T {
+  const r = Math.random();
+  return r < 1 / 3 ? a : r < 2 / 3 ? b : c;
+}
 
 export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
   const [phase, setPhase] = useState<Phase>('intro');
   const [reward, setReward] = useState<Reward | null>(null);
-  const [morningVariant] = useState<MorningVariant>(() => Math.random() < 0.5 ? 'sun' : 'flower');
-  const [noonVariant] = useState<NoonVariant>(() => Math.random() < 0.5 ? 'chest' : 'balloon');
-  const [nightVariant] = useState<NightVariant>(() => Math.random() < 0.5 ? 'star' : 'moon');
+  const [morningVariant] = useState<MorningVariant>(() => pick3('sun', 'flower', 'rhythm'));
+  const [noonVariant] = useState<NoonVariant>(() => pick3('chest', 'balloon', 'rhythm'));
+  const [nightVariant] = useState<NightVariant>(() => pick3('star', 'moon', 'rhythm'));
   const cfg = getSlotConfig(slot);
 
-  const introTitle = {
+  const isRhythm =
+    (slot === 'morning' && morningVariant === 'rhythm') ||
+    (slot === 'noon' && noonVariant === 'rhythm') ||
+    (slot === 'night' && nightVariant === 'rhythm');
+
+  const introTitle = isRhythm ? '🥁 宇宙リズム' : {
     morning: morningVariant === 'sun' ? '☀️ 朝日を集めよう' : '🌸 花を咲かせよう',
     noon:    noonVariant   === 'chest' ? '🎁 おやつ探し' : '🎈 バルーンくじ',
     night:   nightVariant  === 'star'  ? '⭐ 星集め' : '🌙 月を集めよう',
   }[slot];
 
-  const introDesc = {
+  const introDesc = isRhythm ? '流れてくるノーツに合わせて\n同じ色のボタンをタイミングよくタップ！' : {
     morning: '10秒でタップ！',
     noon:    noonVariant === 'chest' ? '3つの宝箱から1つ選ぼう' : '4つのバルーンから1つ選ぼう',
     night:   '10秒でタップ！',
@@ -323,6 +510,19 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
   const handleNoonFinish = (r: Reward) => {
     setReward(r); setPhase('result'); onReward({ fp: r.fp, xp: r.xp });
     Analytics.miniGameCompleted('noon', (r.fp ?? 0) + (r.xp ?? 0));
+  };
+
+  const handleRhythmFinish = (r: { perfect: number; good: number; miss: number; score: number }) => {
+    // 最大 20ノーツ×2 = 40点
+    const fp = r.score >= 30 ? 3 : r.score >= 18 ? 2 : 1;
+    const xp = r.score >= 30 ? 10 : r.score >= 18 ? 5 : 0;
+    const reward: Reward = {
+      fp,
+      xp: xp || undefined,
+      message: `🥁 パーフェクト${r.perfect}・グッド${r.good}・ミス${r.miss}\n🪙 ${fp}pt${xp ? ` ＋ ✨XP +${xp}` : ''} ゲット！`,
+    };
+    setReward(reward); setPhase('result'); onReward({ fp, xp: xp || undefined });
+    Analytics.miniGameCompleted(slot, r.score);
   };
 
   const handleNightFinish = (score: number) => {
@@ -368,6 +568,7 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
           {/* Playing */}
           {phase === 'playing' && (
             <>
+              {isRhythm && <RhythmGame onFinish={handleRhythmFinish} />}
               {slot === 'morning' && morningVariant === 'sun'    && <SunGame onFinish={handleMorningFinish} />}
               {slot === 'morning' && morningVariant === 'flower' && <FlowerGame onFinish={handleMorningFinish} />}
               {slot === 'noon'    && noonVariant    === 'chest'   && <ChestGame onFinish={handleNoonFinish} />}
@@ -441,6 +642,41 @@ const s = StyleSheet.create({
   // night stars
   starWrap: { position: 'absolute' },
   starEmoji: { fontSize: 40 },
+
+  // rhythm
+  rhythmArea: { flex: 1, paddingTop: 10, paddingBottom: 20, gap: 12 },
+  rhythmTopRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, minHeight: 26,
+  },
+  rhythmCombo: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFD75E' },
+  rhythmJudge: { fontSize: 17, fontFamily: 'Inter_700Bold' },
+  rhythmLane: {
+    height: 76, marginHorizontal: 16, borderRadius: 38,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center', overflow: 'hidden',
+  },
+  rhythmHitCircle: {
+    position: 'absolute', left: HIT_X, width: NOTE_SIZE + 10, height: NOTE_SIZE + 10,
+    marginLeft: -5, borderRadius: (NOTE_SIZE + 10) / 2,
+    borderWidth: 3, borderColor: 'rgba(255,255,255,0.55)',
+    alignSelf: 'center',
+  },
+  rhythmNote: {
+    position: 'absolute', width: NOTE_SIZE, height: NOTE_SIZE, borderRadius: NOTE_SIZE / 2,
+    alignItems: 'center', justifyContent: 'center', alignSelf: 'center',
+    left: 0,
+  },
+  rhythmNoteTxt: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  rhythmHint: { fontSize: 12, color: 'rgba(255,255,255,0.55)', fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  rhythmBtnRow: { flexDirection: 'row', gap: 18, justifyContent: 'center', marginTop: 4 },
+  rhythmBtn: {
+    width: 108, height: 108, borderRadius: 54,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 4, borderColor: 'rgba(255,255,255,0.35)',
+  },
+  rhythmBtnTxt: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#FFF' },
 
   // result
   resultEmoji: { fontSize: 52 },
