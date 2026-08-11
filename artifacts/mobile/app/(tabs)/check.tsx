@@ -16,7 +16,7 @@ const easeOut = (t: number) => t * (2 - t);
 const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
 
 import { useCosmicColors as useColors, COSMIC_SHEET } from '@/constants/cosmicTheme';
-import { CosmicBackground } from '@/components/CosmicBackground';
+import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
 import { ChecklistItemRow } from '@/components/ChecklistItemRow';
 import {
@@ -159,7 +159,7 @@ export default function CheckScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <CosmicBackground />
+      <SkyBackground />
 
       {/* Sticky Header */}
       <View style={[styles.header, { paddingTop: topPad + 14, borderBottomColor: colors.border }]}>

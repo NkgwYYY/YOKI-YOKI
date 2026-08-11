@@ -14,7 +14,7 @@ import Animated, {
   withRepeat, withSequence, withTiming, withSpring, withDelay,
 } from 'react-native-reanimated';
 import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
-import { CosmicBackground } from '@/components/CosmicBackground';
+import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
 import { profileToContext } from '@/utils/profileContext';
 import { Mascot } from '@/components/Mascot';
@@ -282,7 +282,7 @@ export default function ChatScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <CosmicBackground />
+      <SkyBackground />
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + 10, borderBottomColor: colors.border }]}>

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
-import { CosmicBackground } from '@/components/CosmicBackground';
+import { SkyBackground } from '@/components/SkyBackground';
 
 type SectionProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -47,7 +47,7 @@ export default function GuideScreen() {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
-      <CosmicBackground />
+      <SkyBackground />
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[styles.content, { paddingTop: topPad, paddingBottom: insets.bottom + 40 }]}

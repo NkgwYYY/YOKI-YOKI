@@ -22,7 +22,7 @@ import Animated, {
 
 const easeOut = (t: number) => t * (2 - t);
 import { useCosmicColors as useColors, COSMIC_SHEET } from '@/constants/cosmicTheme';
-import { CosmicBackground } from '@/components/CosmicBackground';
+import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
@@ -86,7 +86,7 @@ export default function GrowthScreen() {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
-      <CosmicBackground />
+      <SkyBackground />
 
       {/* Decorative orb */}
       <View style={[styles.orb, { backgroundColor: colors.secondary + '12' }]} />

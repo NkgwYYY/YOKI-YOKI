@@ -5,7 +5,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
   Modal, Image,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { SkyBackground } from '@/components/SkyBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { useSignIn, useSignUp } from '@clerk/expo';
@@ -280,7 +280,8 @@ export default function LoginScreen() {
     signUp.missingFields.length === 0;
 
   return (
-    <LinearGradient colors={['#F5EEFF', '#E8F4FF']} style={[{ flex: 1 }, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
+    <View style={[{ flex: 1, backgroundColor: '#1A1430' }, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
+      <SkyBackground />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           contentContainerStyle={[styles.container, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24 }]}
@@ -411,7 +412,7 @@ export default function LoginScreen() {
         onClose={() => setShowForgot(false)}
         onDone={() => { setShowForgot(false); goHome(); }}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -420,7 +421,7 @@ const styles = StyleSheet.create({
   container: { alignItems: 'center', paddingHorizontal: 24, ...(Platform.OS === 'web' && { maxWidth: 480, width: '100%', alignSelf: 'center' as any }) },
   mascotWrap: { alignItems: 'center', marginBottom: 28 },
   titleLogo: { width: 220, height: 33, marginTop: 12 },
-  subtitle: { fontSize: 13, color: '#9E7DD5', marginTop: 6, textAlign: 'center' },
+  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 6, textAlign: 'center' },
   tabRow: {
     flexDirection: 'row', backgroundColor: '#EDE5F8',
     borderRadius: 14, padding: 4, marginBottom: 28, width: '100%',
@@ -430,16 +431,16 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 14, fontWeight: '600', color: '#9E7DD5' },
   tabTextActive: { color: '#fff' },
   form: { width: '100%' },
-  label: { fontSize: 13, fontWeight: '600', color: '#5A3DAA', marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', marginBottom: 6 },
   input: {
     backgroundColor: '#fff', borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 15, color: '#333', borderWidth: 1.5, borderColor: '#DDD0F5',
   },
   codeInput: { textAlign: 'center', fontSize: 26, letterSpacing: 10, fontWeight: '700' },
-  verifyTitle: { fontSize: 17, fontWeight: '700', color: '#5A3DAA', textAlign: 'center', marginBottom: 8 },
-  verifySub: { fontSize: 13, color: '#9E7DD5', textAlign: 'center', marginBottom: 16 },
-  resendText: { color: '#9E7DD5', fontSize: 13, textAlign: 'center', marginTop: 16 },
+  verifyTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', marginBottom: 8 },
+  verifySub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginBottom: 16 },
+  resendText: { color: 'rgba(255,255,255,0.9)', fontSize: 13, textAlign: 'center', marginTop: 16 },
   errorBox: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12,
@@ -470,7 +471,7 @@ const s = StyleSheet.create({
   sheetTitle: { fontSize: 17, fontWeight: '700', color: '#5A3DAA' },
   sheetSub: { fontSize: 13, color: '#9E7DD5', marginBottom: 14 },
   sheetBody: { gap: 4 },
-  label: { fontSize: 13, fontWeight: '600', color: '#5A3DAA', marginBottom: 6 },
+  label: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', marginBottom: 6 },
   input: {
     backgroundColor: '#F8F4FF', borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 14,

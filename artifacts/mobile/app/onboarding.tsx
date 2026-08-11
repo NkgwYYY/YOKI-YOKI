@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
-import { CosmicBackground } from '@/components/CosmicBackground';
+import { SkyBackground } from '@/components/SkyBackground';
 import { useApp, UserProfile } from '@/contexts/AppContext';
 import { ProfileForm } from '@/components/ProfileForm';
 
@@ -28,7 +28,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
-      <CosmicBackground />
+      <SkyBackground />
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[styles.content, { paddingTop: topPad, paddingBottom: insets.bottom + 40 }]}

@@ -20,7 +20,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
-import { CosmicBackground } from '@/components/CosmicBackground';
+import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
 import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
 
@@ -174,7 +174,7 @@ export default function RecordScreen() {
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
-      <CosmicBackground />
+      <SkyBackground />
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[
