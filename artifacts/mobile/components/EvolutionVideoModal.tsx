@@ -11,12 +11,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   Text,
-  Dimensions,
   Platform,
 } from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
 
-const { width: SW, height: SH } = Dimensions.get('window');
 
 // Object Storage の公開ファイル（App Storage ペインからアップロード済み）
 const VIDEO_PATH = '進化映像.mp4';
@@ -107,6 +105,7 @@ export function EvolutionVideoModal({ visible, onClose }: EvolutionVideoModalPro
             ref={videoRef}
             source={{ uri: EVOLUTION_VIDEO_URL }}
             style={styles.video}
+            videoStyle={Platform.OS === 'web' ? ({ width: '100%', height: '100%', objectFit: 'contain' } as any) : undefined}
             resizeMode={ResizeMode.CONTAIN}
             shouldPlay={visible}
             isMuted={false}
@@ -161,8 +160,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   video: {
-    width: SW,
-    height: SH,
+    // 端末の向き・回転後も常に全画面に収める（固定値だと画面からはみ出すことがある）
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,

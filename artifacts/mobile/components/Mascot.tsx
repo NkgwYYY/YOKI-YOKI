@@ -63,50 +63,7 @@ const CHAR_IMAGES: Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof requir
 };
 
 /* ── 笑顔アニメ（アップロード動画から切り出した実フレーム: しかめ顔→まばたき→にっこり） ── */
-const SMILE_FRAMES: Partial<Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof require>[]>> = {
-  odango: [
-    require('../assets/images/characters/smile/odango/s_01.webp'),
-    require('../assets/images/characters/smile/odango/s_02.webp'),
-    require('../assets/images/characters/smile/odango/s_03.webp'),
-    require('../assets/images/characters/smile/odango/s_04.webp'),
-    require('../assets/images/characters/smile/odango/s_05.webp'),
-    require('../assets/images/characters/smile/odango/s_06.webp'),
-    require('../assets/images/characters/smile/odango/s_07.webp'),
-    require('../assets/images/characters/smile/odango/s_08.webp'),
-    require('../assets/images/characters/smile/odango/s_09.webp'),
-    require('../assets/images/characters/smile/odango/s_10.webp'),
-    require('../assets/images/characters/smile/odango/s_11.webp'),
-    require('../assets/images/characters/smile/odango/s_12.webp'),
-  ],
-  happa: [
-    require('../assets/images/characters/smile/happa/s_01.webp'),
-    require('../assets/images/characters/smile/happa/s_02.webp'),
-    require('../assets/images/characters/smile/happa/s_03.webp'),
-    require('../assets/images/characters/smile/happa/s_04.webp'),
-    require('../assets/images/characters/smile/happa/s_05.webp'),
-    require('../assets/images/characters/smile/happa/s_06.webp'),
-    require('../assets/images/characters/smile/happa/s_07.webp'),
-    require('../assets/images/characters/smile/happa/s_08.webp'),
-    require('../assets/images/characters/smile/happa/s_09.webp'),
-    require('../assets/images/characters/smile/happa/s_10.webp'),
-    require('../assets/images/characters/smile/happa/s_11.webp'),
-    require('../assets/images/characters/smile/happa/s_12.webp'),
-  ],
-  colorful_happa: [
-    require('../assets/images/characters/smile/colorful_happa/s_01.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_02.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_03.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_04.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_05.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_06.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_07.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_08.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_09.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_10.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_11.webp'),
-    require('../assets/images/characters/smile/colorful_happa/s_12.webp'),
-  ],
-};
+const SMILE_FRAMES: Partial<Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof require>[]>> = {};
 
 const SMILE_FRAME_MS = 120;    // 1コマの表示時間
 const SMILE_HOLD_MS = 1400;    // 最後の笑顔を保持する時間
