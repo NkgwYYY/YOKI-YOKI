@@ -35,6 +35,10 @@ import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
 import { getMascotStage, getCharacter } from '@/utils/mascotUtils';
 import { Image, ImageSourcePropType } from 'react-native';
 import { ACTIVITY_DEFS, totalActivityCount } from '@/utils/activities';
+import { DEX_PROFILES, WORLD_CARDS } from '@/data/characterDex';
+import { DEX_IMAGES } from '@/components/dex/dexAssets';
+import { CharacterDexModal } from '@/components/dex/CharacterDexModal';
+import type { CharacterKey } from '@/utils/mascotUtils';
 import { getTodayDate } from '@/utils/dateUtils';
 
 // ステージごとのキャラ画像(進化に合わせて成長比較の見た目も切り替える)
@@ -75,7 +79,8 @@ function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
 export default function GrowthScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { progress, records, unlockedBadges, growth, markGrowthSeen } = useApp();
+  const { progress, records, unlockedBadges, growth, markGrowthSeen, encounters } = useApp();
+  const [dexChar, setDexChar] = useState<CharacterKey | null>(null);
   // 成長表示を見た記録(控えめメッセージは次回以降消える)
   const grownSinceSeen = growth.growthSize - growth.lastSeenSize >= 0.005;
   useEffect(() => {
@@ -435,6 +440,64 @@ export default function GrowthScreen() {
           </FadeIn>
         )}
 
+        {/* キャラクター図鑑: 出会った仲間だけが並ぶ(未登場キャラは表示しない) */}
+        <FadeIn delay={370}>
+          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
+            <LinearGradient
+              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
+              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+            />
+            <View style={styles.cardHeader}>
+              <Text style={[styles.cardTitle, { color: colors.foreground }]}>キャラクター図鑑</Text>
+              <Text style={[styles.badgeCount, { color: colors.mutedForeground }]}>
+                出会った仲間 {encounters.list.length}
+              </Text>
+            </View>
+            {encounters.list.length === 0 ? (
+              <Text style={[styles.growthNote, { color: colors.mutedForeground, marginTop: 0 }]}>
+                仲間と出会うと、ここに記録されていくよ
+              </Text>
+            ) : (
+              <View style={styles.dexGrid}>
+                {encounters.list.map((e) => {
+                  const p = DEX_PROFILES[e.charKey];
+                  const isCurrent = e.charKey === currentChar.key;
+                  return (
+                    <TouchableOpacity
+                      key={e.charKey}
+                      style={[styles.dexCell, { backgroundColor: colors.muted }, isCurrent && styles.dexCellCurrent]}
+                      onPress={() => setDexChar(e.charKey)}
+                      activeOpacity={0.85}
+                    >
+                      <Image source={DEX_IMAGES[e.charKey]} style={styles.dexImg} resizeMode="contain" />
+                      <Text style={[styles.dexName, { color: colors.foreground }]}>{p.name}</Text>
+                      <Text style={[styles.dexMet, { color: colors.mutedForeground }]}>
+                        {isCurrent ? 'いまのパートナー' : e.metDate.slice(5).replace('-', '/') + ' 出会い'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+            {/* この子たちについて(世界観カード) */}
+            <Text style={[styles.dexAboutTitle, { color: colors.foreground }]}>この子たちについて</Text>
+            <View style={styles.worldList}>
+              {WORLD_CARDS.map((c, i) => (
+                <View key={c.title} style={[styles.worldCard, { backgroundColor: colors.muted }]}>
+                  <Text style={styles.worldEmoji}>{c.emoji}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.worldTitle, { color: colors.foreground }]}>{c.title}</Text>
+                    <Text style={[styles.worldText, { color: colors.mutedForeground }]}>{c.text}</Text>
+                  </View>
+                  {i < WORLD_CARDS.length - 1 && (
+                    <Ionicons name="chevron-down" size={14} color={colors.mutedForeground} style={styles.worldArrow} />
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        </FadeIn>
+
         {/* Monthly Mood Calendar */}
         <FadeIn delay={350}>
           <MoodCalendar records={records} />
@@ -461,6 +524,16 @@ export default function GrowthScreen() {
           </View>
         </FadeIn>
       </ScrollView>
+
+      {/* キャラ詳細(図鑑) */}
+      {dexChar && (
+        <CharacterDexModal
+          charKey={dexChar}
+          metDate={encounters.list.find((e) => e.charKey === dexChar)?.metDate ?? ''}
+          isCurrent={dexChar === currentChar.key}
+          onClose={() => setDexChar(null)}
+        />
+      )}
     </View>
   );
 }
@@ -468,6 +541,25 @@ export default function GrowthScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: 20, gap: 16 },
+  dexGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  dexCell: {
+    width: '47.5%', alignItems: 'center', borderRadius: 16,
+    paddingVertical: 14, paddingHorizontal: 8, gap: 4,
+  },
+  dexCellCurrent: { borderWidth: 1, borderColor: 'rgba(255,201,77,0.5)' },
+  dexImg: { width: 64, height: 64 },
+  dexName: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  dexMet: { fontSize: 10, fontFamily: 'Inter_400Regular' },
+  dexAboutTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', marginTop: 4 },
+  worldList: { gap: 8 },
+  worldCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 14, padding: 12,
+  },
+  worldEmoji: { fontSize: 20 },
+  worldTitle: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  worldText: { fontSize: 11, fontFamily: 'Inter_400Regular', lineHeight: 16, marginTop: 2 },
+  worldArrow: { alignSelf: 'center' },
   orb: {
     position: 'absolute', width: 200, height: 200, borderRadius: 100,
     bottom: 300, right: -70,

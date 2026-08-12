@@ -55,6 +55,15 @@ import {
 } from '@/utils/powerPlant';
 
 export type { PowerPlantState };
+import {
+  EncountersState,
+  createEncountersState,
+  resolveEncountersState,
+  syncEncounters,
+} from '@/utils/encounters';
+import type { CharacterKey } from '@/utils/mascotUtils';
+
+export type { EncountersState };
 
 export type { LightEnergyState };
 
@@ -142,6 +151,7 @@ const KEYS = {
   GROWTH: '@mentore/growth_v1',
   LIGHT_ENERGY: '@mentore/light_energy_v1',
   POWER_PLANT: '@mentore/power_plant_v1',
+  ENCOUNTERS: '@mentore/encounters_v1',
 };
 
 /** Compute current satiety based on elapsed time since last feed */
@@ -194,6 +204,12 @@ interface AppContextType {
   sellEnergy: () => Promise<{ sold: number; gained: number }>;
   /** エコポイントを使って次の街アイテムを建てる */
   buildTownItem: () => Promise<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }>;
+  /** 出会い記録(キャラクター図鑑)。出会ったキャラだけが入る */
+  encounters: EncountersState;
+  /** 「新しい仲間が生まれました!」演出の待ち行列(先頭から表示) */
+  newEncounters: CharacterKey[];
+  /** 演出を1件閉じる */
+  dismissNewEncounter: () => void;
   pushDataToCloud: () => Promise<void>;
   /** サイズ成長(Level/Evolutionとは独立)。マスコットは進化しても同一個体として成長を引き継ぐ */
   growth: GrowthRecord;
@@ -247,6 +263,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [powerPlant, setPowerPlant] = useState<PowerPlantState>(() => createPowerPlantState());
   const powerPlantRef = useRef(powerPlant);
   useEffect(() => { powerPlantRef.current = powerPlant; }, [powerPlant]);
+  // 出会い記録(キャラクター図鑑)。newEncounters は「新しい仲間」演出の待ち行列
+  const [encounters, setEncounters] = useState<EncountersState>(() => createEncountersState());
+  const encountersRef = useRef(encounters);
+  useEffect(() => { encountersRef.current = encounters; }, [encounters]);
+  const [newEncounters, setNewEncounters] = useState<CharacterKey[]>([]);
+  const encountersLoadedRef = useRef(false);
 
   // アプリを開いたまま日付が変わっても日次値(元気・光の力・今日のエネルギー)が
   // 前日のまま表示されないよう、1分ごとに日付ロールオーバーを確認する
@@ -275,6 +297,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
+  // ── 出会い記録の最新化: レベル(=進化段階)が変わるたびに図鑑へ登録する ──
+  // ロード完了前は defaultProgress で誤登録しないようスキップ
+  useEffect(() => {
+    if (!encountersLoadedRef.current) return;
+    const { next, newlyMet } = syncEncounters(encountersRef.current, progress.level, getTodayDate());
+    if (next === encountersRef.current) return;
+    encountersRef.current = next;
+    setEncounters(next);
+    AsyncStorage.setItem(KEYS.ENCOUNTERS, JSON.stringify(next))
+      .then(() => pushDataToCloud())
+      .catch(() => {});
+    if (newlyMet.length > 0) {
+      setNewEncounters((prev) => [...prev, ...newlyMet.filter((k) => !prev.includes(k))]);
+    }
+  }, [progress.level, isLoading]);
+
+  /** 「新しい仲間が生まれました!」演出を1件消化する */
+  const dismissNewEncounter = useCallback(() => {
+    setNewEncounters((prev) => prev.slice(1));
+  }, []);
 
   // 売電・街づくりの同時多重呼び出しを防ぐ同期ガード
   const plantBusyRef = useRef(false);
@@ -445,7 +488,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr] =
+      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
           AsyncStorage.getItem(KEYS.RECORDS),
@@ -461,6 +504,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.GROWTH),
           AsyncStorage.getItem(KEYS.LIGHT_ENERGY),
           AsyncStorage.getItem(KEYS.POWER_PLANT),
+          AsyncStorage.getItem(KEYS.ENCOUNTERS),
         ]);
 
       // ── サイズ成長: 保存値を読み、経過時間ぶんの成長を適用 ──
@@ -493,6 +537,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const resolved = resolvePowerPlantState(raw);
         powerPlantRef.current = resolved;
         setPowerPlant(resolved);
+      }
+
+      // ── 出会い記録(図鑑): 保存値を安全に読み込む ──
+      {
+        let raw: unknown = null;
+        try { raw = encountersStr ? JSON.parse(encountersStr) : null; } catch { raw = null; }
+        const resolved = resolveEncountersState(raw);
+        encountersRef.current = resolved;
+        setEncounters(resolved);
+        encountersLoadedRef.current = true;
       }
 
       if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
@@ -931,6 +985,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         powerPlant,
         sellEnergy,
         buildTownItem,
+        encounters,
+        newEncounters,
+        dismissNewEncounter,
       }}
     >
       {children}
