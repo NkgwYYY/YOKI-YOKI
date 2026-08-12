@@ -47,18 +47,51 @@ function SceneSun({ genki }: { genki: number }) {
     transform: [{ scale: (0.8 + strength * 0.5) * (1 + glow.value * 0.12) }],
   }));
   const bodyStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 0.85 + strength * 0.35 }],
-    opacity: 0.75 + strength * 0.25,
+    transform: [{ scale: 0.85 + strength * 0.35 }, { rotate: '22.5deg' }],
+    opacity: 0.8 + strength * 0.2,
+  }));
+  const raySpin = useSharedValue(0);
+  useEffect(() => {
+    raySpin.value = withRepeat(withTiming(1, { duration: 24000, easing: Easing.linear }), -1, false);
+  }, []);
+  const rayStyle = useAnimatedStyle(() => ({
+    opacity: 0.8 + strength * 0.2,
+    transform: [{ scale: 0.85 + strength * 0.35 }, { rotate: `${raySpin.value * 360}deg` }],
   }));
   return (
     <View style={s.sunWrap} pointerEvents="none">
       <Animated.View style={[s.sunGlow, glowStyle]} />
+      {/* ギザギザの光線(ゆっくり回転)— ひと目で太陽と分かるシルエット */}
+      <Animated.View style={[s.sunRaysRing, rayStyle]}>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <View
+            key={i}
+            style={[
+              s.sunRaySpike,
+              { transform: [{ rotate: `${i * 45}deg` }, { translateY: -37 }] },
+            ]}
+          />
+        ))}
+      </Animated.View>
+      <Animated.View style={[s.sunRaysRing, bodyStyle]}>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <View
+            key={i}
+            style={[
+              s.sunRaySpikeSmall,
+              { transform: [{ rotate: `${i * 45}deg` }, { translateY: -34 }] },
+            ]}
+          />
+        ))}
+      </Animated.View>
+      {/* 本体: あたたかい黄橙のグラデーション */}
       <Animated.View style={bodyStyle}>
         <LinearGradient
-          colors={['#FFF6CE', '#FFD86B', '#FFA43B']}
+          colors={['#FFFBE0', '#FFE066', '#FFAE2E']}
           style={s.sunBody}
-          start={{ x: 0.25, y: 0.1 }} end={{ x: 0.75, y: 0.95 }}
+          start={{ x: 0.3, y: 0.15 }} end={{ x: 0.7, y: 0.95 }}
         />
+        <View style={s.sunHighlight} />
       </Animated.View>
     </View>
   );
@@ -349,7 +382,13 @@ export default function PlantScreen() {
 
         {/* ── 発電所の世界 ── */}
         <View style={[s.card, s.sceneCard, { borderColor: colors.border }]}>
-          <ImageBackground source={SCENE_BG} style={StyleSheet.absoluteFill as any} resizeMode="cover">
+          {/* カードは画像と同じ縦横比なので stretch で必ず全体が表示される(coverのクロップ事故を防ぐ) */}
+          <ImageBackground
+            source={SCENE_BG}
+            style={StyleSheet.absoluteFill as any}
+            imageStyle={{ width: '100%', height: '100%' }}
+            resizeMode="stretch"
+          >
             {/* 元気が低いほど世界が暗くなる */}
             <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(10,6,32,${darkness})` }]} />
             {/* 売電の瞬間、世界がぱっと明るくなる */}
@@ -533,7 +572,19 @@ const s = StyleSheet.create({
     width: 96, height: 96, alignItems: 'center', justifyContent: 'center',
   },
   sunGlow: { position: 'absolute', width: 96, height: 96, borderRadius: 48, backgroundColor: '#FFD86B' },
-  sunBody: { width: 46, height: 46, borderRadius: 23 },
+  sunRaysRing: { position: 'absolute', width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
+  sunRaySpike: {
+    position: 'absolute', width: 7, height: 18, borderRadius: 4, backgroundColor: '#FFD24D',
+  },
+  sunRaySpikeSmall: {
+    position: 'absolute', width: 5, height: 12, borderRadius: 3, backgroundColor: '#FFE58A',
+  },
+  sunBody: { width: 50, height: 50, borderRadius: 25 },
+  sunHighlight: {
+    position: 'absolute', top: 8, left: 10, width: 16, height: 10,
+    borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.75)',
+    transform: [{ rotate: '-20deg' }],
+  },
   raysWrap: { position: 'absolute', left: '14%', top: 92, width: 180, height: 120 },
   panelShimmer: { position: 'absolute', left: 0, right: 0, top: '36%', height: '30%' },
   ray: { position: 'absolute', left: 0, width: 150, height: 7, borderRadius: 4 },
