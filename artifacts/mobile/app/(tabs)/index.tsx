@@ -475,7 +475,7 @@ export default function HomeScreen() {
                 onPress={() => { if (!slotDone) setShowMiniGame(true); }} />
               <OrbButton pos={styles.orbBL} emoji="✅" label="今日の一歩"
                 sub={`${stepDone}/${totalCount}`}
-                onPress={() => router.push('/(tabs)/check')} />
+                onPress={() => router.push('/(tabs)/record')} />
               <OrbButton pos={styles.orbBR} emoji="🌱" label="成長"
                 sub={`Lv.${progress.level}`}
                 onPress={() => router.push('/(tabs)/growth')} />
@@ -594,7 +594,7 @@ export default function HomeScreen() {
         <FadeIn delay={340}>
           <TouchableOpacity
             style={[styles.stepCard, { backgroundColor: C.card, borderColor: C.border }]}
-            onPress={() => router.push('/(tabs)/check')}
+            onPress={() => router.push('/(tabs)/record')}
             activeOpacity={0.85}
           >
             <View style={styles.stepHeader}>
@@ -661,7 +661,7 @@ export default function HomeScreen() {
         <FadeIn delay={360}>
           <TouchableOpacity
             style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border }]}
-            onPress={() => router.push('/(tabs)/check')}
+            onPress={() => router.push('/(tabs)/record')}
             activeOpacity={0.82}
           >
             <View style={[styles.quickIcon, { backgroundColor: 'rgba(178,164,255,0.18)' }]}>

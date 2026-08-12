@@ -14,21 +14,21 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'house', selected: 'house.fill' }} />
         <Label>ホーム</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="check">
-        <Icon sf={{ default: 'checkmark.circle', selected: 'checkmark.circle.fill' }} />
-        <Label>チェック</Label>
+      <NativeTabs.Trigger name="record">
+        <Icon sf={{ default: 'pencil.and.scribble', selected: 'pencil.and.scribble' }} />
+        <Label>記録</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="chat">
         <Icon sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }} />
         <Label>チャット</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="record">
-        <Icon sf={{ default: 'pencil.and.scribble', selected: 'pencil.and.scribble' }} />
-        <Label>きろく</Label>
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="growth">
         <Icon sf={{ default: 'chart.line.uptrend.xyaxis', selected: 'chart.line.uptrend.xyaxis.circle.fill' }} />
         <Label>成長</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="plant">
+        <Icon sf={{ default: 'bolt', selected: 'bolt.fill' }} />
+        <Label>発電所</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -82,14 +82,14 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="check"
+        name="record"
         options={{
-          title: 'チェック',
+          title: '記録',
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="checkmark.circle" tintColor={color} size={24} />
+              <SymbolView name="pencil" tintColor={color} size={24} />
             ) : (
-              <Ionicons name="checkmark-circle-outline" size={22} color={color} />
+              <Feather name="edit-2" size={20} color={color} />
             ),
         }}
       />
@@ -106,18 +106,6 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="record"
-        options={{
-          title: 'きろく',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="pencil" tintColor={color} size={24} />
-            ) : (
-              <Feather name="edit-2" size={20} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
         name="growth"
         options={{
           title: '成長',
@@ -126,6 +114,18 @@ function ClassicTabLayout() {
               <SymbolView name="chart.line.uptrend.xyaxis" tintColor={color} size={24} />
             ) : (
               <Feather name="trending-up" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="plant"
+        options={{
+          title: '発電所',
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="bolt" tintColor={color} size={24} />
+            ) : (
+              <Ionicons name="flash-outline" size={22} color={color} />
             ),
         }}
       />
