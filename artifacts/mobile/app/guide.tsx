@@ -44,6 +44,12 @@ export default function GuideScreen() {
       <Text style={[styles.bulletBody, { color: colors.foreground }]}>{children}</Text>
     </View>
   );
+  const FlowStep = ({ emoji, text }: { emoji: string; text: string }) => (
+    <View style={styles.flowRow}>
+      <Text style={styles.flowEmoji}>{emoji}</Text>
+      <Text style={[styles.flowText, { color: colors.foreground }]}>{text}</Text>
+    </View>
+  );
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
@@ -68,29 +74,71 @@ export default function GuideScreen() {
           このアプリでできること、AIとの付き合い方をまとめました。
         </Text>
 
+        {/* コンセプト */}
+        <Section icon="sparkles-outline" title="このアプリのコンセプト">
+          <P>
+            YOKKY は「あなたの元気が世界を動かす」メンタルケアアプリです。
+          </P>
+          <P>
+            毎日の気分や行動を記録すると、あなたとともに暮らすキャラクターが元気になります。
+            元気になったキャラクターは光を放ち、その光が太陽を明るくし、ひかり発電所のソーラーパネルを輝かせます。
+            発電したエネルギーを売って、キャラクターへのごほうびに変えることができます。
+          </P>
+          <View style={styles.flowBox}>
+            <FlowStep emoji="💗" text="あなたが記録・チェックをする" />
+            <Text style={[styles.flowArrow, { color: colors.mutedForeground }]}>↓</Text>
+            <FlowStep emoji="😊" text="キャラクターが元気になり、光を放つ" />
+            <Text style={[styles.flowArrow, { color: colors.mutedForeground }]}>↓</Text>
+            <FlowStep emoji="☀️" text="太陽が明るくなり、日差しが強くなる" />
+            <Text style={[styles.flowArrow, { color: colors.mutedForeground }]}>↓</Text>
+            <FlowStep emoji="⚡" text="ソーラーパネルが輝き、エネルギーが蓄まる" />
+            <Text style={[styles.flowArrow, { color: colors.mutedForeground }]}>↓</Text>
+            <FlowStep emoji="🍚" text="売電してキャラクターにごはんをあげる" />
+          </View>
+          <Hint>自分を大切にすることが、そのままキャラクターへの愛情になる——そんなループを体験してください。</Hint>
+        </Section>
+
+        {/* ホーム */}
         <Section icon="home-outline" title="ホーム">
-          <P>あなたの相棒(マスコット)が住んでいる場所です。毎日の記録やチェックを続けると、相棒が元気になり、部屋もにぎやかになっていきます。</P>
+          <P>あなたの相棒(キャラクター)が住んでいる場所です。毎日の記録やチェックを続けると、キャラクターが元気になり、光があふれてきます。</P>
+          <Bullet label="ごはん🍚">ごはんポイントを使ってキャラクターにごはんをあげると、満腹度が上がって元気になります。</Bullet>
+          <Bullet label="なでる">キャラクターをタップしてなでてあげましょう。</Bullet>
           <Hint>まずは1日1回、顔を見に来るだけでOKです。</Hint>
         </Section>
 
-        <Section icon="checkmark-circle-outline" title="チェック">
-          <P>今日の心の状態をかんたんな質問でチェックします。深く考えず、直感で答えて大丈夫です。</P>
+        {/* きろく */}
+        <Section icon="pencil-outline" title="きろく(記録タブ)">
+          <P>気分・チェック・できごとを記録する場所です。短い一言でも十分。記録するたびに光エネルギーが増えます。</P>
+          <Bullet label="チェック ✅">今日の心の状態をかんたんな質問で確認。達成ごとにごはんポイント +2、全完了で +10。</Bullet>
+          <Bullet label="気分きろく 📝">今日あったことや気持ちを書き留めましょう。記録すると +5pt。</Bullet>
           <Hint>毎日同じ時間帯にやると、変化に気づきやすくなります。</Hint>
         </Section>
 
-        <Section icon="pencil-outline" title="きろく">
-          <P>気分やできごとを記録する場所です。短い一言でも十分。積み重ねるほど、AIの分析が的確になっていきます。</P>
-        </Section>
-
+        {/* チャット */}
         <Section icon="chatbubble-ellipses-outline" title="チャット">
           <P>AIにいつでも話しかけられます。愚痴でも相談でも雑談でもOK。あなたの記録とプロフィールを踏まえて返事をしてくれます。</P>
           <Hint>AIの提案は参考情報です。つらい状態が続くときは、専門家や身近な人にも相談してください。</Hint>
         </Section>
 
-        <Section icon="trending-up-outline" title="メンタルの成長">
+        {/* 成長 */}
+        <Section icon="trending-up-outline" title="成長">
           <P>続けた分だけレベルやバッジが増え、気分の推移もグラフやカレンダーで振り返れます。</P>
         </Section>
 
+        {/* 発電所 */}
+        <Section icon="flash-outline" title="ひかり発電所">
+          <P>キャラクターの元気が太陽を照らし、ソーラーパネルが発電する幻想的な場所です。</P>
+          <Bullet label="売電 ⚡">蓄まったエネルギーを売って🌱ごほうびポイントを獲得。</Bullet>
+          <Bullet label="交換 🍚">ごほうびポイントをごはんポイントに変換。ホームでキャラクターにごはんをあげよう。</Bullet>
+          <Hint>元気(キャラクターのコンディション)が高いほど、太陽が明るく輝きパネルの発電量も増えます。</Hint>
+        </Section>
+
+        {/* ミニゲーム */}
+        <Section icon="game-controller-outline" title="ミニゲーム">
+          <P>ホームから遊べるリズムゲームです。結果に応じてごはんポイントが貯まります(⭐4以上で +3pt)。光エネルギーは増えませんが、キャラクターとの絆が深まります。</P>
+        </Section>
+
+        {/* プロフィール */}
         <Section icon="person-outline" title="プロフィールとAIの関係">
           <P>プロフィールに入力した情報は、AIがあなたに合わせた言葉やアドバイスを選ぶための「参考情報」として使われます。</P>
           <Bullet label="ニックネーム">呼びかけに使われます。</Bullet>
@@ -107,6 +155,7 @@ export default function GuideScreen() {
           </Hint>
         </Section>
 
+        {/* データ */}
         <Section icon="cloud-outline" title="データについて">
           <P>記録はスマホ内に保存され、ログイン中は自動でクラウドにも同期されます。機種変更しても、同じアカウントでログインすればデータは戻ってきます。</P>
         </Section>
@@ -129,6 +178,11 @@ const styles = StyleSheet.create({
   body: { fontSize: 14, fontFamily: 'Inter_400Regular', lineHeight: 22 },
   hint: { fontSize: 12.5, fontFamily: 'Inter_400Regular', lineHeight: 19 },
   bulletRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  bulletLabel: { fontSize: 13.5, fontFamily: 'Inter_600SemiBold', lineHeight: 21, minWidth: 92 },
+  bulletLabel: { fontSize: 13.5, fontFamily: 'Inter_600SemiBold', lineHeight: 21, minWidth: 110 },
   bulletBody: { flex: 1, fontSize: 13.5, fontFamily: 'Inter_400Regular', lineHeight: 21 },
+  flowBox: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, gap: 2 },
+  flowRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  flowEmoji: { fontSize: 18, width: 28 },
+  flowText: { fontSize: 13.5, fontFamily: 'Inter_500Medium', lineHeight: 22, flex: 1 },
+  flowArrow: { fontSize: 16, textAlign: 'center', paddingLeft: 14 },
 });

@@ -207,7 +207,7 @@ export default function RecordScreen() {
             </View>
           </View>
           <Text style={[styles.charHint, { color: colors.mutedForeground }]}>
-            たまった光は発電所で街を明るくするのに使えるよ(準備中)
+            たまった光は発電所タブで売電して、キャラのごはんに使えるよ ⚡→🍚
           </Text>
         </Card>
       </ScrollView>
