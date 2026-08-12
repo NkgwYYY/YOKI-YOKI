@@ -45,7 +45,6 @@ import {
 import { getGreeting, formatDateJP, getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
 import { MAX_GROWTH_SCALE } from '@/utils/growth';
 import { plantLevelFor, plantLevelProgress, MAX_PLANT_LEVEL } from '@/utils/powerPlant';
-import { LightFlowEffect } from '@/components/LightFlowEffect';
 import { Dimensions } from 'react-native';
 
 /* ── サイズ成長の表示ラッパー ──
@@ -200,20 +199,9 @@ export default function HomeScreen() {
     miniGameState, completeMiniGame,
     isLoading, growth,
     checkedState, checklistItems,
-    lightEnergy, lightGainEvent,
+    lightEnergy,
   } = useApp();
-
-  // ── 循環演出: ユーザー操作で光エネルギーを獲得した瞬間だけ発火する ──
-  // (クラウド同期・読込・日付リセットによる数値変動では lightGainEvent が
-  //  発行されないため、誤演出は起きない)
-  const [lightFlow, setLightFlow] = useState<{ amount: number } | null>(null);
-  // マウント時点で既に存在していたイベントは再生しない(タブ復帰時の再演出防止)
-  const seenGainSeqRef = React.useRef<number>(lightGainEvent?.seq ?? 0);
-  useEffect(() => {
-    if (!lightGainEvent || lightGainEvent.seq === seenGainSeqRef.current) return;
-    seenGainSeqRef.current = lightGainEvent.seq;
-    setLightFlow({ amount: lightGainEvent.amount });
-  }, [lightGainEvent]);
+  // 循環演出(LightFlowEffect)はタブレイアウト側の常駐ホストが表示する
 
   // ── 今日の自分の一歩(チェックリスト先頭5件) ──
   // 日付が変わった直後の古いチェック状態は「未チェック」として扱う
@@ -739,15 +727,6 @@ export default function HomeScreen() {
         )}
 
       </ScrollView>
-
-      {/* ── 光の循環演出(記録・ゲームで光が増えた瞬間) ── */}
-      {lightFlow && (
-        <LightFlowEffect
-          amount={lightFlow.amount}
-          onDone={() => setLightFlow(null)}
-          onGoPlant={() => router.push('/(tabs)/plant')}
-        />
-      )}
 
       {/* ── Naming Modal ── */}
       <Modal visible={showNameModal} transparent animationType="slide" onRequestClose={() => setShowNameModal(false)}>

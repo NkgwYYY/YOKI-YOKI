@@ -292,6 +292,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // クラウドpullや読込による数値変動では発火しない)
   const [lightGainEvent, setLightGainEvent] = useState<{ amount: number; seq: number } | null>(null);
   const gainSeqRef = useRef(0);
+  // 1操作で複数の付与が連続する場合(メモ付き記録・全チェックボーナス等)は
+  // 短い窓で合算して1イベントにする(バナーの +量 を実際の合計と一致させる)
+  const pendingGainRef = useRef(0);
+  const gainFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (gainFlushTimerRef.current) clearTimeout(gainFlushTimerRef.current);
+  }, []);
+  const queueGainEvent = useCallback((gained: number) => {
+    pendingGainRef.current += gained;
+    if (gainFlushTimerRef.current) clearTimeout(gainFlushTimerRef.current);
+    gainFlushTimerRef.current = setTimeout(() => {
+      const amount = pendingGainRef.current;
+      pendingGainRef.current = 0;
+      gainFlushTimerRef.current = null;
+      if (amount > 0) setLightGainEvent({ amount, seq: ++gainSeqRef.current });
+    }, 400);
+  }, []);
 
   /** 光エネルギー獲得(獲得ルールは utils/lightEnergy.ts に集約)。flag 指定時は1日1回のみ */
   const gainLightEnergy = useCallback(
@@ -302,9 +319,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const gained = next.todayEnergy - lightEnergyRef.current.todayEnergy;
       lightEnergyRef.current = next;
       setLightEnergy(next);
-      if (gained > 0) {
-        setLightGainEvent({ amount: gained, seq: ++gainSeqRef.current });
-      }
+      if (gained > 0) queueGainEvent(gained);
       await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next));
     },
     []
