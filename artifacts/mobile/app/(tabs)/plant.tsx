@@ -526,7 +526,8 @@ const s = StyleSheet.create({
   sellReadyChipText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: '#C9B2FF' },
 
   /* scene */
-  sceneCard: { height: 430, padding: 0, gap: 0 },
+  // 画像(800x1024)と同じ縦横比にして、パネル群が必ず全部見えるようにする
+  sceneCard: { width: '100%', aspectRatio: 800 / 1024, padding: 0, gap: 0 },
   sunWrap: {
     position: 'absolute', left: '7%', top: 40,
     width: 96, height: 96, alignItems: 'center', justifyContent: 'center',
