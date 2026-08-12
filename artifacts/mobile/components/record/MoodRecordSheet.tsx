@@ -107,10 +107,20 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
   const [activities, setActivities] = useState<Record<string, number>>(todayRecord?.activities ?? {});
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // 保存後の自動クローズ用タイマー。閉じ直し/アンマウント時に必ずキャンセルする
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+  useEffect(() => clearCloseTimer, []);
 
   // シートを開くたびに今日の記録内容へ同期
   useEffect(() => {
     if (visible) {
+      clearCloseTimer();
       const r = getTodayRecord();
       setMood(r?.mood ?? 3);
       setSleep(r?.sleep ?? 7);
@@ -154,7 +164,9 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
       Analytics.moodRecorded(mood);
       setSaved(true);
       onSaved?.();
-      setTimeout(() => {
+      clearCloseTimer();
+      closeTimerRef.current = setTimeout(() => {
+        closeTimerRef.current = null;
         setSaved(false);
         onClose();
       }, 1200);
