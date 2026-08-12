@@ -9,7 +9,6 @@ import { Song, Difficulty, RhythmMode, PlayResult, starRating } from '@/utils/rh
 import { SONGS } from '@/utils/rhythm/songs';
 import { getChart } from '@/utils/rhythm/charts';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
-import { gainForPlay } from '@/utils/lightEnergy';
 import { TapBeatGame } from './TapBeatGame';
 import { RhythmJumpGame } from './RhythmJumpGame';
 import { RhythmSwipeGame } from './RhythmSwipeGame';
@@ -247,17 +246,12 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
         <Text style={st.stars}>{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</Text>
         <Text style={st.refreshTag}>🍃 今日のリフレッシュ +1</Text>
         {(() => {
-          const g = gainForPlay(stars);
+          // ごはんポイント(MiniGameModal.resultToReward と同じルール)
+          const fp = stars >= 4 ? 3 : stars === 3 ? 2 : 1;
           return (
             <View style={st.energyRow}>
-              <View style={[st.energyChip, { backgroundColor: 'rgba(255,183,94,0.14)' }]}>
-                <Text style={[st.energyChipTxt, { color: '#FFC97E' }]}>💪 元気 +{g.genki}</Text>
-              </View>
-              <View style={[st.energyChip, { backgroundColor: 'rgba(255,215,94,0.14)' }]}>
-                <Text style={[st.energyChipTxt, { color: '#FFE29E' }]}>✨ 光の力 +{g.light}</Text>
-              </View>
-              <View style={[st.energyChip, { backgroundColor: 'rgba(94,224,184,0.14)' }]}>
-                <Text style={[st.energyChipTxt, { color: '#8EEFD0' }]}>⚡ 発電エネルギー +{g.energy}</Text>
+              <View style={[st.energyChip, { backgroundColor: 'rgba(255,183,94,0.16)' }]}>
+                <Text style={[st.energyChipTxt, { color: '#FFC97E' }]}>🍚 ごはんポイント +{fp}</Text>
               </View>
             </View>
           );
@@ -268,13 +262,13 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
             <Text style={st.commentTxt}>{characterComment(result, mode)}</Text>
           </View>
         </View>
-        {/* 循環の導線: 生まれた光 → 発電所へ */}
+        {/* 循環の導線: ごはんポイント → ごはんをあげる(ホームへ) */}
         <TouchableOpacity
           style={st.plantBtn}
-          onPress={() => { onClose(); router.push('/(tabs)/plant'); }}
+          onPress={() => { onClose(); router.push('/(tabs)'); }}
           activeOpacity={0.85}
         >
-          <Text style={st.plantBtnTxt}>⚡ 生まれた光を発電所で見る</Text>
+          <Text style={st.plantBtnTxt}>🍚 ごはんポイントでごはんをあげよう</Text>
         </TouchableOpacity>
         <TouchableOpacity style={st.primaryBtn} onPress={onClose} activeOpacity={0.85}>
           <Text style={st.primaryTxt}>とじる</Text>

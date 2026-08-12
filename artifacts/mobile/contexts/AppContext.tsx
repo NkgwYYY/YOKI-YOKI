@@ -38,7 +38,6 @@ import {
   resolveLightEnergyState,
   rolloverLightEnergy,
   applyEnergyGain,
-  gainForPlay,
   GAIN_CHECK_ITEM,
   GAIN_FULL_DAY_BONUS,
   GAIN_MOOD_RECORD,
@@ -209,6 +208,8 @@ interface AppContextType {
   sellEnergy: () => Promise<{ sold: number; gained: number }>;
   /** エコポイントを使って次の街アイテムを建てる */
   buildTownItem: () => Promise<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }>;
+  /** ごほうびポイント(エコポイント)をごはんポイントに交換する(1:1) */
+  exchangeEcoPoints: (amount: number) => Promise<{ exchanged: number }>;
   /** 出会い記録(キャラクター図鑑)。出会ったキャラだけが入る */
   encounters: EncountersState;
   /** 「新しい仲間が生まれました!」演出の待ち行列(先頭から表示) */
@@ -434,6 +435,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       plantBusyRef.current = false;
     }
   }, []);
+
+  /** ごほうびポイント(エコポイント)をごはんポイントに交換する(1:1) */
+  const exchangeEcoPoints = useCallback(async (amount: number): Promise<{ exchanged: number }> => {
+    if (plantBusyRef.current) return { exchanged: 0 };
+    plantBusyRef.current = true;
+    try {
+      const plant = powerPlantRef.current;
+      const exchanged = Math.min(Math.floor(amount), plant.ecoPoints);
+      if (exchanged <= 0) return { exchanged: 0 };
+
+      const nextPlant: PowerPlantState = { ...plant, ecoPoints: plant.ecoPoints - exchanged };
+      powerPlantRef.current = nextPlant;
+      setPowerPlant(nextPlant);
+      await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
+      await saveFeedState({ ...feedState, points: feedState.points + exchanged });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      pushDataToCloud();
+      return { exchanged };
+    } finally {
+      plantBusyRef.current = false;
+    }
+  }, [feedState]);
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
@@ -990,15 +1013,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return nextG;
     });
 
-    // 光エネルギー: プレイ1回ぶん(★の数に応じて。結果画面の表示と同じルール)
-    await gainLightEnergy(gainForPlay(reward.stars ?? 0));
+    // ミニゲームは「ごはんポイント」だけを生む(光エネルギーは日々の記録から生まれる)
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     pushDataToCloud();
     } finally {
       completingSlotsRef.current.delete(slot);
     }
-  }, [miniGameState, feedState, progress, pushDataToCloud, gainLightEnergy]);
+  }, [miniGameState, feedState, progress, pushDataToCloud]);
 
   return (
     <AppContext.Provider
@@ -1039,6 +1061,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         powerPlant,
         sellEnergy,
         buildTownItem,
+        exchangeEcoPoints,
         encounters,
         newEncounters,
         dismissNewEncounter,
