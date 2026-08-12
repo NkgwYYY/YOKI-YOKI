@@ -88,9 +88,9 @@ function FoodCard({
 
         {/* Cost */}
         <View style={[cardStyles.costRow, { backgroundColor: canAfford ? '#FFD16622' : colors.muted }]}>
-          <Text style={cardStyles.coinIcon}>🪙</Text>
+          <Text style={cardStyles.coinIcon}>🍚</Text>
           <Text style={[cardStyles.costText, { color: canAfford ? '#D97706' : colors.mutedForeground }]}>
-            {food.cost} pt
+            {food.cost}
           </Text>
         </View>
       </TouchableOpacity>
@@ -202,12 +202,12 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
             <View>
               <Text style={[modalStyles.title, { color: colors.foreground }]}>ごはんをあげる</Text>
               <Text style={[modalStyles.sub, { color: colors.mutedForeground }]}>
-                達成するとポイントが貯まるよ
+                達成するとごはんポイントが貯まるよ
               </Text>
             </View>
             <View style={[modalStyles.pointsBadge, { backgroundColor: '#FFD16622' }]}>
-              <Text style={modalStyles.coinIcon}>🪙</Text>
-              <Text style={[modalStyles.pointsText, { color: '#D97706' }]}>{feedState.points} pt</Text>
+              <Text style={modalStyles.coinIcon}>🍚</Text>
+              <Text style={[modalStyles.pointsText, { color: '#D97706' }]}>{feedState.points} ごはんpt</Text>
             </View>
           </View>
 
@@ -247,7 +247,7 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
           <View style={[modalStyles.hint, { backgroundColor: colors.muted }]}>
             <Ionicons name="information-circle-outline" size={14} color={colors.mutedForeground} />
             <Text style={[modalStyles.hintText, { color: colors.mutedForeground }]}>
-              チェック達成 +2pt・全達成ボーナス +10pt・きろく +5pt
+              チェック達成 +2・全達成 +10・きろく +5・ミニゲーム +1〜3・発電所で交換もできるよ
             </Text>
           </View>
 

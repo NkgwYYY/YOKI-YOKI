@@ -449,14 +449,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       powerPlantRef.current = nextPlant;
       setPowerPlant(nextPlant);
       await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
-      await saveFeedState({ ...feedState, points: feedState.points + exchanged });
+      await mutateFeedPoints(exchanged);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       pushDataToCloud();
       return { exchanged };
     } finally {
       plantBusyRef.current = false;
     }
-  }, [feedState]);
+  }, []);
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
@@ -644,7 +644,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (recordsStr)  setRecords(JSON.parse(recordsStr));
       if (badgesStr)   setUnlockedBadges(JSON.parse(badgesStr));
       if (nameStr)     setMascotNameState(nameStr);
-      if (feedStr)     setFeedState(JSON.parse(feedStr));
+      if (feedStr) {
+        const parsed = JSON.parse(feedStr);
+        feedStateRef.current = parsed;
+        setFeedState(parsed);
+      }
       setMiniGameState(resolveMiniGameState(miniGameStr ? JSON.parse(miniGameStr) : null));
       if (profileStr) {
         try { setProfile(JSON.parse(profileStr)); } catch { setProfile(null); }
@@ -706,23 +710,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // ごはんポイントの同時更新(交換・購入・報酬)で残高が上書きされないよう、
+  // 常に最新値を保持する ref を正とする
+  const feedStateRef = useRef<FeedState>(defaultFeedState);
+
   const saveFeedState = async (next: FeedState) => {
+    feedStateRef.current = next;
     setFeedState(next);
     await AsyncStorage.setItem(KEYS.FEED_STATE, JSON.stringify(next));
+  };
+
+  /** ポイント増減は必ずこの関数経由(ref ベースで直列に適用) */
+  const mutateFeedPoints = async (delta: number): Promise<FeedState> => {
+    const cur = feedStateRef.current;
+    const next: FeedState = { ...cur, points: Math.max(0, cur.points + delta) };
+    await saveFeedState(next);
+    return next;
   };
 
   const feedMascot = useCallback(
     async (foodId: string): Promise<{ success: boolean; message: string; newSatiety: number }> => {
       const food = FOOD_ITEMS.find((f) => f.id === foodId);
       if (!food) return { success: false, message: 'Unknown food', newSatiety: currentSatiety };
-      if (feedState.points < food.cost) {
-        return { success: false, message: 'ポイントが足りないよ！', newSatiety: currentSatiety };
+      // 残高チェック・減算は常に最新の ref を正とする(交換・報酬付与との競合対策)
+      const cur = feedStateRef.current;
+      if (cur.points < food.cost) {
+        return { success: false, message: 'ごはんポイントが足りないよ！', newSatiety: currentSatiety };
       }
 
-      const baseSatiety = computeCurrentSatiety(feedState);
+      const baseSatiety = computeCurrentSatiety(cur);
       const newSatiety = Math.min(100, baseSatiety + food.satietyGain);
       const next: FeedState = {
-        points: feedState.points - food.cost,
+        points: cur.points - food.cost,
         lastFeedTime: new Date().toISOString(),
         satietyAtFeed: newSatiety,
       };
@@ -730,7 +749,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       return { success: true, message: `${food.name}をあげたよ！`, newSatiety };
     },
-    [feedState, currentSatiety]
+    [currentSatiety]
   );
 
   const checkAndUnlockBadges = useCallback(
@@ -812,8 +831,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (nowChecked && !currentItem.xpEarned) {
         let fpGain = FP_PER_CHECKLIST_ITEM;
         if (allDefaultChecked && !checkedState.bonusEarned) fpGain += FP_PER_FULL_DAY_BONUS;
-        const nextFeed: FeedState = { ...feedState, points: feedState.points + fpGain };
-        await saveFeedState(nextFeed);
+        await mutateFeedPoints(fpGain);
 
         // 光エネルギー: チェック1件(初回のみ) + 全達成ボーナス
         await gainLightEnergy(GAIN_CHECK_ITEM);
@@ -931,8 +949,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
 
       if (isNew) {
-        const nextFeed: FeedState = { ...feedState, points: feedState.points + FP_PER_MOOD_RECORD };
-        await saveFeedState(nextFeed);
+        await mutateFeedPoints(FP_PER_MOOD_RECORD);
       }
 
       // 光エネルギー: 気分・生活の記録(1日1回) + 日記を書いた(1日1回)
@@ -988,8 +1005,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // Apply FP reward
     if (reward.fp) {
-      const nextFeed: FeedState = { ...feedState, points: feedState.points + reward.fp };
-      await saveFeedState(nextFeed);
+      await mutateFeedPoints(reward.fp);
     }
 
     // Apply XP reward

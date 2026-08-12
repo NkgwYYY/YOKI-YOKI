@@ -16,7 +16,8 @@ import { Mascot } from '@/components/Mascot';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { FOOD_ITEMS } from '@/data/foodItems';
 
-const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
+// Reanimated の UI スレッドで安全に動く easing(worklet 対応の組み込みを使用)
+const easeInOutSine = Easing.inOut(Easing.sin);
 const SCENE_BG = require('@/assets/images/plant/plant-scene.png');
 
 /* ── 元気 → 日差しの段階 ── */
