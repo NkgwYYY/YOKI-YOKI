@@ -110,6 +110,14 @@ export default function PlantScreen() {
   const [builtMsg, setBuiltMsg] = useState<string | null>(null);
   const [justBuiltKey, setJustBuiltKey] = useState<string | null>(null);
 
+  // バナー自動消去タイマー(新しいメッセージを古いタイマーが消さないよう管理)
+  const soldTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const builtTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (soldTimerRef.current) clearTimeout(soldTimerRef.current);
+    if (builtTimerRef.current) clearTimeout(builtTimerRef.current);
+  }, []);
+
   const level = plantLevelFor(lightEnergy.totalEnergy);
   const levelProgress = plantLevelProgress(lightEnergy.totalEnergy);
   const next = nextTownItem(powerPlant);
@@ -131,7 +139,8 @@ export default function PlantScreen() {
       const { sold, gained } = await sellEnergy();
       if (sold > 0) {
         setSoldMsg(`⚡${sold} → 🌱 エコポイント +${gained}!`);
-        setTimeout(() => setSoldMsg(null), 2600);
+        if (soldTimerRef.current) clearTimeout(soldTimerRef.current);
+        soldTimerRef.current = setTimeout(() => setSoldMsg(null), 2600);
       }
     } finally {
       setSelling(false);
@@ -143,7 +152,8 @@ export default function PlantScreen() {
     if (built) {
       setJustBuiltKey(built.key);
       setBuiltMsg(`${built.emoji} ${built.name}が建ったよ! ${built.flavor}`);
-      setTimeout(() => { setBuiltMsg(null); setJustBuiltKey(null); }, 3200);
+      if (builtTimerRef.current) clearTimeout(builtTimerRef.current);
+      builtTimerRef.current = setTimeout(() => { setBuiltMsg(null); setJustBuiltKey(null); }, 3200);
     }
   };
 

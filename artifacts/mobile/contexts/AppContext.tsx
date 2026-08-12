@@ -347,25 +347,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // user action right after sign-in can't overwrite cloud data.
   const pullingRef = useRef(false);
 
+  // push を直列化するチェーン。並走した push が古いスナップショットで
+  // 新しいクラウド状態を上書きしないよう、常に「前の push 完了後に
+  // スナップショットを取る」順序を保証する
+  const pushChainRef = useRef<Promise<void>>(Promise.resolve());
+
   const pushDataToCloud = useCallback(async () => {
     if (!signedInRef.current || pullingRef.current) return;
-    const t = await getTokenRef.current();
-    if (!t) return;
-    try {
-      const keys = Object.values(KEYS);
-      const values = await Promise.all(keys.map((k) => AsyncStorage.getItem(k)));
-      const data: Record<string, unknown> = {};
-      keys.forEach((k, i) => {
-        if (values[i] !== null) {
-          try { data[k] = JSON.parse(values[i]!); } catch { data[k] = values[i]; }
-        }
-      });
-      await fetch(`${API_BASE}/sync`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({ data }),
-      });
-    } catch { /* fire-and-forget */ }
+    const run = async () => {
+      if (!signedInRef.current || pullingRef.current) return;
+      const t = await getTokenRef.current();
+      if (!t) return;
+      try {
+        const keys = Object.values(KEYS);
+        const values = await Promise.all(keys.map((k) => AsyncStorage.getItem(k)));
+        const data: Record<string, unknown> = {};
+        keys.forEach((k, i) => {
+          if (values[i] !== null) {
+            try { data[k] = JSON.parse(values[i]!); } catch { data[k] = values[i]; }
+          }
+        });
+        await fetch(`${API_BASE}/sync`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+          body: JSON.stringify({ data }),
+        });
+      } catch { /* fire-and-forget */ }
+    };
+    const next = pushChainRef.current.then(run, run);
+    pushChainRef.current = next;
+    await next;
   }, []);
 
   const pullDataFromCloud = useCallback(async (): Promise<boolean> => {
