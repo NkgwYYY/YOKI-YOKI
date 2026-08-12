@@ -445,6 +445,8 @@ export default function PlantScreen() {
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={() => router.push('/(tabs)')}
+            accessibilityRole="button"
+            accessibilityLabel="発電: 光を集めにいく(ホームへ移動)"
             style={[s.actionCard, { borderColor: colors.border }]}
           >
             <LinearGradient colors={['rgba(70,44,120,0.9)', 'rgba(38,24,80,0.95)']} style={StyleSheet.absoluteFill} />
@@ -456,8 +458,12 @@ export default function PlantScreen() {
             </View>
           </TouchableOpacity>
 
-          {/* 蓄電 */}
-          <View style={[s.actionCard, { borderColor: colors.border }]}>
+          {/* 蓄電(ステータス表示) */}
+          <View
+            accessible
+            accessibilityLabel={`蓄電ステータス: 現在 ${sellable} エネルギー蓄電中`}
+            style={[s.actionCard, { borderColor: colors.border }]}
+          >
             <LinearGradient colors={['rgba(44,70,90,0.85)', 'rgba(26,40,64,0.95)']} style={StyleSheet.absoluteFill} />
             <Text style={s.actionEmoji}>🔋</Text>
             <Text style={s.actionTitle}>蓄電</Text>
@@ -481,6 +487,9 @@ export default function PlantScreen() {
                 onPress={handleSell}
                 disabled={selling || sellable <= 0}
                 activeOpacity={0.9}
+                accessibilityRole="button"
+                accessibilityLabel={sellable > 0 ? `${sellable} エネルギーを売電する` : 'まだ売電できません。蓄電中です'}
+                accessibilityState={{ disabled: selling || sellable <= 0 }}
                 style={s.sellBtnWrap}
               >
                 <LinearGradient
@@ -501,6 +510,9 @@ export default function PlantScreen() {
             activeOpacity={next ? 0.85 : 1}
             onPress={next && canBuild ? handleBuild : undefined}
             disabled={!next || !canBuild}
+            accessibilityRole="button"
+            accessibilityLabel={next ? `拡張: ${next.name}を建てる(エコポイント${next.cost})` : '街は最大まで発展しました'}
+            accessibilityState={{ disabled: !next || !canBuild }}
             style={[s.actionCard, { borderColor: canBuild ? '#7FDCA488' : colors.border }]}
           >
             <LinearGradient colors={['rgba(40,78,60,0.7)', 'rgba(22,44,36,0.9)']} style={StyleSheet.absoluteFill} />
@@ -768,13 +780,13 @@ const s = StyleSheet.create({
   actionTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFFFFF' },
   actionDesc: { fontSize: 10.5, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.62)', lineHeight: 15, minHeight: 30 },
   actionChip: {
-    alignSelf: 'stretch', alignItems: 'center', paddingVertical: 8,
+    alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', minHeight: 40, paddingVertical: 8,
     borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.1)',
   },
   actionChipText: { fontSize: 11.5, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.85)' },
   sellBtnWrap: { borderRadius: 10, overflow: 'hidden' },
-  sellBtn: { alignItems: 'center', justifyContent: 'center', paddingVertical: 8, borderRadius: 10 },
-  sellBtnText: { fontSize: 11.5, fontFamily: 'Inter_700Bold' },
+  sellBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingVertical: 10, paddingHorizontal: 6, borderRadius: 10 },
+  sellBtnText: { fontSize: 12.5, fontFamily: 'Inter_700Bold' },
 
   banner: { padding: 11, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   bannerText: { fontSize: 12.5, fontFamily: 'Inter_700Bold', textAlign: 'center' },
