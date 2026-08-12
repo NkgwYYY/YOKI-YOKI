@@ -299,10 +299,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── 出会い記録の最新化: レベル(=進化段階)が変わるたびに図鑑へ登録する ──
-  // ロード完了前は defaultProgress で誤登録しないようスキップ
+  // ロード完了前(defaultProgress)や、ログイン済みでクラウド取得が終わる前は
+  // 誤登録・偽の「新しい仲間」演出につながるためスキップする
   useEffect(() => {
-    if (!encountersLoadedRef.current) return;
-    const { next, newlyMet } = syncEncounters(encountersRef.current, progress.level, getTodayDate());
+    if (!encountersLoadedRef.current || isLoading) return;
+    if (pullingRef.current) return;
+    if (isSignedIn && !cloudSynced) return;
+    // アカウントに履歴があるか(既存ユーザーの遡り登録判定に使う)
+    const hasHistory = progress.totalDays > 0 || progress.experience > 0 || progress.level > 1;
+    const { next, newlyMet } = syncEncounters(encountersRef.current, progress.level, getTodayDate(), hasHistory);
     if (next === encountersRef.current) return;
     encountersRef.current = next;
     setEncounters(next);
@@ -312,7 +317,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (newlyMet.length > 0) {
       setNewEncounters((prev) => [...prev, ...newlyMet.filter((k) => !prev.includes(k))]);
     }
-  }, [progress.level, isLoading]);
+  }, [progress.level, isLoading, isSignedIn, cloudSynced]);
 
   /** 「新しい仲間が生まれました!」演出を1件消化する */
   const dismissNewEncounter = useCallback(() => {

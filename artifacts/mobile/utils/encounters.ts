@@ -51,12 +51,18 @@ export function charsMetByLevel(level: number): CharacterKey[] {
 /**
  * 現在のレベルに応じて出会い記録を最新化する。
  * 戻り値: { next, newlyMet } — newlyMet は今回新しく出会ったキャラ(演出用)。
- * 既存ユーザーの初回マイグレーション(記録が空)ではまとめて登録し、演出は出さない。
+ *
+ * 演出ルール:
+ * - 通常の進化・初登場は1体ずつ増える → missing が1体のときだけ演出する
+ * - 複数体まとめて欠けている場合は既存ユーザーの遡り登録(マイグレーション)なので演出なし
+ * - 記録が空で、かつアカウントに履歴がある(hasHistory)場合も遡り登録扱いで演出なし
+ *   (まっさらな新規ユーザーのたまご初登場だけは演出する)
  */
 export function syncEncounters(
   state: EncountersState,
   level: number,
   today: string,
+  hasHistory: boolean,
 ): { next: EncountersState; newlyMet: CharacterKey[] } {
   const met = new Set(state.list.map((e) => e.charKey));
   const should = charsMetByLevel(level);
@@ -66,9 +72,8 @@ export function syncEncounters(
   const next: EncountersState = {
     list: [...state.list, ...missing.map((charKey) => ({ charKey, metDate: today }))],
   };
-  // 記録が空だった場合はマイグレーション扱い(過去の出会いを遡って登録)なので演出なし
-  const newlyMet = state.list.length === 0 ? [] : missing;
-  return { next, newlyMet };
+  const isBackfill = missing.length > 1 || (state.list.length === 0 && hasHistory);
+  return { next, newlyMet: isBackfill ? [] : missing };
 }
 
 /** キャラのステージ(表示ラベル用) */

@@ -75,12 +75,21 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
   const jumpY = useSharedValue(0);
   const shakeX = useSharedValue(0);
   const walkX = useSharedValue(0);
+  const squish = useSharedValue(0); // なでる・話しかける時のぷにっとした反応
   const wrapStyle = useAnimatedStyle(() => ({
     transform: [
       { translateY: jumpY.value },
       { translateX: shakeX.value + walkX.value },
+      { scaleY: 1 - squish.value * 0.06 },
+      { scaleX: 1 + squish.value * 0.06 },
     ],
   }));
+  const doSquish = () => {
+    squish.value = withSequence(
+      withTiming(1, { duration: 120 }),
+      withSpring(0, { damping: 5, stiffness: 180 }),
+    );
+  };
 
   const handleAction = (key: ActionKey) => {
     switch (key) {
@@ -88,11 +97,13 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
         const lines = TALK_LINES[charKey];
         say(lines[Math.floor(Math.random() * lines.length)]);
         feel('happy');
+        doSquish();
         break;
       }
       case 'pet':
         feel('happy', 3500);
         say('えへへ…', 1800);
+        doSquish();
         break;
       case 'jump':
         feel('excited');
@@ -147,6 +158,7 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
                   mood={mood}
                   size={150}
                   growthSize={isCurrent ? growth.growthSize : 1}
+                  onPet={() => handleAction('pet')}
                 />
               </Animated.View>
             </View>
@@ -174,24 +186,25 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
               ))}
             </View>
 
-            {/* 元気・光の力(現在のパートナーのみ実数値) */}
-            {isCurrent && (
-              <View style={styles.gaugeCard}>
-                {[
-                  { label: '元気', value: lightEnergy.genki, color: '#FF9ECD', icon: '💗' },
-                  { label: '光の力', value: lightEnergy.lightPower, color: '#FFD86B', icon: '✨' },
-                ].map((g) => (
-                  <View key={g.label} style={styles.gaugeRow}>
-                    <Text style={styles.gaugeIcon}>{g.icon}</Text>
-                    <Text style={styles.gaugeLabel}>{g.label}</Text>
-                    <View style={styles.gaugeTrack}>
-                      <View style={[styles.gaugeFill, { width: `${g.value}%`, backgroundColor: g.color }]} />
-                    </View>
-                    <Text style={styles.gaugeValue}>{g.value}</Text>
+            {/* 元気・光の力。進化しても同一個体なので、どの姿でも今日の値を表示する */}
+            <View style={styles.gaugeCard}>
+              {!isCurrent && (
+                <Text style={styles.gaugeNote}>いまのこの子の状態(進化してもおなじ個体だよ)</Text>
+              )}
+              {[
+                { label: '元気', value: lightEnergy.genki, color: '#FF9ECD', icon: '💗' },
+                { label: '光の力', value: lightEnergy.lightPower, color: '#FFD86B', icon: '✨' },
+              ].map((g) => (
+                <View key={g.label} style={styles.gaugeRow}>
+                  <Text style={styles.gaugeIcon}>{g.icon}</Text>
+                  <Text style={styles.gaugeLabel}>{g.label}</Text>
+                  <View style={styles.gaugeTrack}>
+                    <View style={[styles.gaugeFill, { width: `${g.value}%`, backgroundColor: g.color }]} />
                   </View>
-                ))}
-              </View>
-            )}
+                  <Text style={styles.gaugeValue}>{g.value}</Text>
+                </View>
+              ))}
+            </View>
 
             {/* プロフィール */}
             <View style={styles.profileCard}>
@@ -259,6 +272,7 @@ const styles = StyleSheet.create({
     marginTop: 14, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 16,
     padding: 14, gap: 10,
   },
+  gaugeNote: { fontSize: 10, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.5)' },
   gaugeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   gaugeIcon: { fontSize: 14 },
   gaugeLabel: { width: 48, fontSize: 12, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.85)' },

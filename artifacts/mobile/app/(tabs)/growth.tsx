@@ -39,6 +39,7 @@ import { DEX_PROFILES, WORLD_CARDS } from '@/data/characterDex';
 import { DEX_IMAGES } from '@/components/dex/dexAssets';
 import { CharacterDexModal } from '@/components/dex/CharacterDexModal';
 import type { CharacterKey } from '@/utils/mascotUtils';
+import { charsMetByLevel } from '@/utils/encounters';
 import { getTodayDate } from '@/utils/dateUtils';
 
 // ステージごとのキャラ画像(進化に合わせて成長比較の見た目も切り替える)
@@ -140,6 +141,11 @@ export default function GrowthScreen() {
   const hasGrown = growth.growthSize - firstGrowth > 0.0005;
   const currentChar = getCharacter(getMascotStage(progress.level));
   const CHAR_IMG = STAGE_IMAGES[currentChar.key] ?? STAGE_IMAGES.egg;
+
+  // 図鑑に出すのは「記録があり、かつ現在のレベルで実際に出会っているはずのキャラ」だけ。
+  // ストレージやクラウドに未来のキャラの記録が紛れ込んでも描画されないようにする
+  const metNow = new Set(charsMetByLevel(progress.level));
+  const dexList = encounters.list.filter((e) => metNow.has(e.charKey));
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
@@ -450,16 +456,16 @@ export default function GrowthScreen() {
             <View style={styles.cardHeader}>
               <Text style={[styles.cardTitle, { color: colors.foreground }]}>キャラクター図鑑</Text>
               <Text style={[styles.badgeCount, { color: colors.mutedForeground }]}>
-                出会った仲間 {encounters.list.length}
+                出会った仲間 {dexList.length}
               </Text>
             </View>
-            {encounters.list.length === 0 ? (
+            {dexList.length === 0 ? (
               <Text style={[styles.growthNote, { color: colors.mutedForeground, marginTop: 0 }]}>
                 仲間と出会うと、ここに記録されていくよ
               </Text>
             ) : (
               <View style={styles.dexGrid}>
-                {encounters.list.map((e) => {
+                {dexList.map((e) => {
                   const p = DEX_PROFILES[e.charKey];
                   const isCurrent = e.charKey === currentChar.key;
                   return (
@@ -529,7 +535,7 @@ export default function GrowthScreen() {
       {dexChar && (
         <CharacterDexModal
           charKey={dexChar}
-          metDate={encounters.list.find((e) => e.charKey === dexChar)?.metDate ?? ''}
+          metDate={dexList.find((e) => e.charKey === dexChar)?.metDate ?? ''}
           isCurrent={dexChar === currentChar.key}
           onClose={() => setDexChar(null)}
         />
