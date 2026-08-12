@@ -18,7 +18,7 @@ import { FOOD_ITEMS } from '@/data/foodItems';
 
 // Reanimated の UI スレッドで安全に動く easing(worklet 対応の組み込みを使用)
 const easeInOutSine = Easing.inOut(Easing.sin);
-const SCENE_BG = require('@/assets/images/plant/plant-scene.png');
+const SCENE_BG = require('@/assets/images/plant/plant-scene-v2.png');
 
 /* ── 元気 → 日差しの段階 ── */
 function sunshineTier(genki: number): { label: string; emoji: string } {
@@ -133,6 +133,73 @@ function Mote({ index }: { index: number }) {
       ]}
     >
       ✦
+    </Animated.Text>
+  );
+}
+
+/** パネル群のきらめき(日差しが強いほどパネルが輝く) */
+function PanelShimmer({ genki }: { genki: number }) {
+  const o = useSharedValue(0.4);
+  useEffect(() => {
+    o.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1900, easing: easeInOutSine }),
+        withTiming(0.4, { duration: 1900, easing: easeInOutSine }),
+      ), -1, false,
+    );
+  }, []);
+  const strength = 0.18 + (genki / 100) * 0.5;
+  const st = useAnimatedStyle(() => ({ opacity: strength * o.value }));
+  return (
+    <Animated.View style={[s.panelShimmer, st]} pointerEvents="none">
+      <LinearGradient
+        colors={['rgba(255,226,140,0)', 'rgba(255,226,140,0.55)', 'rgba(255,240,190,0.75)', 'rgba(255,226,140,0.45)', 'rgba(255,226,140,0)']}
+        start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </Animated.View>
+  );
+}
+
+/** パネル → 蓄電タンクへ流れるエネルギーの粒 */
+function EnergyFlow({ genki }: { genki: number }) {
+  const count = 2 + Math.round((genki / 100) * 3);
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {Array.from({ length: count }).map((_, i) => (
+        <EnergyDot key={i} index={i} />
+      ))}
+    </View>
+  );
+}
+
+function EnergyDot({ index }: { index: number }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withDelay(
+      index * 540,
+      withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.quad) }), -1, false),
+    );
+  }, []);
+  // パネル(中央左)→ 蓄電タンク(右)へ流れる
+  const st = useAnimatedStyle(() => {
+    const t = p.value;
+    return {
+      opacity: t < 0.1 ? t / 0.1 : 1 - t * 0.7,
+      transform: [
+        { translateX: t * 150 },
+        { translateY: t * 26 + Math.sin(t * Math.PI * 3 + index) * 5 },
+      ],
+    };
+  });
+  return (
+    <Animated.Text
+      style={[
+        { position: 'absolute', top: `${44 + (index % 3) * 5}%`, left: '28%', fontSize: 11 + (index % 2) * 3, color: '#FFE082' },
+        st,
+      ]}
+    >
+      ⚡
     </Animated.Text>
   );
 }
@@ -291,6 +358,8 @@ export default function PlantScreen() {
 
           <SceneSun genki={genki} />
           <SunRays genki={genki} />
+          <PanelShimmer genki={genki} />
+          <EnergyFlow genki={genki} />
           <LightMotes genki={genki} />
 
           {/* キャラクター(発電所の住人) */}
@@ -310,12 +379,6 @@ export default function PlantScreen() {
               {tier.emoji} 元気 {genki}% ・ {tier.label}
             </Text>
           </View>
-        </View>
-
-        {/* ── 光の循環 ── */}
-        <View style={[s.card, s.loopCard, { borderColor: colors.border }]}>
-          <Text style={s.loopText}>💗 あなたが元気になる → 😊 キャラが元気になる → ✨ 光が生まれる</Text>
-          <Text style={s.loopText}>→ ☀️ 太陽が明るくなる → ⚡ エネルギーが貯まる → 🍚 ごほうびに!</Text>
         </View>
 
         {/* ── 売電 ── */}
@@ -471,6 +534,7 @@ const s = StyleSheet.create({
   sunGlow: { position: 'absolute', width: 96, height: 96, borderRadius: 48, backgroundColor: '#FFD86B' },
   sunBody: { width: 46, height: 46, borderRadius: 23 },
   raysWrap: { position: 'absolute', left: '14%', top: 92, width: 180, height: 120 },
+  panelShimmer: { position: 'absolute', left: 0, right: 0, top: '36%', height: '30%' },
   ray: { position: 'absolute', left: 0, width: 150, height: 7, borderRadius: 4 },
 
   mascotWrap: { position: 'absolute', bottom: 14, alignSelf: 'center', alignItems: 'center', gap: 4 },
@@ -492,10 +556,6 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
   },
   sunshineChipText: { fontSize: 11, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.92)' },
-
-  /* loop */
-  loopCard: { backgroundColor: 'rgba(35,22,70,0.75)', gap: 4, padding: 14 },
-  loopText: { fontSize: 10.5, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.72)', lineHeight: 16, textAlign: 'center' },
 
   /* cards */
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
