@@ -5,6 +5,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { COSMIC_SHEET } from '@/constants/cosmicTheme';
 import { GameSlot, getSlotConfig } from '@/utils/miniGameUtils';
+import { useApp } from '@/contexts/AppContext';
 import { Analytics } from '@/utils/analytics';
 import { PlayResult, starRating } from '@/utils/rhythm/types';
 import { RhythmGameFlow } from '@/components/rhythm/RhythmGameFlow';
@@ -29,7 +30,15 @@ function resultToReward(r: PlayResult): { fp: number; xp?: number; stars: number
 
 export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
   const cfg = getSlotConfig(slot);
+  const { holdLightFlow } = useApp();
   const [playing, setPlaying] = useState(false);
+
+  // モーダル表示中は光の循環演出を保留(閉じた瞬間にタブ画面上で再生される)
+  useEffect(() => {
+    if (!visible) return;
+    holdLightFlow(true);
+    return () => holdLightFlow(false);
+  }, [visible, holdLightFlow]);
   const [flowKey, setFlowKey] = useState(0);
   const rewardedRef = useRef(false);
 

@@ -201,6 +201,8 @@ interface AppContextType {
   /** 直近の「ユーザー操作による」光エネルギー獲得イベント(循環演出用)。
    *  クラウド同期・読込では発火しない。seq は毎回増える識別子 */
   lightGainEvent: { amount: number; seq: number } | null;
+  /** モーダル表示中は循環演出を保留する(true=保留開始 / false=解除。解除時に保留分を再生) */
+  holdLightFlow: (hold: boolean) => void;
   /** 発電所(エコポイント・売電履歴・街の発展)の状態 */
   powerPlant: PowerPlantState;
   /** 蓄電エネルギーを全て売電してエコポイントに変換する */
@@ -299,16 +301,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => () => {
     if (gainFlushTimerRef.current) clearTimeout(gainFlushTimerRef.current);
   }, []);
+  // ゲーム等のフルスクリーンモーダル表示中は演出ホスト(タブレイアウト直下)が
+  // モーダルの背面に隠れるため、閉じるまでイベントの発行を保留する
+  const flowHoldRef = useRef(0);
+  const flushGainEvent = useCallback(() => {
+    if (flowHoldRef.current > 0) return; // 保留中。解除時に再度呼ばれる
+    const amount = pendingGainRef.current;
+    pendingGainRef.current = 0;
+    if (amount > 0) setLightGainEvent({ amount, seq: ++gainSeqRef.current });
+  }, []);
   const queueGainEvent = useCallback((gained: number) => {
     pendingGainRef.current += gained;
     if (gainFlushTimerRef.current) clearTimeout(gainFlushTimerRef.current);
     gainFlushTimerRef.current = setTimeout(() => {
-      const amount = pendingGainRef.current;
-      pendingGainRef.current = 0;
       gainFlushTimerRef.current = null;
-      if (amount > 0) setLightGainEvent({ amount, seq: ++gainSeqRef.current });
+      flushGainEvent();
     }, 400);
-  }, []);
+  }, [flushGainEvent]);
+  /** 光の循環演出を保留/解除する(モーダル表示中に演出が隠れないように)。
+   *  hold=true で保留カウント+1、false で-1。0に戻った時点で保留分を1回再生 */
+  const holdLightFlow = useCallback((hold: boolean) => {
+    flowHoldRef.current = Math.max(0, flowHoldRef.current + (hold ? 1 : -1));
+    if (flowHoldRef.current === 0 && pendingGainRef.current > 0) {
+      // モーダルの閉じアニメーションが終わってから再生
+      setTimeout(flushGainEvent, 350);
+    }
+  }, [flushGainEvent]);
 
   /** 光エネルギー獲得(獲得ルールは utils/lightEnergy.ts に集約)。flag 指定時は1日1回のみ */
   const gainLightEnergy = useCallback(
@@ -1015,6 +1033,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markGrowthSeen,
         lightEnergy,
         lightGainEvent,
+        holdLightFlow,
         powerPlant,
         sellEnergy,
         buildTownItem,
