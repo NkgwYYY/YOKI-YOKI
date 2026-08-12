@@ -44,6 +44,8 @@ import {
 } from '@/utils/mascotUtils';
 import { getGreeting, formatDateJP, getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
 import { MAX_GROWTH_SCALE } from '@/utils/growth';
+import { plantLevelFor, plantLevelProgress, MAX_PLANT_LEVEL } from '@/utils/powerPlant';
+import { LightFlowEffect } from '@/components/LightFlowEffect';
 import { Dimensions } from 'react-native';
 
 /* ── サイズ成長の表示ラッパー ──
@@ -198,7 +200,20 @@ export default function HomeScreen() {
     miniGameState, completeMiniGame,
     isLoading, growth,
     checkedState, checklistItems,
+    lightEnergy, lightGainEvent,
   } = useApp();
+
+  // ── 循環演出: ユーザー操作で光エネルギーを獲得した瞬間だけ発火する ──
+  // (クラウド同期・読込・日付リセットによる数値変動では lightGainEvent が
+  //  発行されないため、誤演出は起きない)
+  const [lightFlow, setLightFlow] = useState<{ amount: number } | null>(null);
+  // マウント時点で既に存在していたイベントは再生しない(タブ復帰時の再演出防止)
+  const seenGainSeqRef = React.useRef<number>(lightGainEvent?.seq ?? 0);
+  useEffect(() => {
+    if (!lightGainEvent || lightGainEvent.seq === seenGainSeqRef.current) return;
+    seenGainSeqRef.current = lightGainEvent.seq;
+    setLightFlow({ amount: lightGainEvent.amount });
+  }, [lightGainEvent]);
 
   // ── 今日の自分の一歩(チェックリスト先頭5件) ──
   // 日付が変わった直後の古いチェック状態は「未チェック」として扱う
@@ -550,10 +565,24 @@ export default function HomeScreen() {
         <FadeIn delay={180}>
           <View style={[styles.sectionCard, { backgroundColor: C.card, borderColor: C.border }]}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: C.text }]}>今日のパラメータ</Text>
-              <Text style={[styles.sectionSub, { color: C.textMuted }]}>
-                {todayRecord ? '記録済み' : '未記録'}
-              </Text>
+              <Text style={[styles.sectionTitle, { color: C.text }]}>今日のわたし</Text>
+              {todayRecord ? (
+                <View style={[styles.moodChip, { backgroundColor: moodColors[todayRecord.mood] + '26' }]}>
+                  <Ionicons name="happy-outline" size={13} color={moodColors[todayRecord.mood]} />
+                  <Text style={[styles.moodChipText, { color: moodColors[todayRecord.mood] }]}>
+                    気分: {moodLabels[todayRecord.mood]}
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.moodChip, { backgroundColor: 'rgba(255,111,163,0.18)' }]}
+                  onPress={() => router.push('/(tabs)/record')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="create-outline" size={13} color="#FF6FA3" />
+                  <Text style={[styles.moodChipText, { color: '#FF6FA3' }]}>未記録・記録する</Text>
+                </TouchableOpacity>
+              )}
             </View>
             <StatusBar label="元気度" icon="💪" value={status.vitality}  color="#00D4AA" delay={300} />
             <StatusBar label="幸福度" icon="💖" value={status.happiness} color="#FF6FA3" delay={420} />
@@ -573,21 +602,45 @@ export default function HomeScreen() {
           </View>
         </FadeIn>
 
-        {/* ── Stats Row ── */}
+        {/* ── 光エネルギー → 発電所への循環 ── */}
         <FadeIn delay={280}>
-          <View style={styles.statsRow}>
-            {[
-              { value: progress.streak,    label: '連続', icon: 'flame',    color: '#FF6FA3' },
-              { value: progress.level,     label: 'レベル', icon: 'star',   color: C.accent },
-              { value: progress.totalDays, label: '記録日', icon: 'calendar', color: '#80D0C7' },
-            ].map((s) => (
-              <View key={s.label} style={[styles.statCard, { backgroundColor: C.card, borderColor: C.border }]}>
-                <Ionicons name={s.icon as any} size={15} color={s.color} />
-                <Text style={[styles.statValue, { color: C.text }]}>{s.value}</Text>
-                <Text style={[styles.statLabel, { color: C.textMuted }]}>{s.label}</Text>
+          <TouchableOpacity
+            style={[styles.sectionCard, { backgroundColor: C.card, borderColor: 'rgba(255,201,77,0.4)', gap: 10 }]}
+            onPress={() => router.push('/(tabs)/plant')}
+            activeOpacity={0.85}
+          >
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: '#FFD86B' }]}>✨ 今日の光エネルギー</Text>
+              <View style={styles.plantLinkRow}>
+                <Text style={[styles.sectionSub, { color: C.textMuted }]}>発電所へ</Text>
+                <Ionicons name="chevron-forward" size={13} color={C.textMuted} />
               </View>
-            ))}
-          </View>
+            </View>
+            <View style={styles.energyChipsRow}>
+              <Text style={[styles.energyChipHome, { color: '#FFC97E' }]}>💪 元気 {lightEnergy.genki}</Text>
+              <Text style={[styles.energyChipHome, { color: '#FFE29E' }]}>✨ 光 {lightEnergy.lightPower}</Text>
+              <Text style={[styles.energyChipHome, { color: '#8EEFD0' }]}>⚡ 今日 +{lightEnergy.todayEnergy}</Text>
+            </View>
+            <View style={styles.plantProgressWrap}>
+              <View style={styles.evoRow}>
+                <Text style={[styles.evoLabel, { color: C.textSub }]}>
+                  🏭 発電所 Lv.{plantLevelFor(lightEnergy.totalEnergy)}
+                  {plantLevelFor(lightEnergy.totalEnergy) >= MAX_PLANT_LEVEL ? '(MAX)' : ''}
+                </Text>
+                <Text style={[styles.evoRemain, { color: '#FFD86B' }]}>蓄電 ⚡{lightEnergy.storedEnergy}</Text>
+              </View>
+              <View style={[styles.evoTrack, { backgroundColor: C.track }]}>
+                <FillBar
+                  pct={Math.round(plantLevelProgress(lightEnergy.totalEnergy) * 100)}
+                  color="#FFD86B"
+                  delay={500}
+                />
+              </View>
+            </View>
+            <Text style={[styles.cycleHint, { color: C.textMuted }]}>
+              あなたが元気になるほど、世界も明るくなる。
+            </Text>
+          </TouchableOpacity>
         </FadeIn>
 
         {/* ── 今日の自分の一歩 ── */}
@@ -624,61 +677,26 @@ export default function HomeScreen() {
                 </Text>
               </View>
             ))}
-          </TouchableOpacity>
-        </FadeIn>
-
-        {/* ── 昨日の自分より ── */}
-        <FadeIn delay={350}>
-          <View style={[styles.stepCard, { backgroundColor: C.card, borderColor: C.border }]}>
-            <Text style={[styles.stepTitle, { color: C.text }]}>昨日の自分より</Text>
-            {hasComparison ? (
-              <View style={styles.deltaRow}>
-                <Text style={[styles.deltaValue, { color: stepDeltaPct >= 0 ? '#7FDCA4' : '#FFB86B' }]}>
-                  {stepDeltaPct >= 0 ? '+' : ''}{stepDeltaPct.toFixed(1)}%
+            {/* 昨日の自分より(1行に凝縮) */}
+            <View style={styles.deltaFooter}>
+              {hasComparison ? (
+                <>
+                  <Ionicons
+                    name={stepDeltaPct >= 0 ? 'trending-up' : 'trending-down'}
+                    size={14}
+                    color={stepDeltaPct >= 0 ? '#7FDCA4' : '#FFB86B'}
+                  />
+                  <Text style={[styles.deltaFooterText, { color: stepDeltaPct >= 0 ? '#7FDCA4' : '#FFB86B' }]}>
+                    昨日より {stepDeltaPct >= 0 ? '+' : ''}{stepDeltaPct.toFixed(0)}%
+                    {stepDeltaPct >= 0 ? '・ちょっと前進してるよ' : '・ゆっくりでだいじょうぶ'}
+                  </Text>
+                </>
+              ) : (
+                <Text style={[styles.deltaFooterText, { color: C.textMuted }]}>
+                  {!todayRec ? '今日の記録をつけると、昨日との前進が見えるよ' : '昨日の記録がないから、今日から比べていこう'}
                 </Text>
-                <Ionicons
-                  name={stepDeltaPct >= 0 ? 'trending-up' : 'trending-down'}
-                  size={22}
-                  color={stepDeltaPct >= 0 ? '#7FDCA4' : '#FFB86B'}
-                />
-              </View>
-            ) : (
-              <Text style={[styles.deltaValue, { color: C.textSub, fontSize: 20 }]}>--</Text>
-            )}
-            <Text style={[styles.deltaSub, { color: C.textMuted }]}>
-              {!todayRec
-                ? '今日の記録をつけると、前進が見えるよ'
-                : !yesterdayRec
-                ? '昨日の記録がないから、今日から比べていこう'
-                : stepDeltaPct >= 0
-                ? '今日もちょっと前進してるよ'
-                : 'ゆっくりでだいじょうぶだよ'}
-            </Text>
-          </View>
-        </FadeIn>
-
-        {/* ── Today Checklist quick-link ── */}
-        <FadeIn delay={360}>
-          <TouchableOpacity
-            style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border }]}
-            onPress={() => router.push('/(tabs)/record')}
-            activeOpacity={0.82}
-          >
-            <View style={[styles.quickIcon, { backgroundColor: 'rgba(178,164,255,0.18)' }]}>
-              <Ionicons name="checkmark-circle" size={22} color={C.accent} />
+              )}
             </View>
-            <View style={styles.quickText}>
-              <Text style={[styles.quickTitle, { color: C.text }]}>今日のチェック</Text>
-              <Text style={[styles.quickSub, { color: C.textMuted }]}>
-                {completedCount} / {totalCount} 完了・達成で🪙ポイント獲得
-              </Text>
-            </View>
-            <View style={[styles.quickPct, { backgroundColor: 'rgba(178,164,255,0.15)' }]}>
-              <Text style={[styles.quickPctText, { color: C.accent }]}>
-                {totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0}%
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
           </TouchableOpacity>
         </FadeIn>
 
@@ -720,42 +738,16 @@ export default function HomeScreen() {
           </FadeIn>
         )}
 
-        {/* ── Mood quick-link ── */}
-        <FadeIn delay={420}>
-          {todayRecord ? (
-            <View style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border }]}>
-              <View style={[styles.quickIcon, { backgroundColor: moodColors[todayRecord.mood] + '22' }]}>
-                <Ionicons name="happy-outline" size={22} color={moodColors[todayRecord.mood]} />
-              </View>
-              <View style={styles.quickText}>
-                <Text style={[styles.quickTitle, { color: C.text }]}>今日の気分</Text>
-                <Text style={[styles.quickSub, { color: moodColors[todayRecord.mood] }]}>
-                  {moodLabels[todayRecord.mood]}
-                </Text>
-              </View>
-              <View style={[styles.doneDot, { backgroundColor: C.accent }]} />
-              <Text style={[styles.doneLabel, { color: C.textMuted }]}>記録済</Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={[styles.quickCard, { backgroundColor: C.card, borderColor: C.border }]}
-              onPress={() => router.push('/(tabs)/record')}
-              activeOpacity={0.82}
-            >
-              <View style={[styles.quickIcon, { backgroundColor: 'rgba(255,111,163,0.18)' }]}>
-                <Ionicons name="create-outline" size={22} color="#FF6FA3" />
-              </View>
-              <View style={styles.quickText}>
-                <Text style={[styles.quickTitle, { color: C.text }]}>今日の気分を記録</Text>
-                <Text style={[styles.quickSub, { color: C.textMuted }]}>
-                  記録するとXP + 🪙5pt
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
-            </TouchableOpacity>
-          )}
-        </FadeIn>
       </ScrollView>
+
+      {/* ── 光の循環演出(記録・ゲームで光が増えた瞬間) ── */}
+      {lightFlow && (
+        <LightFlowEffect
+          amount={lightFlow.amount}
+          onDone={() => setLightFlow(null)}
+          onGoPlant={() => router.push('/(tabs)/plant')}
+        />
+      )}
 
       {/* ── Naming Modal ── */}
       <Modal visible={showNameModal} transparent animationType="slide" onRequestClose={() => setShowNameModal(false)}>
@@ -990,6 +982,21 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   sectionTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
   sectionSub: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  moodChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
+  },
+  moodChipText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  plantLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  energyChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  energyChipHome: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  plantProgressWrap: { gap: 4 },
+  cycleHint: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  deltaFooter: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.18)', paddingTop: 8,
+  },
+  deltaFooterText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
   statBarRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   statBarLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 4, width: 60 },
   statBarIcon: { fontSize: 13 },

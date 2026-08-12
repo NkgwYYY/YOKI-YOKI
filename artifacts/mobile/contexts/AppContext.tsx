@@ -198,6 +198,9 @@ interface AppContextType {
   completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => Promise<void>;
   /** 光エネルギー(元気・光の力・発電エネルギー)の現在の状態 */
   lightEnergy: LightEnergyState;
+  /** 直近の「ユーザー操作による」光エネルギー獲得イベント(循環演出用)。
+   *  クラウド同期・読込では発火しない。seq は毎回増える識別子 */
+  lightGainEvent: { amount: number; seq: number } | null;
   /** 発電所(エコポイント・売電履歴・街の発展)の状態 */
   powerPlant: PowerPlantState;
   /** 蓄電エネルギーを全て売電してエコポイントに変換する */
@@ -285,14 +288,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, []);
 
+  // ユーザー操作による獲得イベント(循環演出はこれだけを根拠に発火する。
+  // クラウドpullや読込による数値変動では発火しない)
+  const [lightGainEvent, setLightGainEvent] = useState<{ amount: number; seq: number } | null>(null);
+  const gainSeqRef = useRef(0);
+
   /** 光エネルギー獲得(獲得ルールは utils/lightEnergy.ts に集約)。flag 指定時は1日1回のみ */
   const gainLightEnergy = useCallback(
     async (gain: EnergyGain, flag?: keyof LightEnergyState['flags']) => {
       const today = getTodayDate();
       const next = applyEnergyGain(lightEnergyRef.current, gain, today, flag);
       if (next === lightEnergyRef.current) return;
+      const gained = next.todayEnergy - lightEnergyRef.current.todayEnergy;
       lightEnergyRef.current = next;
       setLightEnergy(next);
+      if (gained > 0) {
+        setLightGainEvent({ amount: gained, seq: ++gainSeqRef.current });
+      }
       await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next));
     },
     []
@@ -987,6 +999,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         growth,
         markGrowthSeen,
         lightEnergy,
+        lightGainEvent,
         powerPlant,
         sellEnergy,
         buildTownItem,

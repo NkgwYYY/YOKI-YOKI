@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { Mascot } from '@/components/Mascot';
 import { useApp } from '@/contexts/AppContext';
 import { getMascotStage } from '@/utils/mascotUtils';
@@ -62,6 +63,7 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [result, setResult] = useState<PlayResult | null>(null);
   const { progress } = useApp();
+  const router = useRouter();
   const mascotStage = getMascotStage(progress.level);
   const preview = useSongClock();
   const previewIdRef = useRef<string | null>(null);
@@ -266,6 +268,14 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
             <Text style={st.commentTxt}>{characterComment(result, mode)}</Text>
           </View>
         </View>
+        {/* 循環の導線: 生まれた光 → 発電所へ */}
+        <TouchableOpacity
+          style={st.plantBtn}
+          onPress={() => { onClose(); router.push('/(tabs)/plant'); }}
+          activeOpacity={0.85}
+        >
+          <Text style={st.plantBtnTxt}>⚡ 生まれた光を発電所で見る</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={st.primaryBtn} onPress={onClose} activeOpacity={0.85}>
           <Text style={st.primaryTxt}>とじる</Text>
         </TouchableOpacity>
@@ -340,6 +350,12 @@ const st = StyleSheet.create({
   energyRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 },
   energyChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14 },
   energyChipTxt: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  plantBtn: {
+    paddingVertical: 13, borderRadius: 18, marginTop: 8,
+    backgroundColor: 'rgba(255,201,77,0.16)', borderWidth: 1, borderColor: 'rgba(255,201,77,0.5)',
+    alignItems: 'center',
+  },
+  plantBtnTxt: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#FFD86B' },
   resultMascotRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
   commentBubble: {
     backgroundColor: 'rgba(255,255,255,0.09)', borderRadius: 18, padding: 14, marginTop: 6,
