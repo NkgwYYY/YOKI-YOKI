@@ -334,7 +334,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const today = getTodayDate();
       const next = applyEnergyGain(lightEnergyRef.current, gain, today, flag);
       if (next === lightEnergyRef.current) return;
-      const gained = next.todayEnergy - lightEnergyRef.current.todayEnergy;
+      // 付与量は totalEnergy の差分で求める(todayEnergy は深夜のロールオーバーで
+      // リセットされるため、日付またぎ直後の付与でも正しい量になる)
+      const gained = next.totalEnergy - lightEnergyRef.current.totalEnergy;
       lightEnergyRef.current = next;
       setLightEnergy(next);
       if (gained > 0) queueGainEvent(gained);

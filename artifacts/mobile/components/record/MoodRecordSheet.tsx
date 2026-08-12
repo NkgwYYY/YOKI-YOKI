@@ -93,7 +93,14 @@ interface Props {
 export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { saveRecord, getTodayRecord } = useApp();
+  const { saveRecord, getTodayRecord, holdLightFlow } = useApp();
+
+  // シート表示中は光の循環演出を保留(閉じた瞬間にタブ画面上で再生される)
+  useEffect(() => {
+    if (!visible) return;
+    holdLightFlow(true);
+    return () => holdLightFlow(false);
+  }, [visible, holdLightFlow]);
 
   const todayRecord = getTodayRecord();
   const [mood, setMood] = useState(todayRecord?.mood ?? 3);
