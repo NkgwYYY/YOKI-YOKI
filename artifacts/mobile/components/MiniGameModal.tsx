@@ -15,15 +15,16 @@ interface Props {
   visible: boolean;
   slot: GameSlot;
   onClose: () => void;
-  onReward: (reward: { fp?: number; xp?: number }) => void;
+  onReward: (reward: { fp?: number; xp?: number; stars?: number }) => void;
 }
 
-/** リズムゲームの結果 → 報酬 (既存の報酬水準を維持: 🪙1〜3pt / ✨XP 0〜10) */
-function resultToReward(r: PlayResult): { fp: number; xp?: number } {
+/** リズムゲームの結果 → 報酬 (既存の報酬水準を維持: 🪙1〜3pt / ✨XP 0〜10)
+ *  stars は光エネルギー付与の計算(utils/lightEnergy.ts)に使われる */
+function resultToReward(r: PlayResult): { fp: number; xp?: number; stars: number } {
   const stars = starRating(r);
-  if (stars >= 4) return { fp: 3, xp: 10 };
-  if (stars === 3) return { fp: 2, xp: 5 };
-  return { fp: 1 };
+  if (stars >= 4) return { fp: 3, xp: 10, stars };
+  if (stars === 3) return { fp: 2, xp: 5, stars };
+  return { fp: 1, stars };
 }
 
 export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {

@@ -32,6 +32,21 @@ import {
   GameSlot,
   MAX_PLAYS_PER_SLOT,
 } from '@/utils/miniGameUtils';
+import {
+  LightEnergyState,
+  createLightEnergyState,
+  resolveLightEnergyState,
+  rolloverLightEnergy,
+  applyEnergyGain,
+  gainForPlay,
+  GAIN_CHECK_ITEM,
+  GAIN_FULL_DAY_BONUS,
+  GAIN_MOOD_RECORD,
+  GAIN_DIARY,
+  EnergyGain,
+} from '@/utils/lightEnergy';
+
+export type { LightEnergyState };
 
 export type { MiniGameState, GameSlot };
 
@@ -115,6 +130,7 @@ const KEYS = {
   MINI_GAME: '@mentore/mini_game_v1',
   PROFILE: '@mentore/profile_v1',
   GROWTH: '@mentore/growth_v1',
+  LIGHT_ENERGY: '@mentore/light_energy_v1',
 };
 
 /** Compute current satiety based on elapsed time since last feed */
@@ -158,7 +174,9 @@ interface AppContextType {
   getTotalCheckCount: () => number;
   setMascotName: (name: string) => Promise<void>;
   feedMascot: (foodId: string) => Promise<{ success: boolean; message: string; newSatiety: number }>;
-  completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number }) => Promise<void>;
+  completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => Promise<void>;
+  /** 光エネルギー(元気・光の力・発電エネルギー)の現在の状態 */
+  lightEnergy: LightEnergyState;
   pushDataToCloud: () => Promise<void>;
   /** サイズ成長(Level/Evolutionとは独立)。マスコットは進化しても同一個体として成長を引き継ぐ */
   growth: GrowthRecord;
@@ -205,6 +223,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [cloudSynced, setCloudSynced] = useState(false);
   // マスコットは進化しても同一個体なので characterId は固定 'mascot'
   const [growth, setGrowth] = useState<GrowthRecord>(() => createGrowthRecord('mascot'));
+  const [lightEnergy, setLightEnergy] = useState<LightEnergyState>(() => createLightEnergyState(getTodayDate()));
+  // 非同期処理の並走でも付与が失われないよう、最新値を ref でも保持する
+  const lightEnergyRef = useRef(lightEnergy);
+  useEffect(() => { lightEnergyRef.current = lightEnergy; }, [lightEnergy]);
+
+  /** 光エネルギー獲得(獲得ルールは utils/lightEnergy.ts に集約)。flag 指定時は1日1回のみ */
+  const gainLightEnergy = useCallback(
+    async (gain: EnergyGain, flag?: keyof LightEnergyState['flags']) => {
+      const today = getTodayDate();
+      const next = applyEnergyGain(lightEnergyRef.current, gain, today, flag);
+      if (next === lightEnergyRef.current) return;
+      lightEnergyRef.current = next;
+      setLightEnergy(next);
+      await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next));
+    },
+    []
+  );
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
@@ -300,7 +335,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr] =
+      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
           AsyncStorage.getItem(KEYS.RECORDS),
@@ -314,6 +349,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.MINI_GAME),
           AsyncStorage.getItem(KEYS.PROFILE),
           AsyncStorage.getItem(KEYS.GROWTH),
+          AsyncStorage.getItem(KEYS.LIGHT_ENERGY),
         ]);
 
       // ── サイズ成長: 保存値を読み、経過時間ぶんの成長を適用 ──
@@ -327,6 +363,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const updated = applyGrowth(g);
         setGrowth(updated);
         await AsyncStorage.setItem(KEYS.GROWTH, JSON.stringify(updated));
+      }
+
+      // ── 光エネルギー: 保存値を読み、日付が変わっていたら日次値をリセット ──
+      {
+        let raw: unknown = null;
+        try { raw = energyStr ? JSON.parse(energyStr) : null; } catch { raw = null; }
+        const resolved = resolveLightEnergyState(raw, getTodayDate());
+        lightEnergyRef.current = resolved;
+        setLightEnergy(resolved);
+        await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(resolved));
       }
 
       if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
@@ -519,6 +565,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (allDefaultChecked && !checkedState.bonusEarned) fpGain += FP_PER_FULL_DAY_BONUS;
         const nextFeed: FeedState = { ...feedState, points: feedState.points + fpGain };
         await saveFeedState(nextFeed);
+
+        // 光エネルギー: チェック1件(初回のみ) + 全達成ボーナス
+        await gainLightEnergy(GAIN_CHECK_ITEM);
+        if (allDefaultChecked && !checkedState.bonusEarned) {
+          await gainLightEnergy(GAIN_FULL_DAY_BONUS);
+        }
       }
 
       if (nowChecked) await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -529,7 +581,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Sync to cloud (fire-and-forget)
       pushDataToCloud();
     },
-    [checkedState, progress, unlockedBadges, records, feedState, checkAndUnlockBadges, pushDataToCloud]
+    [checkedState, progress, unlockedBadges, records, feedState, checkAndUnlockBadges, pushDataToCloud, gainLightEnergy]
   );
 
   const addChecklistItem = useCallback(
@@ -634,6 +686,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await saveFeedState(nextFeed);
       }
 
+      // 光エネルギー: 気分・生活の記録(1日1回) + 日記を書いた(1日1回)
+      await gainLightEnergy(GAIN_MOOD_RECORD, 'mood');
+      if (notes.trim().length > 0 || (extras?.win?.trim()?.length ?? 0) > 0) {
+        await gainLightEnergy(GAIN_DIARY, 'diary');
+      }
+
       const allChecked = checkedState.items.every((i) => i.checked);
       await checkAndUnlockBadges(unlockedBadges, newProgress, newRecords, allChecked);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -641,7 +699,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Sync to cloud (fire-and-forget)
       pushDataToCloud();
     },
-    [records, progress, unlockedBadges, checkedState, feedState, checkAndUnlockBadges, pushDataToCloud]
+    [records, progress, unlockedBadges, checkedState, feedState, checkAndUnlockBadges, pushDataToCloud, gainLightEnergy]
   );
 
   const getTodayRecord = useCallback((): DailyRecord | undefined => {
@@ -665,7 +723,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     pushDataToCloud();
   }, [pushDataToCloud]);
 
-  const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp?: number; xp?: number }) => {
+  const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => {
     // スロット上限に達していたら加算も報酬付与もしない (二重付与・上限回避の防止)
     if ((miniGameState[slot] || 0) >= MAX_PLAYS_PER_SLOT) return;
     // Mark slot as done
@@ -700,9 +758,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return nextG;
     });
 
+    // 光エネルギー: プレイ1回ぶん(★の数に応じて。結果画面の表示と同じルール)
+    await gainLightEnergy(gainForPlay(reward.stars ?? 0));
+
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     pushDataToCloud();
-  }, [miniGameState, feedState, progress, pushDataToCloud]);
+  }, [miniGameState, feedState, progress, pushDataToCloud, gainLightEnergy]);
 
   return (
     <AppContext.Provider
@@ -737,6 +798,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         pushDataToCloud,
         growth,
         markGrowthSeen,
+        lightEnergy,
       }}
     >
       {children}

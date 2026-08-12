@@ -8,6 +8,7 @@ import { Song, Difficulty, RhythmMode, PlayResult, starRating } from '@/utils/rh
 import { SONGS } from '@/utils/rhythm/songs';
 import { getChart } from '@/utils/rhythm/charts';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
+import { gainForPlay } from '@/utils/lightEnergy';
 import { TapBeatGame } from './TapBeatGame';
 import { RhythmJumpGame } from './RhythmJumpGame';
 import { RhythmSwipeGame } from './RhythmSwipeGame';
@@ -243,6 +244,22 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
         <Text style={st.starsLabel}>今日のリズム</Text>
         <Text style={st.stars}>{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</Text>
         <Text style={st.refreshTag}>🍃 今日のリフレッシュ +1</Text>
+        {(() => {
+          const g = gainForPlay(stars);
+          return (
+            <View style={st.energyRow}>
+              <View style={[st.energyChip, { backgroundColor: 'rgba(255,183,94,0.14)' }]}>
+                <Text style={[st.energyChipTxt, { color: '#FFC97E' }]}>💪 元気 +{g.genki}</Text>
+              </View>
+              <View style={[st.energyChip, { backgroundColor: 'rgba(255,215,94,0.14)' }]}>
+                <Text style={[st.energyChipTxt, { color: '#FFE29E' }]}>✨ 光の力 +{g.light}</Text>
+              </View>
+              <View style={[st.energyChip, { backgroundColor: 'rgba(94,224,184,0.14)' }]}>
+                <Text style={[st.energyChipTxt, { color: '#8EEFD0' }]}>⚡ 発電エネルギー +{g.energy}</Text>
+              </View>
+            </View>
+          );
+        })()}
         <View style={st.resultMascotRow}>
           <Mascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />
           <View style={[st.commentBubble, { flex: 1, marginTop: 0 }]}>
@@ -320,6 +337,9 @@ const st = StyleSheet.create({
   stars: { fontSize: 30, color: '#FFD75E', textAlign: 'center', letterSpacing: 4 },
   relaxDone: { fontSize: 24, fontFamily: 'Inter_700Bold', color: '#B8F5E4', textAlign: 'center', marginTop: 4 },
   refreshTag: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#9BE8B8', textAlign: 'center', marginTop: 6 },
+  energyRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 },
+  energyChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14 },
+  energyChipTxt: { fontSize: 13, fontFamily: 'Inter_700Bold' },
   resultMascotRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
   commentBubble: {
     backgroundColor: 'rgba(255,255,255,0.09)', borderRadius: 18, padding: 14, marginTop: 6,
