@@ -228,6 +228,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const lightEnergyRef = useRef(lightEnergy);
   useEffect(() => { lightEnergyRef.current = lightEnergy; }, [lightEnergy]);
 
+  // アプリを開いたまま日付が変わっても日次値(元気・光の力・今日のエネルギー)が
+  // 前日のまま表示されないよう、1分ごとに日付ロールオーバーを確認する
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const today = getTodayDate();
+      const next = rolloverLightEnergy(lightEnergyRef.current, today);
+      if (next !== lightEnergyRef.current) {
+        lightEnergyRef.current = next;
+        setLightEnergy(next);
+        AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next)).catch(() => {});
+      }
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
   /** 光エネルギー獲得(獲得ルールは utils/lightEnergy.ts に集約)。flag 指定時は1日1回のみ */
   const gainLightEnergy = useCallback(
     async (gain: EnergyGain, flag?: keyof LightEnergyState['flags']) => {
@@ -723,9 +738,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     pushDataToCloud();
   }, [pushDataToCloud]);
 
+  // completeMiniGame の同時多重呼び出し(再レンダー前の連打)でも二重付与しないための同期ガード
+  const completingSlotsRef = useRef<Set<GameSlot>>(new Set());
+
   const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => {
     // スロット上限に達していたら加算も報酬付与もしない (二重付与・上限回避の防止)
     if ((miniGameState[slot] || 0) >= MAX_PLAYS_PER_SLOT) return;
+    if (completingSlotsRef.current.has(slot)) return;
+    completingSlotsRef.current.add(slot);
+    try {
     // Mark slot as done
     const next: MiniGameState = { ...miniGameState, [slot]: (miniGameState[slot] || 0) + 1 };
     setMiniGameState(next);
@@ -763,6 +784,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     pushDataToCloud();
+    } finally {
+      completingSlotsRef.current.delete(slot);
+    }
   }, [miniGameState, feedState, progress, pushDataToCloud, gainLightEnergy]);
 
   return (
