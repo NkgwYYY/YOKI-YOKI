@@ -71,7 +71,15 @@ export function ChecklistSheet({ visible, onClose }: Props) {
     checkedState, checklistItems,
     toggleCheckItem, addChecklistItem, removeChecklistItem, resetChecklistToDefaults,
     getCompletedCount, getTotalCheckCount,
+    holdLightFlow,
   } = useApp();
+
+  // シート表示中は光の循環演出を保留(閉じた瞬間にタブ画面上で再生される)
+  useEffect(() => {
+    if (!visible) return;
+    holdLightFlow(true);
+    return () => holdLightFlow(false);
+  }, [visible, holdLightFlow]);
 
   const [editMode, setEditMode]         = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);

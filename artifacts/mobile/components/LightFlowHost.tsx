@@ -12,21 +12,25 @@ import { LightFlowEffect } from '@/components/LightFlowEffect';
 export function LightFlowHost() {
   const { lightGainEvent } = useApp();
   const router = useRouter();
-  const [flow, setFlow] = useState<{ amount: number } | null>(null);
+  // 表示中に次のイベントが来ても失われないよう、キューで順番に再生する。
+  // key に seq を使い、イベントごとに演出を確実に再マウントする
+  const [queue, setQueue] = useState<{ amount: number; seq: number }[]>([]);
   // マウント時点で既に存在していたイベントは再生しない
   const seenSeqRef = useRef<number>(lightGainEvent?.seq ?? 0);
 
   useEffect(() => {
-    if (!lightGainEvent || lightGainEvent.seq === seenSeqRef.current) return;
+    if (!lightGainEvent || lightGainEvent.seq <= seenSeqRef.current) return;
     seenSeqRef.current = lightGainEvent.seq;
-    setFlow({ amount: lightGainEvent.amount });
+    setQueue((q) => [...q, lightGainEvent]);
   }, [lightGainEvent]);
 
-  if (!flow) return null;
+  const current = queue[0];
+  if (!current) return null;
   return (
     <LightFlowEffect
-      amount={flow.amount}
-      onDone={() => setFlow(null)}
+      key={current.seq}
+      amount={current.amount}
+      onDone={() => setQueue((q) => q.slice(1))}
       onGoPlant={() => router.push('/(tabs)/plant')}
     />
   );
