@@ -12,7 +12,6 @@ import {
   Image,
 } from 'react-native';
 import { MiniGameModal } from '@/components/MiniGameModal';
-import { EvolutionVideoModal } from '@/components/EvolutionVideoModal';
 import { getCurrentSlot, getSlotConfig, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -263,7 +262,6 @@ export default function HomeScreen() {
   const [nameInput, setNameInput] = useState('');
 
   // ── 進化映像モーダル ──
-  const [showEvolutionVideo, setShowEvolutionVideo] = useState(false);
   const prevStageRef = React.useRef<string | null>(null);
 
   useEffect(() => {
@@ -275,10 +273,8 @@ export default function HomeScreen() {
       prevStageRef.current = stage;
       return;
     }
-    // ステージが上がったときだけ映像を再生
     if (prevStageRef.current !== stage) {
       prevStageRef.current = stage;
-      setShowEvolutionVideo(true);
     }
   }, [stage, isLoading]);
 
@@ -802,12 +798,6 @@ export default function HomeScreen() {
 
       {/* ── Feed Modal ── */}
       <FeedModal visible={showFeedModal} onClose={() => setShowFeedModal(false)} />
-
-      {/* ── Evolution Video Modal ── */}
-      <EvolutionVideoModal
-        visible={showEvolutionVideo}
-        onClose={() => setShowEvolutionVideo(false)}
-      />
 
       {/* ── Mini Game Modal ── */}
       {currentSlot && (
