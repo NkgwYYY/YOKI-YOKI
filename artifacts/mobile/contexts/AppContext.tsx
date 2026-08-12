@@ -45,6 +45,16 @@ import {
   GAIN_DIARY,
   EnergyGain,
 } from '@/utils/lightEnergy';
+import {
+  PowerPlantState,
+  createPowerPlantState,
+  resolvePowerPlantState,
+  nextTownItem,
+  TownItem,
+  ECO_POINTS_PER_ENERGY,
+} from '@/utils/powerPlant';
+
+export type { PowerPlantState };
 
 export type { LightEnergyState };
 
@@ -131,6 +141,7 @@ const KEYS = {
   PROFILE: '@mentore/profile_v1',
   GROWTH: '@mentore/growth_v1',
   LIGHT_ENERGY: '@mentore/light_energy_v1',
+  POWER_PLANT: '@mentore/power_plant_v1',
 };
 
 /** Compute current satiety based on elapsed time since last feed */
@@ -177,6 +188,12 @@ interface AppContextType {
   completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => Promise<void>;
   /** 光エネルギー(元気・光の力・発電エネルギー)の現在の状態 */
   lightEnergy: LightEnergyState;
+  /** 発電所(エコポイント・売電履歴・街の発展)の状態 */
+  powerPlant: PowerPlantState;
+  /** 蓄電エネルギーを全て売電してエコポイントに変換する */
+  sellEnergy: () => Promise<{ sold: number; gained: number }>;
+  /** エコポイントを使って次の街アイテムを建てる */
+  buildTownItem: () => Promise<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }>;
   pushDataToCloud: () => Promise<void>;
   /** サイズ成長(Level/Evolutionとは独立)。マスコットは進化しても同一個体として成長を引き継ぐ */
   growth: GrowthRecord;
@@ -227,6 +244,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 非同期処理の並走でも付与が失われないよう、最新値を ref でも保持する
   const lightEnergyRef = useRef(lightEnergy);
   useEffect(() => { lightEnergyRef.current = lightEnergy; }, [lightEnergy]);
+  const [powerPlant, setPowerPlant] = useState<PowerPlantState>(() => createPowerPlantState());
+  const powerPlantRef = useRef(powerPlant);
+  useEffect(() => { powerPlantRef.current = powerPlant; }, [powerPlant]);
 
   // アプリを開いたまま日付が変わっても日次値(元気・光の力・今日のエネルギー)が
   // 前日のまま表示されないよう、1分ごとに日付ロールオーバーを確認する
@@ -255,6 +275,70 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
+  // 売電・街づくりの同時多重呼び出しを防ぐ同期ガード
+  const plantBusyRef = useRef(false);
+
+  /** 蓄電エネルギーを全て売電してエコポイントに変換する */
+  const sellEnergy = useCallback(async (): Promise<{ sold: number; gained: number }> => {
+    if (plantBusyRef.current) return { sold: 0, gained: 0 };
+    plantBusyRef.current = true;
+    try {
+      const energy = lightEnergyRef.current;
+      const sold = Math.floor(energy.storedEnergy);
+      if (sold <= 0) return { sold: 0, gained: 0 };
+      const gained = sold * ECO_POINTS_PER_ENERGY;
+
+      const nextEnergy = { ...energy, storedEnergy: energy.storedEnergy - sold };
+      lightEnergyRef.current = nextEnergy;
+      setLightEnergy(nextEnergy);
+
+      const nextPlant: PowerPlantState = {
+        ...powerPlantRef.current,
+        ecoPoints: powerPlantRef.current.ecoPoints + gained,
+        totalSold: powerPlantRef.current.totalSold + sold,
+        sellCount: powerPlantRef.current.sellCount + 1,
+      };
+      powerPlantRef.current = nextPlant;
+      setPowerPlant(nextPlant);
+
+      await Promise.all([
+        AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(nextEnergy)),
+        AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant)),
+      ]);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      pushDataToCloud();
+      return { sold, gained };
+    } finally {
+      plantBusyRef.current = false;
+    }
+  }, []);
+
+  /** エコポイントを使って次の街アイテムを建てる */
+  const buildTownItem = useCallback(async (): Promise<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }> => {
+    if (plantBusyRef.current) return { reason: 'not_enough' };
+    plantBusyRef.current = true;
+    try {
+      const plant = powerPlantRef.current;
+      const item = nextTownItem(plant);
+      if (!item) return { reason: 'no_more' };
+      if (plant.ecoPoints < item.cost) return { reason: 'not_enough' };
+
+      const nextPlant: PowerPlantState = {
+        ...plant,
+        ecoPoints: plant.ecoPoints - item.cost,
+        townBuilt: plant.townBuilt + 1,
+      };
+      powerPlantRef.current = nextPlant;
+      setPowerPlant(nextPlant);
+      await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      pushDataToCloud();
+      return { built: item };
+    } finally {
+      plantBusyRef.current = false;
+    }
+  }, []);
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
@@ -350,7 +434,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr] =
+      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
           AsyncStorage.getItem(KEYS.RECORDS),
@@ -365,6 +449,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.PROFILE),
           AsyncStorage.getItem(KEYS.GROWTH),
           AsyncStorage.getItem(KEYS.LIGHT_ENERGY),
+          AsyncStorage.getItem(KEYS.POWER_PLANT),
         ]);
 
       // ── サイズ成長: 保存値を読み、経過時間ぶんの成長を適用 ──
@@ -388,6 +473,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         lightEnergyRef.current = resolved;
         setLightEnergy(resolved);
         await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(resolved));
+      }
+
+      // ── 発電所: 保存値を安全に読み込む ──
+      {
+        let raw: unknown = null;
+        try { raw = plantStr ? JSON.parse(plantStr) : null; } catch { raw = null; }
+        const resolved = resolvePowerPlantState(raw);
+        powerPlantRef.current = resolved;
+        setPowerPlant(resolved);
       }
 
       if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
@@ -823,6 +917,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         growth,
         markGrowthSeen,
         lightEnergy,
+        powerPlant,
+        sellEnergy,
+        buildTownItem,
       }}
     >
       {children}
