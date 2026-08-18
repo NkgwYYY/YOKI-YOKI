@@ -40,3 +40,4 @@ defaultBucketID = "replit-objstore-cc39d4cf-5057-4db8-9c38-92fa99b6a89f"
 [userenv]
 
 [userenv.shared]
+EXPO_PUBLIC_GA_MEASUREMENT_ID = "G-VEK3NC9XFS"
