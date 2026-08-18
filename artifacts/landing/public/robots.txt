@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://yoki-yoki.replit.app/landing/sitemap.xml
