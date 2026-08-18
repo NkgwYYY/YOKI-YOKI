@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/landing/"
+title = "YOKI YOKI 紹介ページ"
+description = "YOKI YOKI メンタルケアアプリの公開向けランディングページ。宇宙テーマ（深宇宙×ガラス）の世界観で、キャラクターの進化ストーリー・光の循環コンセプト・主要機能をビジュアルに紹介する静的SPA。日本語メイン、OGP対応、モバイルファースト。"
+version = "1.0.0"
+id = "artifacts/landing"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/landing/" ]
+localPort = 18150
+
+[services.development]
+run = "pnpm --filter @workspace/landing run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/landing", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/landing/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18150"
+BASE_PATH = "/landing/"
