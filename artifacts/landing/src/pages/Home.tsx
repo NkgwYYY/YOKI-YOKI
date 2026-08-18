@@ -78,6 +78,11 @@ export default function Home() {
             <a 
               href="https://yoki-yoki.replit.app/" 
               className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-[#9B72CB] to-[#B79CE4] rounded-full text-white font-bold text-lg transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(155,114,203,0.6)]"
+              onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).gtag) {
+                  (window as any).gtag('event', 'cta_click', { event_category: 'hero', event_label: 'アプリを使ってみる' });
+                }
+              }}
             >
               <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
               アプリを使ってみる
@@ -291,6 +296,11 @@ export default function Home() {
             <a 
               href="https://yoki-yoki.replit.app/" 
               className="group relative inline-flex items-center justify-center gap-3 px-10 py-5 bg-gradient-to-r from-[#80D0C7] to-[#9B72CB] rounded-full text-white font-bold text-xl md:text-2xl transition-all hover:scale-105 hover:shadow-[0_0_50px_rgba(128,208,199,0.5)]"
+              onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).gtag) {
+                  (window as any).gtag('event', 'cta_click', { event_category: 'footer', event_label: 'アプリを使ってみる' });
+                }
+              }}
             >
               アプリを使ってみる
               <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
