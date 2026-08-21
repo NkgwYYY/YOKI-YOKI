@@ -31,6 +31,7 @@ export default function Home() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[920px] aurora opacity-90" />
 
       <section className="relative z-10 flex min-h-[100dvh] flex-col justify-center px-6 pb-16 pt-28 sm:px-10 lg:px-20">
+        <a href={`${base}articles/`} className="focus-ring absolute right-6 top-7 z-20 rounded-full border border-[#c6b2e7]/20 bg-[#211537]/55 px-4 py-2 text-xs text-[#d9cde9] backdrop-blur-md transition-colors hover:border-[#e3c57f]/50 hover:text-[#f0cd86] sm:right-10 lg:right-20">読みもの</a>
         <motion.div style={reduceMotion ? undefined : { y }} className="mx-auto grid w-full max-w-7xl items-center gap-12 lg:grid-cols-[1fr_1fr]">
           <div className="max-w-xl">
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1 }} className="mb-6 text-xs font-bold tracking-[.28em] text-[#b8a6d6]">癒やしのメンタルケアアプリ</motion.p>

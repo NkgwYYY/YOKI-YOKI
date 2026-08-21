@@ -8,4 +8,41 @@
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="ja" href="https://yoki-yoki.replit.app/landing/"/>
   </url>
+  <url>
+    <loc>https://yoki-yoki.replit.app/landing/articles/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://yoki-yoki.replit.app/landing/articles/"/>
+  </url>
+  <url>
+    <loc>https://yoki-yoki.replit.app/landing/articles/mental-health-affects-everyday-life/</loc>
+    <lastmod>2026-08-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yoki-yoki.replit.app/landing/articles/why-you-should-not-say-cheer-up/</loc>
+    <lastmod>2026-08-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yoki-yoki.replit.app/landing/articles/meaning-of-a-day-you-could-do-nothing/</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yoki-yoki.replit.app/landing/articles/protect-your-mind-after-work/</loc>
+    <lastmod>2026-08-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yoki-yoki.replit.app/landing/articles/make-mental-care-a-habit/</loc>
+    <lastmod>2026-08-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>
