@@ -1,8 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -11,24 +10,17 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
   --color-card-border: hsl(var(--card-border));
-
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
-
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
-
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
-  
   --color-amber: hsl(35 100% 64%);
-
-  --font-sans: 'Zen Maru Gothic', sans-serif;
-  
+  --font-sans: 'DM Sans', 'Zen Maru Gothic', sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -36,54 +28,47 @@
 }
 
 :root {
-  --background: 254 68% 6%;    /* #0A051A */
-  --foreground: 0 0% 100%;     /* white */
-
-  --border: 268 47% 20%;       
-  --input: 268 47% 20%;
-  --ring: 268 47% 62%;         
-
-  --card: 254 68% 10%;         
-  --card-foreground: 0 0% 100%;
-  --card-border: 268 47% 30%;
-
-  --primary: 268 47% 62%;      /* #9B72CB */
-  --primary-foreground: 0 0% 100%; 
-
-  --secondary: 263 56% 75%;    /* #B79CE4 */
-  --secondary-foreground: 254 68% 6%;
-
-  --accent: 173 45% 66%;       /* #80D0C7 */
-  --accent-foreground: 254 68% 6%;
-  
-  --muted: 268 47% 20%;
-  --muted-foreground: 263 56% 75%;
-
+  --background: 257 44% 8%;
+  --foreground: 42 31% 96%;
+  --border: 263 29% 28%;
+  --input: 263 29% 28%;
+  --ring: 267 62% 78%;
+  --card: 258 38% 13%;
+  --card-foreground: 42 31% 96%;
+  --card-border: 263 29% 28%;
+  --primary: 267 62% 78%;
+  --primary-foreground: 257 44% 8%;
+  --secondary: 204 75% 82%;
+  --secondary-foreground: 257 44% 8%;
+  --accent: 40 84% 72%;
+  --accent-foreground: 257 44% 8%;
+  --muted: 263 24% 20%;
+  --muted-foreground: 267 28% 76%;
   --radius: 1rem;
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply font-sans antialiased bg-background text-foreground;
-    overflow-x: hidden;
-  }
-  
-  /* Stained glass effect utilities */
-  .glass-panel {
-    background: rgba(155, 114, 203, 0.05);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(183, 156, 228, 0.15);
-    box-shadow: 0 8px 32px 0 rgba(10, 5, 26, 0.5);
-  }
-  
-  .glass-card {
-    background: linear-gradient(135deg, rgba(155, 114, 203, 0.1), rgba(10, 5, 26, 0.4));
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(183, 156, 228, 0.2);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
-  }
+  * { @apply border-border; }
+  body { @apply font-sans antialiased bg-background text-foreground; overflow-x: hidden; }
+  ::selection { background: hsl(var(--primary) / .3); color: hsl(var(--foreground)); }
 }
+
+.glass-panel {
+  background: linear-gradient(145deg, rgba(177,154,234,.1), rgba(28,20,53,.38));
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(208,194,255,.18);
+  box-shadow: 0 24px 70px rgba(7,3,20,.32);
+}
+.glass-card {
+  background: linear-gradient(145deg, rgba(148,124,202,.12), rgba(16,11,34,.5));
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(208,194,255,.18);
+  border-top: 1px solid rgba(255,255,255,.12);
+  border-left: 1px solid rgba(255,255,255,.08);
+}
+.star-dust {
+  background-image: radial-gradient(circle at 20% 30%, rgba(255,255,255,.7) 0 1px, transparent 1.5px), radial-gradient(circle at 70% 18%, rgba(202,218,255,.6) 0 1px, transparent 1.5px), radial-gradient(circle at 44% 76%, rgba(255,218,160,.45) 0 1px, transparent 1.5px);
+  background-size: 220px 180px, 310px 260px, 390px 320px;
+}
+.aurora { background: radial-gradient(ellipse at 50% 0%, rgba(143,119,227,.26), transparent 62%), radial-gradient(ellipse at 80% 45%, rgba(116,177,220,.12), transparent 48%); }
+.focus-ring:focus-visible { outline: 2px solid hsl(var(--accent)); outline-offset: 5px; }
