@@ -70,6 +70,26 @@ function GrowthScaleWrap({ growthSize, baseSize, children }: {
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const HOME_COMMENT_KEY = '@mentore/home_comment_v1';
 
+function chatDateKey(message: { id?: unknown; dateKey?: unknown; timestamp?: unknown }): string | null {
+  if (typeof message.dateKey === 'string') return message.dateKey;
+  if (typeof message.timestamp === 'string') {
+    const date = new Date(message.timestamp);
+    if (!Number.isNaN(date.getTime())) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+  }
+  if (typeof message.id === 'string') {
+    const match = message.id.match(/_(\d{10,})$/);
+    if (match) {
+      const date = new Date(Number(match[1]));
+      if (!Number.isNaN(date.getTime())) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      }
+    }
+  }
+  return null;
+}
+
 /* ── Cosmic theme palette ── */
 const C = {
   text: '#FFFFFF',
@@ -286,7 +306,7 @@ export default function HomeScreen() {
   const [homeComment, setHomeComment] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const timer = setTimeout(() => { (async () => {
       const today = getTodayDate();
       // 記録の有無が変わったら作り直す（記録後に内容が反映されるように）
       const sig = `${today}|${todayRecord ? 'rec' : 'no'}|${records.length}`;
@@ -303,7 +323,7 @@ export default function HomeScreen() {
 
       try {
         // 記録コンテキスト（チャットと同じ要約方式）
-        const recent = records.slice(-14);
+        const recent = [...records].sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
         const avgOf = (nums: number[]) =>
           nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : null;
         const ctxParts: string[] = [];
@@ -326,10 +346,11 @@ export default function HomeScreen() {
         try {
           const raw = await AsyncStorage.getItem('@mentore/chat_history_v1');
           if (raw) {
-            const msgs = JSON.parse(raw) as { role: string; content: string }[];
+            const msgs = JSON.parse(raw) as { id?: string; role: string; content: string; dateKey?: string; timestamp?: string }[];
             recentChat = msgs
+              .filter(m => chatDateKey(m) === today)
               .slice(-8)
-              .map(m => `${m.role === 'user' ? 'ユーザー' : 'マスコット'}: ${String(m.content).slice(0, 80)}`)
+              .map(m => `今日の${m.role === 'user' ? 'ユーザー' : 'マスコット'}: ${String(m.content).slice(0, 80)}`)
               .join('\n');
           }
         } catch {}
@@ -352,8 +373,8 @@ export default function HomeScreen() {
       } catch {
         // 失敗時はフォールバック（下のcurrentMsg）を表示したまま
       }
-    })();
-    return () => { cancelled = true; };
+    })(); }, 900);
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [records.length, todayRecord?.id]);
 
   const currentMsg = homeComment ?? getMascotMessage(mood);
@@ -920,7 +941,8 @@ const styles = StyleSheet.create({
   orbMR: { top: 148, right: 6 },
   orbBL: { bottom: 20, left: 30 },
   orbBR: { bottom: 20, right: 30 },
-  mascotWrap: { alignItems: 'center', justifyContent: 'center', zIndex: 3 },
+  // ジャンプ中もオービットボタンの裏へ潜らないよう、キャラを最前面に置く。
+  mascotWrap: { alignItems: 'center', justifyContent: 'center', zIndex: 5, elevation: 5 },
   stageDesc: { fontSize: 12, fontFamily: 'Inter_400Regular' },
 
   satietyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },

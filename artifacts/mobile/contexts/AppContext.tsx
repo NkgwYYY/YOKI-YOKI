@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef, ChecklistCategory } from '@/data/defaultChecklist';
@@ -36,7 +37,7 @@ import {
   LightEnergyState,
   createLightEnergyState,
   resolveLightEnergyState,
-  rolloverLightEnergy,
+  applyElapsedEnergy,
   applyEnergyGain,
   GAIN_CHECK_ITEM,
   GAIN_FULL_DAY_BONUS,
@@ -276,20 +277,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [newEncounters, setNewEncounters] = useState<CharacterKey[]>([]);
   const encountersLoadedRef = useRef(false);
 
+  /** 時間経過ぶんの太陽光発電を精算する。読込・復帰・定期更新のすべてで共通利用する */
+  const settleElapsedEnergy = useCallback(() => {
+    const next = applyElapsedEnergy(lightEnergyRef.current, getTodayDate());
+    if (next === lightEnergyRef.current) return next;
+    lightEnergyRef.current = next;
+    setLightEnergy(next);
+    AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next)).catch(() => {});
+    return next;
+  }, []);
+
   // アプリを開いたまま日付が変わっても日次値(元気・光の力・今日のエネルギー)が
-  // 前日のまま表示されないよう、1分ごとに日付ロールオーバーを確認する
+  // 前日のまま表示されないよう、1分ごとに日付ロールオーバーと発電を精算する
   useEffect(() => {
     const timer = setInterval(() => {
-      const today = getTodayDate();
-      const next = rolloverLightEnergy(lightEnergyRef.current, today);
-      if (next !== lightEnergyRef.current) {
-        lightEnergyRef.current = next;
-        setLightEnergy(next);
-        AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next)).catch(() => {});
-      }
+      settleElapsedEnergy();
     }, 60_000);
     return () => clearInterval(timer);
-  }, []);
+  }, [settleElapsedEnergy]);
+
+  // バックグラウンドから戻った瞬間にも、閉じていた時間の発電分を反映する
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') settleElapsedEnergy();
+    });
+    return () => subscription.remove();
+  }, [settleElapsedEnergy]);
 
   // ユーザー操作による獲得イベント(循環演出はこれだけを根拠に発火する。
   // クラウドpullや読込による数値変動では発火しない)
@@ -333,17 +346,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const gainLightEnergy = useCallback(
     async (gain: EnergyGain, flag?: keyof LightEnergyState['flags']) => {
       const today = getTodayDate();
-      const next = applyEnergyGain(lightEnergyRef.current, gain, today, flag);
-      if (next === lightEnergyRef.current) return;
+      const settled = settleElapsedEnergy();
+      const next = applyEnergyGain(settled, gain, today, flag);
+      if (next === settled) return;
       // 付与量は totalEnergy の差分で求める(todayEnergy は深夜のロールオーバーで
       // リセットされるため、日付またぎ直後の付与でも正しい量になる)
-      const gained = next.totalEnergy - lightEnergyRef.current.totalEnergy;
+      const gained = next.totalEnergy - settled.totalEnergy;
       lightEnergyRef.current = next;
       setLightEnergy(next);
       if (gained > 0) queueGainEvent(gained);
       await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next));
     },
-    []
+    [settleElapsedEnergy]
   );
 
   // ── 出会い記録の最新化: レベル(=進化段階)が変わるたびに図鑑へ登録する ──
@@ -599,7 +613,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       {
         let raw: unknown = null;
         try { raw = energyStr ? JSON.parse(energyStr) : null; } catch { raw = null; }
-        const resolved = resolveLightEnergyState(raw, getTodayDate());
+        const resolved = applyElapsedEnergy(
+          resolveLightEnergyState(raw, getTodayDate()),
+          getTodayDate(),
+        );
         lightEnergyRef.current = resolved;
         setLightEnergy(resolved);
         await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(resolved));

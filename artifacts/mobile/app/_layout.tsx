@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -13,7 +14,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { ClerkProvider, ClerkLoaded } from '@clerk/expo';
+import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -76,18 +77,30 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+  // Web にはネイティブのスプラッシュ画面がないため、空白画面を出さず即座に描画する。
+  const [splashReady, setSplashReady] = useState(Platform.OS === 'web');
 
   useEffect(() => {
     initAnalytics();
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+    // フォントや認証サービスが遅い環境でも、起動画面を長く出し続けない。
+    // フォントは後から自然に反映され、Clerk は AuthProvider が非同期で解決する。
+    const reveal = () => {
+      setSplashReady(true);
+      SplashScreen.hideAsync().catch(() => {});
+    };
     if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
+      reveal();
+      return;
     }
+    const timeout = setTimeout(reveal, 650);
+    return () => clearTimeout(timeout);
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) return null;
+  if (!splashReady) return null;
 
   return (
     <ClerkProvider
@@ -95,23 +108,21 @@ export default function RootLayout() {
       tokenCache={tokenCache}
       proxyUrl={clerkProxyUrl}
     >
-      <ClerkLoaded>
-        <SafeAreaProvider>
-          <ErrorBoundary>
-            <QueryClientProvider client={queryClient}>
-              <AuthProvider>
-                <AppProvider>
-                  <GestureHandlerRootView>
-                    <KeyboardProvider>
-                      <RootLayoutNav />
-                    </KeyboardProvider>
-                  </GestureHandlerRootView>
-                </AppProvider>
-              </AuthProvider>
-            </QueryClientProvider>
-          </ErrorBoundary>
-        </SafeAreaProvider>
-      </ClerkLoaded>
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <AppProvider>
+                <GestureHandlerRootView>
+                  <KeyboardProvider>
+                    <RootLayoutNav />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </AppProvider>
+            </AuthProvider>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
     </ClerkProvider>
   );
 }

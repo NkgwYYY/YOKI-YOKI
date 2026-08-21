@@ -296,7 +296,9 @@ function EggVideoNative({ size, pokeKey }: { size: number; pokeKey: number }) {
   );
 }
 
-function EggImage({ mood, size, rolling = false, pokeKey = 0 }: { mood: MascotMood; size: number; rolling?: boolean; pokeKey?: number }) {
+function EggImage({ mood, size, rolling = false, pokeKey = 0, allowVideo = true }: {
+  mood: MascotMood; size: number; rolling?: boolean; pokeKey?: number; allowVideo?: boolean;
+}) {
   /* ぷにぷに呼吸（サイン波イージングでゆったり・シリコンのような柔らかさ） */
   const SINE = Easing.inOut(Easing.sin);
   const breath = useSharedValue(0);
@@ -427,7 +429,7 @@ function EggImage({ mood, size, rolling = false, pokeKey = 0 }: { mood: MascotMo
   }
 
   // 通常表情・シーケンス再生なし → 元動画をそのまま滑らかにループ再生（Web/ネイティブとも）
-  if (mood === 'normal' && seq === null) {
+  if (mood === 'normal' && seq === null && allowVideo) {
     return Platform.OS === 'web'
       ? <EggVideoWeb size={size} pokeKey={pokeKey} />
       : <EggVideoNative size={size} pokeKey={pokeKey} />;
@@ -473,6 +475,8 @@ interface MascotProps {
   onPet?: () => void;
   idleBehavior?: IdleBehavior;
   isEating?: boolean;
+  /** 初回表示を軽くしたい場所では、動画ではなく同じ元素材の静止画を使う */
+  preferStatic?: boolean;
 }
 
 /* ── なでなで時の控えめな光（絵文字なし・淡いピンクの輪がふわっと広がって消える） ── */
@@ -515,7 +519,9 @@ function PetGlow({ size, petKey }: { size: number; petKey: number }) {
 
 /* ─── per-mood eye + mouth shapes ─── */
 /* ─── Main component ─── */
-export function Mascot({ stage, mood, size = 140, onPress, onPet, idleBehavior = 'normal', isEating = false }: MascotProps) {
+export function Mascot({
+  stage, mood, size = 140, onPress, onPet, idleBehavior = 'normal', isEating = false, preferStatic = false,
+}: MascotProps) {
   const bounce = useSharedValue(0);
   const scaleX = useSharedValue(1);
   const scaleY = useSharedValue(1);
@@ -758,7 +764,13 @@ export function Mascot({ stage, mood, size = 140, onPress, onPet, idleBehavior =
       <View>
         <Animated.View style={style}>
           {character.key === 'egg'
-            ? <EggImage mood={effMood} size={size} rolling={effIdle === 'rolling'} pokeKey={pokeKey} />
+            ? <EggImage
+                mood={effMood}
+                size={size}
+                rolling={effIdle === 'rolling'}
+                pokeKey={pokeKey}
+                allowVideo={!preferStatic}
+              />
             : <BoneCharacter charKey={character.key} mood={effMood} size={size} hop={size >= 90} animate={size >= 60} />}
         </Animated.View>
         {effIdle === 'sleeping' && <ZzzOverlay size={size} />}

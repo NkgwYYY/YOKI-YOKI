@@ -19,6 +19,7 @@ import { useApp } from '@/contexts/AppContext';
 import { profileToContext } from '@/utils/profileContext';
 import { Mascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
+import { formatDateJP, getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -29,6 +30,56 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  /** ISO日時。旧履歴はidに含まれる時刻から復元する */
+  timestamp: string;
+  /** 端末ローカル日付。会話を「今日」と「過去」に分けるために使う */
+  dateKey: string;
+}
+
+function localDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function messageDateFromId(id: unknown): Date | null {
+  if (typeof id !== 'string') return null;
+  const match = id.match(/_(\d{10,})$/);
+  if (!match) return null;
+  const date = new Date(Number(match[1]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** v1の履歴も安全に読み込み、日時のないメッセージはidの保存時刻から復元する */
+function normalizeStoredMessage(raw: unknown): Message | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const message = raw as Partial<Message>;
+  if (
+    typeof message.id !== 'string'
+    || (message.role !== 'user' && message.role !== 'assistant')
+    || typeof message.content !== 'string'
+  ) return null;
+  const idDate = messageDateFromId(message.id);
+  const timestampDate = message.timestamp ? new Date(message.timestamp) : idDate;
+  const validDate = timestampDate && !Number.isNaN(timestampDate.getTime()) ? timestampDate : new Date();
+  return {
+    id: message.id,
+    role: message.role,
+    content: message.content,
+    timestamp: message.timestamp && !Number.isNaN(new Date(message.timestamp).getTime())
+      ? message.timestamp
+      : validDate.toISOString(),
+    dateKey: typeof message.dateKey === 'string' ? message.dateKey : localDateKey(validDate),
+  };
+}
+
+function newMessage(id: string, role: Message['role'], content: string): Message {
+  const now = new Date();
+  return { id, role, content, timestamp: now.toISOString(), dateKey: localDateKey(now) };
+}
+
+function messageDateLabel(dateKey: string): string {
+  if (dateKey === getTodayDate()) return '今日';
+  if (dateKey === getYesterdayDate()) return '昨日';
+  return formatDateJP(dateKey);
 }
 
 /* ── Typing dots ── */
@@ -108,6 +159,18 @@ function MessageBubble({ msg, mascotStage, mascotMood, colors }: {
     </Animated.View>
   );
 }
+
+function DateDivider({ dateKey, colors }: { dateKey: string; colors: ReturnType<typeof useColors> }) {
+  return (
+    <View style={bubbleStyles.dateDivider}>
+      <View style={[bubbleStyles.dateLine, { backgroundColor: colors.border }]} />
+      <Text style={[bubbleStyles.dateText, { color: colors.mutedForeground }]}>
+        {messageDateLabel(dateKey)}
+      </Text>
+      <View style={[bubbleStyles.dateLine, { backgroundColor: colors.border }]} />
+    </View>
+  );
+}
 const bubbleStyles = StyleSheet.create({
   rowUser: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16 },
   rowMascot: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 16 },
@@ -116,6 +179,9 @@ const bubbleStyles = StyleSheet.create({
   userText: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_400Regular', lineHeight: 22 },
   bubbleMascot: { maxWidth: '72%', padding: 13, borderRadius: 20, borderBottomLeftRadius: 4, borderWidth: 1 },
   mascotText: { fontSize: 15, fontFamily: 'Inter_400Regular', lineHeight: 22 },
+  dateDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 28, marginVertical: 2 },
+  dateLine: { height: StyleSheet.hairlineWidth, flex: 1 },
+  dateText: { fontSize: 11, fontFamily: 'Inter_500Medium' },
 });
 
 /* ── Suggestion chip ── */
@@ -154,7 +220,7 @@ export default function ChatScreen() {
     inactivityHours, satiety: currentSatiety,
   });
   const displayName = mascotName || 'こころん';
-  const welcomeMsg: Message = { id: 'welcome', role: 'assistant', content: `やあ！${displayName}だよ✨ なんでも話しかけてね！` };
+  const welcomeMsg = newMessage('welcome', 'assistant', `やあ！${displayName}だよ✨ なんでも話しかけてね！`);
 
   const [messages, setMessages] = useState<Message[]>([welcomeMsg]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -170,7 +236,10 @@ export default function ChatScreen() {
       try {
         const raw = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
         if (raw) {
-          const stored: Message[] = JSON.parse(raw);
+          const stored = (JSON.parse(raw) as unknown[])
+            .map(normalizeStoredMessage)
+            .filter((message): message is Message => message !== null)
+            .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
           if (stored.length > 0) {
             setMessages([welcomeMsg, ...stored]);
           }
@@ -201,7 +270,7 @@ export default function ChatScreen() {
     if (!msg || isLoading) return;
     setInput('');
 
-    const userMsg: Message = { id: `u_${Date.now()}`, role: 'user', content: msg };
+    const userMsg = newMessage(`u_${Date.now()}`, 'user', msg);
     const next = [...messages, userMsg];
     setMessages(next);
     scrollToBottom();
@@ -216,10 +285,10 @@ export default function ChatScreen() {
       const history = next
         .filter(m => m.id !== 'welcome')
         .slice(-MAX_CONTEXT)
-        .map(m => ({ role: m.role, content: m.content }));
+        .map(m => ({ role: m.role, content: m.content, dateKey: m.dateKey }));
 
       // Compact life-condition context so the mascot knows how the user is really doing
-      const recent = records.slice(-14);
+      const recent = [...records].sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
       const todayRec = getTodayRecord();
       const avgOf = (nums: number[]) =>
         nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1) : null;
@@ -247,26 +316,23 @@ export default function ChatScreen() {
           messages: history,
           mascotName: displayName,
           mascotStage,
+          todayDate: getTodayDate(),
           context: ctxParts.join('\n') || undefined,
         }),
       });
       const data = await res.json();
-      const assistantMsg: Message = {
-        id: `a_${Date.now()}`,
-        role: 'assistant',
-        content: data.content || 'うん、聞いてるよ！',
-      };
+      const assistantMsg = newMessage(`a_${Date.now()}`, 'assistant', data.content || 'うん、聞いてるよ！');
       setMessages(prev => [...prev, assistantMsg]);
       Analytics.chatMessageSent();
       if (data.restEvent) {
         setTimeout(() => setShowRestEvent(true), 1200);
       }
     } catch {
-      setMessages(prev => [...prev, {
-        id: `err_${Date.now()}`,
-        role: 'assistant',
-        content: 'ごめん、うまく繋がらなかった…もう一度話しかけてね🥺',
-      }]);
+      setMessages(prev => [...prev, newMessage(
+        `err_${Date.now()}`,
+        'assistant',
+        'ごめん、うまく繋がらなかった…もう一度話しかけてね🥺',
+      )]);
     } finally {
       setIsLoading(false);
       scrollToBottom();
@@ -317,13 +383,18 @@ export default function ChatScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={scrollToBottom}
-        renderItem={({ item }) => (
-          <MessageBubble
-            msg={item}
-            mascotStage={mascotStage}
-            mascotMood={mascotMood}
-            colors={colors}
-          />
+        renderItem={({ item, index }) => (
+          <>
+            {(index === 0 || messages[index - 1]?.dateKey !== item.dateKey) && (
+              <DateDivider dateKey={item.dateKey} colors={colors} />
+            )}
+            <MessageBubble
+              msg={item}
+              mascotStage={mascotStage}
+              mascotMood={mascotMood}
+              colors={colors}
+            />
+          </>
         )}
         ListFooterComponent={isLoading ? (
           <View style={[bubbleStyles.rowMascot, { paddingHorizontal: 16 }]}>

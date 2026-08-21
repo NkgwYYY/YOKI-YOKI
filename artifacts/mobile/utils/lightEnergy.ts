@@ -16,6 +16,12 @@ export const BASE_GENKI = 50;
 /** 元気・光の力の上限 */
 export const MAX_GENKI = 100;
 export const MAX_LIGHT_POWER = 100;
+/** 発電の最低出力。行動していない時間も、太陽の光が少しずつ蓄電される */
+export const PASSIVE_ENERGY_PER_HOUR = 1;
+/** 光の力が100のときに加わる、1時間あたりの追加出力 */
+export const MAX_LIGHT_POWER_BONUS_PER_HOUR = 1;
+/** 一度に精算する留守中の上限。長期未利用で数値だけが過度に増えるのを防ぐ */
+export const MAX_PASSIVE_GENERATION_HOURS = 72;
 
 export interface LightEnergyState {
   /** 今日の日付 (YYYY-MM-DD)。変わったら日次値をリセット */
@@ -30,6 +36,8 @@ export interface LightEnergyState {
   storedEnergy: number;
   /** 累計光エネルギー */
   totalEnergy: number;
+  /** 時間経過による発電を最後に精算した時刻 */
+  lastGeneratedAt: string;
   /** 今日すでに付与済みの1日1回ソース(二重付与防止) */
   flags: {
     /** 気分記録(初回のみ) */
@@ -47,6 +55,7 @@ export function createLightEnergyState(today: string): LightEnergyState {
     todayEnergy: 0,
     storedEnergy: 0,
     totalEnergy: 0,
+    lastGeneratedAt: new Date().toISOString(),
     flags: { mood: false, diary: false },
   };
 }
@@ -63,6 +72,9 @@ export function resolveLightEnergyState(raw: unknown, today: string): LightEnerg
     todayEnergy: Math.max(0, num(r.todayEnergy, 0)),
     storedEnergy: Math.max(0, num(r.storedEnergy, 0)),
     totalEnergy: Math.max(0, num(r.totalEnergy, 0)),
+    // 旧データはこの時点から発電を開始する。過去分を一括で付与しないため、
+    // バージョン更新だけで大きな蓄電量が発生することはない。
+    lastGeneratedAt: validTimestamp(r.lastGeneratedAt) ? r.lastGeneratedAt! : new Date().toISOString(),
     flags: {
       mood: r.flags?.mood === true,
       diary: r.flags?.diary === true,
@@ -81,6 +93,39 @@ export function rolloverLightEnergy(state: LightEnergyState, today: string): Lig
     lightPower: 0,
     todayEnergy: 0,
     flags: { mood: false, diary: false },
+  };
+}
+
+/**
+ * 最終精算時刻から現在までの時間経過ぶんを蓄電する。
+ * 光の力が高いほど少し発電量が上がるが、最低出力があるため毎日操作できない日も
+ * 太陽光発電所にはゆっくりエネルギーが貯まる。
+ */
+export function applyElapsedEnergy(
+  state: LightEnergyState,
+  today: string,
+  now = new Date(),
+): LightEnergyState {
+  const current = rolloverLightEnergy(state, today);
+  const lastMs = Date.parse(current.lastGeneratedAt);
+  const nowMs = now.getTime();
+  if (!Number.isFinite(lastMs) || nowMs <= lastMs) return current;
+
+  const elapsedHours = Math.min(
+    (nowMs - lastMs) / 3_600_000,
+    MAX_PASSIVE_GENERATION_HOURS,
+  );
+  const rate = PASSIVE_ENERGY_PER_HOUR
+    + (current.lightPower / MAX_LIGHT_POWER) * MAX_LIGHT_POWER_BONUS_PER_HOUR;
+  const generated = Math.floor(elapsedHours * rate);
+  if (generated <= 0) return current;
+
+  return {
+    ...current,
+    todayEnergy: current.todayEnergy + generated,
+    storedEnergy: current.storedEnergy + generated,
+    totalEnergy: current.totalEnergy + generated,
+    lastGeneratedAt: now.toISOString(),
   };
 }
 
@@ -134,6 +179,10 @@ export function applyEnergyGain(
 
 function num(v: unknown, fallback: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+function validTimestamp(v: unknown): v is string {
+  return typeof v === 'string' && Number.isFinite(Date.parse(v));
 }
 
 function clamp(v: number, min: number, max: number): number {

@@ -42,6 +42,7 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
   const iframeRef = useRef<any>(null);
   const webviewRef = useRef<any>(null);
   const [nativeFailed, setNativeFailed] = useState(false);
+  const [shouldLoadStage, setShouldLoadStage] = useState(false);
   // ステージからready通知が来たか(来なければ誤ったページ=旧ビルド等 → フォールバック)
   const nativeReadyRef = useRef(false);
 
@@ -72,6 +73,13 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
   }, [char, mood, growthSize]);
 
   useEffect(() => {
+    // 初回描画は端末内の Mascot を使い、外部ステージの読込は後ろへ回す。
+    // ネットワーク待ちがホーム全体の立ち上がりに見えないようにする。
+    const timer = setTimeout(() => setShouldLoadStage(true), 750);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onMessage = (e: MessageEvent) => {
       if (e.data?.type === 'yokky-stage-ready' && e.source === iframeRef.current?.contentWindow) {
@@ -84,10 +92,21 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
 
   /* ── フォールバック(ネイティブ読み込み失敗時)。成長スケールも反映 ── */
   const fallback = (
-    <View style={{ transform: [{ scale: growthSize }] }}>
-      <Mascot stage={stage} mood={mood} size={size} idleBehavior={idleBehavior} onPet={onPet} />
+    <View style={{ width: size * 1.7, height: size * 2.4, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ transform: [{ scale: growthSize }] }}>
+        <Mascot
+          stage={stage}
+          mood={mood}
+          size={size}
+          idleBehavior={idleBehavior}
+          onPet={onPet}
+          preferStatic
+        />
+      </View>
     </View>
   );
+
+  if (!shouldLoadStage) return fallback;
 
   if (Platform.OS !== 'web') {
     if (nativeFailed) return fallback;

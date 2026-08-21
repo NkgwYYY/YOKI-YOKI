@@ -218,10 +218,10 @@ const st = StyleSheet.create({
   score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.92)' },
   combo: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFD75E' },
   stage: {
-    marginHorizontal: 16, borderRadius: 18, overflow: 'hidden', minHeight: 300,
+    marginHorizontal: 16, borderRadius: 18, overflow: 'hidden', minHeight: 330,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'flex-end', paddingBottom: 16,
+    justifyContent: 'flex-end', paddingTop: 28, paddingBottom: 16,
   },
   mascotArea: { alignItems: 'flex-start', paddingLeft: 26, marginBottom: 6 },
   ground: {
