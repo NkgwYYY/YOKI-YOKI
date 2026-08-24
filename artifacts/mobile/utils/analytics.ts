@@ -31,6 +31,7 @@ export const Analytics = {
 
   login:  () => track('login'),
   signUp: () => track('sign_up'),
+  guestStarted: () => track('guest_started'),
 
   miniGameStarted:   (slot: string)                  => track('mini_game_started',   { slot }),
   miniGameCompleted: (slot: string, score: number)   => track('mini_game_completed', { slot, score }),

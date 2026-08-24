@@ -30,17 +30,19 @@ const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 function AuthGate() {
   const { isSignedIn, isLoading } = useAuth();
-  const { profile, cloudSynced } = useApp();
+  const { profile, cloudSynced, isLoading: appLoading } = useApp();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || appLoading) return;
     // Public routes that don't require authentication
-    const isPublicRoute = segments[0] === 'login' || segments[0] === 'gallery';
+    const isPublicRoute =
+      segments[0] === 'login' || segments[0] === 'gallery' || segments[0] === 'onboarding';
 
-    if (!isSignedIn && !isPublicRoute) {
-      router.replace('/login');
+    if (!isSignedIn && !profile && !isPublicRoute) {
+      // A new visitor starts locally. Login is an optional backup, not a gate.
+      router.replace('/onboarding');
     } else if (isSignedIn && segments[0] === 'login') {
       router.replace('/(tabs)');
     } else if (isSignedIn && cloudSynced && !profile && segments[0] !== 'onboarding') {
@@ -50,7 +52,7 @@ function AuthGate() {
     } else if (isSignedIn && profile && segments[0] === 'onboarding') {
       router.replace('/(tabs)');
     }
-  }, [isSignedIn, isLoading, cloudSynced, profile, segments]);
+  }, [isSignedIn, isLoading, appLoading, cloudSynced, profile, segments]);
 
   return null;
 }

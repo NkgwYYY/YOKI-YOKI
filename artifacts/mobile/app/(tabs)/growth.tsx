@@ -88,7 +88,7 @@ export default function GrowthScreen() {
     const t = setTimeout(() => { markGrowthSeen(); }, 3000);
     return () => clearTimeout(t);
   }, [growth.growthSize]);
-  const { user, logout } = useAuth();
+  const { user, isSignedIn, logout } = useAuth();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
 
@@ -188,6 +188,24 @@ export default function GrowthScreen() {
               {user?.email && (
                 <Text style={[styles.logoutEmail, { color: colors.mutedForeground }]}>{user.email}</Text>
               )}
+              {!isSignedIn && (
+                <>
+                  <Text style={[styles.logoutEmail, { color: colors.foreground }]}>
+                    ゲストモードで利用中
+                  </Text>
+                  <Text style={[styles.guestDescription, { color: colors.mutedForeground }]}>
+                    記録はこの端末に保存されています。ログインするとデータをバックアップできます。
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.profileBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => { setShowLogout(false); router.push('/login'); }}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
+                    <Text style={[styles.profileBtnText, { color: '#fff' }]}>ログインしてデータを保存</Text>
+                  </TouchableOpacity>
+                </>
+              )}
               <TouchableOpacity
                 style={[styles.profileBtn, { backgroundColor: colors.muted }]}
                 onPress={() => { setShowLogout(false); router.push('/profile'); }}
@@ -204,14 +222,16 @@ export default function GrowthScreen() {
                 <Ionicons name="book-outline" size={18} color={colors.foreground} />
                 <Text style={[styles.profileBtnText, { color: colors.foreground }]}>使い方ガイド</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.logoutBtn}
-                onPress={handleLogout}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="log-out-outline" size={18} color="#fff" />
-                <Text style={styles.logoutBtnText}>ログアウト</Text>
-              </TouchableOpacity>
+              {isSignedIn && (
+                <TouchableOpacity
+                  style={styles.logoutBtn}
+                  onPress={handleLogout}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="log-out-outline" size={18} color="#fff" />
+                  <Text style={styles.logoutBtnText}>ログアウト</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity onPress={() => setShowLogout(false)} style={{ marginTop: 12 }}>
                 <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>キャンセル</Text>
               </TouchableOpacity>
@@ -639,5 +659,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14, paddingHorizontal: 28,
   },
   logoutBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  guestDescription: { fontSize: 12, lineHeight: 18, textAlign: 'center', marginBottom: 8 },
   cancelText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
 });

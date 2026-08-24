@@ -261,6 +261,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [miniGameState, setMiniGameState] = useState<MiniGameState>(DEFAULT_MINI_GAME_STATE);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [cloudSynced, setCloudSynced] = useState(false);
+  // The first authenticated transition may be a guest upgrading to an account.
+  // Keep this separate from Clerk state so local data can be merged before pull.
+  const wasGuestRef = useRef(false);
   // マスコットは進化しても同一個体なので characterId は固定 'mascot'
   const [growth, setGrowth] = useState<GrowthRecord>(() => createGrowthRecord('mascot'));
   const [lightEnergy, setLightEnergy] = useState<LightEnergyState>(() => createLightEnergyState(getTodayDate()));
@@ -511,29 +514,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await next;
   }, []);
 
-  const pullDataFromCloud = useCallback(async (): Promise<boolean> => {
-    if (!signedInRef.current) return false;
+  const pullDataFromCloud = useCallback(async (): Promise<{ ok: boolean; data: Record<string, unknown> }> => {
+    if (!signedInRef.current) return { ok: false, data: {} };
     const t = await getTokenRef.current();
-    if (!t) return false;
+    if (!t) return { ok: false, data: {} };
     try {
       const res = await fetch(`${API_BASE}/sync`, {
         headers: { Authorization: `Bearer ${t}` },
       });
-      if (!res.ok) return false;
+      if (!res.ok) return { ok: false, data: {} };
       const { data } = await res.json() as { data: Record<string, unknown> };
-      // Write cloud data to AsyncStorage
-      await Promise.all(
-        Object.entries(data).map(([k, v]) =>
-          AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
-        )
-      );
-      // Profile gates onboarding: if the cloud snapshot has no profile,
-      // drop any stale local one (e.g. from a previous account on this device)
-      if (!(KEYS.PROFILE in data)) {
-        await AsyncStorage.removeItem(KEYS.PROFILE);
+      return { ok: true, data };
+    } catch { return { ok: false, data: {} }; }
+  }, []);
+
+  const mergeGuestWithCloud = useCallback(async (cloudData: Record<string, unknown>) => {
+    const keys = Object.values(KEYS);
+    const localValues = await Promise.all(keys.map((k) => AsyncStorage.getItem(k)));
+    const localData: Record<string, unknown> = {};
+    keys.forEach((k, i) => {
+      if (localValues[i] !== null) {
+        try { localData[k] = JSON.parse(localValues[i]!); } catch { localData[k] = localValues[i]; }
       }
-      return true;
-    } catch { return false; }
+    });
+
+    const merged: Record<string, unknown> = { ...cloudData, ...localData };
+    // Keep both sides of append-only histories and use the most progressed state.
+    for (const key of [KEYS.RECORDS, KEYS.BADGES, KEYS.ENCOUNTERS]) {
+      const cloud = Array.isArray(cloudData[key]) ? cloudData[key] : [];
+      const local = Array.isArray(localData[key]) ? localData[key] : [];
+      const byId = new Map<string, unknown>();
+      [...cloud, ...local].forEach((item: any) => {
+        const id = String(item?.id ?? item?.charKey ?? JSON.stringify(item));
+        byId.set(id, item);
+      });
+      merged[key] = [...byId.values()];
+    }
+    if (cloudData[KEYS.PROGRESS] || localData[KEYS.PROGRESS]) {
+      const cloud = (cloudData[KEYS.PROGRESS] ?? {}) as UserProgress;
+      const local = (localData[KEYS.PROGRESS] ?? {}) as UserProgress;
+      merged[KEYS.PROGRESS] = {
+        ...cloud,
+        ...local,
+        experience: Math.max(cloud.experience ?? 0, local.experience ?? 0),
+        mentalMuscle: Math.max(cloud.mentalMuscle ?? 0, local.mentalMuscle ?? 0),
+        totalDays: Math.max(cloud.totalDays ?? 0, local.totalDays ?? 0),
+        level: Math.max(cloud.level ?? 1, local.level ?? 1),
+      };
+    }
+    await Promise.all(Object.entries(merged).map(([k, v]) =>
+      AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
+    ));
   }, []);
 
   // ─── Load all data from local storage (+ cloud on login) ─────────────
@@ -550,7 +581,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         pullingRef.current = true;
         let ok = false;
         try {
-          ok = await pullDataFromCloud();
+          const pulled = await pullDataFromCloud();
+          ok = pulled.ok;
+          if (ok && wasGuestRef.current) {
+            await mergeGuestWithCloud(pulled.data);
+          } else if (ok) {
+            await Promise.all(
+              Object.entries(pulled.data).map(([k, v]) =>
+                AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
+              )
+            );
+            if (!(KEYS.PROFILE in pulled.data)) await AsyncStorage.removeItem(KEYS.PROFILE);
+          }
           await loadAll();
         } finally {
           pullingRef.current = false;
@@ -563,8 +605,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isSignedIn) {
       prevSignedIn.current = false;
       setCloudSynced(false);
+      if (!isLoading) wasGuestRef.current = true;
     }
-  }, [isSignedIn]);
+  }, [isSignedIn, isLoading, pullDataFromCloud, mergeGuestWithCloud]);
 
   const buildFreshCheckedState = (items: ChecklistItemDef[]): CheckedState => {
     const today = getTodayDate();

@@ -398,6 +398,14 @@ export default function LoginScreen() {
                   </TouchableOpacity>
                 )}
 
+                <TouchableOpacity
+                  onPress={() => router.replace('/onboarding')}
+                  style={styles.guestButton}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.guestButtonText}>ログインせずに始める</Text>
+                </TouchableOpacity>
+
                 {/* Required for sign-up flows: Clerk bot protection */}
                 <View nativeID="clerk-captcha" />
               </View>
@@ -457,6 +465,8 @@ const styles = StyleSheet.create({
   hint: { fontSize: 12, color: '#00C4A7', marginTop: 14, textAlign: 'center', fontWeight: '500' },
   forgotWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 16 },
   forgotText: { fontSize: 13, color: '#9E7DD5', fontWeight: '500' },
+  guestButton: { alignItems: 'center', paddingVertical: 14, marginTop: 10 },
+  guestButtonText: { color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '600' },
 });
 
 // Sheet styles (for modal)
