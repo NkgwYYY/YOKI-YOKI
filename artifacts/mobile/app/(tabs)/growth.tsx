@@ -41,6 +41,7 @@ import { CharacterDexModal } from '@/components/dex/CharacterDexModal';
 import type { CharacterKey } from '@/utils/mascotUtils';
 import { charsMetByLevel } from '@/utils/encounters';
 import { getTodayDate } from '@/utils/dateUtils';
+import { Analytics } from '@/utils/analytics';
 
 // ステージごとのキャラ画像(進化に合わせて成長比較の見た目も切り替える)
 const STAGE_IMAGES: Record<string, ImageSourcePropType> = {
@@ -194,11 +195,18 @@ export default function GrowthScreen() {
                     ゲストモードで利用中
                   </Text>
                   <Text style={[styles.guestDescription, { color: colors.mutedForeground }]}>
-                    記録はこの端末に保存されています。ログインするとデータをバックアップできます。
+                    記録はこの端末に保存されています。ログインすると記録と進捗をアカウントに追加して、バックアップできます。
+                  </Text>
+                  <Text style={[styles.guestDetail, { color: colors.mutedForeground }]}>
+                    すでにアカウントにあるプロフィールや設定は優先して保護されます。
                   </Text>
                   <TouchableOpacity
                     style={[styles.profileBtn, { backgroundColor: colors.primary }]}
-                    onPress={() => { setShowLogout(false); router.push('/login'); }}
+                    onPress={() => {
+                      Analytics.guestBackupPromptOpened();
+                      setShowLogout(false);
+                      router.push('/login');
+                    }}
                     activeOpacity={0.85}
                   >
                     <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
@@ -660,5 +668,6 @@ const styles = StyleSheet.create({
   },
   logoutBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
   guestDescription: { fontSize: 12, lineHeight: 18, textAlign: 'center', marginBottom: 8 },
+  guestDetail: { fontSize: 11, lineHeight: 16, textAlign: 'center', marginBottom: 12 },
   cancelText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
 });

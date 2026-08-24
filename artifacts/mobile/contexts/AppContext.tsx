@@ -20,6 +20,7 @@ import {
   SATIETY_DECAY_PER_HOUR,
 } from '@/data/foodItems';
 import { useAuth, API_BASE } from './AuthContext';
+import { Analytics } from '@/utils/analytics';
 import {
   GrowthRecord,
   createGrowthRecord,
@@ -538,7 +539,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    const merged: Record<string, unknown> = { ...cloudData, ...localData };
+    // Cloud remains the source of truth for existing account settings. Guest-only
+    // data fills missing values; append-only histories and progress are merged below.
+    const merged: Record<string, unknown> = { ...localData, ...cloudData };
     // Keep both sides of append-only histories and use the most progressed state.
     for (const key of [KEYS.RECORDS, KEYS.BADGES, KEYS.ENCOUNTERS]) {
       const cloud = Array.isArray(cloudData[key]) ? cloudData[key] : [];
@@ -560,6 +563,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         mentalMuscle: Math.max(cloud.mentalMuscle ?? 0, local.mentalMuscle ?? 0),
         totalDays: Math.max(cloud.totalDays ?? 0, local.totalDays ?? 0),
         level: Math.max(cloud.level ?? 1, local.level ?? 1),
+        lastRecordDate: [cloud.lastRecordDate, local.lastRecordDate].filter(Boolean).sort().at(-1) ?? '',
       };
     }
     await Promise.all(Object.entries(merged).map(([k, v]) =>
@@ -580,11 +584,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       (async () => {
         pullingRef.current = true;
         let ok = false;
+        let mergedGuestData = false;
         try {
           const pulled = await pullDataFromCloud();
           ok = pulled.ok;
           if (ok && wasGuestRef.current) {
             await mergeGuestWithCloud(pulled.data);
+            mergedGuestData = true;
           } else if (ok) {
             await Promise.all(
               Object.entries(pulled.data).map(([k, v]) =>
@@ -599,6 +605,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // Only mark synced when the pull actually succeeded, so a failed
           // pull can't send an existing user (with a cloud profile) to onboarding
           if (ok) setCloudSynced(true);
+          if (ok && mergedGuestData) {
+            await pushDataToCloud();
+            Analytics.guestDataBackedUp();
+          }
         }
       })();
     }
