@@ -51,11 +51,12 @@ function fmtTime(sec: number): string {
 interface Props {
   onResult: (result: PlayResult) => void; // 結果確定時 (報酬付与用) に一度だけ呼ばれる
   onClose: () => void;
+  onBackToList?: () => void;
   rewardLabel?: string | null;
   onPlayingChange?: (playing: boolean) => void;
 }
 
-export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange }: Props) {
+export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, onPlayingChange }: Props) {
   const [step, setStep] = useState<Step>('song');
   const [song, setSong] = useState<Song | null>(null);
   const [mode, setMode] = useState<RhythmMode>('tap');
@@ -105,6 +106,11 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
   if (step === 'song') {
     return (
       <ScrollView contentContainerStyle={st.body}>
+        {onBackToList && (
+          <TouchableOpacity onPress={onBackToList} hitSlop={8} style={st.listBack}>
+            <Text style={st.listBackTxt}>‹ ミニゲーム一覧</Text>
+          </TouchableOpacity>
+        )}
         <Text style={st.stepTitle}>きょくをえらぼう</Text>
         {SONGS.map(s => (
           <TouchableOpacity key={s.id} activeOpacity={0.85} onPress={() => selectSong(s)}>
@@ -283,6 +289,8 @@ export function RhythmGameFlow({ onResult, onClose, rewardLabel, onPlayingChange
 const st = StyleSheet.create({
   body: { padding: 20, gap: 10, alignItems: 'stretch' },
   stepTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.95)', textAlign: 'center', marginBottom: 4 },
+  listBack: { alignSelf: 'flex-start', paddingVertical: 2 },
+  listBackTxt: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.62)' },
   subTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginBottom: 2 },
 
   songCard: {
