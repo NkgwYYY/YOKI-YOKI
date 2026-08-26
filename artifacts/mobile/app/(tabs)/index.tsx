@@ -19,10 +19,11 @@ import { FeedModal } from '@/components/FeedModal';
 import { Mascot } from '@/components/Mascot';
 import { MiniGameModal } from '@/components/MiniGameModal';
 import { QuickAffirmationRecord } from '@/components/record/QuickAffirmationRecord';
+import { StageCharacter } from '@/components/StageCharacter';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
 import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
-import { getCurrentSlot, getSlotConfig, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
+import { getCurrentSlot, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
 import { getMascotStage } from '@/utils/mascotUtils';
 
 function MenuAction({
@@ -52,6 +53,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const {
     completeMiniGame,
+    feedState,
+    growth,
     getTodayRecord,
     mascotName,
     miniGameState,
@@ -111,7 +114,51 @@ export default function HomeScreen() {
               {todayRecord ? '今日も来てくれて、うれしい！' : '今日は、ひとつできたら十分。'}
             </Text>
           </View>
-          <Mascot stage={getMascotStage(progress.level)} mood={mascotMood} size={102} preferStatic />
+          <StageCharacter
+            stage={getMascotStage(progress.level)}
+            mood={mascotMood}
+            size={100}
+            growthSize={growth.growthSize}
+          />
+        </View>
+
+        <View style={styles.homeActions}>
+          <TouchableOpacity
+            testID="home-feed"
+            onPress={() => setShowFeed(true)}
+            style={[styles.homeAction, { backgroundColor: colors.card, borderColor: colors.border }]}
+            activeOpacity={0.82}
+          >
+            <Text style={styles.homeActionEmoji}>🍚</Text>
+            <View style={styles.homeActionCopy}>
+              <Text style={[styles.homeActionLabel, { color: colors.foreground }]}>ごはん</Text>
+              <Text style={[styles.homeActionSub, { color: colors.mutedForeground }]}>🪙{feedState.points}pt</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="home-chat"
+            onPress={() => router.push('/(tabs)/chat')}
+            style={[styles.homeAction, { backgroundColor: colors.card, borderColor: colors.border }]}
+            activeOpacity={0.82}
+          >
+            <Text style={styles.homeActionEmoji}>💬</Text>
+            <View style={styles.homeActionCopy}>
+              <Text style={[styles.homeActionLabel, { color: colors.foreground }]}>お話する</Text>
+              <Text style={[styles.homeActionSub, { color: colors.mutedForeground }]}>いつでもどうぞ</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="home-game"
+            onPress={() => { if (canPlay) setShowMiniGame(true); }}
+            style={[styles.homeAction, { backgroundColor: colors.card, borderColor: colors.border, opacity: canPlay ? 1 : 0.55 }]}
+            activeOpacity={0.82}
+          >
+            <Text style={styles.homeActionEmoji}>🎵</Text>
+            <View style={styles.homeActionCopy}>
+              <Text style={[styles.homeActionLabel, { color: colors.foreground }]}>あそぶ</Text>
+              <Text style={[styles.homeActionSub, { color: colors.mutedForeground }]}>{canPlay ? 'リズムゲーム' : 'また明日'}</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {todayRecord && !showQuickRecord ? (
@@ -220,7 +267,7 @@ const styles = StyleSheet.create({
   logo: { width: 122, height: 29 },
   date: { fontSize: 11, fontFamily: 'Inter_500Medium', marginTop: -1 },
   moreButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  mascotArea: { height: 134, alignItems: 'center', justifyContent: 'flex-end', marginTop: -2 },
+  mascotArea: { height: 202, alignItems: 'center', justifyContent: 'flex-end', marginTop: -2, overflow: 'visible' },
   speechBubble: {
     position: 'absolute',
     top: 0,
@@ -231,6 +278,12 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   speechText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  homeActions: { flexDirection: 'row', gap: 7 },
+  homeAction: { flex: 1, minHeight: 56, borderRadius: 15, borderWidth: 1, paddingHorizontal: 7, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  homeActionEmoji: { fontSize: 21 },
+  homeActionCopy: { flex: 1, minWidth: 0 },
+  homeActionLabel: { fontSize: 12, fontFamily: 'Inter_700Bold' },
+  homeActionSub: { fontSize: 9, fontFamily: 'Inter_400Regular', marginTop: 2 },
   completedCard: {
     minHeight: 258,
     borderRadius: 25,
