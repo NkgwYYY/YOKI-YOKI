@@ -1,19 +1,20 @@
 /**
- * STARLIGHT RUN — YOKI YOKIの宇宙を走る、片手操作の横スクロールゲーム。
+ * STARLIGHT RUN — YOKI YOKIの宇宙を探検する操作型2Dアクション。
  *
- * 画面タップで小さくジャンプ、長押しで少し高くジャンプする。
- * キャラクターは既存のMascot素材を使い、ステージの図形だけで
- * オリジナルの星空の道を表現する。
+ * 自動スクロールではなく、プレイヤーが左右・ジャンプ・しゃがみを
+ * 使って足場、穴、敵、アイテムを攻略する。
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,36 +25,101 @@ import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
 
 const { width: INITIAL_WIDTH } = Dimensions.get('window');
 
-const WORLD_LENGTH = 6_600;
-const RUN_SPEED = 92;
-const PLAYER_SIZE = 60;
-const PLAYER_SCREEN_X_RATIO = 0.23;
-const GRAVITY = 1_760;
-const HELD_GRAVITY = 820;
-const JUMP_SPEED = 475;
-const HELD_JUMP_WINDOW = 250;
-const FALL_LIMIT = -170;
+const WORLD_WIDTH = 5_200;
+const GOAL_X = 4_780;
+const PLAYER_WIDTH = 48;
+const PLAYER_HEIGHT = 62;
+const PLAYER_CROUCH_HEIGHT = 40;
+const PLAYER_START_X = 84;
+const PLAYER_START_Y = 0;
+const MAX_HP = 3;
+const GRAVITY = 1_700;
+const JUMP_POWER = 700;
+const MAX_RUN_SPEED = 208;
+const MAX_CROUCH_SPEED = 105;
+const FALL_LIMIT = -185;
+const PLATFORM_THICKNESS = 18;
+const CONTROL_SIZE = 58;
 
 type Phase = 'intro' | 'playing' | 'failed' | 'complete';
+type PlatformKind = 'ground' | 'step' | 'high' | 'moving';
+type ItemKind = 'star' | 'heart' | 'light';
 
 interface PlatformDef {
+  id: string;
   x: number;
+  y: number;
   width: number;
-  height: number;
-  kind: 'ground' | 'island';
+  kind: PlatformKind;
+  motion?: { axis: 'x' | 'y'; amplitude: number; speed: number; phase: number };
 }
 
 interface ObstacleDef {
+  id: string;
   x: number;
+  y: number;
   width: number;
   height: number;
-  emoji: string;
+  kind: 'crystal' | 'thorn';
+}
+
+interface EnemyDef {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  minX: number;
+  maxX: number;
+  speed: number;
+}
+
+interface ItemDef {
+  id: string;
+  x: number;
+  y: number;
+  kind: ItemKind;
+}
+
+interface PlayerState {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  grounded: boolean;
+  crouching: boolean;
+  coyoteTime: number;
+  jumpTime: number;
+  hp: number;
+  score: number;
+  collected: number;
+  invincibleUntil: number;
+}
+
+interface EnemyRuntime extends EnemyDef {
+  direction: 1 | -1;
+  alive: boolean;
+  defeatedUntil: number;
+}
+
+interface ItemRuntime extends ItemDef {
+  collected: boolean;
+}
+
+interface Effect {
+  id: number;
+  x: number;
+  y: number;
+  kind: 'collect' | 'stomp' | 'damage';
   color: string;
 }
 
-interface SparkDef {
-  x: number;
-  y: number;
+interface WorldState {
+  player: PlayerState;
+  enemies: EnemyRuntime[];
+  items: ItemRuntime[];
+  effects: Effect[];
+  elapsed: number;
 }
 
 export interface SkylineRunResult {
@@ -69,105 +135,270 @@ interface Props {
   onPlayingChange?: (playing: boolean) => void;
 }
 
-interface RunState {
-  worldX: number;
-  playerY: number;
-  velocityY: number;
-  grounded: boolean;
-  lastTime: number;
-  elapsed: number;
-}
-
 const PLATFORMS: PlatformDef[] = [
-  { x: 0, width: 1_910, height: 0, kind: 'ground' },
-  { x: 2_020, width: 860, height: 0, kind: 'ground' },
-  { x: 3_010, width: 730, height: 0, kind: 'ground' },
-  { x: 3_920, width: 930, height: 0, kind: 'ground' },
-  // ゴールの先まで地面を少し伸ばし、星の門を越えた瞬間に演出へ切り替える。
-  { x: 5_020, width: 1_920, height: 0, kind: 'ground' },
-  // Gaps have a low, friendly island: missing a jump is recoverable once.
-  { x: 1_910, width: 110, height: 78, kind: 'island' },
-  { x: 2_880, width: 130, height: 80, kind: 'island' },
-  { x: 3_740, width: 180, height: 74, kind: 'island' },
-  { x: 4_850, width: 170, height: 84, kind: 'island' },
+  // 最初の穴までは安全な助走区間。低い段差でジャンプを練習できる。
+  { id: 'start', x: 0, y: 0, width: 920, kind: 'ground' },
+  { id: 'low-step', x: 560, y: 34, width: 360, kind: 'step' },
+  // 最初の「ジャンプ必須」の穴
+  { id: 'after-first-gap', x: 1_020, y: 0, width: 420, kind: 'ground' },
+  { id: 'high-ledge', x: 1_430, y: 116, width: 330, kind: 'high' },
+  { id: 'before-moving', x: 1_440, y: 0, width: 390, kind: 'ground' },
+  // 大きな穴は小足場を経由。動く足場は中央の近道兼アイテムルート。
+  { id: 'bridge-launch', x: 1_900, y: 40, width: 118, kind: 'step' },
+  {
+    id: 'moving-bridge',
+    x: 2_045,
+    y: 92,
+    width: 142,
+    kind: 'moving',
+    motion: { axis: 'y', amplitude: 44, speed: 1.5, phase: 0.6 },
+  },
+  { id: 'bridge-landing', x: 2_205, y: 38, width: 135, kind: 'step' },
+  { id: 'middle-ground', x: 2_340, y: 0, width: 640, kind: 'ground' },
+  { id: 'item-high', x: 2_600, y: 142, width: 310, kind: 'high' },
+  { id: 'upper-route', x: 2_980, y: 170, width: 300, kind: 'high' },
+  { id: 'lower-route', x: 2_980, y: 0, width: 300, kind: 'ground' },
+  // 2つ目の穴。敵の先へ進むにはジャンプが必要
+  { id: 'enemy-ground', x: 3_440, y: 0, width: 740, kind: 'ground' },
+  // 最後の穴を越えた先にゴール
+  { id: 'goal-ground', x: 4_300, y: 0, width: 900, kind: 'ground' },
 ];
 
 const OBSTACLES: ObstacleDef[] = [
-  { x: 490, width: 46, height: 52, emoji: '✦', color: '#FFB7DA' },
-  { x: 735, width: 50, height: 62, emoji: '✧', color: '#A9E4FF' },
-  { x: 1_230, width: 48, height: 56, emoji: '✦', color: '#FFD778' },
-  { x: 1_575, width: 52, height: 66, emoji: '✧', color: '#C9B8FF' },
-  { x: 2_210, width: 50, height: 56, emoji: '✦', color: '#FFB7DA' },
-  { x: 2_575, width: 48, height: 64, emoji: '✧', color: '#A9E4FF' },
-  { x: 3_315, width: 52, height: 60, emoji: '✦', color: '#FFD778' },
-  { x: 3_585, width: 50, height: 54, emoji: '✧', color: '#FFB7DA' },
-  { x: 4_240, width: 52, height: 68, emoji: '✦', color: '#C9B8FF' },
-  { x: 4_605, width: 46, height: 56, emoji: '✧', color: '#A9E4FF' },
-  { x: 5_270, width: 50, height: 60, emoji: '✦', color: '#FFD778' },
-  { x: 5_735, width: 54, height: 66, emoji: '✧', color: '#FFB7DA' },
+  { id: 'ledge-thorn', x: 1_605, y: 116, width: 44, height: 48, kind: 'thorn' },
+  { id: 'middle-thorn', x: 2_520, y: 0, width: 50, height: 60, kind: 'thorn' },
+  { id: 'upper-crystal', x: 3_085, y: 170, width: 46, height: 54, kind: 'crystal' },
+  { id: 'finish-thorn', x: 4_470, y: 0, width: 52, height: 62, kind: 'thorn' },
 ];
 
-const SPARKS: SparkDef[] = [
-  { x: 260, y: 86 }, { x: 540, y: 150 }, { x: 790, y: 122 },
-  { x: 1_070, y: 84 }, { x: 1_360, y: 138 }, { x: 1_700, y: 90 },
-  { x: 2_070, y: 82 }, { x: 2_330, y: 146 }, { x: 2_690, y: 92 },
-  { x: 3_130, y: 84 }, { x: 3_450, y: 138 }, { x: 3_815, y: 105 },
-  { x: 4_080, y: 84 }, { x: 4_400, y: 146 }, { x: 4_760, y: 94 },
-  { x: 5_160, y: 88 }, { x: 5_480, y: 144 }, { x: 5_900, y: 92 },
-  { x: 6_270, y: 126 },
+const ENEMIES: EnemyDef[] = [
+  { id: 'moon-mochi-1', x: 1_285, y: 0, width: 52, height: 46, minX: 1_130, maxX: 1_390, speed: 52 },
+  { id: 'moon-mochi-2', x: 2_730, y: 0, width: 52, height: 46, minX: 2_430, maxX: 2_930, speed: 58 },
+  { id: 'moon-mochi-3', x: 3_670, y: 0, width: 54, height: 48, minX: 3_500, maxX: 3_950, speed: 66 },
+  { id: 'moon-mochi-4', x: 3_150, y: 170, width: 52, height: 46, minX: 3_010, maxX: 3_220, speed: 44 },
+];
+
+const ITEMS: ItemDef[] = [
+  { id: 'star-step', x: 660, y: 112, kind: 'star' },
+  { id: 'star-gap', x: 970, y: 112, kind: 'star' },
+  { id: 'light-ledge', x: 1_535, y: 188, kind: 'light' },
+  { id: 'moving-star', x: 2_115, y: 188, kind: 'star' },
+  { id: 'heart-middle', x: 2_440, y: 98, kind: 'heart' },
+  { id: 'high-star', x: 2_750, y: 218, kind: 'star' },
+  { id: 'upper-light', x: 3_190, y: 250, kind: 'light' },
+  { id: 'enemy-star', x: 3_720, y: 120, kind: 'star' },
+  { id: 'goal-star', x: 4_520, y: 112, kind: 'star' },
 ];
 
 const SKY_STARS = [
-  { x: 7, y: 17, size: 3 }, { x: 18, y: 31, size: 2 }, { x: 32, y: 11, size: 2 },
-  { x: 46, y: 25, size: 3 }, { x: 63, y: 14, size: 2 }, { x: 79, y: 34, size: 2 },
-  { x: 91, y: 12, size: 3 }, { x: 105, y: 27, size: 2 }, { x: 119, y: 8, size: 2 },
+  { x: 7, y: 13, size: 3 }, { x: 16, y: 29, size: 2 }, { x: 26, y: 10, size: 2 },
+  { x: 36, y: 24, size: 3 }, { x: 49, y: 8, size: 2 }, { x: 60, y: 31, size: 2 },
+  { x: 72, y: 14, size: 3 }, { x: 84, y: 27, size: 2 }, { x: 94, y: 9, size: 2 },
 ];
 
-function initialRunState(): RunState {
+type ControlKey = 'left' | 'right' | 'jump' | 'crouch';
+
+interface Controls {
+  left: boolean;
+  right: boolean;
+  jump: boolean;
+  crouch: boolean;
+  jumpQueued: boolean;
+  jumpWasDown: boolean;
+}
+
+function createWorld(): WorldState {
   return {
-    worldX: 0,
-    playerY: 0,
-    velocityY: 0,
-    grounded: true,
-    lastTime: 0,
+    player: {
+      x: PLAYER_START_X,
+      y: PLAYER_START_Y,
+      vx: 0,
+      vy: 0,
+      grounded: true,
+      crouching: false,
+      coyoteTime: 0,
+      jumpTime: 0,
+      hp: MAX_HP,
+      score: 0,
+      collected: 0,
+      invincibleUntil: 0,
+    },
+    enemies: ENEMIES.map((enemy) => ({ ...enemy, direction: 1, alive: true, defeatedUntil: 0 })),
+    items: ITEMS.map((item) => ({ ...item, collected: false })),
+    effects: [],
     elapsed: 0,
   };
 }
 
-function rangeOverlaps(aStart: number, aWidth: number, bStart: number, bWidth: number) {
-  return aStart < bStart + bWidth && aStart + aWidth > bStart;
+function createControls(): Controls {
+  return {
+    left: false,
+    right: false,
+    jump: false,
+    crouch: false,
+    jumpQueued: false,
+    jumpWasDown: false,
+  };
 }
 
-function getSupportHeight(worldPlayerX: number, playerY: number, previousY: number): number | null {
-  const candidates = PLATFORMS
-    .filter((platform) => rangeOverlaps(worldPlayerX, PLAYER_SIZE * 0.72, platform.x, platform.width))
-    .map((platform) => platform.height)
-    .filter((height) => previousY >= height - 6 && playerY <= height + 4);
-  if (candidates.length === 0) return null;
-  return Math.max(...candidates);
+function overlaps(aStart: number, aSize: number, bStart: number, bSize: number) {
+  return aStart < bStart + bSize && aStart + aSize > bStart;
 }
 
-function Burst({ x, y, color }: { x: number; y: number; color: string }) {
+function getPlatformsAtTime(elapsed: number): PlatformDef[] {
+  return PLATFORMS.map((platform) => {
+    if (!platform.motion) return platform;
+    const offset = Math.sin(elapsed * platform.motion.speed + platform.motion.phase) * platform.motion.amplitude;
+    return platform.motion.axis === 'x'
+      ? { ...platform, x: platform.x + offset }
+      : { ...platform, y: platform.y + offset };
+  });
+}
+
+function getPlayerHeight(player: PlayerState) {
+  return player.crouching && player.grounded ? PLAYER_CROUCH_HEIGHT : PLAYER_HEIGHT;
+}
+
+function getSupportPlatform(player: PlayerState, platforms: PlatformDef[]) {
+  const height = getPlayerHeight(player);
+  return platforms
+    .filter((platform) =>
+      overlaps(player.x + 7, PLAYER_WIDTH - 14, platform.x, platform.width)
+      && Math.abs(platform.y - player.y) < 7
+      && platform.y + PLATFORM_THICKNESS <= player.y + height + 8,
+    )
+    .sort((a, b) => b.y - a.y)[0];
+}
+
+function resolveHorizontalWalls(
+  previousX: number,
+  nextX: number,
+  player: PlayerState,
+  platforms: PlatformDef[],
+) {
+  const height = getPlayerHeight(player);
+  let resolved = nextX;
+  platforms.forEach((platform) => {
+    // 低い段差は歩いて上がれる。高い足場の側面だけを壁として扱う。
+    if (platform.y < 55) return;
+    const verticalOverlap = player.y < platform.y + PLATFORM_THICKNESS
+      && player.y + height > platform.y;
+    if (!verticalOverlap) return;
+    if (previousX + PLAYER_WIDTH <= platform.x
+      && resolved + PLAYER_WIDTH > platform.x
+      && overlaps(player.x, PLAYER_WIDTH, platform.x - 4, platform.width + 8)) {
+      resolved = platform.x - PLAYER_WIDTH;
+    }
+    if (previousX >= platform.x + platform.width
+      && resolved < platform.x + platform.width
+      && overlaps(player.x, PLAYER_WIDTH, platform.x - 4, platform.width + 8)) {
+      resolved = platform.x + platform.width;
+    }
+  });
+  return Math.max(0, Math.min(WORLD_WIDTH - PLAYER_WIDTH, resolved));
+}
+
+function addEffect(world: WorldState, effect: Omit<Effect, 'id'>) {
+  const id = Date.now() + Math.round(world.elapsed * 1000) + world.effects.length;
+  world.effects.push({ ...effect, id });
+}
+
+function EffectBurst({ effect, cameraX, groundY }: { effect: Effect; cameraX: number; groundY: number }) {
   const scale = useRef(new Animated.Value(0.25)).current;
-  const opacity = useRef(new Animated.Value(0.9)).current;
-
+  const opacity = useRef(new Animated.Value(0.95)).current;
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(scale, { toValue: 1.45, duration: 460, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0, duration: 460, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 1.45, duration: 440, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 440, useNativeDriver: true }),
     ]).start();
   }, [opacity, scale]);
-
+  const icon = effect.kind === 'damage' ? 'heart-dislike-outline' : 'sparkles';
   return (
     <Animated.View
       pointerEvents="none"
       style={[
-        styles.burst,
-        { left: x - 22, bottom: y - 22, borderColor: color, transform: [{ scale }], opacity },
+        styles.effect,
+        {
+          left: effect.x - cameraX - 23,
+          bottom: groundY - effect.y,
+          borderColor: effect.color,
+          opacity,
+          transform: [{ scale }],
+        },
       ]}
     >
-      <Text style={[styles.burstText, { color }]}>✦</Text>
+      <Ionicons name={icon} size={25} color={effect.color} />
     </Animated.View>
+  );
+}
+
+function EnemySprite({
+  enemy,
+  cameraX,
+  groundY,
+  elapsed,
+  colors,
+}: {
+  enemy: EnemyRuntime;
+  cameraX: number;
+  groundY: number;
+  elapsed: number;
+  colors: ReturnType<typeof useColors>;
+}) {
+  const squashed = !enemy.alive;
+  const left = enemy.x - cameraX;
+  const opacity = squashed ? Math.max(0.15, (enemy.defeatedUntil - elapsed) / 0.45) : 1;
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        styles.enemy,
+        {
+          left,
+          bottom: groundY - enemy.y,
+          width: enemy.width,
+          height: enemy.height,
+          opacity,
+          transform: [{ scaleY: squashed ? 0.28 : 1 }, { scaleX: squashed ? 1.22 : 1 }],
+        },
+      ]}
+    >
+      <View style={[styles.enemyBody, { backgroundColor: colors.primary, borderColor: colors.accent }]}>
+        <View style={styles.enemyEyeRow}>
+          <View style={styles.enemyEye} />
+          <View style={styles.enemyEye} />
+        </View>
+        <View style={[styles.enemyMouth, { backgroundColor: colors.accent }]} />
+      </View>
+      <View style={[styles.enemyAura, { backgroundColor: colors.primary }]} />
+    </View>
+  );
+}
+
+function ItemSprite({
+  item,
+  cameraX,
+  groundY,
+  elapsed,
+  colors,
+}: {
+  item: ItemRuntime;
+  cameraX: number;
+  groundY: number;
+  elapsed: number;
+  colors: ReturnType<typeof useColors>;
+}) {
+  if (item.collected) return null;
+  const icon = item.kind === 'heart' ? 'heart' : item.kind === 'light' ? 'sparkles' : 'star';
+  const color = item.kind === 'heart' ? colors.destructive : item.kind === 'light' ? colors.secondary : colors.accent;
+  return (
+    <View
+      pointerEvents="none"
+      style={[styles.item, { left: item.x - cameraX - 15, bottom: groundY - item.y - 15 }]}
+    >
+      <Text style={[styles.itemShine, { opacity: 0.45 + Math.sin(elapsed * 5 + item.x) * 0.25 }]}>·</Text>
+      <Ionicons name={icon} size={28} color={color} />
+    </View>
   );
 }
 
@@ -175,210 +406,299 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
   const colors = useColors();
   const { progress } = useApp();
   const [phase, setPhase] = useState<Phase>('intro');
-  const [frame, setFrame] = useState<RunState>(() => initialRunState());
-  const [collected, setCollected] = useState(0);
+  const [world, setWorld] = useState<WorldState>(() => createWorld());
   const [sceneSize, setSceneSize] = useState({ width: INITIAL_WIDTH, height: 430 });
-  const [bursts, setBursts] = useState<{ id: number; x: number; y: number }[]>([]);
+  const [lastEffectIds, setLastEffectIds] = useState<number[]>([]);
   const phaseRef = useRef<Phase>('intro');
-  const runRef = useRef<RunState>(initialRunState());
-  const collectedRef = useRef<Set<number>>(new Set());
-  const holdingRef = useRef(false);
-  const jumpStartedAtRef = useRef(0);
+  const worldRef = useRef<WorldState>(createWorld());
+  const controlsRef = useRef<Controls>(createControls());
   const rafRef = useRef<number | null>(null);
-  const burstIdRef = useRef(0);
-  const startAtRef = useRef(0);
+  const startTimeRef = useRef(0);
   const finishRef = useRef(false);
-  const assistedObstacleRef = useRef<number | null>(null);
-  const collectSoundRef = useRef<Audio.Sound | null>(null);
+  const effectIdRef = useRef(0);
+  const itemSoundRef = useRef<Audio.Sound | null>(null);
   const finishSoundRef = useRef<Audio.Sound | null>(null);
 
-  const groundY = Math.round(sceneSize.height * 0.72);
-  const playerScreenX = Math.round(sceneSize.width * PLAYER_SCREEN_X_RATIO);
-  const totalSparks = SPARKS.length;
+  const groundY = Math.round(sceneSize.height * 0.7);
+  const cameraMax = Math.max(0, WORLD_WIDTH - sceneSize.width);
+  const cameraX = Math.max(0, Math.min(cameraMax, world.player.x - sceneSize.width * 0.36));
+  const currentPlatforms = useMemo(() => getPlatformsAtTime(world.elapsed), [world.elapsed]);
+  const stage = getMascotStage(progress.level);
+  const playerHeight = getPlayerHeight(world.player);
 
   useEffect(() => {
-    onPlayingChange?.(phase === 'playing');
     phaseRef.current = phase;
+    onPlayingChange?.(phase === 'playing');
   }, [onPlayingChange, phase]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [collect, finish] = await Promise.all([
-          Audio.Sound.createAsync(require('@/assets/sounds/taiko_ka.mp3'), { volume: 0.3 }),
+        const [itemSound, finishSound] = await Promise.all([
+          Audio.Sound.createAsync(require('@/assets/sounds/taiko_ka.mp3'), { volume: 0.28 }),
           Audio.Sound.createAsync(require('@/assets/sounds/stars.mp3'), { volume: 0.45 }),
         ]);
         if (cancelled) {
-          await Promise.all([collect.sound.unloadAsync(), finish.sound.unloadAsync()]);
+          await Promise.all([itemSound.sound.unloadAsync(), finishSound.sound.unloadAsync()]);
           return;
         }
-        collectSoundRef.current = collect.sound;
-        finishSoundRef.current = finish.sound;
+        itemSoundRef.current = itemSound.sound;
+        finishSoundRef.current = finishSound.sound;
       } catch {
-        // 音声の読み込み失敗やブラウザの自動再生制限でもゲームは続けられる。
+        // 音声が使えない環境でも、画面上の演出とゲーム進行は継続する。
       }
     })();
     return () => {
       cancelled = true;
-      collectSoundRef.current?.unloadAsync().catch(() => {});
+      itemSoundRef.current?.unloadAsync().catch(() => {});
       finishSoundRef.current?.unloadAsync().catch(() => {});
     };
   }, []);
 
-  const playSound = useCallback((soundRef: React.MutableRefObject<Audio.Sound | null>) => {
-    soundRef.current?.replayAsync().catch(() => {});
+  const playSound = useCallback((sound: Audio.Sound | null) => {
+    sound?.replayAsync().catch(() => {});
   }, []);
 
-  const resetRun = useCallback(() => {
-    const next = initialRunState();
-    runRef.current = next;
-    setFrame(next);
-    collectedRef.current = new Set();
-    setCollected(0);
-    setBursts([]);
+  const resetGame = useCallback(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      (document.activeElement as HTMLElement | null)?.blur?.();
+    }
+    const next = createWorld();
+    worldRef.current = next;
+    controlsRef.current = createControls();
     finishRef.current = false;
-    holdingRef.current = false;
-    jumpStartedAtRef.current = 0;
-    assistedObstacleRef.current = null;
-    startAtRef.current = Date.now();
+    startTimeRef.current = Date.now();
     phaseRef.current = 'playing';
+    setWorld(next);
+    setLastEffectIds([]);
     setPhase('playing');
   }, []);
 
-  const startRun = useCallback(() => {
-    resetRun();
-  }, [resetRun]);
-
-  const jump = useCallback(() => {
-    if (phaseRef.current !== 'playing') return;
-    const run = runRef.current;
-    holdingRef.current = true;
-    if (!run.grounded) return;
-    run.velocityY = JUMP_SPEED;
-    run.grounded = false;
-    jumpStartedAtRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    setFrame({ ...run });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+  const pressControl = useCallback((key: ControlKey) => {
+    controlsRef.current[key] = true;
+    if (key === 'jump') {
+      controlsRef.current.jumpQueued = true;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
   }, []);
 
-  const releaseJump = useCallback(() => {
-    holdingRef.current = false;
+  const releaseControl = useCallback((key: ControlKey) => {
+    controlsRef.current[key] = false;
   }, []);
+
+  useEffect(() => () => {
+    controlsRef.current.left = false;
+    controlsRef.current.right = false;
+    controlsRef.current.jump = false;
+    controlsRef.current.crouch = false;
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const keyToControl = (key: string): ControlKey | null => {
+      if (key === 'ArrowLeft' || key.toLowerCase() === 'a') return 'left';
+      if (key === 'ArrowRight' || key.toLowerCase() === 'd') return 'right';
+      if (key === 'ArrowDown' || key.toLowerCase() === 's') return 'crouch';
+      if (key === 'ArrowUp' || key === ' ' || key.toLowerCase() === 'w') return 'jump';
+      return null;
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      const control = keyToControl(event.key);
+      if (!control) return;
+      event.preventDefault();
+      if (!controlsRef.current[control]) pressControl(control);
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      const control = keyToControl(event.key);
+      if (!control) return;
+      event.preventDefault();
+      releaseControl(control);
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('keyup', onKeyUp, true);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('keyup', onKeyUp, true);
+    };
+  }, [pressControl, releaseControl]);
 
   useEffect(() => {
     if (phase !== 'playing') return;
 
     const loop = (time: number) => {
       if (phaseRef.current !== 'playing' || finishRef.current) return;
-      const run = runRef.current;
-      const previousY = run.playerY;
-      const dt = run.lastTime ? Math.min((time - run.lastTime) / 1000, 0.035) : 0.016;
-      run.lastTime = time;
-      run.elapsed += dt;
-      run.worldX += RUN_SPEED * dt;
-      const playerWorldX = run.worldX + playerScreenX;
+      const nextWorld = worldRef.current;
+      const player = nextWorld.player;
+      const previousX = player.x;
+      const previousY = player.y;
+      const controls = controlsRef.current;
+      const dt = nextWorld.elapsed === 0 ? 0.016 : Math.min(0.032, 0.016);
+      nextWorld.elapsed += dt;
+      const platforms = getPlatformsAtTime(nextWorld.elapsed);
+      const direction = (controls.right ? 1 : 0) - (controls.left ? 1 : 0);
+      const targetSpeed = direction * (controls.crouch ? MAX_CROUCH_SPEED : MAX_RUN_SPEED);
+      const acceleration = player.grounded ? 12 : 7;
+      player.vx += (targetSpeed - player.vx) * Math.min(1, acceleration * dt);
+      if (direction === 0) player.vx *= Math.pow(0.002, dt);
+      player.crouching = controls.crouch && player.grounded;
 
-      // YOKI YOKIらしい「星の道のアシスト」。
-      // 初めてでも序盤で止まりすぎないよう、障害物・小さな切れ目の直前では
-      // キャラがやさしく跳ねる。ユーザーのタップ／長押しは常に優先される。
-      if (run.grounded) {
-        const nextObstacle = OBSTACLES.find((obstacle) => {
-          const distance = obstacle.x - (playerWorldX + PLAYER_SIZE * 0.45);
-          // 障害物用は近くで跳ねる。遠すぎると到達前に着地してしまう。
-          return distance > 0 && distance < 48;
-        });
-        const currentPlatform = PLATFORMS.find(
-          (platform) => rangeOverlaps(playerWorldX, PLAYER_SIZE * 0.72, platform.x, platform.width)
-            && Math.abs(platform.height - run.playerY) < 6,
-        );
-        const nearPlatformEdge = !!currentPlatform
-          && currentPlatform.x + currentPlatform.width - playerWorldX < 58;
-        if (nextObstacle || nearPlatformEdge) {
-          // 障害物と小さな切れ目は、同じゆったりした高さで確実に越える。
-          run.velocityY = JUMP_SPEED * 1.45;
-          run.grounded = false;
-          holdingRef.current = false;
-          jumpStartedAtRef.current = 0;
-          if (nextObstacle) assistedObstacleRef.current = nextObstacle.x;
-        }
+      const jumpPressed = controls.jumpQueued || (controls.jump && !controls.jumpWasDown);
+      controls.jumpQueued = false;
+      controls.jumpWasDown = controls.jump;
+      if (jumpPressed && (player.grounded || player.coyoteTime < 0.16)) {
+        player.vy = JUMP_POWER;
+        player.grounded = false;
+        player.coyoteTime = 0.16;
+        player.jumpTime = 0;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       }
+      const nextX = resolveHorizontalWalls(previousX, player.x + player.vx * dt, player, platforms);
+      player.x = nextX;
 
-      if (!run.grounded) {
-        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-        const holdingLongEnough = holdingRef.current && now - jumpStartedAtRef.current < HELD_JUMP_WINDOW;
-        run.velocityY -= (holdingLongEnough ? HELD_GRAVITY : GRAVITY) * dt;
-        run.playerY += run.velocityY * dt;
-        const support = getSupportHeight(run.worldX + playerScreenX, run.playerY, previousY);
-        if (support !== null && run.velocityY <= 0) {
-          run.playerY = support;
-          run.velocityY = 0;
-          run.grounded = true;
+      if (!player.grounded) {
+        player.coyoteTime += dt;
+        player.jumpTime += dt;
+        const lowGravity = controls.jump && player.jumpTime < 0.22;
+        player.vy -= (lowGravity ? 920 : GRAVITY) * dt;
+        player.y += player.vy * dt;
+        if (player.vy <= 0) {
+          const landing = platforms
+            .filter((platform) =>
+              overlaps(player.x + 7, PLAYER_WIDTH - 14, platform.x, platform.width)
+              && previousY >= platform.y - 3
+              && player.y <= platform.y + 4,
+            )
+            .sort((a, b) => b.y - a.y)[0];
+          if (landing) {
+            player.y = landing.y;
+            player.vy = 0;
+            player.grounded = true;
+            player.coyoteTime = 0;
+          }
+        } else {
+          const ceiling = platforms.find((platform) =>
+            overlaps(player.x + 7, PLAYER_WIDTH - 14, platform.x, platform.width)
+            && previousY + playerHeight <= platform.y
+            && player.y + playerHeight >= platform.y,
+          );
+          if (ceiling) {
+            player.y = ceiling.y - playerHeight;
+            player.vy = 0;
+          }
         }
       } else {
-        // 地面だけでなく、浮き島の上でも接地状態を維持する。
-        const support = getSupportHeight(run.worldX + playerScreenX, run.playerY, run.playerY);
-        if (support === null) {
-          run.grounded = false;
-          run.velocityY = -20;
-        } else if (support > 0) {
-          run.playerY = support;
+        const support = getSupportPlatform(player, platforms);
+        if (support) {
+          player.y = support.y;
+        } else {
+          player.grounded = false;
+          player.coyoteTime = 0;
         }
       }
 
-      const obstacleHit = OBSTACLES.some((obstacle) => {
-        const safelyGuidedPast = assistedObstacleRef.current === obstacle.x
-          && playerWorldX < obstacle.x + obstacle.width + PLAYER_SIZE;
-        return !safelyGuidedPast
-          && rangeOverlaps(playerWorldX + 12, PLAYER_SIZE * 0.58, obstacle.x, obstacle.width)
-          && run.playerY < obstacle.height - 3
-          && run.playerY + PLAYER_SIZE > 8;
+      nextWorld.enemies.forEach((enemy) => {
+        if (!enemy.alive) return;
+        enemy.x += enemy.direction * enemy.speed * dt;
+        if (enemy.x <= enemy.minX) {
+          enemy.x = enemy.minX;
+          enemy.direction = 1;
+        }
+        if (enemy.x + enemy.width >= enemy.maxX) {
+          enemy.x = enemy.maxX - enemy.width;
+          enemy.direction = -1;
+        }
       });
-      if (assistedObstacleRef.current !== null && playerWorldX > assistedObstacleRef.current + PLAYER_SIZE + 80) {
-        assistedObstacleRef.current = null;
+
+      const playerBoxHeight = getPlayerHeight(player);
+      const obstacleHit = OBSTACLES.find((obstacle) =>
+        overlaps(player.x + 8, PLAYER_WIDTH - 16, obstacle.x, obstacle.width)
+        && player.y < obstacle.y + obstacle.height - 3
+        && player.y + playerBoxHeight > obstacle.y + 6,
+      );
+      if (obstacleHit && player.invincibleUntil < nextWorld.elapsed) {
+        player.hp -= 1;
+        player.invincibleUntil = nextWorld.elapsed + 1.15;
+        player.vx = player.x < obstacleHit.x ? -150 : 150;
+        player.vy = 280;
+        player.grounded = false;
+        addEffect(nextWorld, { x: player.x, y: player.y + playerBoxHeight / 2, kind: 'damage', color: colors.destructive });
       }
 
-      if (obstacleHit || run.playerY < FALL_LIMIT) {
+      nextWorld.enemies.forEach((enemy) => {
+        if (!enemy.alive) return;
+        if (!overlaps(player.x + 8, PLAYER_WIDTH - 16, enemy.x, enemy.width)) return;
+        const enemyTop = enemy.y + enemy.height;
+        const stomping = player.vy < 0 && previousY >= enemyTop - 5 && player.y <= enemyTop + 7;
+        if (stomping) {
+          enemy.alive = false;
+          enemy.defeatedUntil = nextWorld.elapsed + 0.45;
+          player.y = enemyTop;
+          player.vy = JUMP_POWER * 0.55;
+          player.grounded = false;
+          player.score += 250;
+          addEffect(nextWorld, { x: enemy.x + enemy.width / 2, y: enemyTop + 16, kind: 'stomp', color: colors.accent });
+          playSound(itemSoundRef.current);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        } else if (player.invincibleUntil < nextWorld.elapsed) {
+          player.hp -= 1;
+          player.invincibleUntil = nextWorld.elapsed + 1.15;
+          player.vx = player.x < enemy.x ? -180 : 180;
+          player.vy = 300;
+          player.grounded = false;
+          addEffect(nextWorld, { x: player.x, y: player.y + playerBoxHeight / 2, kind: 'damage', color: colors.destructive });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        }
+      });
+
+      nextWorld.items.forEach((item) => {
+        if (item.collected) return;
+        const itemSize = 28;
+        if (!overlaps(player.x, PLAYER_WIDTH, item.x - itemSize / 2, itemSize)) return;
+        if (!overlaps(player.y, playerBoxHeight, item.y - itemSize / 2, itemSize)) return;
+        item.collected = true;
+        player.collected += 1;
+        player.score += item.kind === 'heart' ? 50 : item.kind === 'light' ? 150 : 100;
+        if (item.kind === 'heart') player.hp = Math.min(MAX_HP, player.hp + 1);
+        addEffect(nextWorld, { x: item.x, y: item.y, kind: 'collect', color: item.kind === 'heart' ? colors.destructive : colors.accent });
+        playSound(itemSoundRef.current);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      });
+
+      const newEffects = nextWorld.effects.filter((effect) => !lastEffectIds.includes(effect.id));
+      if (newEffects.length > 0) setLastEffectIds((previous) => [...previous, ...newEffects.map((effect) => effect.id)].slice(-12));
+
+      if (player.hp <= 0 || player.y < FALL_LIMIT) {
         phaseRef.current = 'failed';
         setPhase('failed');
-        setFrame({ ...run });
+        setWorld({ ...nextWorld, player: { ...player } });
         return;
       }
 
-      SPARKS.forEach((spark, index) => {
-        if (collectedRef.current.has(index)) return;
-        const closeX = Math.abs(playerWorldX + PLAYER_SIZE * 0.45 - spark.x) < 62;
-        const closeY = Math.abs(run.playerY + PLAYER_SIZE * 0.55 - spark.y) < 62;
-        if (closeX && closeY) {
-          collectedRef.current.add(index);
-          setCollected(collectedRef.current.size);
-          const screenX = spark.x - run.worldX;
-          const screenY = groundY - spark.y;
-          const id = ++burstIdRef.current;
-          setBursts((previous) => [...previous, { id, x: screenX, y: screenY }]);
-          setTimeout(() => setBursts((previous) => previous.filter((burst) => burst.id !== id)), 500);
-          playSound(collectSoundRef);
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-        }
-      });
-
-      setFrame({ ...run });
-      if (run.worldX >= WORLD_LENGTH) {
+      if (player.x + PLAYER_WIDTH >= GOAL_X) {
         finishRef.current = true;
         phaseRef.current = 'complete';
         setPhase('complete');
-        const duration = Math.max(1, Math.round((Date.now() - startAtRef.current) / 1000));
-        const finalCollected = collectedRef.current.size;
-        playSound(finishSoundRef);
+        playSound(finishSoundRef.current);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         onFinish({
-          collected: finalCollected,
-          totalSparks,
-          duration,
-          score: Math.round(finalCollected * 100 + Math.max(0, 600 - duration)),
+          collected: player.collected,
+          totalSparks: ITEMS.length,
+          duration: Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000)),
+          score: player.score,
         });
+        setWorld({ ...nextWorld, player: { ...player } });
         return;
       }
+
+      setWorld({
+        ...nextWorld,
+        player: { ...player },
+        enemies: nextWorld.enemies.map((enemy) => ({ ...enemy })),
+        items: nextWorld.items.map((item) => ({ ...item })),
+        effects: [...nextWorld.effects],
+      });
+      worldRef.current = nextWorld;
       rafRef.current = requestAnimationFrame(loop);
     };
 
@@ -387,47 +707,44 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [groundY, onFinish, phase, playSound, playerScreenX, totalSparks]);
+  }, [colors.accent, colors.destructive, groundY, lastEffectIds, onFinish, phase, playSound, playerHeight]);
 
-  const visiblePlatforms = useMemo(
-    () => PLATFORMS.filter((platform) => {
-      const left = platform.x - frame.worldX;
-      return left < sceneSize.width + 80 && left + platform.width > -80;
-    }),
-    [frame.worldX, sceneSize.width],
+  const progressPercent = Math.min(100, Math.round((world.player.x / GOAL_X) * 100));
+  const visiblePlatforms = currentPlatforms.filter((platform) =>
+    platform.x - cameraX < sceneSize.width + 100 && platform.x + platform.width - cameraX > -100,
   );
-  const visibleObstacles = useMemo(
-    () => OBSTACLES.filter((obstacle) => {
-      const left = obstacle.x - frame.worldX;
-      return left < sceneSize.width + 80 && left + obstacle.width > -80;
-    }),
-    [frame.worldX, sceneSize.width],
+  const visibleObstacles = OBSTACLES.filter((obstacle) =>
+    obstacle.x - cameraX < sceneSize.width + 100 && obstacle.x + obstacle.width - cameraX > -100,
   );
-  const visibleSparks = useMemo(
-    () => SPARKS.map((spark, index) => ({ spark, index })).filter(({ spark, index }) => {
-      if (collectedRef.current.has(index)) return false;
-      const left = spark.x - frame.worldX;
-      return left > -60 && left < sceneSize.width + 60;
-    }),
-    [frame.worldX, sceneSize.width, collected],
+  const visibleEnemies = world.enemies.filter((enemy) =>
+    enemy.x - cameraX < sceneSize.width + 100 && enemy.x + enemy.width - cameraX > -100,
   );
-  const progressPercent = Math.min(100, Math.round((frame.worldX / WORLD_LENGTH) * 100));
-  const stage = getMascotStage(progress.level);
+  const visibleEffects = world.effects.filter((effect) => lastEffectIds.includes(effect.id));
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <View style={styles.topBar}>
-        <View style={styles.progressCopy}>
+        <View style={styles.titleCopy}>
           <Text style={[styles.gameTitle, { color: colors.foreground }]}>STARLIGHT RUN</Text>
-          <Text style={[styles.gameSubtitle, { color: colors.mutedForeground }]}>星の道を、いっしょに</Text>
+          <Text style={[styles.gameSubtitle, { color: colors.mutedForeground }]}>自分のペースで星の道を探検</Text>
         </View>
-        <View style={styles.counter}>
-          <Text style={styles.counterSpark}>✦</Text>
-          <Text style={styles.counterText}>{collected}/{totalSparks}</Text>
+        <View style={styles.statusCluster}>
+          <View style={styles.statusPill}>
+            <Ionicons name="trophy-outline" size={15} color={colors.secondary} />
+            <Text style={styles.statusText}>{world.player.score}</Text>
+          </View>
+          <View style={styles.statusPill}>
+            <Ionicons name="sparkles" size={16} color={colors.accent} />
+            <Text style={styles.statusText}>{world.player.collected}/{ITEMS.length}</Text>
+          </View>
+          <View style={styles.statusPill}>
+            <Ionicons name="heart" size={15} color={colors.destructive} />
+            <Text style={styles.statusText}>{world.player.hp}</Text>
+          </View>
         </View>
       </View>
       <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+        <View style={[styles.progressFill, { width: `${progressPercent}%`, backgroundColor: colors.accent }]} />
       </View>
 
       <View
@@ -438,85 +755,71 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
         }}
       >
         <LinearGradient
-          colors={['#120A35', '#21145C', '#39205E']}
-          start={{ x: 0.1, y: 0 }}
-          end={{ x: 0.9, y: 1 }}
+          colors={['#0E082A', '#21134D', '#3B235C']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
         <View pointerEvents="none" style={styles.skyDecor}>
           <View style={styles.planet} />
           {SKY_STARS.map((star) => (
-            <Text
-              key={`${star.x}-${star.y}`}
-              style={[styles.skyStar, { left: `${star.x}%`, top: `${star.y}%`, fontSize: star.size * 3 }]}
-            >
-              ·
-            </Text>
+            <Text key={`${star.x}-${star.y}`} style={[styles.skyStar, { left: `${star.x}%`, top: `${star.y}%`, fontSize: star.size * 3 }]}>·</Text>
           ))}
         </View>
 
-        {visiblePlatforms.map((platform) => {
-          const left = platform.x - frame.worldX;
-          const platformTop = groundY - platform.height;
-          return (
-            <View
-              key={`${platform.x}-${platform.kind}`}
-              pointerEvents="none"
-              style={[
-                styles.platform,
-                {
-                  left,
-                  bottom: sceneSize.height - platformTop - (platform.kind === 'island' ? 15 : 21),
-                  width: platform.width,
-                  height: platform.kind === 'island' ? 15 : 21,
-                  backgroundColor: platform.kind === 'island' ? '#A58EE8' : '#735BB6',
-                },
-              ]}
-            >
-              <View style={styles.platformGlow} />
-            </View>
-          );
-        })}
+        {visiblePlatforms.map((platform) => (
+          <View
+            key={platform.id}
+            pointerEvents="none"
+            style={[
+              styles.platform,
+              {
+                left: platform.x - cameraX,
+                bottom: sceneSize.height - groundY + platform.y - PLATFORM_THICKNESS,
+                width: platform.width,
+                backgroundColor: platform.kind === 'moving' ? colors.secondary : platform.kind === 'high' ? colors.primary : '#7259A8',
+              },
+            ]}
+          >
+            <View style={[styles.platformTop, { backgroundColor: platform.kind === 'moving' ? colors.accent : colors.tint }]} />
+            {platform.kind === 'moving' && <Ionicons name="sparkles" size={15} color={colors.accent} style={styles.movingIcon} />}
+          </View>
+        ))}
 
         {visibleObstacles.map((obstacle) => (
           <View
-            key={obstacle.x}
+            key={obstacle.id}
             pointerEvents="none"
             style={[
               styles.obstacle,
               {
-                left: obstacle.x - frame.worldX,
-                bottom: sceneSize.height - groundY,
+                left: obstacle.x - cameraX,
+                bottom: sceneSize.height - groundY + obstacle.y,
                 width: obstacle.width,
                 height: obstacle.height,
-                borderColor: obstacle.color,
+                borderColor: obstacle.kind === 'thorn' ? colors.destructive : colors.secondary,
               },
             ]}
           >
-            <Text style={[styles.obstacleEmoji, { color: obstacle.color }]}>{obstacle.emoji}</Text>
+            <Ionicons name={obstacle.kind === 'thorn' ? 'warning-outline' : 'diamond-outline'} size={25} color={obstacle.kind === 'thorn' ? colors.destructive : colors.secondary} />
           </View>
         ))}
 
-        {visibleSparks.map(({ spark, index }) => (
-          <View
-            key={index}
-            pointerEvents="none"
-            style={[styles.spark, { left: spark.x - frame.worldX - 14, bottom: groundY - spark.y - 14 }]}
-          >
-            <Text style={[styles.sparkText, { opacity: 0.65 + Math.sin(frame.elapsed * 5 + index) * 0.25 }]}>✦</Text>
-          </View>
+        {world.items.map((item) => (
+          <ItemSprite key={item.id} item={item} cameraX={cameraX} groundY={groundY} elapsed={world.elapsed} colors={colors} />
+        ))}
+        {visibleEnemies.map((enemy) => (
+          <EnemySprite key={enemy.id} enemy={enemy} cameraX={cameraX} groundY={groundY} elapsed={world.elapsed} colors={colors} />
         ))}
 
-        {WORLD_LENGTH - frame.worldX < sceneSize.width + 120 && (
-          <View
-            pointerEvents="none"
-            style={[styles.goalGate, { left: WORLD_LENGTH - frame.worldX - 18, bottom: sceneSize.height - groundY - 2 }]}
-          >
-            <View style={styles.goalPillar} />
-            <View style={styles.goalArch}>
-              <Text style={styles.goalStar}>✦</Text>
+        {GOAL_X - cameraX < sceneSize.width + 120 && (
+          <View pointerEvents="none" style={[styles.goalGate, { left: GOAL_X - cameraX - 14, bottom: sceneSize.height - groundY }]}>
+            <View style={[styles.goalPillar, { backgroundColor: colors.secondary }]} />
+            <View style={[styles.goalArch, { borderColor: colors.accent }]}>
+              <Ionicons name="sparkles" size={25} color={colors.accent} />
             </View>
-            <View style={styles.goalPillar} />
+            <View style={[styles.goalPillar, { backgroundColor: colors.secondary }]} />
+            <Text style={[styles.goalLabel, { color: colors.accent }]}>GOAL</Text>
           </View>
         )}
 
@@ -525,68 +828,110 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
           style={[
             styles.player,
             {
-              left: playerScreenX,
-              bottom: sceneSize.height - groundY + frame.playerY,
-              transform: [{ rotate: `${Math.max(-8, Math.min(8, frame.velocityY / 55))}deg` }],
+              left: world.player.x - cameraX,
+              bottom: sceneSize.height - groundY + world.player.y,
+              width: PLAYER_WIDTH,
+              height: playerHeight,
+              opacity: world.player.invincibleUntil > world.elapsed && Math.floor(world.elapsed * 12) % 2 === 0 ? 0.35 : 1,
+              transform: [{ rotate: `${Math.max(-8, Math.min(8, world.player.vy / 80))}deg` }],
             },
           ]}
         >
-          <Mascot stage={stage} mood="happy" size={PLAYER_SIZE} preferStatic />
-          {frame.grounded && <View style={styles.runShadow} />}
+          <Mascot stage={stage} mood={world.player.hp === 1 ? 'tired' : 'happy'} size={world.player.crouching ? 45 : 56} preferStatic />
+          {world.player.grounded && <View style={styles.playerShadow} />}
         </View>
 
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {bursts.map((burst) => <Burst key={burst.id} {...burst} color="#FFD86B" />)}
+          {visibleEffects.map((effect) => <EffectBurst key={effect.id} effect={effect} cameraX={cameraX} groundY={groundY} />)}
         </View>
 
         {phase === 'playing' && (
-          <Pressable
-            testID="skyline-run-playfield"
-            accessibilityLabel="タップでジャンプ、長押しで高くジャンプ"
-            style={StyleSheet.absoluteFill}
-            onPressIn={jump}
-            onPressOut={releaseJump}
-          />
+          <View pointerEvents="box-none" style={styles.controlsLayer}>
+            <View style={styles.movementControls}>
+              <Pressable
+                testID="skyline-run-left"
+                accessibilityLabel="左に移動"
+                style={({ pressed }) => [styles.controlButton, pressed && styles.controlPressed]}
+                onPressIn={() => pressControl('left')}
+                onPressOut={() => releaseControl('left')}
+              >
+                <Ionicons name="chevron-back" size={30} color="#FFF" />
+                <Text style={styles.controlLabel}>左</Text>
+              </Pressable>
+              <Pressable
+                testID="skyline-run-right"
+                accessibilityLabel="右に移動"
+                style={({ pressed }) => [styles.controlButton, pressed && styles.controlPressed]}
+                onPressIn={() => pressControl('right')}
+                onPressOut={() => releaseControl('right')}
+              >
+                <Ionicons name="chevron-forward" size={30} color="#FFF" />
+                <Text style={styles.controlLabel}>右</Text>
+              </Pressable>
+            </View>
+            <View style={styles.actionControls}>
+              <Pressable
+                testID="skyline-run-crouch"
+                accessibilityLabel="しゃがむ"
+                style={({ pressed }) => [styles.smallControlButton, pressed && styles.controlPressed]}
+                onPressIn={() => pressControl('crouch')}
+                onPressOut={() => releaseControl('crouch')}
+              >
+                <MaterialCommunityIcons name="arrow-collapse-down" size={20} color="#FFF" />
+                <Text style={styles.smallControlLabel}>しゃがむ</Text>
+              </Pressable>
+              <Pressable
+                testID="skyline-run-jump"
+                accessibilityLabel="ジャンプ"
+                style={({ pressed }) => [styles.jumpButton, pressed && styles.jumpPressed]}
+                onPressIn={() => pressControl('jump')}
+                onPressOut={() => releaseControl('jump')}
+              >
+                <Ionicons name="arrow-up" size={33} color="#FFF" />
+                <Text style={styles.jumpLabel}>ジャンプ</Text>
+              </Pressable>
+            </View>
+          </View>
         )}
 
         {phase === 'intro' && (
           <View style={styles.overlayCard}>
-            <Text style={styles.overlayEmoji}>🌌</Text>
-            <Text style={styles.overlayTitle}>星の道を走ろう</Text>
-            <Text style={styles.overlayDescription}>キラキラを集めながら、ゆっくり進もう。</Text>
-            <View style={styles.hintRow}>
-              <View style={styles.hintChip}><Text style={styles.hintText}>タップ</Text><Text style={styles.hintSub}>ジャンプ</Text></View>
-              <View style={styles.hintChip}><Text style={styles.hintText}>長押し</Text><Text style={styles.hintSub}>高くジャンプ</Text></View>
+            <View style={styles.overlayIcon}><Ionicons name="planet-outline" size={35} color={colors.accent} /></View>
+            <Text style={styles.overlayTitle}>星の道を探検しよう</Text>
+            <Text style={styles.overlayDescription}>自分で歩いて、ジャンプして、仲間とゴールを目指そう。</Text>
+            <View style={styles.instructionRow}>
+              <View style={styles.instruction}><Text style={styles.instructionKey}>左・右</Text><Text style={styles.instructionValue}>歩く</Text></View>
+              <View style={styles.instruction}><Text style={styles.instructionKey}>ジャンプ</Text><Text style={styles.instructionValue}>穴・敵・高所</Text></View>
             </View>
-            <Pressable testID="skyline-run-start" style={styles.primaryButton} onPress={startRun}>
-              <Text style={styles.primaryButtonText}>はじめる ✦</Text>
+            <Pressable testID="skyline-run-start" style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={resetGame}>
+              <Text style={styles.primaryButtonText}>はじめる</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFF" />
             </Pressable>
           </View>
         )}
 
         {phase === 'failed' && (
           <View style={styles.overlayCard}>
-            <Text style={styles.overlayEmoji}>🌙</Text>
+            <View style={styles.overlayIcon}><Ionicons name="moon-outline" size={35} color={colors.secondary} /></View>
             <Text style={styles.overlayTitle}>ここでひとやすみ</Text>
-            <Text style={styles.overlayDescription}>だいじょうぶ。星の道は、何度でも歩けるよ。</Text>
-            <View style={styles.failureButtons}>
-              <Pressable testID="skyline-run-retry" style={styles.primaryButton} onPress={startRun}>
-                <Text style={styles.primaryButtonText}>もう一度 ✦</Text>
-              </Pressable>
-              <Pressable testID="skyline-run-quit-failed" style={styles.secondaryButton} onPress={onQuit}>
-                <Text style={styles.secondaryButtonText}>今日はここまで</Text>
-              </Pressable>
-            </View>
+            <Text style={styles.overlayDescription}>だいじょうぶ。星の道は、何度でも挑戦できるよ。</Text>
+            <Pressable testID="skyline-run-retry" style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={resetGame}>
+              <Text style={styles.primaryButtonText}>もう一度</Text>
+              <Ionicons name="refresh" size={18} color="#FFF" />
+            </Pressable>
+            <Pressable testID="skyline-run-quit-failed" style={styles.secondaryButton} onPress={onQuit}>
+              <Text style={styles.secondaryButtonText}>今日はここまで</Text>
+            </Pressable>
           </View>
         )}
 
         {phase === 'complete' && (
           <View style={styles.overlayCard}>
-            <Text style={styles.overlayEmoji}>✨</Text>
-            <Text style={styles.completeTitle}>今日もここまで来た。えらい！</Text>
-            <Text style={styles.completeDescription}>星の道を最後まで、一緒に進めたね。</Text>
-            <Text style={styles.completeCount}>✦ {collected}個のキラキラを集めたよ</Text>
-            <Pressable testID="skyline-run-quit-complete" style={styles.primaryButton} onPress={onQuit}>
+            <View style={styles.overlayIcon}><Ionicons name="sparkles" size={38} color={colors.accent} /></View>
+            <Text style={[styles.completeTitle, { color: colors.accent }]}>今日もよくできました！</Text>
+            <Text style={styles.overlayDescription}>自分で星の道を進んで、最後までたどり着いたね。</Text>
+            <Text style={styles.completeMeta}>✦ {world.player.collected}個　 SCORE {world.player.score}</Text>
+            <Pressable testID="skyline-run-quit-complete" style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={onQuit}>
               <Text style={styles.primaryButtonText}>とじる</Text>
             </Pressable>
           </View>
@@ -594,7 +939,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
       </View>
 
       {phase === 'playing' ? (
-        <Text style={[styles.footerHint, { color: colors.mutedForeground }]}>画面のどこでもタップしてジャンプ</Text>
+        <Text style={[styles.footerHint, { color: colors.mutedForeground }]}>左・右で歩く　ジャンプで穴や敵をこえる　Web: 矢印キー / Space</Text>
       ) : (
         <Text style={[styles.footerHint, { color: colors.mutedForeground }]}>あせらなくて大丈夫。自分のペースで。</Text>
       )}
@@ -603,49 +948,63 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 12, gap: 8 },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 42 },
-  progressCopy: { flex: 1 },
+  root: { flex: 1, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 10, gap: 8 },
+  topBar: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  titleCopy: { flex: 1 },
   gameTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', letterSpacing: 1 },
-  gameSubtitle: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  counter: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, paddingVertical: 6, borderRadius: 18, backgroundColor: 'rgba(255,216,107,0.14)', borderWidth: 1, borderColor: 'rgba(255,216,107,0.4)' },
-  counterSpark: { color: '#FFD86B', fontSize: 18 },
-  counterText: { color: '#FFF', fontSize: 13, fontFamily: 'Inter_700Bold' },
+  gameSubtitle: { fontSize: 10, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  statusCluster: { flexDirection: 'row', gap: 6 },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
+  statusText: { color: '#FFF', fontSize: 12, fontFamily: 'Inter_700Bold' },
   progressTrack: { height: 5, borderRadius: 4, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.13)' },
-  progressFill: { height: '100%', borderRadius: 4, backgroundColor: '#FFD86B' },
-  sceneFrame: { flex: 1, minHeight: 360, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)' },
+  progressFill: { height: '100%', borderRadius: 4 },
+  sceneFrame: { flex: 1, minHeight: 360, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
   skyDecor: { ...StyleSheet.absoluteFillObject },
-  planet: { position: 'absolute', right: -34, top: 33, width: 126, height: 126, borderRadius: 63, backgroundColor: 'rgba(176,149,255,0.14)', borderWidth: 1, borderColor: 'rgba(220,206,255,0.22)' },
-  skyStar: { position: 'absolute', color: 'rgba(255,255,255,0.72)', fontFamily: 'Inter_700Bold' },
-  platform: { position: 'absolute', borderRadius: 12, borderTopWidth: 3, borderTopColor: '#CBB8FF', shadowColor: '#A88DFF', shadowOpacity: 0.45, shadowRadius: 9, shadowOffset: { width: 0, height: -2 } },
-  platformGlow: { position: 'absolute', left: 12, right: 12, top: -8, height: 8, borderRadius: 8, backgroundColor: 'rgba(205,185,255,0.3)' },
-  obstacle: { position: 'absolute', borderWidth: 2, borderRadius: 15, backgroundColor: 'rgba(20,11,54,0.68)', alignItems: 'center', justifyContent: 'center' },
-  obstacleEmoji: { fontSize: 25, fontFamily: 'Inter_700Bold' },
-  spark: { position: 'absolute', width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  sparkText: { color: '#FFD86B', fontSize: 28, fontFamily: 'Inter_700Bold', textShadowColor: '#FFF2B2', textShadowRadius: 8 },
-  goalGate: { position: 'absolute', width: 84, height: 118, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
-  goalPillar: { width: 11, height: 96, borderRadius: 8, backgroundColor: '#E5CEFF', shadowColor: '#E5CEFF', shadowOpacity: 0.85, shadowRadius: 10 },
-  goalArch: { position: 'absolute', left: 10, bottom: 38, width: 64, height: 64, borderRadius: 32, borderWidth: 5, borderColor: '#FFD86B', alignItems: 'center', justifyContent: 'center', shadowColor: '#FFD86B', shadowOpacity: 0.8, shadowRadius: 12 },
-  goalStar: { color: '#FFF5C7', fontSize: 27, fontFamily: 'Inter_700Bold' },
-  player: { position: 'absolute', width: PLAYER_SIZE, height: PLAYER_SIZE, alignItems: 'center', justifyContent: 'flex-end' },
-  runShadow: { position: 'absolute', bottom: -2, width: 42, height: 8, borderRadius: 50, backgroundColor: 'rgba(7,3,25,0.42)' },
-  burst: { position: 'absolute', width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  burstText: { fontSize: 26 },
-  overlayCard: { position: 'absolute', left: 20, right: 20, top: '50%', transform: [{ translateY: -112 }], padding: 21, borderRadius: 24, backgroundColor: 'rgba(12,6,36,0.93)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', alignItems: 'center' },
-  overlayEmoji: { fontSize: 34, marginBottom: 5 },
-  overlayTitle: { color: '#FFF', fontSize: 21, fontFamily: 'Inter_700Bold', textAlign: 'center' },
-  overlayDescription: { color: 'rgba(255,255,255,0.72)', fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20, marginTop: 7 },
-  hintRow: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 15 },
-  hintChip: { minWidth: 112, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.09)', alignItems: 'center' },
-  hintText: { color: '#FFD86B', fontSize: 13, fontFamily: 'Inter_700Bold' },
-  hintSub: { color: 'rgba(255,255,255,0.66)', fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  primaryButton: { minWidth: 170, paddingHorizontal: 20, paddingVertical: 13, borderRadius: 17, alignItems: 'center', backgroundColor: '#8C6BDE' },
+  planet: { position: 'absolute', right: -34, top: 27, width: 130, height: 130, borderRadius: 65, backgroundColor: 'rgba(176,149,255,0.13)', borderWidth: 1, borderColor: 'rgba(220,206,255,0.22)' },
+  skyStar: { position: 'absolute', color: 'rgba(255,255,255,0.7)', fontFamily: 'Inter_700Bold' },
+  platform: { position: 'absolute', height: PLATFORM_THICKNESS, borderRadius: 10, borderTopWidth: 3, borderTopColor: 'rgba(255,255,255,0.65)', shadowColor: '#A88DFF', shadowOpacity: 0.45, shadowRadius: 9, shadowOffset: { width: 0, height: -2 } },
+  platformTop: { position: 'absolute', left: 12, right: 12, top: -8, height: 8, borderRadius: 8, opacity: 0.55 },
+  movingIcon: { position: 'absolute', right: 10, top: -18 },
+  obstacle: { position: 'absolute', borderWidth: 2, borderRadius: 14, backgroundColor: 'rgba(13,6,42,0.78)', alignItems: 'center', justifyContent: 'center' },
+  enemy: { position: 'absolute', alignItems: 'center', justifyContent: 'flex-end' },
+  enemyBody: { width: '100%', height: '84%', borderRadius: 24, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  enemyAura: { position: 'absolute', bottom: -3, width: '72%', height: 8, borderRadius: 50, opacity: 0.4 },
+  enemyEyeRow: { flexDirection: 'row', gap: 11, marginTop: 3 },
+  enemyEye: { width: 7, height: 9, borderRadius: 5, backgroundColor: '#FFF' },
+  enemyMouth: { width: 14, height: 4, borderRadius: 4, marginTop: 5 },
+  item: { position: 'absolute', width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  itemShine: { position: 'absolute', top: -7, left: 3, color: '#FFF', fontSize: 22, fontFamily: 'Inter_700Bold' },
+  player: { position: 'absolute', alignItems: 'center', justifyContent: 'flex-end' },
+  playerShadow: { position: 'absolute', bottom: -2, width: 38, height: 7, borderRadius: 50, backgroundColor: 'rgba(6,2,24,0.48)' },
+  effect: { position: 'absolute', width: 46, height: 46, borderRadius: 23, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  goalGate: { position: 'absolute', width: 84, height: 122, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  goalPillar: { width: 11, height: 98, borderRadius: 8, shadowOpacity: 0.7, shadowRadius: 10 },
+  goalArch: { position: 'absolute', left: 9, bottom: 41, width: 66, height: 66, borderRadius: 34, borderWidth: 5, alignItems: 'center', justifyContent: 'center' },
+  goalLabel: { position: 'absolute', top: -5, left: 17, fontSize: 10, fontFamily: 'Inter_700Bold', letterSpacing: 1 },
+  controlsLayer: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', padding: 12, flexDirection: 'row', alignItems: 'flex-end' },
+  movementControls: { flexDirection: 'row', gap: 9 },
+  actionControls: { flex: 1, alignItems: 'flex-end', flexDirection: 'row', justifyContent: 'flex-end', gap: 9 },
+  controlButton: { width: CONTROL_SIZE, height: CONTROL_SIZE, borderRadius: 19, backgroundColor: 'rgba(17,9,52,0.68)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
+  controlPressed: { backgroundColor: 'rgba(155,114,203,0.82)', transform: [{ scale: 0.95 }] },
+  controlLabel: { position: 'absolute', bottom: 3, color: 'rgba(255,255,255,0.8)', fontSize: 10, fontFamily: 'Inter_700Bold' },
+  smallControlButton: { width: 72, height: 48, borderRadius: 16, backgroundColor: 'rgba(17,9,52,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.26)', alignItems: 'center', justifyContent: 'center' },
+  smallControlLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 9, fontFamily: 'Inter_600SemiBold', marginTop: 1 },
+  jumpButton: { width: 86, height: 86, borderRadius: 43, backgroundColor: 'rgba(155,114,203,0.78)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center', shadowColor: '#B79CE4', shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: -2 } },
+  jumpPressed: { backgroundColor: 'rgba(208,154,220,0.92)', transform: [{ scale: 0.94 }] },
+  jumpLabel: { color: '#FFF', fontSize: 11, fontFamily: 'Inter_700Bold', marginTop: -2 },
+  overlayCard: { position: 'absolute', left: 18, right: 18, top: '50%', transform: [{ translateY: -126 }], padding: 20, borderRadius: 24, backgroundColor: 'rgba(11,5,34,0.94)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center' },
+  overlayIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.09)', alignItems: 'center', justifyContent: 'center', marginBottom: 7 },
+  overlayTitle: { color: '#FFF', fontSize: 20, fontFamily: 'Inter_700Bold', textAlign: 'center' },
+  overlayDescription: { color: 'rgba(255,255,255,0.72)', fontSize: 12, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 19, marginTop: 7 },
+  instructionRow: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 15 },
+  instruction: { minWidth: 105, paddingHorizontal: 9, paddingVertical: 8, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.09)', alignItems: 'center' },
+  instructionKey: { color: '#FFD86B', fontSize: 12, fontFamily: 'Inter_700Bold' },
+  instructionValue: { color: 'rgba(255,255,255,0.65)', fontSize: 10, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  primaryButton: { minWidth: 170, paddingHorizontal: 19, paddingVertical: 13, borderRadius: 17, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   primaryButtonText: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_700Bold' },
-  secondaryButton: { minWidth: 170, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 17, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.17)' },
-  secondaryButtonText: { color: 'rgba(255,255,255,0.78)', fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-  failureButtons: { gap: 9, alignItems: 'center', marginTop: 15 },
-  completeTitle: { color: '#FFD86B', fontSize: 22, lineHeight: 29, fontFamily: 'Inter_700Bold', textAlign: 'center' },
-  completeDescription: { color: 'rgba(255,255,255,0.76)', fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 8 },
-  completeCount: { color: '#FFF', fontSize: 14, fontFamily: 'Inter_700Bold', marginTop: 14, marginBottom: 16 },
-  footerHint: { textAlign: 'center', fontSize: 11, fontFamily: 'Inter_400Regular', minHeight: 16 },
+  secondaryButton: { minWidth: 170, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 17, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.17)', marginTop: 9 },
+  secondaryButtonText: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  completeTitle: { fontSize: 21, lineHeight: 29, fontFamily: 'Inter_700Bold', textAlign: 'center' },
+  completeMeta: { color: '#FFF', fontSize: 13, fontFamily: 'Inter_700Bold', marginTop: 14 },
+  footerHint: { textAlign: 'center', fontSize: 10, fontFamily: 'Inter_400Regular', minHeight: 15 },
 });

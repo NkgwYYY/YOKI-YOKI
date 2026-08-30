@@ -8,3 +8,4 @@
 - [Expo web head tags](expo-web-html-meta.md) — +html.tsx is ignored in single output; OGP/GA must be injected post-export via inject-meta.js; LINE preview cache dodged with ?v=2 URLs.
 - [Guest-first data migration](guest-first-data-migration.md) — visitors may start locally; account data stays authoritative while append-only guest progress is merged on optional login.
 - [Gentle runner accessibility](gentle-runner-accessibility.md) — Starlight Run must guide first-time players past early hazards; validate the course physics before browser polish.
+- [Web action-game input](web-action-game-input.md) — blur focused start/retry buttons and queue jump presses so Space is not swallowed between animation frames.
