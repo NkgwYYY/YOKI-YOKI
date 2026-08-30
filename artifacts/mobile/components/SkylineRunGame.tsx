@@ -89,6 +89,7 @@ interface PlayerState {
   grounded: boolean;
   crouching: boolean;
   coyoteTime: number;
+  jumpBuffer: number;
   jumpTime: number;
   hp: number;
   score: number;
@@ -179,15 +180,15 @@ const ENEMIES: EnemyDef[] = [
 ];
 
 const ITEMS: ItemDef[] = [
-  { id: 'star-step', x: 660, y: 112, kind: 'star' },
-  { id: 'star-gap', x: 970, y: 112, kind: 'star' },
-  { id: 'light-ledge', x: 1_535, y: 188, kind: 'light' },
-  { id: 'moving-star', x: 2_115, y: 188, kind: 'star' },
-  { id: 'heart-middle', x: 2_440, y: 98, kind: 'heart' },
-  { id: 'high-star', x: 2_750, y: 218, kind: 'star' },
-  { id: 'upper-light', x: 3_190, y: 250, kind: 'light' },
-  { id: 'enemy-star', x: 3_720, y: 120, kind: 'star' },
-  { id: 'goal-star', x: 4_520, y: 112, kind: 'star' },
+  { id: 'star-step', x: 660, y: 74, kind: 'star' },
+  { id: 'star-gap', x: 970, y: 86, kind: 'star' },
+  { id: 'light-ledge', x: 1_535, y: 168, kind: 'light' },
+  { id: 'moving-star', x: 2_115, y: 142, kind: 'star' },
+  { id: 'heart-middle', x: 2_440, y: 76, kind: 'heart' },
+  { id: 'high-star', x: 2_750, y: 194, kind: 'star' },
+  { id: 'upper-light', x: 3_190, y: 222, kind: 'light' },
+  { id: 'enemy-star', x: 3_720, y: 88, kind: 'star' },
+  { id: 'goal-star', x: 4_520, y: 86, kind: 'star' },
 ];
 
 const SKY_STARS = [
@@ -217,6 +218,7 @@ function createWorld(): WorldState {
       grounded: true,
       crouching: false,
       coyoteTime: 0,
+      jumpBuffer: 0,
       jumpTime: 0,
       hp: MAX_HP,
       score: 0,
@@ -546,10 +548,16 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
       const jumpPressed = controls.jumpQueued || (controls.jump && !controls.jumpWasDown);
       controls.jumpQueued = false;
       controls.jumpWasDown = controls.jump;
-      if (jumpPressed && (player.grounded || player.coyoteTime < 0.16)) {
+      if (jumpPressed) {
+        player.jumpBuffer = 0.18;
+      } else {
+        player.jumpBuffer = Math.max(0, player.jumpBuffer - dt);
+      }
+      if (player.jumpBuffer > 0 && (player.grounded || player.coyoteTime < 0.2)) {
         player.vy = JUMP_POWER;
         player.grounded = false;
-        player.coyoteTime = 0.16;
+        player.coyoteTime = 0.2;
+        player.jumpBuffer = 0;
         player.jumpTime = 0;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       }
@@ -655,7 +663,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
         if (item.collected) return;
         const itemSize = 28;
         if (!overlaps(player.x, PLAYER_WIDTH, item.x - itemSize / 2, itemSize)) return;
-        if (!overlaps(player.y, playerBoxHeight, item.y - itemSize / 2, itemSize)) return;
+        if (!overlaps(player.y - 10, playerBoxHeight + 20, item.y - itemSize / 2, itemSize)) return;
         item.collected = true;
         player.collected += 1;
         player.score += item.kind === 'heart' ? 50 : item.kind === 'light' ? 150 : 100;
@@ -989,7 +997,7 @@ const styles = StyleSheet.create({
   controlLabel: { position: 'absolute', bottom: 3, color: 'rgba(255,255,255,0.8)', fontSize: 10, fontFamily: 'Inter_700Bold' },
   smallControlButton: { width: 72, height: 48, borderRadius: 16, backgroundColor: 'rgba(17,9,52,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.26)', alignItems: 'center', justifyContent: 'center' },
   smallControlLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 9, fontFamily: 'Inter_600SemiBold', marginTop: 1 },
-  jumpButton: { width: 86, height: 86, borderRadius: 43, backgroundColor: 'rgba(155,114,203,0.78)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center', shadowColor: '#B79CE4', shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: -2 } },
+  jumpButton: { width: 98, height: 98, borderRadius: 49, backgroundColor: 'rgba(155,114,203,0.78)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)', alignItems: 'center', justifyContent: 'center', shadowColor: '#B79CE4', shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: -2 } },
   jumpPressed: { backgroundColor: 'rgba(208,154,220,0.92)', transform: [{ scale: 0.94 }] },
   jumpLabel: { color: '#FFF', fontSize: 11, fontFamily: 'Inter_700Bold', marginTop: -2 },
   overlayCard: { position: 'absolute', left: 18, right: 18, top: '50%', transform: [{ translateY: -126 }], padding: 20, borderRadius: 24, backgroundColor: 'rgba(11,5,34,0.94)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center' },
