@@ -280,6 +280,16 @@ function getEnemyCollisionBox(enemy: EnemyRuntime) {
   };
 }
 
+function getObstacleCollisionBox(obstacle: ObstacleDef) {
+  const inset = obstacle.kind === 'crystal' ? 7 : 5;
+  return {
+    x: obstacle.x + inset,
+    y: obstacle.y + inset,
+    width: Math.max(12, obstacle.width - inset * 2),
+    height: Math.max(12, obstacle.height - inset * 2),
+  };
+}
+
 function getSupportPlatform(player: PlayerState, platforms: PlatformDef[]) {
   const height = getPlayerHeight(player);
   return platforms
@@ -324,7 +334,7 @@ function addEffect(world: WorldState, effect: Omit<Effect, 'id'>) {
   world.effects.push({ ...effect, id });
 }
 
-function EffectBurst({ effect, cameraX, groundY }: { effect: Effect; cameraX: number; groundY: number }) {
+function EffectBurst({ effect, cameraX, groundY, sceneHeight }: { effect: Effect; cameraX: number; groundY: number; sceneHeight: number }) {
   const scale = useRef(new Animated.Value(0.25)).current;
   const opacity = useRef(new Animated.Value(0.95)).current;
   useEffect(() => {
@@ -341,7 +351,7 @@ function EffectBurst({ effect, cameraX, groundY }: { effect: Effect; cameraX: nu
         styles.effect,
         {
           left: effect.x - cameraX - 23,
-          bottom: groundY - effect.y,
+          bottom: sceneHeight - groundY + effect.y - 23,
           borderColor: effect.color,
           opacity,
           transform: [{ scale }],
@@ -357,12 +367,14 @@ function EnemySprite({
   enemy,
   cameraX,
   groundY,
+  sceneHeight,
   elapsed,
   colors,
 }: {
   enemy: EnemyRuntime;
   cameraX: number;
   groundY: number;
+  sceneHeight: number;
   elapsed: number;
   colors: ReturnType<typeof useColors>;
 }) {
@@ -376,7 +388,7 @@ function EnemySprite({
         styles.enemy,
         {
           left,
-          bottom: groundY - enemy.y,
+          bottom: sceneHeight - groundY + enemy.y,
           width: enemy.width,
           height: enemy.height,
           opacity,
@@ -400,12 +412,14 @@ function ItemSprite({
   item,
   cameraX,
   groundY,
+  sceneHeight,
   elapsed,
   colors,
 }: {
   item: ItemRuntime;
   cameraX: number;
   groundY: number;
+  sceneHeight: number;
   elapsed: number;
   colors: ReturnType<typeof useColors>;
 }) {
@@ -415,7 +429,7 @@ function ItemSprite({
   return (
     <View
       pointerEvents="none"
-      style={[styles.item, { left: item.x - cameraX - 15, bottom: groundY - item.y - 15 }]}
+      style={[styles.item, { left: item.x - cameraX - 15, bottom: sceneHeight - groundY + item.y - 15 }]}
     >
       <Text style={[styles.itemShine, { opacity: 0.45 + Math.sin(elapsed * 5 + item.x) * 0.25 }]}>·</Text>
       <Ionicons name={icon} size={28} color={color} />
@@ -660,11 +674,11 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
 
       const playerBoxHeight = getPlayerHeight(player);
       const playerCollision = getPlayerCollisionBox(player);
-      const obstacleHit = OBSTACLES.find((obstacle) =>
-        overlaps(player.x + 8, PLAYER_WIDTH - 16, obstacle.x, obstacle.width)
-        && player.y < obstacle.y + obstacle.height - 3
-        && player.y + playerBoxHeight > obstacle.y + 6,
-      );
+      const obstacleHit = OBSTACLES.find((obstacle) => {
+        const obstacleCollision = getObstacleCollisionBox(obstacle);
+        return overlaps(playerCollision.x, playerCollision.width, obstacleCollision.x, obstacleCollision.width)
+          && overlaps(playerCollision.y, playerCollision.height, obstacleCollision.y, obstacleCollision.height);
+      });
       if (obstacleHit && player.invincibleUntil < nextWorld.elapsed) {
         player.hp -= 1;
         player.invincibleUntil = nextWorld.elapsed + 1.15;
@@ -857,10 +871,10 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
         ))}
 
         {world.items.map((item) => (
-          <ItemSprite key={item.id} item={item} cameraX={cameraX} groundY={groundY} elapsed={world.elapsed} colors={colors} />
+          <ItemSprite key={item.id} item={item} cameraX={cameraX} groundY={groundY} sceneHeight={sceneSize.height} elapsed={world.elapsed} colors={colors} />
         ))}
         {visibleEnemies.map((enemy) => (
-          <EnemySprite key={enemy.id} enemy={enemy} cameraX={cameraX} groundY={groundY} elapsed={world.elapsed} colors={colors} />
+          <EnemySprite key={enemy.id} enemy={enemy} cameraX={cameraX} groundY={groundY} sceneHeight={sceneSize.height} elapsed={world.elapsed} colors={colors} />
         ))}
 
         {GOAL_X - cameraX < sceneSize.width + 120 && (
@@ -893,7 +907,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
         </View>
 
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {visibleEffects.map((effect) => <EffectBurst key={effect.id} effect={effect} cameraX={cameraX} groundY={groundY} />)}
+          {visibleEffects.map((effect) => <EffectBurst key={effect.id} effect={effect} cameraX={cameraX} groundY={groundY} sceneHeight={sceneSize.height} />)}
         </View>
 
         {phase === 'playing' && (
