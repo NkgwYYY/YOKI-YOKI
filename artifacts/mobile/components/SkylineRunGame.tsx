@@ -489,6 +489,22 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
     controlsRef.current[key] = false;
   }, []);
 
+  const directPress = useCallback((key: ControlKey) => {
+    if (Platform.OS === 'web') pressControl(key);
+  }, [pressControl]);
+
+  const directRelease = useCallback((key: ControlKey) => {
+    if (Platform.OS === 'web') releaseControl(key);
+  }, [releaseControl]);
+
+  const touchPress = useCallback((key: ControlKey) => {
+    if (Platform.OS !== 'web') pressControl(key);
+  }, [pressControl]);
+
+  const touchRelease = useCallback((key: ControlKey) => {
+    if (Platform.OS !== 'web') releaseControl(key);
+  }, [releaseControl]);
+
   useEffect(() => () => {
     controlsRef.current.left = false;
     controlsRef.current.right = false;
@@ -865,8 +881,15 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
                 testID="skyline-run-left"
                 accessibilityLabel="左に移動"
                 style={({ pressed }) => [styles.controlButton, pressed && styles.controlPressed]}
-                onPressIn={() => pressControl('left')}
-                onPressOut={() => releaseControl('left')}
+                onPressIn={() => touchPress('left')}
+                onPressOut={() => touchRelease('left')}
+                onTouchStart={() => touchPress('left')}
+                onTouchEnd={() => touchRelease('left')}
+                onTouchCancel={() => touchRelease('left')}
+                onPointerDown={() => directPress('left')}
+                onPointerUp={() => directRelease('left')}
+                onPointerCancel={() => directRelease('left')}
+                onPointerLeave={() => directRelease('left')}
               >
                 <Ionicons name="chevron-back" size={30} color="#FFF" />
                 <Text style={styles.controlLabel}>左</Text>
@@ -875,8 +898,15 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
                 testID="skyline-run-right"
                 accessibilityLabel="右に移動"
                 style={({ pressed }) => [styles.controlButton, pressed && styles.controlPressed]}
-                onPressIn={() => pressControl('right')}
-                onPressOut={() => releaseControl('right')}
+                onPressIn={() => touchPress('right')}
+                onPressOut={() => touchRelease('right')}
+                onTouchStart={() => touchPress('right')}
+                onTouchEnd={() => touchRelease('right')}
+                onTouchCancel={() => touchRelease('right')}
+                onPointerDown={() => directPress('right')}
+                onPointerUp={() => directRelease('right')}
+                onPointerCancel={() => directRelease('right')}
+                onPointerLeave={() => directRelease('right')}
               >
                 <Ionicons name="chevron-forward" size={30} color="#FFF" />
                 <Text style={styles.controlLabel}>右</Text>
@@ -887,8 +917,15 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
                 testID="skyline-run-crouch"
                 accessibilityLabel="しゃがむ"
                 style={({ pressed }) => [styles.smallControlButton, pressed && styles.controlPressed]}
-                onPressIn={() => pressControl('crouch')}
-                onPressOut={() => releaseControl('crouch')}
+                onPressIn={() => touchPress('crouch')}
+                onPressOut={() => touchRelease('crouch')}
+                onTouchStart={() => touchPress('crouch')}
+                onTouchEnd={() => touchRelease('crouch')}
+                onTouchCancel={() => touchRelease('crouch')}
+                onPointerDown={() => directPress('crouch')}
+                onPointerUp={() => directRelease('crouch')}
+                onPointerCancel={() => directRelease('crouch')}
+                onPointerLeave={() => directRelease('crouch')}
               >
                 <MaterialCommunityIcons name="arrow-collapse-down" size={20} color="#FFF" />
                 <Text style={styles.smallControlLabel}>しゃがむ</Text>
@@ -897,8 +934,15 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
                 testID="skyline-run-jump"
                 accessibilityLabel="ジャンプ"
                 style={({ pressed }) => [styles.jumpButton, pressed && styles.jumpPressed]}
-                onPressIn={() => pressControl('jump')}
-                onPressOut={() => releaseControl('jump')}
+                onPressIn={() => touchPress('jump')}
+                onPressOut={() => touchRelease('jump')}
+                onTouchStart={() => touchPress('jump')}
+                onTouchEnd={() => touchRelease('jump')}
+                onTouchCancel={() => touchRelease('jump')}
+                onPointerDown={() => directPress('jump')}
+                onPointerUp={() => directRelease('jump')}
+                onPointerCancel={() => directRelease('jump')}
+                onPointerLeave={() => directRelease('jump')}
               >
                 <Ionicons name="arrow-up" size={33} color="#FFF" />
                 <Text style={styles.jumpLabel}>ジャンプ</Text>
@@ -952,7 +996,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
       </View>
 
       {phase === 'playing' ? (
-        <Text style={[styles.footerHint, { color: colors.mutedForeground }]}>左・右をタップで走行ロック　ジャンプで穴や敵をこえる　Web: 矢印キー / Space</Text>
+        <Text style={[styles.footerHint, { color: colors.mutedForeground }]}>左・右を押しながらジャンプできるよ　Web: 矢印キー / Space</Text>
       ) : (
         <Text style={[styles.footerHint, { color: colors.mutedForeground }]}>あせらなくて大丈夫。自分のペースで。</Text>
       )}
