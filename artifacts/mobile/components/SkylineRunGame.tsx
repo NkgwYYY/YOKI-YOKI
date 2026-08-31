@@ -86,8 +86,6 @@ interface PlayerState {
   y: number;
   vx: number;
   vy: number;
-  airDirection: -1 | 0 | 1;
-  lastDirection: -1 | 1;
   grounded: boolean;
   crouching: boolean;
   coyoteTime: number;
@@ -204,8 +202,6 @@ type ControlKey = 'left' | 'right' | 'jump' | 'crouch';
 interface Controls {
   left: boolean;
   right: boolean;
-  leftToggle: boolean;
-  rightToggle: boolean;
   jump: boolean;
   crouch: boolean;
   jumpQueued: boolean;
@@ -219,8 +215,6 @@ function createWorld(): WorldState {
       y: PLAYER_START_Y,
       vx: 0,
       vy: 0,
-      airDirection: 0,
-      lastDirection: 1,
       grounded: true,
       crouching: false,
       coyoteTime: 0,
@@ -242,8 +236,6 @@ function createControls(): Controls {
   return {
     left: false,
     right: false,
-    leftToggle: false,
-    rightToggle: false,
     jump: false,
     crouch: false,
     jumpQueued: false,
@@ -419,14 +411,12 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
   const [world, setWorld] = useState<WorldState>(() => createWorld());
   const [sceneSize, setSceneSize] = useState({ width: INITIAL_WIDTH, height: 430 });
   const [lastEffectIds, setLastEffectIds] = useState<number[]>([]);
-  const [lockedDirection, setLockedDirection] = useState<'left' | 'right' | null>(null);
   const phaseRef = useRef<Phase>('intro');
   const worldRef = useRef<WorldState>(createWorld());
   const controlsRef = useRef<Controls>(createControls());
   const rafRef = useRef<number | null>(null);
   const startTimeRef = useRef(0);
   const finishRef = useRef(false);
-  const directionalLongPress = useRef<Record<'left' | 'right', boolean>>({ left: false, right: false });
   const effectIdRef = useRef(0);
   const itemSoundRef = useRef<Audio.Sound | null>(null);
   const finishSoundRef = useRef<Audio.Sound | null>(null);
@@ -479,7 +469,6 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
     const next = createWorld();
     worldRef.current = next;
     controlsRef.current = createControls();
-    setLockedDirection(null);
     finishRef.current = false;
     startTimeRef.current = Date.now();
     phaseRef.current = 'playing';
@@ -498,27 +487,6 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
 
   const releaseControl = useCallback((key: ControlKey) => {
     controlsRef.current[key] = false;
-  }, []);
-
-  const beginDirectionalControl = useCallback((key: 'left' | 'right') => {
-    directionalLongPress.current[key] = false;
-    pressControl(key);
-  }, [pressControl]);
-
-  const endDirectionalControl = useCallback((key: 'left' | 'right') => {
-    releaseControl(key);
-    // 短いタップは走行ロック、長押しは従来どおり離したら停止。
-    if (!directionalLongPress.current[key]) {
-      const toggleKey = key === 'left' ? 'leftToggle' : 'rightToggle';
-      const nextLocked = !controlsRef.current[toggleKey];
-      controlsRef.current.leftToggle = key === 'left' && nextLocked;
-      controlsRef.current.rightToggle = key === 'right' && nextLocked;
-      setLockedDirection(nextLocked ? key : null);
-    }
-  }, [releaseControl]);
-
-  const markDirectionalLongPress = useCallback((key: 'left' | 'right') => {
-    directionalLongPress.current[key] = true;
   }, []);
 
   useEffect(() => () => {
@@ -570,15 +538,8 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
       const dt = nextWorld.elapsed === 0 ? 0.016 : Math.min(0.032, 0.016);
       nextWorld.elapsed += dt;
       const platforms = getPlatformsAtTime(nextWorld.elapsed);
-      const inputDirection = ((controls.right || controls.rightToggle) ? 1 : 0)
-        - ((controls.left || controls.leftToggle) ? 1 : 0);
-      if (inputDirection !== 0) {
-        player.lastDirection = inputDirection > 0 ? 1 : -1;
-      }
-      // ジャンプ中は、指が方向ボタンから外れても離陸時の方向を維持する。
-      const direction = inputDirection !== 0
-        ? inputDirection
-        : (!player.grounded ? player.airDirection : 0);
+      // 左右は押している間だけ有効。ジャンプ単独で横移動は発生させない。
+      const direction = ((controls.right ? 1 : 0) - (controls.left ? 1 : 0));
       const targetSpeed = direction * (controls.crouch ? MAX_CROUCH_SPEED : MAX_RUN_SPEED);
       const acceleration = player.grounded ? 12 : 7;
       player.vx += (targetSpeed - player.vx) * Math.min(1, acceleration * dt);
@@ -598,9 +559,6 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
         player.jumpBuffer = Math.max(0, player.jumpBuffer - dt);
       }
       if (player.jumpBuffer > 0 && (player.grounded || player.coyoteTime < 0.2)) {
-        player.airDirection = inputDirection !== 0
-          ? (inputDirection > 0 ? 1 : -1)
-          : (Math.abs(player.vx) > 12 ? (player.vx > 0 ? 1 : -1) : player.lastDirection);
         player.vy = JUMP_POWER;
         player.grounded = false;
         player.coyoteTime = 0.2;
@@ -906,10 +864,9 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
               <Pressable
                 testID="skyline-run-left"
                 accessibilityLabel="左に移動"
-                style={({ pressed }) => [styles.controlButton, lockedDirection === 'left' && styles.controlLocked, pressed && styles.controlPressed]}
-                onPressIn={() => beginDirectionalControl('left')}
-                onPressOut={() => endDirectionalControl('left')}
-                onLongPress={() => markDirectionalLongPress('left')}
+                style={({ pressed }) => [styles.controlButton, pressed && styles.controlPressed]}
+                onPressIn={() => pressControl('left')}
+                onPressOut={() => releaseControl('left')}
               >
                 <Ionicons name="chevron-back" size={30} color="#FFF" />
                 <Text style={styles.controlLabel}>左</Text>
@@ -917,10 +874,9 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
               <Pressable
                 testID="skyline-run-right"
                 accessibilityLabel="右に移動"
-                style={({ pressed }) => [styles.controlButton, lockedDirection === 'right' && styles.controlLocked, pressed && styles.controlPressed]}
-                onPressIn={() => beginDirectionalControl('right')}
-                onPressOut={() => endDirectionalControl('right')}
-                onLongPress={() => markDirectionalLongPress('right')}
+                style={({ pressed }) => [styles.controlButton, pressed && styles.controlPressed]}
+                onPressIn={() => pressControl('right')}
+                onPressOut={() => releaseControl('right')}
               >
                 <Ionicons name="chevron-forward" size={30} color="#FFF" />
                 <Text style={styles.controlLabel}>右</Text>
@@ -1042,7 +998,6 @@ const styles = StyleSheet.create({
   movementControls: { flexDirection: 'row', gap: 9 },
   actionControls: { flex: 1, alignItems: 'flex-end', flexDirection: 'row', justifyContent: 'flex-end', gap: 9 },
   controlButton: { width: CONTROL_SIZE, height: CONTROL_SIZE, borderRadius: 19, backgroundColor: 'rgba(17,9,52,0.68)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  controlLocked: { backgroundColor: 'rgba(128,208,199,0.42)', borderColor: 'rgba(255,255,255,0.72)' },
   controlPressed: { backgroundColor: 'rgba(155,114,203,0.82)', transform: [{ scale: 0.95 }] },
   controlLabel: { position: 'absolute', bottom: 3, color: 'rgba(255,255,255,0.8)', fontSize: 10, fontFamily: 'Inter_700Bold' },
   smallControlButton: { width: 72, height: 48, borderRadius: 16, backgroundColor: 'rgba(17,9,52,0.6)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.26)', alignItems: 'center', justifyContent: 'center' },
