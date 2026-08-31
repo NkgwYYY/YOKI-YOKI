@@ -261,6 +261,25 @@ function getPlayerHeight(player: PlayerState) {
   return player.crouching && player.grounded ? PLAYER_CROUCH_HEIGHT : PLAYER_HEIGHT;
 }
 
+function getPlayerCollisionBox(player: PlayerState) {
+  const height = getPlayerHeight(player);
+  return {
+    x: player.x + 8,
+    y: player.y + 4,
+    width: PLAYER_WIDTH - 16,
+    height: Math.max(12, height - 8),
+  };
+}
+
+function getEnemyCollisionBox(enemy: EnemyRuntime) {
+  return {
+    x: enemy.x + 5,
+    y: enemy.y + 5,
+    width: Math.max(12, enemy.width - 10),
+    height: Math.max(12, enemy.height - 9),
+  };
+}
+
 function getSupportPlatform(player: PlayerState, platforms: PlatformDef[]) {
   const height = getPlayerHeight(player);
   return platforms
@@ -640,6 +659,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
       });
 
       const playerBoxHeight = getPlayerHeight(player);
+      const playerCollision = getPlayerCollisionBox(player);
       const obstacleHit = OBSTACLES.find((obstacle) =>
         overlaps(player.x + 8, PLAYER_WIDTH - 16, obstacle.x, obstacle.width)
         && player.y < obstacle.y + obstacle.height - 3
@@ -656,8 +676,10 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
 
       nextWorld.enemies.forEach((enemy) => {
         if (!enemy.alive) return;
-        if (!overlaps(player.x + 8, PLAYER_WIDTH - 16, enemy.x, enemy.width)) return;
-        const enemyTop = enemy.y + enemy.height;
+        const enemyCollision = getEnemyCollisionBox(enemy);
+        if (!overlaps(playerCollision.x, playerCollision.width, enemyCollision.x, enemyCollision.width)
+          || !overlaps(playerCollision.y, playerCollision.height, enemyCollision.y, enemyCollision.height)) return;
+        const enemyTop = enemyCollision.y + enemyCollision.height;
         const stomping = player.vy < 0 && previousY >= enemyTop - 5 && player.y <= enemyTop + 7;
         if (stomping) {
           enemy.alive = false;
@@ -683,8 +705,8 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
       nextWorld.items.forEach((item) => {
         if (item.collected) return;
         const itemSize = 28;
-        if (!overlaps(player.x, PLAYER_WIDTH, item.x - itemSize / 2, itemSize)) return;
-        if (!overlaps(player.y - 10, playerBoxHeight + 20, item.y - itemSize / 2, itemSize)) return;
+        if (!overlaps(playerCollision.x, playerCollision.width, item.x - itemSize / 2, itemSize)) return;
+        if (!overlaps(playerCollision.y, playerCollision.height, item.y - itemSize / 2, itemSize)) return;
         item.collected = true;
         player.collected += 1;
         player.score += item.kind === 'heart' ? 50 : item.kind === 'light' ? 150 : 100;
