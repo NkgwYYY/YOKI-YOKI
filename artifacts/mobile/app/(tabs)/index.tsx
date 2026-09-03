@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   characterGarden: { width: '100%', position: 'relative' },
   characterMain: {
     position: 'absolute',
-    top: '47%',
+    top: '31%',
     left: '50%',
     zIndex: 10,
     alignItems: 'center',
