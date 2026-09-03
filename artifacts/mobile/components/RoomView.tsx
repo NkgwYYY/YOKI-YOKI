@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 import { colors, homePalette, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
@@ -113,69 +114,48 @@ export function RoomItemPreview({
   );
 }
 
-const GRASS_TUFTS = [
-  { left: -2, scale: 0.82, lean: -4, variant: 0 },
-  { left: 1, scale: 1.08, lean: 2, variant: 1 },
-  { left: 4, scale: 0.76, lean: -3, variant: 2 },
-  { left: 7, scale: 1.18, lean: 4, variant: 1 },
-  { left: 10, scale: 0.9, lean: -2, variant: 0 },
-  { left: 13, scale: 1.04, lean: 3, variant: 2 },
-  { left: 16, scale: 0.72, lean: -5, variant: 1 },
-  { left: 19, scale: 1.12, lean: 2, variant: 0 },
-  { left: 22, scale: 0.86, lean: -3, variant: 2 },
-  { left: 25, scale: 1.2, lean: 4, variant: 1 },
-  { left: 29, scale: 0.78, lean: -2, variant: 0 },
-  { left: 32, scale: 1.02, lean: 3, variant: 2 },
-  { left: 35, scale: 0.92, lean: -4, variant: 1 },
-  { left: 38, scale: 1.16, lean: 2, variant: 0 },
-  { left: 42, scale: 0.74, lean: -3, variant: 2 },
-  { left: 45, scale: 1.1, lean: 5, variant: 1 },
-  { left: 48, scale: 0.86, lean: -2, variant: 0 },
-  { left: 51, scale: 1.2, lean: 3, variant: 2 },
-  { left: 55, scale: 0.78, lean: -4, variant: 1 },
-  { left: 58, scale: 1.06, lean: 2, variant: 0 },
-  { left: 61, scale: 0.9, lean: -3, variant: 2 },
-  { left: 64, scale: 1.18, lean: 4, variant: 1 },
-  { left: 68, scale: 0.76, lean: -2, variant: 0 },
-  { left: 71, scale: 1.04, lean: 3, variant: 2 },
-  { left: 74, scale: 0.88, lean: -5, variant: 1 },
-  { left: 77, scale: 1.14, lean: 2, variant: 0 },
-  { left: 81, scale: 0.74, lean: -3, variant: 2 },
-  { left: 84, scale: 1.2, lean: 4, variant: 1 },
-  { left: 87, scale: 0.84, lean: -2, variant: 0 },
-  { left: 90, scale: 1.06, lean: 3, variant: 2 },
-  { left: 93, scale: 0.78, lean: -4, variant: 1 },
-  { left: 96, scale: 1.12, lean: 2, variant: 0 },
-  { left: 99, scale: 0.86, lean: -3, variant: 2 },
-  { left: 102, scale: 1.02, lean: 4, variant: 1 },
-];
+const GRASS_VIEWBOX_WIDTH = 320;
+const GRASS_VIEWBOX_HEIGHT = 24;
+const GRASS_BASE_Y = 16;
+const GRASS_TOOTH_WIDTHS = [3, 2, 4, 3, 2, 3, 4, 2, 3, 3, 4, 2, 3, 2, 4, 3];
+const GRASS_TOOTH_HEIGHTS = [6, 4, 7, 5, 8, 5, 6, 4, 7, 5, 8, 4, 6, 5, 7, 4];
 
-function GrassTuft({
-  left,
-  scale,
-  lean,
-  variant,
-}: {
-  left: number;
-  scale: number;
-  lean: number;
-  variant: number;
-}) {
-  const colors = [homePalette.grassLight, homePalette.groundEdge, homePalette.grassDeep];
+function createGrassPath() {
+  let x = 0;
+  let tooth = 0;
+  let path = `M 0 ${GRASS_VIEWBOX_HEIGHT} L 0 ${GRASS_BASE_Y}`;
+
+  while (x < GRASS_VIEWBOX_WIDTH) {
+    const remaining = GRASS_VIEWBOX_WIDTH - x;
+    const width = Math.min(GRASS_TOOTH_WIDTHS[tooth % GRASS_TOOTH_WIDTHS.length], remaining);
+    if (width < 2) {
+      path += ` L ${GRASS_VIEWBOX_WIDTH} ${GRASS_BASE_Y}`;
+      break;
+    }
+    const peakX = x + width / 2;
+    const nextX = x + width;
+    const peakY = GRASS_BASE_Y - GRASS_TOOTH_HEIGHTS[tooth % GRASS_TOOTH_HEIGHTS.length];
+    path += ` L ${peakX} ${peakY} L ${nextX} ${GRASS_BASE_Y}`;
+    x = nextX;
+    tooth += 1;
+  }
+
+  return `${path} L ${GRASS_VIEWBOX_WIDTH} ${GRASS_VIEWBOX_HEIGHT} Z`;
+}
+
+const GRASS_PATH = createGrassPath();
+
+function GrassBoundary() {
   return (
-    <View
-      pointerEvents="none"
-      style={[
-        r.grassTuft,
-        {
-          left: `${left}%`,
-          transform: [{ scale }, { rotate: `${lean}deg` }],
-        },
-      ]}
-    >
-      <View style={[r.grassBlade, r.grassBladeLeft, { height: variant === 2 ? 8 : 11, backgroundColor: colors[variant] }]} />
-      <View style={[r.grassBlade, r.grassBladeCenter, { height: variant === 0 ? 13 : 9, backgroundColor: colors[(variant + 1) % colors.length] }]} />
-      <View style={[r.grassBlade, r.grassBladeRight, { height: variant === 1 ? 12 : 8, backgroundColor: colors[(variant + 2) % colors.length] }]} />
+    <View pointerEvents="none" style={r.grassBoundary}>
+      <Svg
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${GRASS_VIEWBOX_WIDTH} ${GRASS_VIEWBOX_HEIGHT}`}
+        preserveAspectRatio="none"
+      >
+        <Path d={GRASS_PATH} fill={homePalette.groundTop} />
+      </Svg>
     </View>
   );
 }
@@ -184,13 +164,11 @@ function GroundGradient() {
   return (
     <View style={r.groundWrap} pointerEvents="none">
       <LinearGradient
-        colors={[homePalette.groundTop, roomPalette.groundMid, homePalette.groundBottom]}
-        locations={[0, 0.36, 1]}
-        style={r.groundGradient}
+        colors={[homePalette.groundTop, homePalette.groundBottom]}
+        locations={[0, 1]}
+        style={[r.groundGradient, { top: 8 }]}
       />
-      <View style={r.grassEdge}>
-        {GRASS_TUFTS.map((tuft, index) => <GrassTuft key={index} {...tuft} />)}
-      </View>
+      <GrassBoundary />
     </View>
   );
 }
@@ -229,12 +207,7 @@ const r = StyleSheet.create({
   },
   groundWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, zIndex: 0 },
   groundGradient: { ...StyleSheet.absoluteFillObject },
-  grassEdge: { position: 'absolute', top: -5, left: 0, right: 0, height: 21 },
-  grassTuft: { position: 'absolute', bottom: 0, width: 15, height: 18, transformOrigin: 'bottom center' },
-  grassBlade: { position: 'absolute', bottom: 0, width: 3, borderRadius: 3, transformOrigin: 'bottom' },
-  grassBladeLeft: { left: 1 },
-  grassBladeCenter: { left: 6 },
-  grassBladeRight: { left: 11 },
+  grassBoundary: { position: 'absolute', top: -8, left: 0, right: 0, height: 24 },
   landingShadow: {
     position: 'absolute',
     alignSelf: 'center',

@@ -85,11 +85,8 @@ export const homePalette = {
   backgroundTop: '#E8E5F7',
   backgroundMid: '#ECE7FB',
   backgroundBottom: '#E4ECFB',
-  groundTop: '#FFB2C9',
-  groundBottom: '#FF8CAE',
-  groundEdge: '#F69CB9',
-  grassLight: '#FFD5E1',
-  grassDeep: '#E986A7',
+  groundTop: '#FFA3C1',
+  groundBottom: '#FF6595',
   cloudYellow: '#FFE7BF',
   cloudPink: '#F5CBE5',
   cloudBlue: '#C8EAF4',
@@ -134,9 +131,7 @@ export const roomPalette = {
   leaf: '#55D6B0',
   panel: '#F7D8F0',
   groundTop: homePalette.groundTop,
-  groundMid: '#FFA0BD',
   groundBottom: homePalette.groundBottom,
-  grassEdge: homePalette.groundEdge,
 } as const;
 
 /* ------------------------------------------------------------------ *
