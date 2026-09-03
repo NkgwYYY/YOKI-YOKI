@@ -21,6 +21,7 @@ import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
 import { getCurrentSlot, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { RoomItemPreview, RoomView } from '@/components/RoomView';
+import { GameBoardIllustration } from '@/components/ui/Illustrations';
 
 const FURNITURE_OPTIONS: { id: RoomFurniture; name: string; cost: number }[] = [
   { id: 'none', name: '置かない', cost: 0 },
@@ -38,6 +39,7 @@ const FLOWER_OPTIONS: { id: RoomFlower; name: string; cost: number }[] = [
 
 function OrbitAction({
   icon,
+  illustration,
   label,
   onPress,
   disabled,
@@ -45,6 +47,7 @@ function OrbitAction({
   style,
 }: {
   icon: IconName;
+  illustration?: React.ReactNode;
   label: string;
   onPress: () => void;
   disabled?: boolean;
@@ -59,7 +62,7 @@ function OrbitAction({
       accessibilityLabel={label}
       style={[styles.orbitAction, style, disabled && styles.orbitActionDisabled]}
     >
-      <Icon name={icon} size={iconSize.md} color={colors.foreground} />
+      {illustration ?? <Icon name={icon} size={iconSize.md} color={colors.foreground} />}
       <Text style={styles.orbitActionLabel} numberOfLines={1}>{label}</Text>
     </PressScale>
   );
@@ -230,33 +233,34 @@ export default function HomeScreen() {
               ) : null}
 
               <OrbitAction
-                testID="home-record"
-                icon="edit-3"
-                label={todayRecord ? '記録を見る' : '記録する'}
-                onPress={() => router.push('/(tabs)/record')}
-                style={styles.orbitTopLeft}
-              />
-              <OrbitAction
-                testID="home-chat"
-                icon="message-circle"
-                label="お話する"
-                onPress={() => router.push('/(tabs)/chat')}
-                style={styles.orbitTopRight}
-              />
-              <OrbitAction
                 testID="home-feed"
                 icon="coffee"
                 label="ごはん"
                 onPress={() => setShowFeed(true)}
-                style={styles.orbitBottomLeft}
+                style={styles.orbitFeed}
+              />
+              <OrbitAction
+                testID="home-record"
+                icon="edit-3"
+                label={todayRecord ? '記録を見る' : '記録する'}
+                onPress={() => router.push('/(tabs)/record')}
+                style={styles.orbitRecord}
+              />
+              <OrbitAction
+                testID="home-chat"
+                icon="message-circle"
+                label="チャット"
+                onPress={() => router.push('/(tabs)/chat')}
+                style={styles.orbitChat}
               />
               <OrbitAction
                 testID="home-game"
-                icon="music"
+                icon="star"
+                illustration={<GameBoardIllustration size={46} />}
                 label="あそぶ"
                 disabled={!canPlay}
                 onPress={() => setShowMiniGame(true)}
-                style={styles.orbitBottomRight}
+                style={styles.orbitGame}
               />
             </View>
           </RoomView>
@@ -399,23 +403,22 @@ const styles = StyleSheet.create({
   orbitAction: {
     position: 'absolute',
     zIndex: 12,
-    width: 82,
-    height: 64,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.84)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.92)',
+    width: 72,
+    height: 68,
+    borderRadius: 18,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    paddingHorizontal: 5,
+    gap: 2,
+    paddingHorizontal: 0,
   },
   orbitActionDisabled: { opacity: 0.45 },
   orbitActionLabel: { ...typography.micro, color: colors.foreground, fontFamily: 'Inter_600SemiBold' },
-  orbitTopLeft: { left: 0, top: 38 },
-  orbitTopRight: { right: 0, top: 38 },
-  orbitBottomLeft: { left: 0, bottom: 38 },
-  orbitBottomRight: { right: 0, bottom: 38 },
+  orbitFeed: { left: 0, top: 28 },
+  orbitRecord: { left: 0, top: 120 },
+  orbitChat: { left: 0, top: 212 },
+  orbitGame: { right: 0, top: 120 },
 
   satietyContainer: {
     flexDirection: 'row',

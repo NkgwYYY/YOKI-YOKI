@@ -65,6 +65,54 @@ export function GamepadIllustration({ size = 48 }: { size?: number }) {
   );
 }
 
+export function GameBoardIllustration({ size = 48 }: { size?: number }) {
+  const cell = size * 0.16;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{
+        width: size * 0.78,
+        height: size * 0.78,
+        borderRadius: size * 0.15,
+        backgroundColor: colors.secondary,
+        borderWidth: 1.5,
+        borderColor: colors.primary,
+        padding: size * 0.1,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: size * 0.045,
+        alignContent: 'center',
+        justifyContent: 'center',
+        transform: [{ rotate: '-6deg' }],
+      }}>
+        {Array.from({ length: 9 }).map((_, index) => (
+          <View
+            key={index}
+            style={{
+              width: cell,
+              height: cell,
+              borderRadius: cell * 0.3,
+              backgroundColor: index === 2 || index === 6 ? colors.primary : colors.borderSubtle,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          />
+        ))}
+        <View style={{
+          position: 'absolute',
+          left: size * 0.23,
+          top: size * 0.24,
+          width: size * 0.12,
+          height: size * 0.12,
+          borderRadius: size,
+          backgroundColor: colors.success,
+          borderWidth: 1,
+          borderColor: '#FFFFFF',
+        }} />
+      </View>
+    </View>
+  );
+}
+
 // ----------------------------------------------------------------------
 // Food Illustrations
 // ----------------------------------------------------------------------

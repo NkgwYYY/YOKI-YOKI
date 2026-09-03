@@ -18,7 +18,7 @@ const atelierColors = {
   400: '#D1BDF0', // Borders subtle
   300: '#E6D8F8', // Muted backgrounds / Dividers
   200: '#F3EAFB', // Secondary surfaces
-  100: '#F9F4FD', // App background
+  100: '#F4EFFA', // App background
   50:  '#FFFBFF', // Pink-white card highlights
 } as const;
 
