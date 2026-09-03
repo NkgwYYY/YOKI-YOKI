@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Platform, StyleSheet, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Platform, StyleSheet, useWindowDimensions, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
@@ -116,11 +116,14 @@ const GRASS_IMAGE = require('@/public/grass-hill.png');
 const GRASS_SOURCE = Platform.OS === 'web' ? { uri: '/grass-hill.png' } : GRASS_IMAGE;
 
 export function GrassTexture({ style }: { style?: StyleProp<ViewStyle> }) {
+  const { height: viewportHeight } = useWindowDimensions();
+
   return (
     <View
       pointerEvents="none"
       style={[
         r.grassContainer,
+        { height: viewportHeight * 0.5 },
         style,
       ]}
     >
@@ -164,7 +167,7 @@ const r = StyleSheet.create({
   grassContainer: {
     position: 'absolute',
     left: 0,
-    right: 0,
+    width: '100%',
     bottom: 0,
     zIndex: 1,
     alignItems: 'center',
@@ -172,7 +175,7 @@ const r = StyleSheet.create({
   },
   grassImage: {
     width: '100%',
-    height: 'auto',
+    height: '100%',
   } as ImageStyle,
   landingShadow: {
     position: 'absolute',
