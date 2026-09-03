@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { border, colors, control, elevation, homePalette, radius, space, typography } from '@/constants/theme';
 import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
@@ -73,10 +75,33 @@ function OrbitAction({
       accessibilityLabel={label}
       style={[styles.orbitAction, style, disabled && styles.orbitActionDisabled]}
     >
-      <View style={styles.actionIconBubble}>
-        {illustration ?? <Icon name={icon} size={iconSize.lg} color={actionTone.icon} />}
-      </View>
-      <Text style={styles.orbitActionLabel} numberOfLines={1}>{label}</Text>
+      <LinearGradient
+        colors={[
+          'rgba(255, 255, 255, 0.9)',
+          'rgba(255, 194, 232, 0.76)',
+          'rgba(185, 220, 255, 0.78)',
+          'rgba(220, 190, 255, 0.82)',
+          'rgba(255, 255, 255, 0.9)',
+        ]}
+        start={{ x: 0.08, y: 0.08 }}
+        end={{ x: 0.92, y: 0.92 }}
+        style={styles.orbitBubbleGradient}
+      >
+        <BlurView
+          intensity={24}
+          tint="light"
+          style={[
+            styles.orbitBubbleSurface,
+            { backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' } as any,
+          ]}
+        >
+          <View pointerEvents="none" style={styles.orbitBubbleHighlight} />
+          <View style={styles.actionIconBubble}>
+            {illustration ?? <Icon name={icon} size={iconSize.lg} color={actionTone.icon} />}
+          </View>
+          <Text style={styles.orbitActionLabel} numberOfLines={1}>{label}</Text>
+        </BlurView>
+      </LinearGradient>
     </PressScale>
   );
 }
@@ -493,15 +518,40 @@ const styles = StyleSheet.create({
     transform: [{ translateY: 4 }],
   },
   orbitAction: {
-    flex: 1,
     minWidth: 0,
     maxWidth: 96,
-    minHeight: 68,
+    minHeight: 0,
+    aspectRatio: 1,
+    alignItems: 'stretch',
+  },
+  orbitBubbleGradient: {
+    flex: 1,
+    borderRadius: 999,
+    padding: 1.5,
+    shadowColor: '#D9C5FF',
+    shadowOpacity: 0.72,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  orbitBubbleSurface: {
+    flex: 1,
+    borderRadius: 999,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space.xs,
-    paddingHorizontal: space.xs,
-    paddingVertical: space.xs,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    gap: 2,
+  },
+  orbitBubbleHighlight: {
+    position: 'absolute',
+    top: 8,
+    left: '22%',
+    width: 18,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    transform: [{ rotate: '-22deg' }],
   },
   actionIconBubble: {
     width: 44,
