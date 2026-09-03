@@ -283,7 +283,7 @@ export default function HomeScreen() {
                 icon="coffee"
                 tone="food"
                 label="ごはん"
-                style={{ position: 'absolute', left: '5%', top: 50, width: '20%', zIndex: 21 }}
+                style={{ position: 'absolute', left: '2%', top: 50, width: '22%', zIndex: 21 }}
                 onPress={() => setShowFeed(true)}
               />
               <OrbitAction
@@ -291,7 +291,7 @@ export default function HomeScreen() {
                 icon="edit-3"
                 tone="record"
                 label="記録"
-                style={{ position: 'absolute', left: '29%', top: 10, width: '20%', zIndex: 21 }}
+                style={{ position: 'absolute', left: '27%', top: 10, width: '22%', zIndex: 21 }}
                 onPress={() => router.push('/(tabs)/record')}
               />
               <OrbitAction
@@ -299,7 +299,7 @@ export default function HomeScreen() {
                 icon="message-circle"
                 tone="chat"
                 label="チャット"
-                style={{ position: 'absolute', left: '53%', top: 10, width: '20%', zIndex: 21 }}
+                style={{ position: 'absolute', left: '52%', top: 10, width: '22%', zIndex: 21 }}
                 onPress={() => router.push('/(tabs)/chat')}
               />
               <OrbitAction
@@ -309,7 +309,7 @@ export default function HomeScreen() {
                 illustration={<GameBoardIllustration size={42} tone="play" />}
                 label="あそぶ"
                 disabled={!canPlay}
-                style={{ position: 'absolute', left: '77%', top: 50, width: '20%', zIndex: 21 }}
+                style={{ position: 'absolute', left: '77%', top: 50, width: '22%', zIndex: 21 }}
                 onPress={() => setShowMiniGame(true)}
               />
             </View>
@@ -562,6 +562,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'transparent',
     gap: 2,
+    paddingVertical: 4,
   },
   orbitBubbleHighlight: {
     position: 'absolute',
@@ -574,13 +575,22 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-22deg' }],
   },
   actionIconBubble: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   orbitActionDisabled: { opacity: 0.45 },
-  orbitActionLabel: { ...typography.calloutStrong, fontSize: 13, lineHeight: 18, letterSpacing: 0, color: '#4A3B69', textAlign: 'center' },
+  orbitActionLabel: {
+    ...typography.calloutStrong,
+    width: '100%',
+    paddingHorizontal: 2,
+    fontSize: 13,
+    lineHeight: 17,
+    letterSpacing: 0,
+    color: '#4A3B69',
+    textAlign: 'center',
+  },
 
   satietyContainer: {
     flex: 1,

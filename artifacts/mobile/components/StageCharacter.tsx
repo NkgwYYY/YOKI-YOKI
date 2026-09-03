@@ -14,7 +14,9 @@ import type { MascotStage, MascotMood } from '@/utils/mascotUtils';
 import { getCharacter } from '@/utils/mascotUtils';
 
 const STAGE_LAYOUT_HEIGHT_RATIO = 2.4;
+const STAGE_LAYOUT_WIDTH_RATIO = 1.7;
 const STAGE_VIEWPORT_HEIGHT_RATIO = 3.2;
+const STAGE_VIEWPORT_WIDTH_RATIO = 2.8;
 const STAGE_NO_CLIP = {
   overflow: 'visible',
   ...(Platform.OS === 'web'
@@ -57,6 +59,7 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
   const webviewRef = useRef<any>(null);
   const [nativeFailed, setNativeFailed] = useState(false);
   const [shouldLoadStage, setShouldLoadStage] = useState(false);
+  const [stageReady, setStageReady] = useState(false);
   // ステージからready通知が来たか(来なければ誤ったページ=旧ビルド等 → フォールバック)
   const nativeReadyRef = useRef(false);
 
@@ -87,9 +90,8 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
   }, [char, mood, growthSize]);
 
   useEffect(() => {
-    // 初回描画は端末内の Mascot を使い、外部ステージの読込は後ろへ回す。
-    // ネットワーク待ちがホーム全体の立ち上がりに見えないようにする。
-    const timer = setTimeout(() => setShouldLoadStage(true), 750);
+    // フォールバックを表示したまま、埋め込みステージはすぐ裏側で準備する。
+    const timer = setTimeout(() => setShouldLoadStage(true), 0);
     return () => clearTimeout(timer);
   }, []);
 
@@ -97,6 +99,7 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
     if (Platform.OS !== 'web') return;
     const onMessage = (e: MessageEvent) => {
       if (e.data?.type === 'yokky-stage-ready' && e.source === iframeRef.current?.contentWindow) {
+        setStageReady(true);
         sendState();
       }
     };
@@ -106,7 +109,7 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
 
   /* ── フォールバック(ネイティブ読み込み失敗時)。成長スケールも反映 ── */
   const fallback = (
-    <View style={{ width: size * 1.7, height: size * STAGE_LAYOUT_HEIGHT_RATIO, alignItems: 'center', justifyContent: 'center', ...STAGE_NO_CLIP }}>
+    <View style={{ width: size * STAGE_LAYOUT_WIDTH_RATIO, height: size * STAGE_LAYOUT_HEIGHT_RATIO, alignItems: 'center', justifyContent: 'center', ...STAGE_NO_CLIP }}>
       <View style={{ transform: [{ scale: growthSize }] }}>
         <Mascot
           stage={stage}
@@ -132,8 +135,21 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
       return fallback;
     }
     return (
-      <View style={{ width: size * 1.7, height: size * STAGE_LAYOUT_HEIGHT_RATIO, position: 'relative', ...STAGE_NO_CLIP }}>
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: size * STAGE_VIEWPORT_HEIGHT_RATIO, ...STAGE_NO_CLIP }}>
+      <View style={{ width: size * STAGE_LAYOUT_WIDTH_RATIO, height: size * STAGE_LAYOUT_HEIGHT_RATIO, position: 'relative', ...STAGE_NO_CLIP }}>
+        {!stageReady ? <View pointerEvents="none" style={{ position: 'absolute', inset: 0 } as any}>{fallback}</View> : null}
+        <View
+          pointerEvents={stageReady ? 'auto' : 'none'}
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 0,
+            width: size * STAGE_VIEWPORT_WIDTH_RATIO,
+            height: size * STAGE_VIEWPORT_HEIGHT_RATIO,
+            marginLeft: -(size * STAGE_VIEWPORT_WIDTH_RATIO) / 2,
+            opacity: stageReady ? 1 : 0,
+            ...STAGE_NO_CLIP,
+          }}
+        >
           <WebView
             ref={webviewRef}
             source={{ uri: src }}
@@ -158,6 +174,7 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
                 const d = JSON.parse(e.nativeEvent.data);
                 if (d?.type === 'yokky-stage-ready') {
                   nativeReadyRef.current = true;
+                  setStageReady(true);
                   sendState();
                 }
               } catch {}
@@ -170,8 +187,21 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
 
   // Web: 透明iframe。ステージ側が物理・掴み操作を全て処理する
   return (
-    <View style={{ width: size * 1.7, height: size * STAGE_LAYOUT_HEIGHT_RATIO, position: 'relative', ...STAGE_NO_CLIP }}>
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: size * STAGE_VIEWPORT_HEIGHT_RATIO, ...STAGE_NO_CLIP }}>
+    <View style={{ width: size * STAGE_LAYOUT_WIDTH_RATIO, height: size * STAGE_LAYOUT_HEIGHT_RATIO, position: 'relative', ...STAGE_NO_CLIP }}>
+      {!stageReady ? <View pointerEvents="none" style={{ position: 'absolute', inset: 0 } as any}>{fallback}</View> : null}
+      <View
+        pointerEvents={stageReady ? 'auto' : 'none'}
+        style={{
+          position: 'absolute',
+          left: '50%',
+          bottom: 0,
+          width: size * STAGE_VIEWPORT_WIDTH_RATIO,
+          height: size * STAGE_VIEWPORT_HEIGHT_RATIO,
+          marginLeft: -(size * STAGE_VIEWPORT_WIDTH_RATIO) / 2,
+          opacity: stageReady ? 1 : 0,
+          ...STAGE_NO_CLIP,
+        }}
+      >
         {React.createElement('iframe', {
           ref: iframeRef,
           src,

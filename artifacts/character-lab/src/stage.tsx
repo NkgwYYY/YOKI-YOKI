@@ -25,6 +25,39 @@ const MOOD_TO_EMOTION: Record<string, Emotion> = {
 
 const VALID_CHARS = new Set(CHARACTERS.map(c => c.id));
 
+function waitForStageImages(svg: SVGSVGElement): Promise<void> {
+  const sources = Array.from(svg.querySelectorAll('image'))
+    .map((image) => image.getAttribute('href') || image.getAttribute('xlink:href'))
+    .filter((source): source is string => Boolean(source));
+
+  return Promise.all(
+    [...new Set(sources)].map((source) => new Promise<void>((resolve, reject) => {
+      const image = new Image();
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        if (error) reject(error);
+        else resolve();
+      };
+      const timeout = window.setTimeout(
+        () => finish(new Error(`Timed out loading character image: ${source}`)),
+        8000,
+      );
+      image.onload = () => finish();
+      image.onerror = () => finish(new Error(`Failed to load character image: ${source}`));
+      image.src = source;
+      if (image.complete && image.naturalWidth > 0) finish();
+    })),
+  ).then(() => undefined);
+}
+
+function notifyParent(type: 'yokky-stage-ready' | 'yokky-stage-error') {
+  window.parent?.postMessage({ type }, '*');
+  (window as any).ReactNativeWebView?.postMessage(JSON.stringify({ type }));
+}
+
 function readParams() {
   const q = new URLSearchParams(window.location.search);
   const char = q.get('char') ?? 'egg';
@@ -43,12 +76,21 @@ function Stage() {
 
   useEffect(() => {
     if (!svgRef.current) return;
+    let cancelled = false;
     rigRef.current?.destroy();
     const config = CHARACTERS.find(c => c.id === char)!;
     rigRef.current = new CharacterRig(svgRef.current, config);
     rigRef.current.setEmotion(emotion);
     rigRef.current.setBreathing(true);
+    waitForStageImages(svgRef.current)
+      .then(() => {
+        if (!cancelled) notifyParent('yokky-stage-ready');
+      })
+      .catch(() => {
+        if (!cancelled) notifyParent('yokky-stage-error');
+      });
     return () => {
+      cancelled = true;
       rigRef.current?.destroy();
       rigRef.current = null;
     };
@@ -68,10 +110,6 @@ function Stage() {
       }));
     };
     window.addEventListener('message', onMessage);
-    // ハンドシェイク: 親はこれを受けて最新状態を送り直す
-    window.parent?.postMessage({ type: 'yokky-stage-ready' }, '*');
-    // React Native WebView埋め込み(ネイティブアプリ)向けのready通知
-    (window as any).ReactNativeWebView?.postMessage(JSON.stringify({ type: 'yokky-stage-ready' }));
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
@@ -83,7 +121,7 @@ function Stage() {
           position: 'absolute',
           bottom: 0,
           left: '50%',
-          width: '100%',
+          width: '60.7142857%',
           height: '41.25%',
           overflow: 'visible',
           clipPath: 'none',
