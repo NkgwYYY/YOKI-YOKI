@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   nameFieldText: { ...typography.body, flex: 1, color: colors.foreground },
   nameFieldPlaceholder: { color: colors.mutedForeground },
 
-  centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' },
   sceneStack: { width: '100%', alignItems: 'center', position: 'relative' },
   characterGarden: { width: '100%', position: 'relative' },
   characterMain: {
@@ -459,7 +459,11 @@ const styles = StyleSheet.create({
   },
   companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 4 },
   actionRow: {
-    zIndex: 3,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 18,
+    zIndex: 10,
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',

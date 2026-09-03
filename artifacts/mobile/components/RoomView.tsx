@@ -123,11 +123,11 @@ export function GrassTexture({ style }: { style?: StyleProp<ViewStyle> }) {
       pointerEvents="none"
       style={[
         r.grassContainer,
-        { height: viewportHeight * 0.5 },
+        { height: Math.max(viewportHeight * 0.55, 320) },
         style,
       ]}
     >
-      <Image source={GRASS_SOURCE} resizeMode="contain" style={r.grassImage} />
+      <Image source={GRASS_SOURCE} resizeMode="cover" style={r.grassImage} />
     </View>
   );
 }
