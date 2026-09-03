@@ -1,5 +1,7 @@
 /** 音ゲー共通の型定義 */
 
+import type { IconName } from '@/components/ui/Icon';
+
 export type RhythmMode = 'tap' | 'jump' | 'swipe' | 'copy' | 'relax';
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type Judgment = 'perfect' | 'great' | 'good' | 'miss';
@@ -17,9 +19,10 @@ export interface Song {
   duration: number;
   /** 曲の雰囲気ラベル */
   mood: string;
-  emoji: string;
-  /** カードのグラデーション色 */
-  gradient: readonly [string, string];
+  /** 単色線画アイコン。絵文字は使わない。 */
+  icon: IconName;
+  /** 曲を見分けるための 1 色。面の塗りではなく細い帯とアイコンにだけ使う。 */
+  accent: string;
 }
 
 export interface Note {
@@ -75,7 +78,7 @@ export const SCORE_PER: Record<Exclude<Judgment, 'miss'>, number> = {
   good: 40,
 };
 
-/** 精度 (0-1) → ★1〜5 */
+/** 精度 (0-1) → 星 1〜5 */
 export function starRating(r: PlayResult): number {
   if (r.totalNotes === 0) return 3;
   const acc = (r.perfect + r.great * 0.7 + r.good * 0.4) / r.totalNotes;

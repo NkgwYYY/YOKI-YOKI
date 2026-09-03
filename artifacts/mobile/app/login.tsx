@@ -1,16 +1,19 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Analytics } from '@/utils/analytics';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
   Modal, Image,
 } from 'react-native';
+import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
+import { Button } from '@/components/ui/Button';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { useSignIn, useSignUp } from '@clerk/expo';
 import { Mascot } from '@/components/Mascot';
-import { Ionicons } from '@expo/vector-icons';
+import { Icon, iconSize } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 
 function clerkErrorMessage(error: unknown): string {
   const e = error as { errors?: { code?: string; longMessage?: string; message?: string }[] } | null;
@@ -124,18 +127,18 @@ function ForgotPasswordModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={handleClose} />
+        <PressScale style={s.overlay} onPress={handleClose} />
         <View style={[s.sheet, { paddingBottom: Platform.OS === 'web' ? 32 : insets.bottom + 24 }]}>
           <View style={s.handle} />
 
           {/* Header */}
           <View style={s.sheetHeader}>
             <Text style={s.sheetTitle}>
-              {step === 'email' ? '🔑 パスワードを再設定' : '📬 コードを入力'}
+              {step === 'email' ? 'パスワードを再設定' : 'コードを入力'}
             </Text>
-            <TouchableOpacity onPress={handleClose} hitSlop={12}>
-              <Ionicons name="close" size={22} color="#9E7DD5" />
-            </TouchableOpacity>
+            <PressScale onPress={handleClose} hitSlop={12}>
+              <Icon name="x" size={20} color={colors.subtleForeground} />
+            </PressScale>
           </View>
 
           {step === 'email' ? (
@@ -149,14 +152,18 @@ function ForgotPasswordModal({
                 autoCapitalize="none"
                 keyboardType="email-address"
                 placeholder="例：hello@example.com"
-                placeholderTextColor="#BBA8D8"
+                placeholderTextColor={colors.subtleForeground}
                 autoCorrect={false}
                 autoFocus
               />
               {!!error && <Text style={s.errorText}>{error}</Text>}
-              <TouchableOpacity style={s.btn} onPress={handleRequestCode} disabled={loading} activeOpacity={0.85}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>確認コードを送る</Text>}
-              </TouchableOpacity>
+              <Button
+                label="確認コードを送る"
+                onPress={handleRequestCode}
+                loading={loading}
+                fullWidth
+                style={s.btn}
+              />
             </View>
           ) : (
             /* ── Step 2: code + new password ── */
@@ -169,7 +176,7 @@ function ForgotPasswordModal({
                 onChangeText={setCode}
                 keyboardType="number-pad"
                 placeholder="000000"
-                placeholderTextColor="#BBA8D8"
+                placeholderTextColor={colors.subtleForeground}
                 maxLength={6}
               />
 
@@ -180,18 +187,22 @@ function ForgotPasswordModal({
                 onChangeText={setNewPassword}
                 secureTextEntry
                 placeholder="8文字以上"
-                placeholderTextColor="#BBA8D8"
+                placeholderTextColor={colors.subtleForeground}
               />
 
               {!!error && <Text style={s.errorText}>{error}</Text>}
 
-              <TouchableOpacity style={s.btn} onPress={handleReset} disabled={loading} activeOpacity={0.85}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>パスワードを変更する</Text>}
-              </TouchableOpacity>
+              <Button
+                label="パスワードを変更する"
+                onPress={handleReset}
+                loading={loading}
+                fullWidth
+                style={s.btn}
+              />
 
-              <TouchableOpacity onPress={() => signIn.resetPasswordEmailCode.sendCode()}>
+              <PressScale onPress={() => signIn.resetPasswordEmailCode.sendCode()}>
                 <Text style={s.resend}>コードが届かない場合は再送する</Text>
-              </TouchableOpacity>
+              </PressScale>
             </View>
           )}
         </View>
@@ -280,11 +291,14 @@ export default function LoginScreen() {
     signUp.missingFields.length === 0;
 
   return (
-    <View style={[{ flex: 1, backgroundColor: '#1A1430' }, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
+    <View style={[styles.root, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
       <SkyBackground />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
-          contentContainerStyle={[styles.container, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24 }]}
+          contentContainerStyle={[
+            styles.container,
+            { paddingTop: insets.top + space.xxl, paddingBottom: insets.bottom + space.xl },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           {/* Mascot */}
@@ -296,13 +310,13 @@ export default function LoginScreen() {
               resizeMode="contain"
             />
             <Text style={styles.subtitle}>メンタルケア育成アプリ</Text>
-            <Text style={[styles.subtitle, { marginTop: 4, fontSize: 12, opacity: 0.6 }]}>データを引き継ぐためにアカウントを作ろう</Text>
+            <Text style={styles.subtitleSm}>データを引き継ぐためにアカウントを作ろう</Text>
           </View>
 
           {needsVerification ? (
             /* ── Email verification step ── */
             <View style={styles.form}>
-              <Text style={styles.verifyTitle}>📬 メールを確認してください</Text>
+              <Text style={styles.verifyTitle}>メールを確認してください</Text>
               <Text style={styles.verifySub}>{email.trim()} に6桁の確認コードを送りました</Text>
               <TextInput
                 style={[styles.input, styles.codeInput]}
@@ -310,29 +324,32 @@ export default function LoginScreen() {
                 onChangeText={setCode}
                 keyboardType="number-pad"
                 placeholder="000000"
-                placeholderTextColor="#BBA8D8"
+                placeholderTextColor={colors.subtleForeground}
                 maxLength={6}
                 autoFocus
               />
               {!!error && (
                 <View style={styles.errorBox}>
-                  <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+                  <Icon name="alert-circle" size={16} color={colors.danger} />
                   <Text style={styles.errorText}>{error}</Text>
                 </View>
               )}
-              <TouchableOpacity style={styles.button} onPress={handleVerify} disabled={loading} activeOpacity={0.85}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>確認する</Text>}
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => signUp.verifications.sendEmailCode()}>
+              <Button
+                label="確認する"
+                onPress={handleVerify}
+                loading={loading}
+                style={styles.submit}
+              />
+              <PressScale onPress={() => signUp.verifications.sendEmailCode()}>
                 <Text style={styles.resendText}>コードが届かない場合は再送する</Text>
-              </TouchableOpacity>
+              </PressScale>
             </View>
           ) : (
             <>
               {/* Tabs */}
               <View style={styles.tabRow}>
                 {(['login', 'register'] as const).map(t => (
-                  <TouchableOpacity
+                  <PressScale
                     key={t}
                     style={[styles.tab, tab === t && styles.tabActive]}
                     onPress={() => { setTab(t); setError(''); }}
@@ -340,7 +357,7 @@ export default function LoginScreen() {
                     <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
                       {t === 'login' ? 'ログイン' : '新規登録'}
                     </Text>
-                  </TouchableOpacity>
+                  </PressScale>
                 ))}
               </View>
 
@@ -354,7 +371,7 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   keyboardType="email-address"
                   placeholder="例：hello@example.com"
-                  placeholderTextColor="#BBA8D8"
+                  placeholderTextColor={colors.subtleForeground}
                   autoCorrect={false}
                 />
 
@@ -365,46 +382,40 @@ export default function LoginScreen() {
                   onChangeText={setPassword}
                   secureTextEntry
                   placeholder="8文字以上"
-                  placeholderTextColor="#BBA8D8"
+                  placeholderTextColor={colors.subtleForeground}
                 />
 
                 {!!error && (
                   <View style={styles.errorBox}>
-                    <Ionicons name="alert-circle-outline" size={16} color="#EF4444" />
+                    <Icon name="alert-circle" size={16} color={colors.danger} />
                     <Text style={styles.errorText}>{error}</Text>
                   </View>
                 )}
 
-                <TouchableOpacity
-                  style={styles.button}
+                <Button
+                  label={tab === 'login' ? 'ログイン' : 'アカウントを作成'}
                   onPress={handleSubmit}
-                  disabled={loading}
-                  activeOpacity={0.85}
-                >
-                  {loading
-                    ? <ActivityIndicator color="#fff" />
-                    : <Text style={styles.buttonText}>{tab === 'login' ? 'ログイン' : 'アカウントを作成'}</Text>
-                  }
-                </TouchableOpacity>
+                  loading={loading}
+                  style={styles.submit}
+                />
 
                 {tab === 'register' && (
-                  <Text style={styles.hint}>✅ 今までのデータはそのまま引き継がれます</Text>
+                  <Text style={styles.hint}>今までのデータはそのまま引き継がれます</Text>
                 )}
 
                 {tab === 'login' && (
-                  <TouchableOpacity onPress={() => setShowForgot(true)} style={styles.forgotWrap}>
-                    <Ionicons name="lock-closed-outline" size={13} color="#9E7DD5" />
+                  <PressScale onPress={() => setShowForgot(true)} style={styles.forgotWrap}>
+                    <Icon name="lock" size={14} color={colors.mutedForeground} />
                     <Text style={styles.forgotText}>パスワードを忘れた場合</Text>
-                  </TouchableOpacity>
+                  </PressScale>
                 )}
 
-                <TouchableOpacity
+                <PressScale
                   onPress={() => router.replace('/onboarding')}
                   style={styles.guestButton}
-                  activeOpacity={0.85}
                 >
                   <Text style={styles.guestButtonText}>ログインせずに始める</Text>
-                </TouchableOpacity>
+                </PressScale>
 
                 {/* Required for sign-up flows: Clerk bot protection */}
                 <View nativeID="clerk-captcha" />
@@ -426,73 +437,156 @@ export default function LoginScreen() {
 
 // ── Styles ────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', paddingHorizontal: 24, ...(Platform.OS === 'web' && { maxWidth: 480, width: '100%', alignSelf: 'center' as any }) },
-  mascotWrap: { alignItems: 'center', marginBottom: 28 },
-  titleLogo: { width: 220, height: 33, marginTop: 12 },
-  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: 6, textAlign: 'center' },
+  root: { flex: 1, backgroundColor: colors.background },
+  container: {
+    alignItems: 'center',
+    paddingHorizontal: screenPadding,
+    ...(Platform.OS === 'web' && { maxWidth: 480, width: '100%', alignSelf: 'center' as any }),
+  },
+  mascotWrap: { alignItems: 'center', marginBottom: space.xxl },
+  titleLogo: { width: 200, height: 30, marginTop: space.md },
+  subtitle: {
+    ...typography.callout,
+    color: colors.mutedForeground,
+    marginTop: space.sm,
+    textAlign: 'center',
+  },
+  subtitleSm: {
+    ...typography.caption,
+    color: colors.subtleForeground,
+    marginTop: space.xs,
+    textAlign: 'center',
+  },
+
+  /* タブ — 選択は塗りではなく白い面と 1px で示す */
   tabRow: {
-    flexDirection: 'row', backgroundColor: '#EDE5F8',
-    borderRadius: 14, padding: 4, marginBottom: 28, width: '100%',
+    flexDirection: 'row',
+    backgroundColor: colors.muted,
+    ...border.hairline,
+    borderRadius: radius.md,
+    padding: space.xs,
+    marginBottom: space.xl,
+    width: '100%',
+    gap: space.xs,
   },
-  tab: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  tabActive: { backgroundColor: '#7C4DCC' },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#9E7DD5' },
-  tabTextActive: { color: '#fff' },
-  form: { width: '100%' },
-  label: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', marginBottom: 6 },
+  tab: {
+    flex: 1,
+    minHeight: control.heightSm,
+    justifyContent: 'center',
+    borderRadius: radius.sm,
+    alignItems: 'center',
+  },
+  tabActive: { backgroundColor: colors.card },
+  tabText: { ...typography.label, color: colors.mutedForeground },
+  tabTextActive: { color: colors.primaryOnSoft },
+
+  form: { width: '100%', gap: space.sm },
+  label: { ...typography.label, color: colors.foreground },
   input: {
-    backgroundColor: '#fff', borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 15, color: '#333', borderWidth: 1.5, borderColor: '#DDD0F5',
+    ...typography.body,
+    height: control.height,
+    backgroundColor: colors.input,
+    ...border.hairlineStrong,
+    borderRadius: radius.md,
+    paddingHorizontal: space.lg,
+    color: colors.foreground,
   },
-  codeInput: { textAlign: 'center', fontSize: 26, letterSpacing: 10, fontWeight: '700' },
-  verifyTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', marginBottom: 8 },
-  verifySub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', textAlign: 'center', marginBottom: 16 },
-  resendText: { color: 'rgba(255,255,255,0.9)', fontSize: 13, textAlign: 'center', marginTop: 16 },
+  codeInput: {
+    height: 56,
+    textAlign: 'center',
+    fontSize: 24,
+    letterSpacing: 8,
+    fontFamily: 'Inter_700Bold',
+  },
+  verifyTitle: { ...typography.heading, color: colors.foreground, textAlign: 'center' },
+  verifySub: {
+    ...typography.callout,
+    color: colors.mutedForeground,
+    textAlign: 'center',
+    marginBottom: space.sm,
+  },
+  resendText: {
+    ...typography.callout,
+    color: colors.primaryOnSoft,
+    textAlign: 'center',
+    marginTop: space.lg,
+  },
+
   errorBox: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#FEF2F2', borderRadius: 12, padding: 12,
-    marginTop: 12, borderWidth: 1, borderColor: '#FECACA',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space.sm,
+    backgroundColor: colors.dangerSoft,
+    borderRadius: radius.md,
+    padding: space.md,
+    marginTop: space.sm,
   },
-  errorText: { color: '#EF4444', fontSize: 13, flexShrink: 1 },
-  button: {
-    backgroundColor: '#7C4DCC', borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', marginTop: 24,
-    shadowColor: '#7C4DCC', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  errorText: { ...typography.caption, color: colors.danger, flexShrink: 1 },
+
+  // 影は付けない。主導線は色だけで十分に立つ。
+  submit: { marginTop: space.lg },
+  hint: { ...typography.caption, color: colors.success, marginTop: space.md, textAlign: 'center' },
+  forgotWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.xs,
+    minHeight: control.minTouch,
   },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  hint: { fontSize: 12, color: '#00C4A7', marginTop: 14, textAlign: 'center', fontWeight: '500' },
-  forgotWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 16 },
-  forgotText: { fontSize: 13, color: '#9E7DD5', fontWeight: '500' },
-  guestButton: { alignItems: 'center', paddingVertical: 14, marginTop: 10 },
-  guestButtonText: { color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '600' },
+  forgotText: { ...typography.callout, color: colors.mutedForeground },
+  guestButton: { alignItems: 'center', justifyContent: 'center', minHeight: control.height },
+  guestButtonText: { ...typography.bodyStrong, color: colors.primaryOnSoft },
 });
 
-// Sheet styles (for modal)
+// パスワード再設定シートのスタイル
 const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  overlay: { flex: 1, backgroundColor: colors.scrim },
   sheet: {
-    backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 24, gap: 4,
+    backgroundColor: colors.sheet,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    borderTopWidth: border.width,
+    borderTopColor: colors.border,
+    paddingHorizontal: space.xl,
+    paddingTop: space.md,
+    paddingBottom: space.xl,
+    gap: space.sm,
   },
-  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#E0D0F8', alignSelf: 'center', marginBottom: 8 },
-  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  sheetTitle: { fontSize: 17, fontWeight: '700', color: '#5A3DAA' },
-  sheetSub: { fontSize: 13, color: '#9E7DD5', marginBottom: 14 },
-  sheetBody: { gap: 4 },
-  label: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', marginBottom: 6 },
+  handle: {
+    width: 32,
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.borderStrong,
+    alignSelf: 'center',
+    marginBottom: space.sm,
+  },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sheetTitle: { ...typography.heading, color: colors.foreground },
+  sheetSub: { ...typography.caption, color: colors.mutedForeground, marginBottom: space.sm },
+  sheetBody: { gap: space.sm },
+  label: { ...typography.label, color: colors.foreground },
   input: {
-    backgroundColor: '#F8F4FF', borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    fontSize: 15, color: '#333', borderWidth: 1.5, borderColor: '#DDD0F5',
+    ...typography.body,
+    height: control.height,
+    backgroundColor: colors.input,
+    ...border.hairlineStrong,
+    borderRadius: radius.md,
+    paddingHorizontal: space.lg,
+    color: colors.foreground,
   },
-  codeInput: { textAlign: 'center', fontSize: 26, letterSpacing: 10, fontWeight: '700' },
-  errorText: { color: '#EF4444', fontSize: 13, marginTop: 8 },
-  btn: {
-    backgroundColor: '#7C4DCC', borderRadius: 14, paddingVertical: 15,
-    alignItems: 'center', marginTop: 16,
+  codeInput: {
+    height: 56,
+    textAlign: 'center',
+    fontSize: 24,
+    letterSpacing: 8,
+    fontFamily: 'Inter_700Bold',
   },
-  btnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  resend: { color: '#9E7DD5', fontSize: 13, textAlign: 'center', marginTop: 14 },
+  errorText: { ...typography.caption, color: colors.danger, marginTop: space.sm },
+  btn: { marginTop: space.lg },
+  resend: {
+    ...typography.callout,
+    color: colors.primaryOnSoft,
+    textAlign: 'center',
+    marginTop: space.md,
+  },
 });

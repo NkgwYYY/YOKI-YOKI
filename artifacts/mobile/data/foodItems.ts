@@ -1,8 +1,12 @@
+import { rarityPalette } from '@/constants/theme';
+import type { IconName } from '@/components/ui/Icon';
+
 export type FoodRarity = 'common' | 'rare' | 'special';
 
 export interface FoodItem {
   id: string;
-  emoji: string;
+  /** 単色線画アイコン。絵文字は使わない。 */
+  icon: IconName;
   name: string;
   description: string;
   cost: number;
@@ -13,7 +17,7 @@ export interface FoodItem {
 export const FOOD_ITEMS: FoodItem[] = [
   {
     id: 'berry',
-    emoji: '🍒',
+    icon: 'droplet',
     name: 'きのみ',
     description: 'ちょっとだけ元気になるよ',
     cost: 5,
@@ -22,7 +26,7 @@ export const FOOD_ITEMS: FoodItem[] = [
   },
   {
     id: 'apple',
-    emoji: '🍎',
+    icon: 'heart',
     name: 'りんご',
     description: '甘くておいしい！',
     cost: 10,
@@ -31,7 +35,7 @@ export const FOOD_ITEMS: FoodItem[] = [
   },
   {
     id: 'candy',
-    emoji: '🍬',
+    icon: 'gift',
     name: 'キャンディ',
     description: 'とろーっとあまい',
     cost: 20,
@@ -40,7 +44,7 @@ export const FOOD_ITEMS: FoodItem[] = [
   },
   {
     id: 'cake',
-    emoji: '🍰',
+    icon: 'star',
     name: 'ケーキ',
     description: 'とくべつなごちそう！',
     cost: 40,
@@ -49,7 +53,7 @@ export const FOOD_ITEMS: FoodItem[] = [
   },
   {
     id: 'ramen',
-    emoji: '🍜',
+    icon: 'coffee',
     name: 'ラーメン',
     description: 'がっつりお腹いっぱい！',
     cost: 60,
@@ -58,7 +62,7 @@ export const FOOD_ITEMS: FoodItem[] = [
   },
   {
     id: 'special',
-    emoji: '🌟',
+    icon: 'award',
     name: 'スペシャルごはん',
     description: '世界一おいしいごはん！',
     cost: 100,
@@ -75,8 +79,5 @@ export const FP_PER_MOOD_RECORD = 5;
 // Satiety decays: 100 → 0 over 24 hours = ~4.17/hr
 export const SATIETY_DECAY_PER_HOUR = 100 / 36; // 36時間でゼロになるペース
 
-export const RARITY_COLORS: Record<FoodRarity, { bg: string; text: string; border: string }> = {
-  common:  { bg: '#F0F5FF', text: '#6B7280', border: '#E2E8F0' },
-  rare:    { bg: '#EDE9FE', text: '#7C3AED', border: '#C4B5FD' },
-  special: { bg: '#FEF3C7', text: '#D97706', border: '#FCD34D' },
-};
+export const RARITY_COLORS: Record<FoodRarity, { bg: string; text: string; border: string }> =
+  rarityPalette;

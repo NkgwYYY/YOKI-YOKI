@@ -151,7 +151,7 @@ export const GAIN_MOOD_RECORD: EnergyGain = { genki: 5, light: 4, energy: 5 };
 /** 日記・メモを書いた(1日1回) */
 export const GAIN_DIARY: EnergyGain = { genki: 3, light: 2, energy: 3 };
 
-/** ミニゲーム・音ゲー1プレイ(★の数 0-5 に応じて。がんばれなくても最低保証あり) */
+/** ミニゲーム・音ゲー1プレイ(星の数 0-5 に応じて。がんばれなくても最低保証あり) */
 export function gainForPlay(stars: number): EnergyGain {
   const s = clamp(Math.round(stars), 0, 5);
   return { genki: 2 + s, light: 2 + s, energy: 3 + s * 2 };

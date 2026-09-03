@@ -1,11 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Mascot } from '@/components/Mascot';
 import { useApp } from '@/contexts/AppContext';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { Song, Difficulty, RhythmMode, PlayResult, starRating } from '@/utils/rhythm/types';
+import {
+  activityPalette,
+  border,
+  colors,
+  control,
+  judgePalette,
+  radius,
+  space,
+  typography,
+} from '@/constants/theme';
+import { Button, ButtonRow } from '@/components/ui/Button';
+import { Icon, iconSize, type IconName } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 import { SONGS } from '@/utils/rhythm/songs';
 import { getChart } from '@/utils/rhythm/charts';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
@@ -17,29 +29,29 @@ import { RelaxRhythmGame } from './RelaxRhythmGame';
 
 type Step = 'song' | 'mode' | 'difficulty' | 'playing' | 'result';
 
-const MODES: { id: RhythmMode; title: string; emoji: string; desc: string; ready: boolean }[] = [
-  { id: 'tap',   title: 'TAP BEAT',     emoji: '🎵', desc: '4レーンをリズムでタップ', ready: true },
-  { id: 'jump',  title: 'RHYTHM JUMP',  emoji: '🦘', desc: 'ビートに合わせてキャラがジャンプ', ready: true },
-  { id: 'swipe', title: 'RHYTHM SWIPE', emoji: '👉', desc: 'やじるしの方向にスワイプ', ready: true },
-  { id: 'copy',  title: 'RHYTHM COPY',  emoji: '🪞', desc: 'キャラのリズムをまねっこ', ready: true },
-  { id: 'relax', title: 'RHYTHM RELAX', emoji: '🌊', desc: 'ひろがる円をゆったりタップ', ready: true },
+const MODES: { id: RhythmMode; title: string; icon: IconName; desc: string; ready: boolean }[] = [
+  { id: 'tap',   title: 'TAP BEAT',     icon: 'music',          desc: '4レーンをリズムでタップ', ready: true },
+  { id: 'jump',  title: 'RHYTHM JUMP',  icon: 'trending-up',    desc: 'ビートに合わせてキャラがジャンプ', ready: true },
+  { id: 'swipe', title: 'RHYTHM SWIPE', icon: 'chevrons-right', desc: 'やじるしの方向にスワイプ', ready: true },
+  { id: 'copy',  title: 'RHYTHM COPY',  icon: 'repeat',         desc: 'キャラのリズムをまねっこ', ready: true },
+  { id: 'relax', title: 'RHYTHM RELAX', icon: 'wind',           desc: 'ひろがる円をゆったりタップ', ready: true },
 ];
 
 const DIFFS: { id: Difficulty; label: string; color: string; desc: string }[] = [
-  { id: 'easy',   label: 'EASY',   color: '#5EE0B8', desc: 'ゆったり楽しむ' },
-  { id: 'normal', label: 'NORMAL', color: '#5EB8FF', desc: 'リズムに乗る' },
-  { id: 'hard',   label: 'HARD',   color: '#FF6B8A', desc: 'ノリノリ挑戦' },
+  { id: 'easy',   label: 'EASY',   color: judgePalette.great, desc: 'ゆったり楽しむ' },
+  { id: 'normal', label: 'NORMAL', color: judgePalette.good,  desc: 'リズムに乗る' },
+  { id: 'hard',   label: 'HARD',   color: activityPalette.selfCare, desc: 'ノリノリ挑戦' },
 ];
 
 /** キャラの優しいコメント (高評価/普通/MISS多め) */
 function characterComment(r: PlayResult, mode: RhythmMode): string {
-  if (mode === 'relax') return 'いっしょにゆったりできて きもちよかった〜🌊';
+  if (mode === 'relax') return 'いっしょにゆったりできて きもちよかった〜';
   const missRate = r.totalNotes > 0 ? r.miss / r.totalNotes : 0;
   const stars = starRating(r);
-  if (mode === 'copy' && stars >= 4) return 'まねっこ、ばっちりだったね！うれしい〜！🪞✨';
-  if (stars >= 4) return 'すごい！きみのリズム、キラキラしてたよ〜！✨';
-  if (missRate > 0.4) return 'いっしょに音楽きけてうれしかった〜。またゆっくりやろうね🎵';
-  return 'いいかんじ！つぎはもっと息が合いそうだね〜🎶';
+  if (mode === 'copy' && stars >= 4) return 'まねっこ、ばっちりだったね！うれしい〜！';
+  if (stars >= 4) return 'すごい！きみのリズム、キラキラしてたよ〜！';
+  if (missRate > 0.4) return 'いっしょに音楽きけてうれしかった〜。またゆっくりやろうね';
+  return 'いいかんじ！つぎはもっと息が合いそうだね〜';
 }
 
 function fmtTime(sec: number): string {
@@ -107,35 +119,37 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
     return (
       <ScrollView contentContainerStyle={st.body}>
         {onBackToList && (
-          <TouchableOpacity onPress={onBackToList} hitSlop={8} style={st.listBack}>
-            <Text style={st.listBackTxt}>‹ ミニゲーム一覧</Text>
-          </TouchableOpacity>
+          <PressScale onPress={onBackToList} hitSlop={8} style={st.listBack}>
+            <Icon name="chevron-left" size={iconSize.sm} color={colors.mutedForeground} />
+            <Text style={st.listBackTxt}>ミニゲーム一覧</Text>
+          </PressScale>
         )}
         <Text style={st.stepTitle}>きょくをえらぼう</Text>
-        {SONGS.map(s => (
-          <TouchableOpacity key={s.id} activeOpacity={0.85} onPress={() => selectSong(s)}>
-            <LinearGradient
-              colors={s.gradient}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-              style={[st.songCard, song?.id === s.id && st.songCardSel]}
-            >
-              <Text style={st.songEmoji}>{s.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={st.songTitle}>{s.title}</Text>
-                <Text style={st.songMeta}>{s.mood}・{fmtTime(s.duration)}・♩={Math.round(s.bpm)}</Text>
-              </View>
-              {song?.id === s.id && <Text style={st.songPlaying}>♪ 試聴中</Text>}
-            </LinearGradient>
-          </TouchableOpacity>
+        {SONGS.map((s) => (
+          <PressScale
+            key={s.id}
+            onPress={() => selectSong(s)}
+            accessibilityState={{ selected: song?.id === s.id }}
+            style={[st.songCard, song?.id === s.id && st.songCardSel]}
+          >
+            {/* 曲の色は左端の細い帯だけで示す */}
+            <View style={[st.songAccent, { backgroundColor: s.accent }]} />
+            <Icon name={s.icon} size={iconSize.lg} color={s.accent} style={st.songIcon} />
+            <View style={st.songCopy}>
+              <Text style={st.songTitle}>{s.title}</Text>
+              <Text style={st.songMeta}>
+                {s.mood}・{fmtTime(s.duration)}・BPM {Math.round(s.bpm)}
+              </Text>
+            </View>
+            {song?.id === s.id && <Text style={st.songPlaying}>試聴中</Text>}
+          </PressScale>
         ))}
-        <TouchableOpacity
-          style={[st.primaryBtn, !song && st.btnDisabled]}
+        <Button
+          label="つぎへ"
           disabled={!song}
+          fullWidth
           onPress={() => { stopPreview(); setStep('mode'); }}
-          activeOpacity={0.85}
-        >
-          <Text style={st.primaryTxt}>つぎへ</Text>
-        </TouchableOpacity>
+        />
       </ScrollView>
     );
   }
@@ -146,28 +160,27 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
       <ScrollView contentContainerStyle={st.body}>
         <Text style={st.stepTitle}>あそびかたをえらぼう</Text>
         {MODES.map(m => (
-          <TouchableOpacity
+          <PressScale
             key={m.id}
             style={[st.modeCard, mode === m.id && m.ready && st.modeCardSel, !m.ready && st.modeCardLocked]}
             disabled={!m.ready}
             onPress={() => setMode(m.id)}
-            activeOpacity={0.85}
           >
-            <Text style={st.modeEmoji}>{m.ready ? m.emoji : '🔒'}</Text>
-            <View style={{ flex: 1 }}>
+            <Icon
+              name={m.ready ? m.icon : 'lock'}
+              size={iconSize.lg}
+              color={m.ready ? colors.primaryOnSoft : colors.disabledForeground}
+            />
+            <View style={st.songCopy}>
               <Text style={[st.modeTitle, !m.ready && st.txtDim]}>{m.title}</Text>
               <Text style={[st.modeDesc, !m.ready && st.txtDim]}>{m.desc}</Text>
             </View>
-          </TouchableOpacity>
+          </PressScale>
         ))}
-        <View style={st.navRow}>
-          <TouchableOpacity style={st.backBtn} onPress={() => setStep('song')}>
-            <Text style={st.backTxt}>もどる</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={st.primaryBtn} onPress={() => setStep('difficulty')} activeOpacity={0.85}>
-            <Text style={st.primaryTxt}>つぎへ</Text>
-          </TouchableOpacity>
-        </View>
+        <ButtonRow>
+          <Button label="もどる" variant="outline" onPress={() => setStep('song')} />
+          <Button label="つぎへ" onPress={() => setStep('difficulty')} style={st.grow} />
+        </ButtonRow>
       </ScrollView>
     );
   }
@@ -177,30 +190,26 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
     return (
       <ScrollView contentContainerStyle={st.body}>
         <Text style={st.stepTitle}>むずかしさをえらぼう</Text>
-        <Text style={st.subTitle}>{song?.emoji} {song?.title} / {MODES.find(m => m.id === mode)?.title}</Text>
+        <Text style={st.subTitle}>{song?.title} / {MODES.find(m => m.id === mode)?.title}</Text>
         {DIFFS.map(d => {
           const c = song ? getChart(song.id, mode, d.id) : null;
           return (
-            <TouchableOpacity
+            <PressScale
               key={d.id}
-              style={[st.diffCard, { borderColor: d.color }, difficulty === d.id && { backgroundColor: d.color + '30' }]}
+              style={[st.diffCard, { borderColor: d.color }, difficulty === d.id && { backgroundColor: d.color + '18' }]}
+              accessibilityState={{ selected: difficulty === d.id }}
               onPress={() => setDifficulty(d.id)}
-              activeOpacity={0.85}
             >
               <Text style={[st.diffLabel, { color: d.color }]}>{d.label}</Text>
               <Text style={st.diffDesc}>{d.desc}{c ? `・${c.notes.length}ノーツ` : ''}</Text>
-            </TouchableOpacity>
+            </PressScale>
           );
         })}
         {rewardLabel ? <Text style={st.rewardHint}>{rewardLabel}</Text> : null}
-        <View style={st.navRow}>
-          <TouchableOpacity style={st.backBtn} onPress={() => setStep('mode')}>
-            <Text style={st.backTxt}>もどる</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={st.primaryBtn} onPress={() => setStep('playing')} activeOpacity={0.85}>
-            <Text style={st.primaryTxt}>START！</Text>
-          </TouchableOpacity>
-        </View>
+        <ButtonRow>
+          <Button label="もどる" variant="outline" onPress={() => setStep('mode')} />
+          <Button label="START" icon="play" onPress={() => setStep('playing')} style={st.grow} />
+        </ButtonRow>
       </ScrollView>
     );
   }
@@ -233,52 +242,68 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
         {isRelax ? (
           <>
             <Text style={st.resultScoreLabel}>おつかれさま</Text>
-            <Text style={st.relaxDone}>こころが ととのった 🌊</Text>
+            <Text style={st.relaxDone}>こころが ととのった</Text>
           </>
         ) : (
           <>
             <Text style={st.resultScoreLabel}>SCORE</Text>
             <Text style={st.resultScore}>{result.score}</Text>
             <View style={st.judgeGrid}>
-              <Text style={[st.judgeCell, { color: '#FFD75E' }]}>PERFECT {result.perfect}</Text>
-              <Text style={[st.judgeCell, { color: '#5EE0B8' }]}>GREAT {result.great}</Text>
-              <Text style={[st.judgeCell, { color: '#5EB8FF' }]}>GOOD {result.good}</Text>
-              <Text style={[st.judgeCell, { color: '#8A83B8' }]}>MISS {result.miss}</Text>
+              <Text style={[st.judgeCell, { color: colors.primary }]}>
+                PERFECT {result.perfect}
+              </Text>
+              <Text style={[st.judgeCell, { color: colors.success }]}>GREAT {result.great}</Text>
+              <Text style={[st.judgeCell, { color: activityPalette.journal }]}>
+                GOOD {result.good}
+              </Text>
+              <Text style={[st.judgeCell, { color: colors.mutedForeground }]}>
+                MISS {result.miss}
+              </Text>
             </View>
             <Text style={st.resultMeta}>MAX COMBO {result.maxCombo}・プレイ時間 {fmtTime(result.playTime)}</Text>
           </>
         )}
         <Text style={st.starsLabel}>今日のリズム</Text>
-        <Text style={st.stars}>{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</Text>
-        <Text style={st.refreshTag}>🍃 今日のリフレッシュ +1</Text>
+        <View style={st.starRow}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Icon
+              key={i}
+              name="star"
+              size={iconSize.lg}
+              color={i < stars ? colors.primary : colors.border}
+            />
+          ))}
+        </View>
+        <Text style={st.refreshTag}>今日のリフレッシュ +1</Text>
         {(() => {
           // ごはんポイント(MiniGameModal.resultToReward と同じルール)
           const fp = stars >= 4 ? 3 : stars === 3 ? 2 : 1;
           return (
             <View style={st.energyRow}>
-              <View style={[st.energyChip, { backgroundColor: 'rgba(255,183,94,0.16)' }]}>
-                <Text style={[st.energyChipTxt, { color: '#FFC97E' }]}>🍚 ごはんポイント +{fp}</Text>
+              <View style={st.energyChip}>
+                <Icon name="coffee" size={iconSize.xs} color={colors.foreground} />
+                <Text style={[st.energyChipTxt, { color: colors.foreground }]}>
+                  ごはんポイント +{fp}
+                </Text>
               </View>
             </View>
           );
         })()}
         <View style={st.resultMascotRow}>
           <Mascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />
-          <View style={[st.commentBubble, { flex: 1, marginTop: 0 }]}>
+          <View style={[st.commentBubble, st.commentBubbleInline]}>
             <Text style={st.commentTxt}>{characterComment(result, mode)}</Text>
           </View>
         </View>
         {/* 循環の導線: ごはんポイント → ごはんをあげる(ホームへ) */}
-        <TouchableOpacity
-          style={st.plantBtn}
+        <Button
+          label="ごはんポイントでごはんをあげよう"
+          icon="coffee"
+          variant="secondary"
+          fullWidth
           onPress={() => { onClose(); router.push('/(tabs)'); }}
-          activeOpacity={0.85}
-        >
-          <Text style={st.plantBtnTxt}>🍚 ごはんポイントでごはんをあげよう</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={st.primaryBtn} onPress={onClose} activeOpacity={0.85}>
-          <Text style={st.primaryTxt}>とじる</Text>
-        </TouchableOpacity>
+        />
+        <Button label="とじる" variant="outline" fullWidth onPress={onClose} />
       </ScrollView>
     );
   }
@@ -287,80 +312,108 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
 }
 
 const st = StyleSheet.create({
-  body: { padding: 20, gap: 10, alignItems: 'stretch' },
-  stepTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.95)', textAlign: 'center', marginBottom: 4 },
-  listBack: { alignSelf: 'flex-start', paddingVertical: 2 },
-  listBackTxt: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.62)' },
-  subTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginBottom: 2 },
-
-  songCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 18, padding: 16,
-  },
-  songCardSel: { borderWidth: 2.5, borderColor: '#FFFFFF' },
-  songEmoji: { fontSize: 30 },
-  songTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
-  songMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.85)', marginTop: 2 },
-  songPlaying: { fontSize: 12, fontFamily: 'Inter_700Bold', color: '#FFF' },
-
-  modeCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 16, padding: 14,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 2, borderColor: 'transparent',
-  },
-  modeCardSel: { borderColor: '#FFD75E', backgroundColor: 'rgba(255,215,94,0.12)' },
-  modeCardLocked: { opacity: 0.55 },
-  modeEmoji: { fontSize: 24 },
-  modeTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.95)' },
-  modeDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.6)', marginTop: 1 },
-  txtDim: { color: 'rgba(255,255,255,0.45)' },
-
-  diffCard: {
-    borderRadius: 16, padding: 14, borderWidth: 2,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  diffLabel: { fontSize: 16, fontFamily: 'Inter_700Bold' },
-  diffDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.65)', marginTop: 2 },
-  rewardHint: { fontSize: 12, color: 'rgba(255,255,255,0.55)', textAlign: 'center', fontFamily: 'Inter_400Regular' },
-
-  navRow: { flexDirection: 'row', gap: 10, marginTop: 6 },
-  backBtn: {
-    paddingHorizontal: 22, paddingVertical: 15, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center',
-  },
-  backTxt: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.75)' },
-  primaryBtn: {
-    flex: 1, paddingVertical: 15, borderRadius: 18, marginTop: 6,
-    backgroundColor: '#7C5CFF', alignItems: 'center',
-  },
-  btnDisabled: { opacity: 0.4 },
-  primaryTxt: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#FFF' },
-
-  resultScoreLabel: { fontSize: 13, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
-  resultScore: { fontSize: 44, fontFamily: 'Inter_700Bold', color: '#FFF', textAlign: 'center' },
-  judgeGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10,
-    marginTop: 4,
-  },
-  judgeCell: { fontSize: 14, fontFamily: 'Inter_700Bold' },
-  resultMeta: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.75)', textAlign: 'center', marginTop: 2 },
-  starsLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 8 },
-  stars: { fontSize: 30, color: '#FFD75E', textAlign: 'center', letterSpacing: 4 },
-  relaxDone: { fontSize: 24, fontFamily: 'Inter_700Bold', color: '#B8F5E4', textAlign: 'center', marginTop: 4 },
-  refreshTag: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#9BE8B8', textAlign: 'center', marginTop: 6 },
-  energyRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 8 },
-  energyChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 14 },
-  energyChipTxt: { fontSize: 13, fontFamily: 'Inter_700Bold' },
-  plantBtn: {
-    paddingVertical: 13, borderRadius: 18, marginTop: 8,
-    backgroundColor: 'rgba(255,201,77,0.16)', borderWidth: 1, borderColor: 'rgba(255,201,77,0.5)',
+  body: { padding: space.xl, gap: space.sm, alignItems: 'stretch' },
+  stepTitle: { ...typography.heading, color: colors.foreground, textAlign: 'center' },
+  grow: { flex: 1 },
+  listBack: {
+    alignSelf: 'flex-start',
+    minHeight: control.minTouch,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: space.xs,
   },
-  plantBtnTxt: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#FFD86B' },
-  resultMascotRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  listBackTxt: { ...typography.label, color: colors.mutedForeground },
+  subTitle: { ...typography.label, color: colors.mutedForeground, textAlign: 'center' },
+
+  /* 曲 */
+  songCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    borderRadius: radius.md,
+    padding: space.lg,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    overflow: 'hidden',
+  },
+  songCardSel: { borderColor: colors.primary },
+  songAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
+  songIcon: { marginLeft: space.xs },
+  songCopy: { flex: 1 },
+  songTitle: { ...typography.subhead, color: colors.foreground },
+  songMeta: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
+  songPlaying: { ...typography.micro, color: colors.primaryOnSoft },
+
+  /* モード */
+  modeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    borderRadius: radius.md,
+    padding: space.lg,
+    backgroundColor: colors.card,
+    ...border.hairline,
+  },
+  modeCardSel: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  modeCardLocked: { opacity: 0.5 },
+  modeTitle: { ...typography.subhead, color: colors.foreground },
+  modeDesc: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
+  txtDim: { color: colors.disabledForeground },
+
+  /* 難易度 */
+  diffCard: {
+    borderRadius: radius.md,
+    padding: space.lg,
+    borderWidth: border.width,
+    backgroundColor: colors.card,
+  },
+  diffLabel: { ...typography.subhead },
+  diffDesc: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
+  rewardHint: { ...typography.caption, color: colors.mutedForeground, textAlign: 'center' },
+
+  /* 結果 */
+  resultScoreLabel: { ...typography.label, color: colors.mutedForeground, textAlign: 'center' },
+  resultScore: {
+    fontSize: 40,
+    lineHeight: 48,
+    fontFamily: 'Inter_700Bold',
+    color: colors.foreground,
+    textAlign: 'center',
+  },
+  judgeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: space.md,
+  },
+  judgeCell: { ...typography.calloutStrong },
+  resultMeta: { ...typography.label, color: colors.mutedForeground, textAlign: 'center' },
+  starsLabel: { ...typography.label, color: colors.mutedForeground, textAlign: 'center' },
+  starRow: { flexDirection: 'row', justifyContent: 'center', gap: space.xs },
+  relaxDone: { ...typography.title, color: colors.success, textAlign: 'center' },
+  refreshTag: { ...typography.label, color: colors.success, textAlign: 'center' },
+  energyRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: space.sm,
+  },
+  energyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.muted,
+  },
+  energyChipTxt: { ...typography.label },
+  resultMascotRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   commentBubble: {
-    backgroundColor: 'rgba(255,255,255,0.09)', borderRadius: 18, padding: 14, marginTop: 6,
+    backgroundColor: colors.muted,
+    borderRadius: radius.md,
+    padding: space.lg,
   },
-  commentTxt: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.92)', textAlign: 'center', lineHeight: 21 },
+  commentTxt: { ...typography.body, color: colors.foreground, textAlign: 'center' },
+  commentBubbleInline: { flex: 1 },
 });

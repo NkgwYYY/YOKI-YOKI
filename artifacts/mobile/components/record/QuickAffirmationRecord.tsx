@@ -1,14 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Modal, StyleSheet, Text, View } from 'react-native';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -18,28 +11,43 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import {
+  border,
+  colors,
+  control,
+  moodPalette,
+  radius,
+  space,
+  typography,
+} from '@/constants/theme';
+import { Button } from '@/components/ui/Button';
+import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 import { useApp } from '@/contexts/AppContext';
 import { Analytics } from '@/utils/analytics';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { Mascot } from '@/components/Mascot';
 
-export const QUICK_ACTIONS = [
-  { label: 'ご飯を食べた', icon: 'restaurant-outline' as const },
-  { label: '外に出た', icon: 'sunny-outline' as const },
-  { label: 'お風呂に入った', icon: 'water-outline' as const },
-  { label: '仕事・学校に行った', icon: 'briefcase-outline' as const },
-  { label: 'ちゃんと休んだ', icon: 'moon-outline' as const },
-  { label: 'その他', icon: 'heart-outline' as const },
-] as const;
+export const QUICK_ACTIONS: { label: string; icon: IconName }[] = [
+  { label: 'ご飯を食べた', icon: 'coffee' },
+  { label: '外に出た', icon: 'sun' },
+  { label: 'お風呂に入った', icon: 'droplet' },
+  { label: '仕事・学校に行った', icon: 'briefcase' },
+  { label: 'ちゃんと休んだ', icon: 'moon' },
+  { label: 'その他', icon: 'heart' },
+];
 
-const MOODS = [
-  { value: 1, emoji: '😢', label: 'つらい' },
-  { value: 2, emoji: '😞', label: 'しんどい' },
-  { value: 3, emoji: '😐', label: 'ふつう' },
-  { value: 4, emoji: '🙂', label: 'いい感じ' },
-  { value: 5, emoji: '😄', label: 'うれしい' },
-] as const;
+/**
+ * 気分 1〜5。天気のメタファーで 5 段階を表す。顔の絵文字は使わない
+ * （3 種類しか作れず、段階が読み取れないため）。色は `moodPalette`。
+ */
+const MOODS: { value: number; icon: IconName; label: string }[] = [
+  { value: 1, icon: 'cloud-lightning', label: 'つらい' },
+  { value: 2, icon: 'cloud-rain', label: 'しんどい' },
+  { value: 3, icon: 'cloud', label: 'ふつう' },
+  { value: 4, icon: 'sunrise', label: 'いい感じ' },
+  { value: 5, icon: 'sun', label: 'うれしい' },
+];
 
 const CLEAR_SOUND = require('@/assets/sounds/taiko_ka.mp3');
 
@@ -63,9 +71,9 @@ function Sparkle({ delay, left, top, size }: { delay: number; left: number; top:
     ],
   }));
   return (
-    <Animated.Text style={[styles.sparkle, { left, top, fontSize: size }, style]}>
-      ✦
-    </Animated.Text>
+    <Animated.View style={[styles.sparkle, { left, top }, style]}>
+      <Icon name="star" size={size} color={colors.primary} />
+    </Animated.View>
   );
 }
 
@@ -76,7 +84,6 @@ function AffirmationCelebration({
   visible: boolean;
   onFinish: () => void;
 }) {
-  const colors = useColors();
   const { progress } = useApp();
   const soundRef = useRef<Audio.Sound | null>(null);
   const doneRef = useRef(false);
@@ -141,7 +148,6 @@ function AffirmationCelebration({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => {}}>
       <View style={styles.celebrationOverlay}>
-        <View style={styles.celebrationGlow} pointerEvents="none" />
         {[
           [38, 128, 0, 26],
           [285, 114, 110, 20],
@@ -159,17 +165,15 @@ function AffirmationCelebration({
           />
         ))}
         <View style={styles.celebrationContent} pointerEvents="none">
-          <View style={[styles.celebrationHalo, { borderColor: colors.secondary + '88' }]}>
-            <Mascot stage={getMascotStage(progress.level)} mood="excited" size={118} preferStatic />
+          <View style={styles.celebrationHalo}>
+            <Mascot stage={getMascotStage(progress.level)} mood="excited" size={112} preferStatic />
           </View>
           <Animated.View style={[styles.headlineWrap, headlineStyle]}>
-            <Text style={[styles.headline, { color: colors.foreground }]}>✨ 今日も生きてて</Text>
-            <Text style={[styles.headline, { color: colors.foreground }]}>えらい！ ✨</Text>
+            <Text style={styles.headline}>今日も生きてて</Text>
+            <Text style={styles.headline}>えらい！</Text>
           </Animated.View>
-          <Text style={[styles.celebrationSub, { color: colors.mutedForeground }]}>
-            ひとつできたら、それでじゅうぶん。
-          </Text>
-          <Text style={[styles.tapHint, { color: colors.mutedForeground }]}>きらきら、届いてるよ</Text>
+          <Text style={styles.celebrationSub}>ひとつできたら、それでじゅうぶん。</Text>
+          <Text style={styles.tapHint}>きらきら、届いてるよ</Text>
         </View>
       </View>
     </Modal>
@@ -183,7 +187,6 @@ interface QuickAffirmationRecordProps {
 }
 
 export function QuickAffirmationRecord({ onComplete, onSaveStart, onSaveFailed }: QuickAffirmationRecordProps) {
-  const colors = useColors();
   const { getTodayRecord, holdLightFlow, saveRecord } = useApp();
   const todayRecord = getTodayRecord();
   const [mood, setMood] = useState(todayRecord?.mood ?? 3);
@@ -254,91 +257,89 @@ export function QuickAffirmationRecord({ onComplete, onSaveStart, onSaveFailed }
 
   return (
     <>
-      <View style={[styles.quickCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={styles.quickCard}>
         <View style={styles.promptRow}>
           <View>
-            <Text style={[styles.question, { color: colors.foreground }]}>今日の気分は？</Text>
-            <Text style={[styles.helper, { color: colors.mutedForeground }]}>どれでも大丈夫だよ</Text>
+            <Text style={styles.question}>今日の気分は？</Text>
+            <Text style={styles.helper}>どれでも大丈夫だよ</Text>
           </View>
-          <Text style={styles.promptIcon}>💭</Text>
+          <IconBadge name="message-square" size="sm" />
         </View>
         <View style={styles.moodGrid}>
           {MOODS.map((option) => {
             const selected = mood === option.value;
             return (
-              <TouchableOpacity
+              <PressScale
                 key={option.value}
                 testID={`quick-mood-${option.value}`}
                 accessibilityLabel={`気分：${option.label}`}
                 onPress={() => setMood(option.value)}
-                style={[
-                  styles.moodButton,
-                  {
-                    backgroundColor: selected ? colors.secondary + '29' : colors.muted,
-                    borderColor: selected ? colors.secondary : 'transparent',
-                  },
-                ]}
+                accessibilityState={{ selected }}
+                style={[styles.moodButton, selected && styles.optionSelected]}
               >
-                <Text style={styles.moodEmoji}>{option.emoji}</Text>
-                <Text style={[styles.moodText, { color: selected ? colors.foreground : colors.mutedForeground }]}>
+                <Icon
+                  name={option.icon}
+                  size={iconSize.lg}
+                  color={selected ? moodPalette[option.value] : colors.subtleForeground}
+                />
+                <Text style={[styles.moodText, selected && styles.optionTextSelected]}>
                   {option.label}
                 </Text>
-              </TouchableOpacity>
+              </PressScale>
             );
           })}
         </View>
 
-        <View style={styles.actionHeading}>
-          <Text style={[styles.question, { color: colors.foreground }]}>今日できたことを1つ選ぼう</Text>
-          <Text style={[styles.helper, { color: colors.mutedForeground }]}>選べなくても、気分だけでOK</Text>
+        <View>
+          <Text style={styles.question}>今日できたことを1つ選ぼう</Text>
+          <Text style={styles.helper}>選べなくても、気分だけでOK</Text>
         </View>
         <View style={styles.actionGrid}>
           {QUICK_ACTIONS.map((item) => {
             const selected = action === item.label;
             return (
-              <TouchableOpacity
+              <PressScale
                 key={item.label}
                 testID={`quick-action-${item.label}`}
                 onPress={() => setAction(selected ? null : item.label)}
-                activeOpacity={0.82}
-                style={[
-                  styles.actionButton,
-                  {
-                    backgroundColor: selected ? colors.primary + '4D' : colors.muted,
-                    borderColor: selected ? colors.primary : 'transparent',
-                  },
-                ]}
+                accessibilityState={{ selected }}
+                style={[styles.actionButton, selected && styles.optionSelected]}
               >
-                <Ionicons name={item.icon} size={15} color={selected ? colors.foreground : colors.mutedForeground} />
-                <Text style={[styles.actionText, { color: selected ? colors.foreground : colors.mutedForeground }]}>
+                <Icon
+                  name={item.icon}
+                  size={iconSize.sm}
+                  color={selected ? colors.primaryOnSoft : colors.subtleForeground}
+                />
+                <Text style={[styles.actionText, selected && styles.optionTextSelected]}>
                   {item.label}
                 </Text>
-              </TouchableOpacity>
+              </PressScale>
             );
           })}
         </View>
-        <TouchableOpacity
+        <PressScale
           onPress={() => setAction(action === '今日は何もできなかった' ? null : '今日は何もできなかった')}
           style={styles.nothingButton}
-          activeOpacity={0.8}
         >
-          <Text style={[styles.nothingText, { color: action === '今日は何もできなかった' ? colors.secondary : colors.mutedForeground }]}>
+          <Text
+            style={[
+              styles.nothingText,
+              action === '今日は何もできなかった' && styles.nothingTextSelected,
+            ]}
+          >
             今日は何もできなかった、でもOK
           </Text>
-        </TouchableOpacity>
-        {saveError ? <Text style={[styles.saveError, { color: colors.destructive }]}>{saveError}</Text> : null}
-        <TouchableOpacity
+        </PressScale>
+        {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
+        <Button
           testID="quick-record-save"
+          label={isSaving ? '記録してるよ…' : 'これで記録する'}
+          icon="check"
           onPress={save}
-          disabled={isSaving}
-          activeOpacity={0.88}
-          style={[styles.saveButton, { backgroundColor: isSaving ? colors.muted : colors.primary }]}
-        >
-          <Ionicons name={isSaving ? 'hourglass-outline' : 'sparkles'} size={20} color={colors.primaryForeground} />
-          <Text style={[styles.saveButtonText, { color: colors.primaryForeground }]}>
-            {isSaving ? '記録してるよ…' : 'これで記録する'}
-          </Text>
-        </TouchableOpacity>
+          loading={isSaving}
+          fullWidth
+          style={styles.saveButton}
+        />
       </View>
       <AffirmationCelebration visible={celebrating} onFinish={finishCelebration} />
     </>
@@ -347,80 +348,97 @@ export function QuickAffirmationRecord({ onComplete, onSaveStart, onSaveFailed }
 
 const styles = StyleSheet.create({
   quickCard: {
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 16,
-    gap: 12,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    borderRadius: radius.lg,
+    padding: space.xl,
+    gap: space.lg,
   },
-  promptRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  promptIcon: { fontSize: 24 },
-  question: { fontSize: 16, fontFamily: 'Inter_700Bold', letterSpacing: -0.2 },
-  helper: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  moodGrid: { flexDirection: 'row', gap: 6 },
+  promptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.lg,
+  },
+  question: { ...typography.subhead, color: colors.foreground },
+  helper: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
+
+  /* 選択肢の共通の見せ方 — 選択は「淡い紫の塗り + 1px の紫の枠」だけで示す。
+     枠の太さは常に 1 なので、選んでも行の高さが動かない。 */
+  optionSelected: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  optionTextSelected: { color: colors.primaryOnSoft },
+
+  moodGrid: { flexDirection: 'row', gap: space.sm },
   moodButton: {
     flex: 1,
-    minHeight: 58,
+    minHeight: 64,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 1,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    gap: space.xs,
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
+    ...border.hairline,
   },
-  moodEmoji: { fontSize: 22 },
-  moodText: { fontSize: 9, fontFamily: 'Inter_600SemiBold' },
-  actionHeading: { marginTop: 1 },
-  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  moodText: { ...typography.micro, color: colors.mutedForeground },
+
+  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   actionButton: {
-    width: '31.5%',
-    minHeight: 48,
-    paddingHorizontal: 5,
+    flexGrow: 1,
+    flexBasis: '30%',
+    minHeight: control.minTouch,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
-    borderRadius: 13,
-    borderWidth: 1,
+    gap: space.xs,
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
+    ...border.hairline,
   },
-  actionText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', textAlign: 'center' },
-  nothingButton: { alignSelf: 'center', paddingVertical: 2, paddingHorizontal: 8 },
-  nothingText: { fontSize: 11, fontFamily: 'Inter_500Medium', textDecorationLine: 'underline' },
-  saveError: { fontSize: 12, fontFamily: 'Inter_500Medium', textAlign: 'center' },
-  saveButton: {
-    minHeight: 52,
-    borderRadius: 16,
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+  actionText: {
+    ...typography.micro,
+    color: colors.mutedForeground,
+    textAlign: 'center',
   },
-  saveButtonText: { fontSize: 16, fontFamily: 'Inter_700Bold' },
+
+  nothingButton: { alignSelf: 'center', paddingVertical: space.xs, paddingHorizontal: space.sm },
+  nothingText: {
+    ...typography.caption,
+    color: colors.mutedForeground,
+    textDecorationLine: 'underline',
+  },
+  nothingTextSelected: { color: colors.primaryOnSoft },
+  saveError: { ...typography.caption, color: colors.danger, textAlign: 'center' },
+
+  saveButton: { marginTop: space.xs },
+
+  /* 記録できた瞬間の全画面演出 — 淡い紫一色。発光やぼかしは重ねない。 */
   celebrationOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(9,5,28,0.92)',
+    backgroundColor: colors.backgroundSunken,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  celebrationGlow: {
-    position: 'absolute',
-    width: 420,
-    height: 420,
-    borderRadius: 210,
-    backgroundColor: 'rgba(128,208,199,0.13)',
-  },
-  celebrationContent: { width: '100%', alignItems: 'center', paddingHorizontal: 24 },
+  celebrationContent: { width: '100%', alignItems: 'center', paddingHorizontal: space.xl },
   celebrationHalo: {
-    width: 164,
-    height: 164,
-    borderRadius: 82,
-    borderWidth: 2,
+    width: 160,
+    height: 160,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    ...border.hairlineStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginBottom: 20,
+    marginBottom: space.xl,
   },
   headlineWrap: { alignItems: 'center' },
-  headline: { fontSize: 31, lineHeight: 42, fontFamily: 'Inter_700Bold', textAlign: 'center', letterSpacing: -1.1 },
-  celebrationSub: { fontSize: 14, fontFamily: 'Inter_500Medium', textAlign: 'center', marginTop: 18 },
-  tapHint: { position: 'absolute', bottom: -125, fontSize: 11, fontFamily: 'Inter_400Regular' },
-  sparkle: { position: 'absolute', color: '#FFE789', textShadowColor: '#E9A6FF', textShadowRadius: 10 },
+  headline: { ...typography.display, color: colors.foreground, textAlign: 'center' },
+  celebrationSub: {
+    ...typography.body,
+    color: colors.mutedForeground,
+    textAlign: 'center',
+    marginTop: space.lg,
+  },
+  tapHint: { ...typography.caption, color: colors.subtleForeground, marginTop: space.xxxl },
+  sparkle: { position: 'absolute' },
 });

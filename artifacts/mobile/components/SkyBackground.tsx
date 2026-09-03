@@ -1,19 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ImageBackground } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, View } from 'react-native';
+import { colors } from '@/constants/theme';
 
 /**
- * 時間帯で変化するドリーミーな空の背景。
- * 朝 5-10時 / 昼 10-16時 / 夕 16-19時 / 夜 19-5時
+ * 全画面の下敷き。時間帯でごくわずかに色味が変わる単色の面。
+ *
+ * 以前はここに写真の空とグラデーションのスクリムを重ねていたが、
+ * 前面のカード（白 + 1px ボーダー）の輪郭を濁らせていたため単色にした。
+ * 時間帯の手がかりは残しつつ、差は本文の可読性を一切動かさない範囲に収めている。
  */
-const SKY_IMAGES = {
-  morning: require('../assets/images/sky/morning.png'),
-  day: require('../assets/images/sky/day.png'),
-  sunset: require('../assets/images/sky/sunset.png'),
-  night: require('../assets/images/sky/night.png'),
+const SKY_TINTS = {
+  morning: '#FBF8FF',
+  day: colors.background,
+  sunset: '#FDF7FB',
+  night: '#F6F3FD',
 } as const;
 
-export type SkyPeriod = keyof typeof SKY_IMAGES;
+export type SkyPeriod = keyof typeof SKY_TINTS;
 
 export function getSkyPeriod(hour: number): SkyPeriod {
   if (hour >= 5 && hour < 10) return 'morning';
@@ -25,7 +28,7 @@ export function getSkyPeriod(hour: number): SkyPeriod {
 export function SkyBackground() {
   const [period, setPeriod] = useState<SkyPeriod>(() => getSkyPeriod(new Date().getHours()));
 
-  // 時間の経過とともに空を変化させる（1分ごとに時間帯をチェック）
+  // 時間の経過とともに色味を切り替える（1分ごとに時間帯をチェック）
   useEffect(() => {
     const iv = setInterval(() => {
       setPeriod(getSkyPeriod(new Date().getHours()));
@@ -34,19 +37,9 @@ export function SkyBackground() {
   }, []);
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <ImageBackground
-        source={SKY_IMAGES[period]}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      >
-        {/* 上部にうっすら紫のスクリム（ヘッダー文字の可読性用） */}
-        <LinearGradient
-          colors={['rgba(58,42,110,0.45)', 'rgba(58,42,110,0.08)', 'rgba(0,0,0,0)']}
-          locations={[0, 0.35, 0.6]}
-          style={StyleSheet.absoluteFill}
-        />
-      </ImageBackground>
-    </View>
+    <View
+      style={[StyleSheet.absoluteFill, { backgroundColor: SKY_TINTS[period] }]}
+      pointerEvents="none"
+    />
   );
 }

@@ -6,19 +6,27 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Platform,
+  View, Text, StyleSheet, Modal, ScrollView, Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue, useAnimatedStyle, withSequence, withTiming, withSpring, FadeIn,
 } from 'react-native-reanimated';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import {
+  border,
+  colors,
+  control,
+  elevation,
+  radius,
+  space,
+  typography,
+} from '@/constants/theme';
 import { StageCharacter } from '@/components/StageCharacter';
 import { CharacterKey, MascotMood } from '@/utils/mascotUtils';
 import { stageForChar } from '@/utils/encounters';
 import { DEX_PROFILES } from '@/data/characterDex';
 import { useApp } from '@/contexts/AppContext';
+import { Icon, iconSize, type IconName } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 
 interface Props {
   charKey: CharacterKey;
@@ -37,16 +45,15 @@ const TALK_LINES: Record<CharacterKey, string[]> = {
 
 type ActionKey = 'talk' | 'pet' | 'jump' | 'shake' | 'walk';
 
-const ACTIONS: { key: ActionKey; icon: string; label: string }[] = [
-  { key: 'talk',  icon: 'chatbubble-ellipses-outline', label: '話しかける' },
-  { key: 'pet',   icon: 'hand-left-outline',           label: 'なでる' },
-  { key: 'jump',  icon: 'arrow-up-circle-outline',     label: 'ジャンプ' },
-  { key: 'shake', icon: 'sync-outline',                label: 'ブルブル' },
-  { key: 'walk',  icon: 'walk-outline',                label: '歩く' },
+const ACTIONS: { key: ActionKey; icon: IconName; label: string }[] = [
+  { key: 'talk',  icon: 'message-circle',   label: '話しかける' },
+  { key: 'pet',   icon: 'heart',            label: 'なでる' },
+  { key: 'jump',  icon: 'arrow-up-circle',  label: 'ジャンプ' },
+  { key: 'shake', icon: 'refresh-cw',       label: 'ブルブル' },
+  { key: 'walk',  icon: 'activity',         label: '歩く' },
 ];
 
 export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Props) {
-  const colors = useColors();
   const { lightEnergy, growth } = useApp();
   const profile = DEX_PROFILES[charKey];
   const stage = stageForChar(charKey);
@@ -136,14 +143,15 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Animated.View entering={FadeIn.duration(200)} style={[styles.sheet, { borderColor: colors.border }]}>
-          <LinearGradient
-            colors={['rgba(34,22,74,0.99)', 'rgba(16,10,38,1)']}
-            style={StyleSheet.absoluteFill}
-          />
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={10}>
-            <Ionicons name="close" size={22} color="rgba(255,255,255,0.7)" />
-          </TouchableOpacity>
+        <Animated.View entering={FadeIn.duration(200)} style={styles.sheet}>
+          <PressScale
+            style={styles.closeBtn}
+            onPress={onClose}
+            hitSlop={space.sm}
+            accessibilityLabel="閉じる"
+          >
+            <Icon name="x" size={20} color={colors.foreground} />
+          </PressScale>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
             {/* ビジュアル */}
             <View style={styles.stageArea}>
@@ -174,15 +182,14 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
             {/* インタラクション */}
             <View style={styles.actionRow}>
               {ACTIONS.map((a) => (
-                <TouchableOpacity
+                <PressScale
                   key={a.key}
                   style={styles.actionBtn}
                   onPress={() => handleAction(a.key)}
-                  activeOpacity={0.8}
                 >
-                  <Ionicons name={a.icon as any} size={20} color="#FFD86B" />
+                  <Icon name={a.icon} size={iconSize.md} color={colors.primaryOnSoft} />
                   <Text style={styles.actionLabel}>{a.label}</Text>
-                </TouchableOpacity>
+                </PressScale>
               ))}
             </View>
 
@@ -192,11 +199,11 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
                 <Text style={styles.gaugeNote}>いまのこの子の状態(進化してもおなじ個体だよ)</Text>
               )}
               {[
-                { label: '元気', value: lightEnergy.genki, color: '#FF9ECD', icon: '💗' },
-                { label: '光の力', value: lightEnergy.lightPower, color: '#FFD86B', icon: '✨' },
+                { label: '元気', value: lightEnergy.genki, color: colors.primary, icon: 'heart' as IconName },
+                { label: '光の力', value: lightEnergy.lightPower, color: colors.success, icon: 'zap' as IconName },
               ].map((g) => (
                 <View key={g.label} style={styles.gaugeRow}>
-                  <Text style={styles.gaugeIcon}>{g.icon}</Text>
+                  <Icon name={g.icon} size={iconSize.sm} color={g.color} />
                   <Text style={styles.gaugeLabel}>{g.label}</Text>
                   <View style={styles.gaugeTrack}>
                     <View style={[styles.gaugeFill, { width: `${g.value}%`, backgroundColor: g.color }]} />
@@ -236,62 +243,115 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(8,5,20,0.7)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' },
   sheet: {
-    maxHeight: '90%', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    overflow: 'hidden', borderWidth: 1,
+    maxHeight: '92%',
+    backgroundColor: colors.sheet,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    borderTopWidth: border.width,
+    borderTopColor: colors.border,
+    overflow: 'hidden',
+    ...elevation.overlay,
   },
   closeBtn: {
-    position: 'absolute', top: 14, right: 16, zIndex: 10,
-    width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    position: 'absolute',
+    top: space.lg,
+    right: space.lg,
+    zIndex: 1,
+    width: control.iconSm,
+    height: control.iconSm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  scroll: { padding: 22, paddingBottom: Platform.OS === 'web' ? 40 : 34, alignItems: 'stretch' },
-  stageArea: { alignItems: 'center', minHeight: 240, justifyContent: 'flex-end' },
+  scroll: { padding: space.xl, paddingTop: space.xxl, gap: space.lg },
+
+  stageArea: { alignItems: 'center', justifyContent: 'flex-end', minHeight: 190 },
   bubble: {
-    position: 'absolute', top: 0, alignSelf: 'center', zIndex: 5,
-    backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 16,
-    paddingHorizontal: 14, paddingVertical: 8, maxWidth: 240,
+    position: 'absolute',
+    top: 0,
+    zIndex: 1,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
-  bubbleText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#2A1E52' },
-  name: { fontSize: 22, fontFamily: 'Inter_700Bold', color: '#FFFFFF', textAlign: 'center', marginTop: 8 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 6 },
+  bubbleText: { ...typography.label, color: colors.foreground },
+
+  name: { ...typography.title, color: colors.foreground, textAlign: 'center' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
   metaBadge: {
-    backgroundColor: 'rgba(255,201,77,0.16)', borderColor: 'rgba(255,201,77,0.4)',
-    borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.md,
+    paddingVertical: 2,
   },
-  metaBadgeText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#FFD86B' },
-  metaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.6)' },
-  actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, gap: 6 },
+  metaBadgeText: { ...typography.micro, color: colors.primaryOnSoft },
+  metaText: { ...typography.micro, color: colors.mutedForeground },
+
+  actionRow: { flexDirection: 'row', gap: space.sm },
   actionBtn: {
-    flex: 1, alignItems: 'center', gap: 4, paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 14,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.xs,
+    minHeight: 64,
+    backgroundColor: colors.muted,
+    ...border.hairline,
+    borderRadius: radius.md,
   },
-  actionLabel: { fontSize: 10, fontFamily: 'Inter_500Medium', color: 'rgba(255,255,255,0.85)' },
+  actionLabel: { ...typography.micro, color: colors.mutedForeground },
+
+  /* ゲージ */
   gaugeCard: {
-    marginTop: 14, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 16,
-    padding: 14, gap: 10,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.md,
   },
-  gaugeNote: { fontSize: 10, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.5)' },
-  gaugeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  gaugeIcon: { fontSize: 14 },
-  gaugeLabel: { width: 48, fontSize: 12, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.85)' },
-  gaugeTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden' },
-  gaugeFill: { height: '100%', borderRadius: 4 },
-  gaugeValue: { width: 30, fontSize: 12, fontFamily: 'Inter_700Bold', color: '#FFFFFF', textAlign: 'right' },
+  gaugeNote: { ...typography.micro, color: colors.subtleForeground },
+  gaugeRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  gaugeLabel: { ...typography.caption, width: 48, color: colors.mutedForeground },
+  gaugeTrack: {
+    flex: 1,
+    height: space.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.muted,
+    overflow: 'hidden',
+  },
+  gaugeFill: { height: '100%', borderRadius: radius.pill },
+  gaugeValue: { ...typography.label, width: 30, color: colors.foreground, textAlign: 'right' },
+
+  /* プロフィール */
   profileCard: {
-    marginTop: 14, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 16,
-    padding: 16, gap: 12,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.md,
   },
-  profileRow: { gap: 3 },
-  profileLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#FFD86B' },
-  profileValue: { fontSize: 13, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.9)', lineHeight: 19 },
-  quoteCard: { marginTop: 14, alignItems: 'center' },
-  quoteText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.85)' },
+  profileRow: { gap: space.xs },
+  profileLabel: { ...typography.micro, color: colors.primaryOnSoft },
+  profileValue: { ...typography.callout, color: colors.foreground },
+
+  quoteCard: {
+    backgroundColor: colors.muted,
+    borderRadius: radius.lg,
+    padding: space.lg,
+  },
+  quoteText: { ...typography.bodyStrong, color: colors.foreground },
+
   storyCard: {
-    marginTop: 14, backgroundColor: 'rgba(138,180,255,0.08)', borderRadius: 16,
-    padding: 16, gap: 6, borderWidth: 1, borderColor: 'rgba(138,180,255,0.2)',
+    backgroundColor: colors.card,
+    ...border.hairline,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.sm,
   },
-  storyTitle: { fontSize: 12, fontFamily: 'Inter_700Bold', color: '#8AB4FF' },
-  storyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.9)', lineHeight: 21 },
+  storyTitle: { ...typography.label, color: colors.mutedForeground },
+  storyText: { ...typography.callout, color: colors.foreground },
 });

@@ -10,6 +10,7 @@ import {
 } from '@/utils/rhythm/types';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
 import { RhythmMascot, RhythmMascotHandle } from './RhythmMascot';
+import { colors, gameSurface, judgePalette } from '@/constants/theme';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -21,10 +22,10 @@ const APPEAR_S = 2.4; // 円が現れて縮んでいく秒数 (ゆっくり)
 
 /* 癒やし系の言葉 (MISSでも責めない) */
 const WORDS: Record<Judgment, { text: string; color: string }> = {
-  perfect: { text: 'ぴったり…', color: '#B8F5E4' },
-  great:   { text: 'ゆったり',   color: '#A8D8F0' },
-  good:    { text: 'ふんわり',   color: '#C9BFF5' },
-  miss:    { text: 'だいじょうぶ', color: '#8A83B8' },
+  perfect: { text: 'ぴったり…', color: judgePalette.great },
+  great:   { text: 'ゆったり',   color: judgePalette.good },
+  good:    { text: 'ふんわり',   color: judgePalette.perfect },
+  miss:    { text: 'だいじょうぶ', color: judgePalette.miss },
 };
 
 interface LiveNote extends Note { id: number; judged: boolean }
@@ -222,11 +223,11 @@ export function RelaxRhythmGame({ song, chart, onFinish, onQuit }: Props) {
 const st = StyleSheet.create({
   root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 10, alignItems: 'stretch' },
   topRow: { paddingHorizontal: 20, minHeight: 24, alignItems: 'center' },
-  hint: { fontSize: 12.5, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.55)', textAlign: 'center' },
+  hint: { fontSize: 12.5, fontFamily: 'Inter_600SemiBold', color: colors.mutedForeground, textAlign: 'center' },
   area: {
     marginHorizontal: 16, borderRadius: 18, overflow: 'hidden',
     backgroundColor: 'rgba(120,140,220,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1, borderColor: colors.border,
   },
   target: {
     position: 'absolute', width: 52, height: 52, borderRadius: 26,
@@ -242,9 +243,9 @@ const st = StyleSheet.create({
   },
   tapToStart: {
     ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(10,8,30,0.72)',
+    backgroundColor: gameSurface.scrim,
   },
-  tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
   mascotRow: { alignItems: 'center' },
-  quitTxt: { textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: 'Inter_400Regular', paddingTop: 2 },
+  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.subtleForeground, fontFamily: 'Inter_400Regular', paddingTop: 2 },
 });

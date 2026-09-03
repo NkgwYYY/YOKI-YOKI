@@ -5,11 +5,14 @@
  * 重い描画はせず Reanimated の transform/opacity だけで構成する。
  */
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withTiming, withDelay, withSequence,
   Easing, FadeInDown, FadeOut,
 } from 'react-native-reanimated';
+import { border, colors, elevation, radius, space, typography } from '@/constants/theme';
+import { Icon, iconSize } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 
 const { height: SH, width: SW } = Dimensions.get('window');
 
@@ -27,7 +30,13 @@ function Particle({ delay, xOff, size }: { delay: number; xOff: number; size: nu
     ],
   }));
   return (
-    <Animated.Text style={[styles.particle, { fontSize: size }, style]}>✦</Animated.Text>
+    <Animated.View
+      style={[
+        styles.particle,
+        { width: size, height: size, borderRadius: size / 2 },
+        style,
+      ]}
+    />
   );
 }
 
@@ -60,15 +69,26 @@ export function LightFlowEffect({ amount, onDone, onGoPlant }: Props) {
         exiting={FadeOut}
         style={styles.bannerWrap}
       >
-        <TouchableOpacity
-          activeOpacity={onGoPlant ? 0.85 : 1}
+        <PressScale
           onPress={() => { if (onGoPlant) { onDone(); onGoPlant(); } }}
+          accessibilityLabel={`光エネルギー +${amount}。発電所を見る`}
           style={styles.banner}
         >
-          <Text style={styles.bannerFlow}>✨ → 🌞 → 🏭</Text>
-          <Text style={styles.bannerText}>キミの光が発電所に届いたよ! ⚡+{amount}</Text>
-          {onGoPlant && <Text style={styles.bannerLink}>発電所を見る ›</Text>}
-        </TouchableOpacity>
+          <View style={styles.bannerFlow}>
+            <Icon name="feather" size={iconSize.sm} color={colors.primaryOnSoft} />
+            <Icon name="arrow-right" size={iconSize.xs} color={colors.subtleForeground} />
+            <Icon name="sun" size={iconSize.sm} color={colors.primaryOnSoft} />
+            <Icon name="arrow-right" size={iconSize.xs} color={colors.subtleForeground} />
+            <Icon name="zap" size={iconSize.sm} color={colors.primaryOnSoft} />
+          </View>
+          <Text style={styles.bannerText}>キミの光が発電所に届いたよ　+{amount}</Text>
+          {onGoPlant && (
+            <View style={styles.bannerLinkRow}>
+              <Text style={styles.bannerLink}>発電所を見る</Text>
+              <Icon name="chevron-right" size={iconSize.xs} color={colors.mutedForeground} />
+            </View>
+          )}
+        </PressScale>
       </Animated.View>
     </View>
   );
@@ -80,14 +100,27 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: SH * 0.32, left: 0, right: 0,
     alignItems: 'center',
   },
-  particle: { position: 'absolute', color: '#FFD86B', textShadowColor: '#FF9D2E', textShadowRadius: 8 },
-  bannerWrap: { position: 'absolute', top: SH * 0.12, left: 20, right: 20, alignItems: 'center' },
-  banner: {
-    backgroundColor: 'rgba(34,22,74,0.94)', borderColor: 'rgba(255,201,77,0.5)', borderWidth: 1,
-    borderRadius: 18, paddingHorizontal: 18, paddingVertical: 12, alignItems: 'center', gap: 3,
-    maxWidth: Math.min(360, SW - 40),
+  particle: { position: 'absolute', backgroundColor: colors.primary },
+  bannerWrap: {
+    position: 'absolute',
+    top: SH * 0.12,
+    left: space.xl,
+    right: space.xl,
+    alignItems: 'center',
   },
-  bannerFlow: { fontSize: 14, letterSpacing: 2 },
-  bannerText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#FFD86B', textAlign: 'center' },
-  bannerLink: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.75)' },
+  banner: {
+    backgroundColor: colors.card,
+    ...border.hairline,
+    borderRadius: radius.lg,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.lg,
+    alignItems: 'center',
+    gap: space.sm,
+    maxWidth: Math.min(360, SW - space.xxl * 2),
+    ...elevation.raised,
+  },
+  bannerFlow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  bannerText: { ...typography.calloutStrong, color: colors.foreground, textAlign: 'center' },
+  bannerLinkRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  bannerLink: { ...typography.micro, color: colors.mutedForeground },
 });

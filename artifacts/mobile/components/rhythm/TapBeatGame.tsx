@@ -9,21 +9,23 @@ import {
   JUDGE_PERFECT_MS, JUDGE_GREAT_MS, JUDGE_GOOD_MS, SCORE_PER,
 } from '@/utils/rhythm/types';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
+import { border, colors, gameSurface, judgePalette, lanePalette } from '@/constants/theme';
+import { Icon, iconSize } from '@/components/ui/Icon';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
 const LANES = 4;
 const TRAVEL_S = 1.9;            // ノーツ出現→判定ラインまでの秒数
 const NOTE_H = 46;
-const LANE_COLORS = ['#FF6B8A', '#FFC75E', '#5EE0B8', '#5EB8FF'];
+const LANE_COLORS = lanePalette;
 
 /* MISSでも責めない優しい表示 */
 const MISS_LABELS = ['だいじょうぶ', 'つぎいこう', 'どんまい', 'ゆっくりでOK'];
 const JUDGE_STYLE: Record<Judgment, { text: string; color: string }> = {
-  perfect: { text: 'PERFECT', color: '#FFD75E' },
-  great:   { text: 'GREAT',   color: '#5EE0B8' },
-  good:    { text: 'GOOD',    color: '#5EB8FF' },
-  miss:    { text: '',        color: '#8A83B8' },
+  perfect: { text: 'PERFECT', color: judgePalette.perfect },
+  great:   { text: 'GREAT',   color: judgePalette.great },
+  good:    { text: 'GOOD',    color: judgePalette.good },
+  miss:    { text: '',        color: judgePalette.miss },
 };
 
 interface LiveNote extends Note {
@@ -209,7 +211,7 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
         <View style={st.mascotWrap}>
           <Mascot stage={mascotStage} mood={mascotMood} size={54} />
         </View>
-        <Text style={st.combo}>{combo > 1 ? `♪ ${combo}` : ' '}</Text>
+        <Text style={st.combo}>{combo > 1 ? `${combo} COMBO` : ' '}</Text>
       </View>
 
       {/* レーンエリア */}
@@ -242,7 +244,7 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
         )}
         {needsTap && (
           <Pressable style={st.tapToStart} onPress={startByTap}>
-            <Text style={st.tapToStartTxt}>タップしてスタート ▶</Text>
+            <Text style={st.tapToStartTxt}>タップしてスタート</Text>
           </Pressable>
         )}
       </View>
@@ -258,7 +260,7 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
             ]}
             onPressIn={() => tapLane(i)}
           >
-            <Text style={st.laneBtnTxt}>♪</Text>
+            <Icon name="music" size={iconSize.md} color={colors.card} />
           </Pressable>
         ))}
       </View>
@@ -274,24 +276,23 @@ const st = StyleSheet.create({
   root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 8, alignItems: 'stretch' },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, minHeight: 56 },
   mascotWrap: { alignItems: 'center', justifyContent: 'center' },
-  score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.92)' },
-  combo: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFD75E' },
+  score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: colors.foreground },
+  combo: { fontSize: 15, fontFamily: 'Inter_700Bold', color: judgePalette.perfect },
   laneArea: {
     marginHorizontal: 16, borderRadius: 18, overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: gameSurface.background,
+    borderWidth: 1, borderColor: colors.border,
   },
   laneBg: {
     position: 'absolute', top: 0, bottom: 0,
-    borderRightWidth: 1, borderRightColor: 'rgba(255,255,255,0.07)',
+    borderRightWidth: 1, borderRightColor: colors.border,
   },
   hitLine: {
     position: 'absolute', left: 8, right: 8, height: 3, borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    backgroundColor: colors.primary,
   },
   note: {
     position: 'absolute', height: NOTE_H, borderRadius: 14,
-    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
   },
   judgeTxt: {
     position: 'absolute', alignSelf: 'center',
@@ -299,14 +300,13 @@ const st = StyleSheet.create({
   },
   tapToStart: {
     ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(10,8,30,0.72)',
+    backgroundColor: gameSurface.scrim,
   },
-  tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
   btnRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
   laneBtn: {
     flex: 1, height: 62, borderRadius: 16, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  laneBtnTxt: { fontSize: 22, color: '#FFF', fontFamily: 'Inter_700Bold' },
-  quitTxt: { textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: 'Inter_400Regular', paddingTop: 2 },
+  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.subtleForeground, fontFamily: 'Inter_400Regular', paddingTop: 2 },
 });

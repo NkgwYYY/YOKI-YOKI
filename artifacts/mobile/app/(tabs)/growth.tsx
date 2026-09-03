@@ -1,17 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Platform,
-  TouchableOpacity,
-  Alert,
-  Modal,
-} from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -21,7 +10,19 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const easeOut = (t: number) => t * (2 - t);
-import { useCosmicColors as useColors, COSMIC_SHEET } from '@/constants/cosmicTheme';
+import {
+  activityPalette,
+  border,
+  colors,
+  control,
+  radius,
+  screenPadding,
+  space,
+  typography,
+} from '@/constants/theme';
+import { Button } from '@/components/ui/Button';
+import { CenterDialog } from '@/components/ui/BottomSheet';
+import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,6 +43,7 @@ import type { CharacterKey } from '@/utils/mascotUtils';
 import { charsMetByLevel } from '@/utils/encounters';
 import { getTodayDate } from '@/utils/dateUtils';
 import { Analytics } from '@/utils/analytics';
+import { PressScale } from '@/components/ui/PressScale';
 
 // ステージごとのキャラ画像(進化に合わせて成長比較の見た目も切り替える)
 const STAGE_IMAGES: Record<string, ImageSourcePropType> = {
@@ -79,7 +81,6 @@ function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
 }
 
 export default function GrowthScreen() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const { progress, records, unlockedBadges, growth, markGrowthSeen, encounters } = useApp();
   const [dexChar, setDexChar] = useState<CharacterKey | null>(null);
@@ -99,7 +100,7 @@ export default function GrowthScreen() {
     router.replace('/login');
   };
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? space.xl : insets.top;
   const xpInLevel = progress.experience % XP_PER_LEVEL;
   const last7 = records.slice(-7);
   const avgMood = last7.length > 0
@@ -127,13 +128,13 @@ export default function GrowthScreen() {
     ...a,
     total: monthRecords.reduce((s, r) => s + (r.activities?.[a.key] || 0), 0),
   }));
-  const monthReviewStats = [
+  const monthReviewStats: { label: string; value: string; icon: IconName; color: string }[] = [
     ...categoryTotals.filter((c) => c.total > 0).slice(0, 3).map((c) => ({
       label: c.label, value: `${c.total}回`, icon: c.icon, color: c.color,
     })),
-    { label: '続けた日', value: `${monthRecords.length}日`, icon: 'flame', color: '#FF6FA3' },
-    { label: 'ふりかえり', value: `${monthRecords.filter((r) => r.notes || r.win).length}日`, icon: 'create-outline', color: colors.primary },
-    { label: '大切にした日', value: `${monthRecords.filter((r) => (r.activities?.selfCare || 0) > 0).length}日`, icon: 'heart-outline', color: '#FF9ECD' },
+    { label: '続けた日', value: `${monthRecords.length}日`, icon: 'repeat' as IconName, color: activityPalette.selfCare },
+    { label: 'ふりかえり', value: `${monthRecords.filter((r) => r.notes || r.win).length}日`, icon: 'edit-3' as IconName, color: colors.primary },
+    { label: '大切にした日', value: `${monthRecords.filter((r) => (r.activities?.selfCare || 0) > 0).length}日`, icon: 'heart' as IconName, color: activityPalette.reading },
   ].slice(0, 6);
 
   // ─── キャラの成長(はじめ vs 今)。進化後は現在のキャラ画像で表示 ───
@@ -149,160 +150,144 @@ export default function GrowthScreen() {
   const dexList = encounters.list.filter((e) => metNow.has(e.charKey));
 
   return (
-    <View style={[styles.flex, { backgroundColor: colors.background }]}>
+    <View style={styles.flex}>
       <SkyBackground />
-
-      {/* Decorative orb */}
-      <View style={[styles.orb, { backgroundColor: colors.secondary + '12' }]} />
 
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: topPad + 16, paddingBottom: Platform.OS === 'web' ? 34 + 90 : insets.bottom + 90 },
+          {
+            paddingTop: topPad + space.lg,
+            paddingBottom:
+              (Platform.OS === 'web' ? space.xxl : insets.bottom) + control.height + space.xl,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
         <FadeIn delay={0}>
           <View style={styles.titleRow}>
-            <View>
-              <Text style={[styles.title, { color: colors.foreground }]}>メンタルの成長</Text>
-              <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-                あなたの積み重ねを見える化
-              </Text>
+            <View style={styles.titleCopy}>
+              <Text style={styles.title}>メンタルの成長</Text>
+              <Text style={styles.subtitle}>あなたの積み重ねを見える化</Text>
             </View>
-            <TouchableOpacity
-              style={[styles.accountBtn, { backgroundColor: colors.muted }]}
+            <PressScale
+              style={styles.accountBtn}
               onPress={() => setShowLogout(true)}
-              hitSlop={8}
+              hitSlop={space.sm}
+              accessibilityLabel="アカウント"
             >
-              <Ionicons name="person-circle-outline" size={22} color={colors.mutedForeground} />
-            </TouchableOpacity>
+              <Icon name="user" size={20} color={colors.foreground} />
+            </PressScale>
           </View>
         </FadeIn>
 
-        {/* Logout modal */}
-        <Modal visible={showLogout} transparent animationType="fade" onRequestClose={() => setShowLogout(false)}>
-          <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowLogout(false)}>
-            <TouchableOpacity activeOpacity={1} style={[styles.logoutCard, { backgroundColor: COSMIC_SHEET, borderColor: colors.border }]}>
-              <Ionicons name="person-circle" size={40} color={colors.primary} style={{ marginBottom: 8 }} />
-              {user?.email && (
-                <Text style={[styles.logoutEmail, { color: colors.mutedForeground }]}>{user.email}</Text>
-              )}
-              {!isSignedIn && (
-                <>
-                  <Text style={[styles.logoutEmail, { color: colors.foreground }]}>
-                    ゲストモードで利用中
-                  </Text>
-                  <Text style={[styles.guestDescription, { color: colors.mutedForeground }]}>
-                    記録はこの端末に保存されています。ログインすると記録と進捗をアカウントに追加して、バックアップできます。
-                  </Text>
-                  <Text style={[styles.guestDetail, { color: colors.mutedForeground }]}>
-                    すでにアカウントにあるプロフィールや設定は優先して保護されます。
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.profileBtn, { backgroundColor: colors.primary }]}
-                    onPress={() => {
-                      Analytics.guestBackupPromptOpened();
-                      setShowLogout(false);
-                      router.push('/login');
-                    }}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
-                    <Text style={[styles.profileBtnText, { color: '#fff' }]}>ログインしてデータを保存</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-              <TouchableOpacity
-                style={[styles.profileBtn, { backgroundColor: colors.muted }]}
-                onPress={() => { setShowLogout(false); router.push('/profile'); }}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="create-outline" size={18} color={colors.foreground} />
-                <Text style={[styles.profileBtnText, { color: colors.foreground }]}>プロフィールを編集</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.profileBtn, { backgroundColor: colors.muted }]}
-                onPress={() => { setShowLogout(false); router.push('/guide'); }}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="book-outline" size={18} color={colors.foreground} />
-                <Text style={[styles.profileBtnText, { color: colors.foreground }]}>使い方ガイド</Text>
-              </TouchableOpacity>
-              {isSignedIn && (
-                <TouchableOpacity
-                  style={styles.logoutBtn}
-                  onPress={handleLogout}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="log-out-outline" size={18} color="#fff" />
-                  <Text style={styles.logoutBtnText}>ログアウト</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity onPress={() => setShowLogout(false)} style={{ marginTop: 12 }}>
-                <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>キャンセル</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
+        {/* アカウント */}
+        <CenterDialog visible={showLogout} onClose={() => setShowLogout(false)}>
+          <View style={styles.dialogHead}>
+            <Icon name="user" size={32} color={colors.primary} />
+            <Text style={styles.dialogTitle}>
+              {isSignedIn ? 'アカウント' : 'ゲストモードで利用中'}
+            </Text>
+            {user?.email ? <Text style={styles.dialogSub}>{user.email}</Text> : null}
+          </View>
+
+          {!isSignedIn && (
+            <>
+              <Text style={styles.dialogBody}>
+                記録はこの端末に保存されています。ログインすると記録と進捗をアカウントに追加して、バックアップできます。
+              </Text>
+              <Text style={styles.dialogNote}>
+                すでにアカウントにあるプロフィールや設定は優先して保護されます。
+              </Text>
+              <Button
+                label="ログインしてデータを保存"
+                onPress={() => {
+                  Analytics.guestBackupPromptOpened();
+                  setShowLogout(false);
+                  router.push('/login');
+                }}
+                icon="upload-cloud"
+              />
+            </>
+          )}
+          <Button
+            label="プロフィールを編集"
+            variant="outline"
+            onPress={() => {
+              setShowLogout(false);
+              router.push('/profile');
+            }}
+            icon="edit-3"
+          />
+          <Button
+            label="使い方ガイド"
+            variant="outline"
+            onPress={() => {
+              setShowLogout(false);
+              router.push('/guide');
+            }}
+            icon="book-open"
+          />
+          {isSignedIn && (
+            <PressScale onPress={handleLogout} style={styles.logoutBtn}>
+              <Icon name="log-out" size={16} color={colors.danger} />
+              <Text style={styles.logoutBtnText}>ログアウト</Text>
+            </PressScale>
+          )}
+          <Button label="キャンセル" variant="ghost" onPress={() => setShowLogout(false)} />
+        </CenterDialog>
 
         {/* Level Card */}
         <FadeIn delay={100}>
-          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-            <LinearGradient
-              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
-              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-            />
+          <View style={styles.card}>
             <View style={styles.levelHeader}>
               <View>
-                <Text style={[styles.levelLabel, { color: colors.mutedForeground }]}>現在のレベル</Text>
-                <Text style={[styles.levelValue, { color: colors.foreground }]}>Lv.{progress.level}</Text>
+                <Text style={styles.levelLabel}>現在のレベル</Text>
+                <Text style={styles.levelValue}>Lv.{progress.level}</Text>
               </View>
-              <View style={[styles.levelIcon, { backgroundColor: colors.primary + '22' }]}>
-                <Ionicons name="trending-up" size={26} color={colors.primary} />
+              <View style={styles.levelIcon}>
+                <Icon name="trending-up" size={22} color={colors.primaryOnSoft} />
               </View>
             </View>
 
             <View style={styles.xpSection}>
               <View style={styles.xpRow}>
-                <Text style={[styles.xpLabel, { color: colors.mutedForeground }]}>
+                <Text style={styles.xpLabel}>
                   {xpInLevel} / {XP_PER_LEVEL} XP
                 </Text>
-                <Text style={[styles.xpNext, { color: colors.primary }]}>
-                  次まで {xpToNextLevel(progress.experience)} XP
-                </Text>
+                <Text style={styles.xpNext}>次まで {xpToNextLevel(progress.experience)} XP</Text>
               </View>
-              <View style={[styles.xpTrack, { backgroundColor: colors.muted }]}>
+              <View style={styles.xpTrack}>
                 <AnimatedXPBar pct={progress.mentalMuscle} color={colors.primary} />
               </View>
             </View>
 
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.divider} />
 
             <View style={styles.statsRow}>
-              {[
-                { icon: 'flame', color: '#FF6FA3', value: progress.streak, label: '連続' },
-                { icon: 'calendar-outline', color: colors.primary, value: progress.totalDays, label: '記録日数' },
-                { icon: 'flash', color: colors.accent, value: progress.experience, label: '総XP' },
-                { icon: 'resize-outline', color: '#7FDCA4', value: `${(growth.growthSize * 100).toFixed(1)}%`, label: '成長' },
-              ].map((s, i) => (
-                <React.Fragment key={s.label}>
-                  {i > 0 && <View style={[styles.statDivider, { backgroundColor: colors.border }]} />}
+              {([
+                { icon: 'repeat', value: progress.streak, label: '連続' },
+                { icon: 'calendar', value: progress.totalDays, label: '記録日数' },
+                { icon: 'zap', value: progress.experience, label: '総XP' },
+                {
+                  icon: 'maximize-2',
+                  value: `${(growth.growthSize * 100).toFixed(1)}%`,
+                  label: '成長',
+                },
+              ] as { icon: IconName; value: string | number; label: string }[]).map((stat, i) => (
+                <React.Fragment key={stat.label}>
+                  {i > 0 && <View style={styles.statDivider} />}
                   <View style={styles.statItem}>
-                    <Ionicons name={s.icon as any} size={18} color={s.color} />
-                    <Text style={[styles.statValue, { color: colors.foreground }]}>{s.value}</Text>
-                    <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
+                    <Icon name={stat.icon} size={iconSize.sm} color={colors.subtleForeground} />
+                    <Text style={styles.statValue}>{stat.value}</Text>
+                    <Text style={styles.statLabel}>{stat.label}</Text>
                   </View>
                 </React.Fragment>
               ))}
             </View>
 
-            {grownSinceSeen && (
-              <Text style={[styles.growthNote, { color: colors.mutedForeground }]}>
-                前回より少し大きくなったよ
-              </Text>
-            )}
+            {grownSinceSeen && <Text style={styles.growthNote}>前回より少し大きくなったよ</Text>}
           </View>
         </FadeIn>
 
@@ -313,18 +298,12 @@ export default function GrowthScreen() {
 
         {/* Mood Chart */}
         <FadeIn delay={200}>
-          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-            <LinearGradient
-              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
-              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-            />
+          <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                気分の推移（7日間）
-              </Text>
+              <Text style={styles.cardTitle}>気分の推移（7日間）</Text>
               <View style={styles.avgBadge}>
-                <Text style={[styles.avgLabel, { color: colors.mutedForeground }]}>平均</Text>
-                <Text style={[styles.avgValue, { color: colors.primary }]}>{avgMood}</Text>
+                <Text style={styles.avgLabel}>平均</Text>
+                <Text style={styles.avgValue}>{avgMood}</Text>
               </View>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -335,22 +314,18 @@ export default function GrowthScreen() {
 
         {/* Weekly Summary */}
         <FadeIn delay={300}>
-          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-            <LinearGradient
-              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
-              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-            />
-            <Text style={[styles.cardTitle, { color: colors.foreground }]}>週間サマリー</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>週間サマリー</Text>
             <View style={styles.summaryRow}>
-              {[
-                { icon: 'moon-outline', color: colors.primary, value: `${avgSleep}h`, label: '平均睡眠' },
-                { icon: 'heart-outline', color: '#FF6FA3', value: avgMood, label: '平均気分' },
-                { icon: 'document-text-outline', color: colors.accent, value: String(last7.length), label: '記録数' },
-              ].map((s) => (
-                <View key={s.label} style={[styles.summaryItem, { backgroundColor: colors.muted }]}>
-                  <Ionicons name={s.icon as any} size={22} color={s.color} />
-                  <Text style={[styles.summaryValue, { color: colors.foreground }]}>{s.value}</Text>
-                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
+              {([
+                { icon: 'moon', value: `${avgSleep}h`, label: '平均睡眠' },
+                { icon: 'heart', value: avgMood, label: '平均気分' },
+                { icon: 'file-text', value: String(last7.length), label: '記録数' },
+              ] as { icon: IconName; value: string | number; label: string }[]).map((stat) => (
+                <View key={stat.label} style={styles.summaryItem}>
+                  <Icon name={stat.icon} size={iconSize.md} color={colors.primaryOnSoft} />
+                  <Text style={styles.summaryValue}>{stat.value}</Text>
+                  <Text style={styles.summaryLabel}>{stat.label}</Text>
                 </View>
               ))}
             </View>
@@ -359,14 +334,10 @@ export default function GrowthScreen() {
 
         {/* 今月の積み重ね(活動バーチャート) */}
         <FadeIn delay={320}>
-          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-            <LinearGradient
-              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
-              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-            />
+          <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>今月の積み重ね</Text>
-              <Text style={[styles.avgLabel, { color: colors.mutedForeground }]}>{monthLabel}</Text>
+              <Text style={styles.cardTitle}>今月の積み重ね</Text>
+              <Text style={styles.avgLabel}>{monthLabel}</Text>
             </View>
             <View style={styles.barChart}>
               {dailyCounts.map((c, i) => (
@@ -375,8 +346,8 @@ export default function GrowthScreen() {
                     style={[
                       styles.bar,
                       {
-                        height: c > 0 ? Math.max(4, (c / maxDaily) * 72) : 2,
-                        backgroundColor: c > 0 ? colors.accent : colors.muted,
+                        height: c > 0 ? Math.max(space.xs, (c / maxDaily) * 72) : border.width,
+                        backgroundColor: c > 0 ? colors.primary : colors.border,
                       },
                     ]}
                   />
@@ -384,26 +355,22 @@ export default function GrowthScreen() {
               ))}
             </View>
             <View style={styles.barAxis}>
-              <Text style={[styles.barAxisText, { color: colors.mutedForeground }]}>1日</Text>
-              <Text style={[styles.barAxisText, { color: colors.mutedForeground }]}>{daysInMonth}日</Text>
+              <Text style={styles.barAxisText}>1日</Text>
+              <Text style={styles.barAxisText}>{daysInMonth}日</Text>
             </View>
           </View>
         </FadeIn>
 
         {/* 今月のふりかえり */}
         <FadeIn delay={340}>
-          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-            <LinearGradient
-              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
-              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-            />
-            <Text style={[styles.cardTitle, { color: colors.foreground }]}>今月のふりかえり</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>今月のふりかえり</Text>
             <View style={styles.reviewGrid}>
-              {monthReviewStats.map((s) => (
-                <View key={s.label} style={[styles.reviewItem, { backgroundColor: colors.muted }]}>
-                  <Ionicons name={s.icon as any} size={18} color={s.color} />
-                  <Text style={[styles.reviewValue, { color: colors.foreground }]}>{s.value}</Text>
-                  <Text style={[styles.reviewLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
+              {monthReviewStats.map((stat) => (
+                <View key={stat.label} style={styles.reviewItem}>
+                  <Icon name={stat.icon} size={iconSize.sm} color={stat.color} />
+                  <Text style={styles.reviewValue}>{stat.value}</Text>
+                  <Text style={styles.reviewLabel}>{stat.label}</Text>
                 </View>
               ))}
             </View>
@@ -412,30 +379,26 @@ export default function GrowthScreen() {
 
         {/* キャラの成長(はじめ vs 今)。進化に合わせて画像・名前も変わる */}
         <FadeIn delay={360}>
-          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-            <LinearGradient
-              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
-              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-            />
-            <Text style={[styles.cardTitle, { color: colors.foreground }]}>{currentChar.name}の成長</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{currentChar.name}の成長</Text>
             <View style={styles.eggCompareRow}>
               <View style={styles.eggCompareItem}>
                 <View style={styles.eggImgBox}>
                   <Image source={CHAR_IMG} style={{ width: 64 * firstGrowth, height: 64 * firstGrowth }} resizeMode="contain" />
                 </View>
-                <Text style={[styles.eggCompareLabel, { color: colors.mutedForeground }]}>はじめの頃</Text>
-                <Text style={[styles.eggComparePct, { color: colors.mutedForeground }]}>{growthPct(firstGrowth)}</Text>
+                <Text style={styles.eggCompareLabel}>はじめの頃</Text>
+                <Text style={styles.eggComparePct}>{growthPct(firstGrowth)}</Text>
               </View>
-              <Ionicons name="arrow-forward" size={20} color={colors.mutedForeground} />
+              <Icon name="arrow-right" size={16} color={colors.subtleForeground} />
               <View style={styles.eggCompareItem}>
                 <View style={styles.eggImgBox}>
                   <Image source={CHAR_IMG} style={{ width: 64 * growth.growthSize, height: 64 * growth.growthSize }} resizeMode="contain" />
                 </View>
-                <Text style={[styles.eggCompareLabel, { color: colors.foreground }]}>いま</Text>
-                <Text style={[styles.eggComparePct, { color: colors.primary }]}>{growthPct(growth.growthSize)}</Text>
+                <Text style={styles.eggCompareLabelNow}>いま</Text>
+                <Text style={styles.eggComparePctNow}>{growthPct(growth.growthSize)}</Text>
               </View>
             </View>
-            <Text style={[styles.growthNote, { color: colors.mutedForeground, marginTop: 0 }]}>
+            <Text style={styles.growthNote}>
               {hasGrown ? '一緒にすごした時間がぼくの成長になったよ' : 'これから少しずつ大きくなっていくよ'}
             </Text>
           </View>
@@ -444,12 +407,8 @@ export default function GrowthScreen() {
         {/* マイヒストリー */}
         {growth.history.length > 1 && (
           <FadeIn delay={380}>
-            <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-              <LinearGradient
-                colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
-                style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-              />
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>マイヒストリー</Text>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>マイヒストリー</Text>
               <View style={styles.historyRow}>
                 {[0, 14, 29, 59]
                   .map((offset) => growth.history[Math.min(offset, growth.history.length - 1)])
@@ -461,12 +420,10 @@ export default function GrowthScreen() {
                         style={{ width: 34 * snap.growthSize, height: 34 * snap.growthSize, opacity: 0.6 + i * 0.13 }}
                         resizeMode="contain"
                       />
-                      <Text style={[styles.historyDay, { color: colors.foreground }]}>
+                      <Text style={styles.historyDay}>
                         {i === 0 ? 'はじめの日' : `${snap.date.slice(5).replace('-', '/')}`}
                       </Text>
-                      <Text style={[styles.historyPct, { color: colors.mutedForeground }]}>
-                        {growthPct(snap.growthSize)}
-                      </Text>
+                      <Text style={styles.historyPct}>{growthPct(snap.growthSize)}</Text>
                     </View>
                   ))}
               </View>
@@ -476,55 +433,46 @@ export default function GrowthScreen() {
 
         {/* キャラクター図鑑: 出会った仲間だけが並ぶ(未登場キャラは表示しない) */}
         <FadeIn delay={370}>
-          <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-            <LinearGradient
-              colors={['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)']}
-              style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-            />
+          <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>キャラクター図鑑</Text>
-              <Text style={[styles.badgeCount, { color: colors.mutedForeground }]}>
-                出会った仲間 {dexList.length}
-              </Text>
+              <Text style={styles.cardTitle}>キャラクター図鑑</Text>
+              <Text style={styles.badgeCount}>出会った仲間 {dexList.length}</Text>
             </View>
             {dexList.length === 0 ? (
-              <Text style={[styles.growthNote, { color: colors.mutedForeground, marginTop: 0 }]}>
-                仲間と出会うと、ここに記録されていくよ
-              </Text>
+              <Text style={styles.growthNote}>仲間と出会うと、ここに記録されていくよ</Text>
             ) : (
               <View style={styles.dexGrid}>
                 {dexList.map((e) => {
                   const p = DEX_PROFILES[e.charKey];
                   const isCurrent = e.charKey === currentChar.key;
                   return (
-                    <TouchableOpacity
+                    <PressScale
                       key={e.charKey}
-                      style={[styles.dexCell, { backgroundColor: colors.muted }, isCurrent && styles.dexCellCurrent]}
+                      style={[styles.dexCell, isCurrent && styles.dexCellCurrent]}
                       onPress={() => setDexChar(e.charKey)}
-                      activeOpacity={0.85}
                     >
                       <Image source={DEX_IMAGES[e.charKey]} style={styles.dexImg} resizeMode="contain" />
-                      <Text style={[styles.dexName, { color: colors.foreground }]}>{p.name}</Text>
-                      <Text style={[styles.dexMet, { color: colors.mutedForeground }]}>
+                      <Text style={styles.dexName}>{p.name}</Text>
+                      <Text style={styles.dexMet}>
                         {isCurrent ? 'いまのパートナー' : e.metDate.slice(5).replace('-', '/') + ' 出会い'}
                       </Text>
-                    </TouchableOpacity>
+                    </PressScale>
                   );
                 })}
               </View>
             )}
             {/* この子たちについて(世界観カード) */}
-            <Text style={[styles.dexAboutTitle, { color: colors.foreground }]}>この子たちについて</Text>
+            <Text style={styles.dexAboutTitle}>この子たちについて</Text>
             <View style={styles.worldList}>
               {WORLD_CARDS.map((c, i) => (
-                <View key={c.title} style={[styles.worldCard, { backgroundColor: colors.muted }]}>
-                  <Text style={styles.worldEmoji}>{c.emoji}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.worldTitle, { color: colors.foreground }]}>{c.title}</Text>
-                    <Text style={[styles.worldText, { color: colors.mutedForeground }]}>{c.text}</Text>
+                <View key={c.title} style={styles.worldCard}>
+                  <Icon name={c.icon} size={iconSize.md} color={colors.primaryOnSoft} />
+                  <View style={styles.worldCopy}>
+                    <Text style={styles.worldTitle}>{c.title}</Text>
+                    <Text style={styles.worldText}>{c.text}</Text>
                   </View>
                   {i < WORLD_CARDS.length - 1 && (
-                    <Ionicons name="chevron-down" size={14} color={colors.mutedForeground} style={styles.worldArrow} />
+                    <Icon name="chevron-down" size={14} color={colors.subtleForeground} />
                   )}
                 </View>
               ))}
@@ -541,8 +489,8 @@ export default function GrowthScreen() {
         <FadeIn delay={400}>
           <View style={styles.badgeSection}>
             <View style={styles.cardHeader}>
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>バッジ</Text>
-              <Text style={[styles.badgeCount, { color: colors.mutedForeground }]}>
+              <Text style={styles.cardTitle}>バッジ</Text>
+              <Text style={styles.badgeCount}>
                 {unlockedBadges.length} / {BADGE_DEFINITIONS.length}
               </Text>
             </View>
@@ -574,100 +522,171 @@ export default function GrowthScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { paddingHorizontal: 20, gap: 16 },
-  dexGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  dexCell: {
-    width: '47.5%', alignItems: 'center', borderRadius: 16,
-    paddingVertical: 14, paddingHorizontal: 8, gap: 4,
+  content: { paddingHorizontal: screenPadding, gap: space.lg },
+
+  /* 見出し */
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  titleCopy: { flex: 1 },
+  title: { ...typography.display, color: colors.foreground },
+  subtitle: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
+  accountBtn: {
+    width: control.icon,
+    height: control.icon,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  dexCellCurrent: { borderWidth: 1, borderColor: 'rgba(255,201,77,0.5)' },
-  dexImg: { width: 64, height: 64 },
-  dexName: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-  dexMet: { fontSize: 10, fontFamily: 'Inter_400Regular' },
-  dexAboutTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', marginTop: 4 },
-  worldList: { gap: 8 },
-  worldCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: 14, padding: 12,
+
+  /* カード共通 */
+  card: {
+    backgroundColor: colors.card,
+    ...border.hairline,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.lg,
   },
-  worldEmoji: { fontSize: 20 },
-  worldTitle: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
-  worldText: { fontSize: 11, fontFamily: 'Inter_400Regular', lineHeight: 16, marginTop: 2 },
-  worldArrow: { alignSelf: 'center' },
-  orb: {
-    position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    bottom: 300, right: -70,
-  },
-  title: { fontSize: 24, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2, marginBottom: 4 },
-  card: { borderRadius: 22, padding: 20, borderWidth: 1, gap: 16 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  cardTitle: { ...typography.subhead, color: colors.foreground },
+  divider: { height: border.width, backgroundColor: colors.border },
+
+  /* レベル */
   levelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  levelLabel: { fontSize: 12, fontFamily: 'Inter_400Regular', marginBottom: 4 },
-  levelValue: { fontSize: 36, fontFamily: 'Inter_700Bold', letterSpacing: -1 },
-  levelIcon: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
-  xpSection: { gap: 8 },
+  levelLabel: { ...typography.caption, color: colors.mutedForeground },
+  levelValue: { ...typography.display, color: colors.foreground, marginTop: space.xs },
+  levelIcon: {
+    width: control.icon,
+    height: control.icon,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  xpSection: { gap: space.sm },
   xpRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  xpLabel: { fontSize: 12, fontFamily: 'Inter_400Regular' },
-  xpNext: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
-  xpTrack: { height: 10, borderRadius: 5, overflow: 'hidden', position: 'relative' },
-  divider: { height: 1 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
-  statItem: { alignItems: 'center', gap: 4, flex: 1 },
-  statValue: { fontSize: 20, fontFamily: 'Inter_700Bold' },
-  statLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
-  growthNote: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 10 },
-  statDivider: { width: 1, height: 40 },
-  avgBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  avgLabel: { fontSize: 12, fontFamily: 'Inter_400Regular' },
-  avgValue: { fontSize: 18, fontFamily: 'Inter_700Bold' },
-  summaryRow: { flexDirection: 'row', gap: 10 },
-  summaryItem: { flex: 1, alignItems: 'center', padding: 14, borderRadius: 16, gap: 6 },
-  summaryValue: { fontSize: 18, fontFamily: 'Inter_700Bold' },
-  summaryLabel: { fontSize: 11, fontFamily: 'Inter_400Regular' },
-  barChart: { flexDirection: 'row', alignItems: 'flex-end', height: 76, gap: 2 },
+  xpLabel: { ...typography.caption, color: colors.mutedForeground },
+  xpNext: { ...typography.label, color: colors.primaryOnSoft },
+  xpTrack: {
+    height: space.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.muted,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+
+  /* 統計 */
+  statsRow: { flexDirection: 'row', alignItems: 'center' },
+  statItem: { alignItems: 'center', gap: space.xs, flex: 1 },
+  statValue: { ...typography.title, color: colors.foreground },
+  statLabel: { ...typography.micro, color: colors.mutedForeground },
+  statDivider: { width: border.width, height: space.xxl, backgroundColor: colors.border },
+  growthNote: { ...typography.caption, color: colors.mutedForeground, textAlign: 'center' },
+
+  /* 平均バッジ */
+  avgBadge: { flexDirection: 'row', alignItems: 'baseline', gap: space.xs },
+  avgLabel: { ...typography.caption, color: colors.mutedForeground },
+  avgValue: { ...typography.heading, color: colors.primaryOnSoft },
+
+  /* 週間サマリー */
+  summaryRow: { flexDirection: 'row', gap: space.sm },
+  summaryItem: {
+    flex: 1,
+    alignItems: 'center',
+    padding: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
+    gap: space.xs,
+  },
+  summaryValue: { ...typography.heading, color: colors.foreground },
+  summaryLabel: { ...typography.micro, color: colors.mutedForeground },
+
+  /* 月次バーチャート */
+  barChart: { flexDirection: 'row', alignItems: 'flex-end', height: 72, gap: 2 },
   barSlot: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   bar: { width: '100%', borderRadius: 2 },
-  barAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -6 },
-  barAxisText: { fontSize: 10, fontFamily: 'Inter_400Regular' },
-  reviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  reviewItem: { width: '30%', flexGrow: 1, alignItems: 'center', padding: 12, borderRadius: 14, gap: 4 },
-  reviewValue: { fontSize: 16, fontFamily: 'Inter_700Bold' },
-  reviewLabel: { fontSize: 10.5, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  barAxis: { flexDirection: 'row', justifyContent: 'space-between' },
+  barAxisText: { ...typography.micro, color: colors.mutedForeground },
+
+  /* 月次ふりかえり */
+  reviewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  reviewItem: {
+    width: '30%',
+    flexGrow: 1,
+    alignItems: 'center',
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
+    gap: space.xs,
+  },
+  reviewValue: { ...typography.subhead, color: colors.foreground },
+  reviewLabel: { ...typography.micro, color: colors.mutedForeground, textAlign: 'center' },
+
+  /* 成長比較 */
   eggCompareRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly' },
-  eggCompareItem: { alignItems: 'center', gap: 4 },
-  eggImgBox: { height: 76, alignItems: 'center', justifyContent: 'flex-end' },
-  eggCompareLabel: { fontSize: 12, fontFamily: 'Inter_500Medium' },
-  eggComparePct: { fontSize: 14, fontFamily: 'Inter_700Bold' },
+  eggCompareItem: { alignItems: 'center', gap: space.xs },
+  eggImgBox: { height: 72, alignItems: 'center', justifyContent: 'flex-end' },
+  eggCompareLabel: { ...typography.caption, color: colors.mutedForeground },
+  eggCompareLabelNow: { ...typography.caption, color: colors.foreground },
+  eggComparePct: { ...typography.calloutStrong, color: colors.mutedForeground },
+  eggComparePctNow: { ...typography.calloutStrong, color: colors.primaryOnSoft },
+
+  /* ヒストリー */
   historyRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'flex-end' },
-  historyItem: { alignItems: 'center', gap: 3 },
-  historyDay: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
-  historyPct: { fontSize: 10, fontFamily: 'Inter_400Regular' },
-  badgeSection: { gap: 14 },
-  badgeCount: { fontSize: 13, fontFamily: 'Inter_400Regular' },
-  badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  // account / logout
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  accountBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  overlay: { flex: 1, backgroundColor: '#00000050', justifyContent: 'center', alignItems: 'center', padding: 32 },
-  logoutCard: {
-    width: '100%', borderRadius: 24, borderWidth: 1,
-    padding: 24, alignItems: 'center',
+  historyItem: { alignItems: 'center', gap: space.xs },
+  historyDay: { ...typography.micro, color: colors.foreground },
+  historyPct: { ...typography.micro, color: colors.mutedForeground },
+
+  /* 図鑑 */
+  dexGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  dexCell: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    alignItems: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
+    ...border.hairline,
+    padding: space.md,
+    gap: space.xs,
   },
-  logoutEmail: { fontSize: 13, fontFamily: 'Inter_400Regular', marginBottom: 20 },
-  profileBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, marginBottom: 10,
+  // いまのパートナーだけ枠線を一段濃くする。塗りは変えない。
+  dexCellCurrent: { borderColor: colors.primary },
+  dexImg: { width: 64, height: 64 },
+  dexName: { ...typography.label, color: colors.foreground },
+  dexMet: { ...typography.micro, color: colors.mutedForeground },
+  dexAboutTitle: { ...typography.label, color: colors.foreground },
+  worldList: { gap: space.sm },
+  worldCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
+    padding: space.md,
   },
-  profileBtnText: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+  worldCopy: { flex: 1 },
+  worldTitle: { ...typography.label, color: colors.foreground },
+  worldText: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
+
+  /* バッジ */
+  badgeSection: { gap: space.md },
+  badgeCount: { ...typography.caption, color: colors.mutedForeground },
+  badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+
+  /* アカウントダイアログ */
+  dialogHead: { alignItems: 'center', gap: space.xs, marginBottom: space.sm },
+  dialogTitle: { ...typography.heading, color: colors.foreground },
+  dialogSub: { ...typography.caption, color: colors.mutedForeground },
+  dialogBody: { ...typography.callout, color: colors.mutedForeground },
+  dialogNote: { ...typography.caption, color: colors.subtleForeground },
   logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#EF4444', borderRadius: 14,
-    paddingVertical: 14, paddingHorizontal: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    minHeight: control.height,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSoft,
   },
-  logoutBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
-  guestDescription: { fontSize: 12, lineHeight: 18, textAlign: 'center', marginBottom: 8 },
-  guestDetail: { fontSize: 11, lineHeight: 16, textAlign: 'center', marginBottom: 12 },
-  cancelText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
+  logoutBtnText: { ...typography.bodyStrong, color: colors.danger },
 });

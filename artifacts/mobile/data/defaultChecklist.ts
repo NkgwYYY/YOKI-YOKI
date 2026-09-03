@@ -1,3 +1,5 @@
+import { categoryPalette } from '@/constants/theme';
+import type { IconName } from '@/components/ui/Icon';
 export type ChecklistCategory = 'basics' | 'body' | 'mind' | 'social';
 
 export interface ChecklistItemDef {
@@ -39,23 +41,15 @@ export const CATEGORY_LABELS: Record<ChecklistCategory, string> = {
   social: 'つながり',
 };
 
-export const CATEGORY_ICONS: Record<ChecklistCategory, string> = {
-  basics: '🌱',
-  body:   '💪',
-  mind:   '🧠',
-  social: '🤝',
+export const CATEGORY_ICONS: Record<ChecklistCategory, IconName> = {
+  basics: 'sun',
+  body:   'activity',
+  mind:   'heart',
+  social: 'users',
 };
 
-export const CATEGORY_COLORS_LIGHT: Record<ChecklistCategory, string> = {
-  basics: '#F97316',
-  body:   '#00B894',
-  mind:   '#8B5CF6',
-  social: '#FFB800',
-};
-
-export const CATEGORY_COLORS_DARK: Record<ChecklistCategory, string> = {
-  basics: '#FB923C',
-  body:   '#00D4AA',
-  mind:   '#A78BFA',
-  social: '#FFB800',
-};
+/**
+ * カテゴリの色。テーマは 1 つなので明暗の出し分けは持たない。
+ * （旧 CATEGORY_COLORS_LIGHT / _DARK を統合したもの）
+ */
+export const CATEGORY_COLORS: Record<ChecklistCategory, string> = categoryPalette;

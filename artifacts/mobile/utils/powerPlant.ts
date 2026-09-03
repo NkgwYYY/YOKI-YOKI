@@ -1,3 +1,4 @@
+import type { IconName } from '@/components/ui/Icon';
 /**
  * 発電所・売電・街の発展システム
  *
@@ -66,21 +67,22 @@ export const MAX_PLANT_LEVEL = PLANT_LEVEL_THRESHOLDS.length;
 export interface TownItem {
   key: string;
   name: string;
-  emoji: string;
   cost: number;
+  /** 単色線画アイコン。絵文字は使わない。 */
+  icon: IconName;
   /** 建った瞬間に見せるひとこと */
   flavor: string;
 }
 
 export const TOWN_ITEMS: TownItem[] = [
-  { key: 'flowerbed', name: '花壇',   emoji: '🌷', cost: 15,  flavor: '街に花が咲いたよ!' },
-  { key: 'bench',     name: 'ベンチ', emoji: '🪑', cost: 30,  flavor: 'ひとやすみできる場所ができた!' },
-  { key: 'lamp',      name: '街灯',   emoji: '🏮', cost: 50,  flavor: '夜道が明るくなったよ!' },
-  { key: 'park',      name: '公園',   emoji: '🌳', cost: 80,  flavor: 'みんなの遊び場ができた!' },
-  { key: 'cafe',      name: 'カフェ', emoji: '☕', cost: 120, flavor: 'いい香りがしてきた…!' },
-  { key: 'library',   name: '図書館', emoji: '📚', cost: 170, flavor: '物語のつまった場所ができた!' },
-  { key: 'fountain',  name: '噴水',   emoji: '⛲', cost: 230, flavor: '水しぶきがきらきら光ってる!' },
-  { key: 'wheel',     name: '観覧車', emoji: '🎡', cost: 300, flavor: '街いちばんの名物ができた!' },
+  { key: 'flowerbed', name: '花壇',   icon: 'feather',   cost: 15,  flavor: '街に花が咲いたよ!' },
+  { key: 'bench',     name: 'ベンチ', icon: 'users',     cost: 30,  flavor: 'ひとやすみできる場所ができた!' },
+  { key: 'lamp',      name: '街灯',   icon: 'zap',       cost: 50,  flavor: '夜道が明るくなったよ!' },
+  { key: 'park',      name: '公園',   icon: 'map',       cost: 80,  flavor: 'みんなの遊び場ができた!' },
+  { key: 'cafe',      name: 'カフェ', icon: 'coffee',    cost: 120, flavor: 'いい香りがしてきた…!' },
+  { key: 'library',   name: '図書館', icon: 'book-open', cost: 170, flavor: '物語のつまった場所ができた!' },
+  { key: 'fountain',  name: '噴水',   icon: 'droplet',   cost: 230, flavor: '水しぶきがきらきら光ってる!' },
+  { key: 'wheel',     name: '観覧車', icon: 'disc',      cost: 300, flavor: '街いちばんの名物ができた!' },
 ];
 
 /** 次に建てられるアイテム(全部建った場合は undefined) */

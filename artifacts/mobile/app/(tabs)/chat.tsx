@@ -1,30 +1,30 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
+  View, Text, StyleSheet, TextInput,
   FlatList, Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withRepeat, withSequence, withTiming, withSpring, withDelay,
 } from 'react-native-reanimated';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
 import { profileToContext } from '@/utils/profileContext';
 import { Mascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
 import { formatDateJP, getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
+import { Icon, iconSize } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
 // Tab bar height constants (matches _layout.tsx)
-const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 84 : 0;
+const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 64 : 0;
 
 interface Message {
   id: string;
@@ -84,7 +84,6 @@ function messageDateLabel(dateKey: string): string {
 
 /* ── Typing dots ── */
 function TypingDots() {
-  const colors = useColors();
   const d0 = useSharedValue(0);
   const d1 = useSharedValue(0);
   const d2 = useSharedValue(0);
@@ -109,23 +108,22 @@ function TypingDots() {
 
   return (
     <View style={dotStyles.row}>
-      <Animated.View style={[dotStyles.dot, { backgroundColor: colors.mutedForeground }, s0]} />
-      <Animated.View style={[dotStyles.dot, { backgroundColor: colors.mutedForeground }, s1]} />
-      <Animated.View style={[dotStyles.dot, { backgroundColor: colors.mutedForeground }, s2]} />
+      <Animated.View style={[dotStyles.dot, s0]} />
+      <Animated.View style={[dotStyles.dot, s1]} />
+      <Animated.View style={[dotStyles.dot, s2]} />
     </View>
   );
 }
 const dotStyles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 5, alignItems: 'center', paddingHorizontal: 4, paddingVertical: 4 },
-  dot: { width: 7, height: 7, borderRadius: 3.5 },
+  row: { flexDirection: 'row', gap: space.xs, alignItems: 'center', padding: space.xs },
+  dot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.subtleForeground },
 });
 
 /* ── Message bubble ── */
-function MessageBubble({ msg, mascotStage, mascotMood, colors }: {
+function MessageBubble({ msg, mascotStage, mascotMood }: {
   msg: Message;
   mascotStage: ReturnType<typeof getMascotStage>;
   mascotMood: ReturnType<typeof getMascotMood>;
-  colors: ReturnType<typeof useColors>;
 }) {
   const isUser = msg.role === 'user';
   const opacity = useSharedValue(0);
@@ -142,7 +140,7 @@ function MessageBubble({ msg, mascotStage, mascotMood, colors }: {
   if (isUser) {
     return (
       <Animated.View style={[bubbleStyles.rowUser, style]}>
-        <View style={[bubbleStyles.bubbleUser, { backgroundColor: colors.primary }]}>
+        <View style={bubbleStyles.bubbleUser}>
           <Text style={bubbleStyles.userText}>{msg.content}</Text>
         </View>
       </Animated.View>
@@ -153,52 +151,77 @@ function MessageBubble({ msg, mascotStage, mascotMood, colors }: {
       <View style={bubbleStyles.avatar}>
         <Mascot stage={mascotStage} mood={mascotMood} size={42} />
       </View>
-      <View style={[bubbleStyles.bubbleMascot, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[bubbleStyles.mascotText, { color: colors.foreground }]}>{msg.content}</Text>
+      <View style={bubbleStyles.bubbleMascot}>
+        <Text style={bubbleStyles.mascotText}>{msg.content}</Text>
       </View>
     </Animated.View>
   );
 }
 
-function DateDivider({ dateKey, colors }: { dateKey: string; colors: ReturnType<typeof useColors> }) {
+function DateDivider({ dateKey }: { dateKey: string }) {
   return (
     <View style={bubbleStyles.dateDivider}>
-      <View style={[bubbleStyles.dateLine, { backgroundColor: colors.border }]} />
-      <Text style={[bubbleStyles.dateText, { color: colors.mutedForeground }]}>
-        {messageDateLabel(dateKey)}
-      </Text>
-      <View style={[bubbleStyles.dateLine, { backgroundColor: colors.border }]} />
+      <View style={bubbleStyles.dateLine} />
+      <Text style={bubbleStyles.dateText}>{messageDateLabel(dateKey)}</Text>
+      <View style={bubbleStyles.dateLine} />
     </View>
   );
 }
 const bubbleStyles = StyleSheet.create({
-  rowUser: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16 },
-  rowMascot: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 16 },
-  avatar: { marginBottom: 2, flexShrink: 0 },
-  bubbleUser: { maxWidth: '72%', padding: 13, borderRadius: 20, borderBottomRightRadius: 4 },
-  userText: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_400Regular', lineHeight: 22 },
-  bubbleMascot: { maxWidth: '72%', padding: 13, borderRadius: 20, borderBottomLeftRadius: 4, borderWidth: 1 },
-  mascotText: { fontSize: 15, fontFamily: 'Inter_400Regular', lineHeight: 22 },
-  dateDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 28, marginVertical: 2 },
-  dateLine: { height: StyleSheet.hairlineWidth, flex: 1 },
-  dateText: { fontSize: 11, fontFamily: 'Inter_500Medium' },
+  rowUser: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: screenPadding },
+  rowMascot: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: space.sm,
+    paddingHorizontal: screenPadding,
+  },
+  avatar: { flexShrink: 0 },
+  // 発話の向きは尻尾（片側だけ radius.sm）で示す。色の濃淡は変えない。
+  bubbleUser: {
+    maxWidth: '76%',
+    padding: space.md,
+    borderRadius: radius.lg,
+    borderBottomRightRadius: radius.sm,
+    backgroundColor: colors.primary,
+  },
+  userText: { ...typography.body, color: colors.primaryForeground },
+  bubbleMascot: {
+    maxWidth: '76%',
+    padding: space.md,
+    borderRadius: radius.lg,
+    borderBottomLeftRadius: radius.sm,
+    backgroundColor: colors.card,
+    ...border.hairline,
+  },
+  mascotText: { ...typography.body, color: colors.foreground },
+  dateDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingHorizontal: screenPadding,
+  },
+  dateLine: { height: border.width, flex: 1, backgroundColor: colors.border },
+  dateText: { ...typography.micro, color: colors.mutedForeground },
 });
 
 /* ── Suggestion chip ── */
-function Chip({ label, onPress, colors }: { label: string; onPress: () => void; colors: ReturnType<typeof useColors> }) {
+function Chip({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <TouchableOpacity
-      style={[chipStyles.chip, { backgroundColor: colors.muted, borderColor: colors.border }]}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
-      <Text style={[chipStyles.text, { color: colors.foreground }]}>{label}</Text>
-    </TouchableOpacity>
+    <PressScale style={chipStyles.chip} onPress={onPress}>
+      <Text style={chipStyles.text}>{label}</Text>
+    </PressScale>
   );
 }
 const chipStyles = StyleSheet.create({
-  chip: { paddingHorizontal: 13, paddingVertical: 8, borderRadius: 18, borderWidth: 1 },
-  text: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  chip: {
+    minHeight: control.heightSm,
+    justifyContent: 'center',
+    paddingHorizontal: space.lg,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    ...border.hairlineStrong,
+  },
+  text: { ...typography.label, color: colors.foreground },
 });
 
 const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
@@ -207,7 +230,6 @@ const MAX_CONTEXT = 20; // send last 20 to API
 
 /* ── Main screen ── */
 export default function ChatScreen() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
           currentSatiety, inactivityHours, profile } = useApp();
@@ -220,7 +242,7 @@ export default function ChatScreen() {
     inactivityHours, satiety: currentSatiety,
   });
   const displayName = mascotName || 'こころん';
-  const welcomeMsg = newMessage('welcome', 'assistant', `やあ！${displayName}だよ✨ なんでも話しかけてね！`);
+  const welcomeMsg = newMessage('welcome', 'assistant', `やあ！${displayName}だよ。なんでも話しかけてね！`);
 
   const [messages, setMessages] = useState<Message[]>([welcomeMsg]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -262,7 +284,7 @@ export default function ChatScreen() {
 
   const clearHistory = useCallback(async () => {
     await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
-    setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ✨` }]);
+    setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ` }]);
   }, [displayName]);
 
   const sendMessage = useCallback(async (text?: string) => {
@@ -331,7 +353,7 @@ export default function ChatScreen() {
       setMessages(prev => [...prev, newMessage(
         `err_${Date.now()}`,
         'assistant',
-        'ごめん、うまく繋がらなかった…もう一度話しかけてね🥺',
+        'ごめん、うまく繋がらなかった…もう一度話しかけてね',
       )]);
     } finally {
       setIsLoading(false);
@@ -341,25 +363,24 @@ export default function ChatScreen() {
 
   const sendBtnStyle = useAnimatedStyle(() => ({ transform: [{ scale: sendScale.value }] }));
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? space.xl : insets.top;
 
+  const canSend = !!input.trim() && !isLoading;
   const showChips = messages.length <= 1;
   const CHIPS = ['今日あったこと話したい', '少し落ち込んでる', 'がんばった！聞いて', '雑談しよう'];
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View style={styles.root}>
       <SkyBackground />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 10, borderBottomColor: colors.border }]}>
-        <View style={styles.headerAvatar}>
-          <Mascot stage={mascotStage} mood={mascotMood} size={46} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.headerName, { color: colors.foreground }]}>{displayName}</Text>
+      <View style={[styles.header, { paddingTop: topPad + space.md }]}>
+        <Mascot stage={mascotStage} mood={mascotMood} size={40} />
+        <View style={styles.headerCopy}>
+          <Text style={styles.headerName}>{displayName}</Text>
           <View style={styles.onlineRow}>
-            <View style={[styles.onlineDot, { backgroundColor: colors.primary }]} />
-            <Text style={[styles.onlineText, { color: colors.mutedForeground }]}>
+            <View style={styles.onlineDot} />
+            <Text style={styles.onlineText}>
               {messages.filter(m => m.id !== 'welcome').length > 0
                 ? `${messages.filter(m => m.id !== 'welcome').length}件の会話`
                 : 'いつでもそばにいるよ'}
@@ -368,9 +389,13 @@ export default function ChatScreen() {
         </View>
         {/* Clear button */}
         {messages.length > 1 && (
-          <TouchableOpacity onPress={clearHistory} style={styles.clearBtn} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={18} color={colors.mutedForeground} />
-          </TouchableOpacity>
+          <PressScale
+            onPress={clearHistory}
+            style={styles.clearBtn}
+            accessibilityLabel="会話履歴を消す"
+          >
+            <Icon name="trash-2" size={18} color={colors.mutedForeground} />
+          </PressScale>
         )}
       </View>
 
@@ -386,22 +411,17 @@ export default function ChatScreen() {
         renderItem={({ item, index }) => (
           <>
             {(index === 0 || messages[index - 1]?.dateKey !== item.dateKey) && (
-              <DateDivider dateKey={item.dateKey} colors={colors} />
+              <DateDivider dateKey={item.dateKey} />
             )}
-            <MessageBubble
-              msg={item}
-              mascotStage={mascotStage}
-              mascotMood={mascotMood}
-              colors={colors}
-            />
+            <MessageBubble msg={item} mascotStage={mascotStage} mascotMood={mascotMood} />
           </>
         )}
         ListFooterComponent={isLoading ? (
-          <View style={[bubbleStyles.rowMascot, { paddingHorizontal: 16 }]}>
+          <View style={bubbleStyles.rowMascot}>
             <View style={bubbleStyles.avatar}>
-              <Mascot stage={mascotStage} mood="happy" size={42} />
+              <Mascot stage={mascotStage} mood="happy" size={40} />
             </View>
-            <View style={[bubbleStyles.bubbleMascot, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={bubbleStyles.bubbleMascot}>
               <TypingDots />
             </View>
           </View>
@@ -409,26 +429,24 @@ export default function ChatScreen() {
       />
 
       {/* Input area */}
-      <View style={[
-        styles.inputArea,
-        {
-          backgroundColor: 'rgba(20,13,45,0.85)',
-          borderTopColor: colors.border,
-          paddingBottom: TAB_BAR_HEIGHT + (Platform.OS === 'ios' ? insets.bottom : 8),
-        },
-      ]}>
+      <View
+        style={[
+          styles.inputArea,
+          { paddingBottom: TAB_BAR_HEIGHT + (Platform.OS === 'ios' ? insets.bottom : space.sm) },
+        ]}
+      >
         {showChips && (
           <View style={styles.chips}>
             {CHIPS.map(c => (
-              <Chip key={c} label={c} onPress={() => sendMessage(c)} colors={colors} />
+              <Chip key={c} label={c} onPress={() => sendMessage(c)} />
             ))}
           </View>
         )}
-        <View style={[styles.inputRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+        <View style={styles.inputRow}>
           <TextInput
-            style={[styles.input, { color: colors.foreground }]}
+            style={styles.input}
             placeholder={`${displayName}に話しかける…`}
-            placeholderTextColor={colors.mutedForeground}
+            placeholderTextColor={colors.subtleForeground}
             value={input}
             onChangeText={setInput}
             multiline
@@ -436,21 +454,19 @@ export default function ChatScreen() {
             onSubmitEditing={() => sendMessage()}
           />
           <Animated.View style={sendBtnStyle}>
-            <TouchableOpacity
-              style={[
-                styles.sendBtn,
-                { backgroundColor: input.trim() && !isLoading ? colors.primary : colors.border },
-              ]}
+            <PressScale
+              style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
               onPress={() => sendMessage()}
-              disabled={!input.trim() || isLoading}
-              activeOpacity={0.85}
+              disabled={!canSend}
+              accessibilityLabel="送信"
+              accessibilityState={{ disabled: !canSend }}
             >
-              <Ionicons
+              <Icon
                 name="send"
-                size={17}
-                color={input.trim() && !isLoading ? '#FFF' : colors.mutedForeground}
+                size={16}
+                color={canSend ? colors.primaryForeground : colors.disabledForeground}
               />
-            </TouchableOpacity>
+            </PressScale>
           </Animated.View>
         </View>
       </View>
@@ -469,46 +485,70 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
+  /* ヘッダー — 下端の 1px だけで本文と区切る */
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 18, paddingBottom: 12, borderBottomWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingHorizontal: screenPadding,
+    paddingBottom: space.md,
+    borderBottomWidth: border.width,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.card,
   },
-  headerAvatar: { marginBottom: -4 },
-  headerName: { fontSize: 17, fontFamily: 'Inter_700Bold' },
-  onlineRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  onlineDot: { width: 6, height: 6, borderRadius: 3 },
-  onlineText: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  headerCopy: { flex: 1 },
+  headerName: { ...typography.subhead, color: colors.foreground },
+  onlineRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  onlineDot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.success },
+  onlineText: { ...typography.micro, color: colors.mutedForeground },
+  clearBtn: {
+    width: control.icon,
+    height: control.icon,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   list: { flex: 1 },
-  listContent: { paddingVertical: 16, gap: 12 },
+  listContent: { paddingVertical: space.lg, gap: space.md },
 
+  /* 入力欄 — 上端の 1px だけ。影やぼかしは重ねない。 */
   inputArea: {
-    borderTopWidth: 1,
-    paddingTop: 10,
-    paddingHorizontal: 14,
-    gap: 10,
+    borderTopWidth: border.width,
+    borderTopColor: colors.border,
+    backgroundColor: colors.card,
+    paddingTop: space.md,
+    paddingHorizontal: screenPadding,
+    gap: space.md,
   },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   inputRow: {
-    flexDirection: 'row', alignItems: 'flex-end',
-    borderRadius: 26, borderWidth: 1,
-    paddingLeft: 16, paddingRight: 6, paddingVertical: 6,
-    gap: 6,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    borderRadius: radius.xl,
+    backgroundColor: colors.background,
+    ...border.hairlineStrong,
+    paddingLeft: space.lg,
+    paddingRight: space.xs,
+    paddingVertical: space.xs,
+    gap: space.sm,
   },
   input: {
+    ...typography.body,
     flex: 1,
-    fontSize: 15, fontFamily: 'Inter_400Regular',
-    maxHeight: 120, lineHeight: 22,
-    paddingVertical: 4,
+    color: colors.foreground,
+    maxHeight: 120,
+    paddingVertical: space.sm,
   },
   sendBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    alignItems: 'center', justifyContent: 'center',
+    width: control.icon,
+    height: control.icon,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    ...border.inner,
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
-  clearBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  sendBtnDisabled: { backgroundColor: colors.muted },
 });

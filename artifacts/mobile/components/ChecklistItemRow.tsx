@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { TouchableOpacity, Text, View, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -8,8 +8,9 @@ import Animated, {
   withSequence,
   withDelay,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { border, colors, control, radius, space, typography } from '@/constants/theme';
+import { Icon, iconSize } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 
 interface ChecklistItemRowProps {
   id: string;
@@ -32,8 +33,6 @@ export function ChecklistItemRow({
   editMode = false,
   index = 0,
 }: ChecklistItemRowProps) {
-  const colors = useColors();
-
   const enterOpacity = useSharedValue(0);
   const enterY = useSharedValue(16);
   useEffect(() => {
@@ -93,121 +92,87 @@ export function ChecklistItemRow({
   return (
     <Animated.View style={enterStyle}>
       <Animated.View style={rowStyle}>
-        <TouchableOpacity activeOpacity={editMode ? 1 : 0.85} onPress={handlePress}>
-          <View
-            style={[
-              styles.row,
-              {
-                backgroundColor: colors.card,
-                borderColor: isChecked && !editMode ? categoryColor + '55' : colors.border,
-                shadowColor: isChecked && !editMode ? categoryColor : 'transparent',
-              },
-            ]}
-          >
+        <PressScale onPress={handlePress}>
+          <View style={[styles.row, isChecked && !editMode && { borderColor: categoryColor }]}>
+            {/* チェックした瞬間のフラッシュ。カテゴリ色をごく薄く一度だけ通す。 */}
             <Animated.View
               style={[
                 StyleSheet.absoluteFill,
-                styles.flash,
-                { backgroundColor: categoryColor + '18', borderRadius: 16 },
+                { backgroundColor: colors.primarySoft, borderRadius: radius.md },
                 flashStyle,
               ]}
               pointerEvents="none"
             />
 
-            <View style={[styles.dot, { backgroundColor: editMode ? colors.border : (isChecked ? categoryColor : colors.border) }]} />
+            <View
+              style={[
+                styles.dot,
+                { backgroundColor: isChecked && !editMode ? categoryColor : colors.borderStrong },
+              ]}
+            />
 
-            <Animated.Text
-              style={[styles.text, { color: colors.foreground }, textStyle]}
-              numberOfLines={2}
-            >
+            <Animated.Text style={[styles.text, textStyle]} numberOfLines={2}>
               {text}
             </Animated.Text>
 
-            {/* Delete button (edit mode) */}
-            <Animated.View style={[styles.deleteWrap, deleteStyle]}>
-              <TouchableOpacity
+            {/* 削除（編集モード） */}
+            <Animated.View style={deleteStyle}>
+              <PressScale
                 onPress={() => onDelete?.(id)}
-                hitSlop={8}
-                style={[styles.deleteBtn, { backgroundColor: '#FEE2E2' }]}
+                hitSlop={space.sm}
+                style={styles.deleteBtn}
+                accessibilityLabel="この項目を削除"
               >
-                <Ionicons name="remove" size={16} color="#EF4444" />
-              </TouchableOpacity>
+                <Icon name="minus" size={16} color={colors.danger} />
+              </PressScale>
             </Animated.View>
 
-            {/* Check circle (normal mode) */}
+            {/* チェック（通常モード） */}
             {!editMode && (
               <View style={styles.checkWrap}>
-                {!isChecked && (
-                  <View style={[styles.emptyRing, { borderColor: colors.border }]} />
-                )}
+                {!isChecked && <View style={styles.emptyRing} />}
                 <Animated.View style={[StyleSheet.absoluteFill, styles.checkCenter, checkIconStyle]}>
-                  <Ionicons name="checkmark-circle" size={26} color={categoryColor} />
+                  <Icon name="check-circle" size={24} color={categoryColor} />
                 </Animated.View>
               </View>
             )}
           </View>
-        </TouchableOpacity>
+        </PressScale>
       </Animated.View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  // 影は付けない。チェック済みは枠線の色だけで示す。
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-    borderRadius: 16,
-    marginBottom: 8,
-    borderWidth: 1.5,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 2,
+    minHeight: control.height,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    ...border.hairline,
     overflow: 'hidden',
   },
-  flash: { pointerEvents: 'none' },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    marginRight: 12,
-    flexShrink: 0,
-  },
-  text: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: 'Inter_400Regular',
-    lineHeight: 21,
-  },
-  checkWrap: {
-    marginLeft: 12,
-    width: 26,
-    height: 26,
-    position: 'relative',
-  },
+  dot: { width: 6, height: 6, borderRadius: radius.pill, marginRight: space.md, flexShrink: 0 },
+  text: { ...typography.body, flex: 1, color: colors.foreground },
+  checkWrap: { marginLeft: space.md, width: 24, height: 24, position: 'relative' },
   emptyRing: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    position: 'absolute',
-    top: 1,
-    left: 1,
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radius.pill,
+    borderWidth: border.width,
+    borderColor: colors.borderStrong,
   },
-  checkCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteWrap: {
-    marginLeft: 8,
-  },
+  checkCenter: { alignItems: 'center', justifyContent: 'center' },
   deleteBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: control.iconSm,
+    height: control.iconSm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.dangerSoft,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: space.sm,
   },
 });

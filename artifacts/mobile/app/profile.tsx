@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useApp, UserProfile } from '@/contexts/AppContext';
 import { ProfileForm } from '@/components/ProfileForm';
+import { Icon, iconSize } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 
 export default function ProfileScreen() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { profile, saveProfile } = useApp();
@@ -25,29 +25,33 @@ export default function ProfileScreen() {
     }
   };
 
-  const topPad = Platform.OS === 'web' ? 24 : insets.top + 8;
+  const topPad = Platform.OS === 'web' ? space.xl : insets.top + space.sm;
 
   return (
-    <View style={[styles.flex, { backgroundColor: colors.background }]}>
+    <View style={styles.flex}>
       <SkyBackground />
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={[styles.content, { paddingTop: topPad, paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: topPad, paddingBottom: insets.bottom + space.xxxl },
+        ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.headerRow}>
-          <TouchableOpacity
+          <PressScale
             onPress={() => router.back()}
-            hitSlop={12}
-            style={[styles.backBtn, { backgroundColor: colors.muted }]}
+            hitSlop={space.md}
+            style={styles.backBtn}
+            accessibilityLabel="戻る"
           >
-            <Ionicons name="chevron-back" size={22} color={colors.foreground} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.foreground }]}>プロフィール</Text>
-          <View style={{ width: 38 }} />
+            <Icon name="chevron-left" size={20} color={colors.foreground} />
+          </PressScale>
+          <Text style={styles.title}>プロフィール</Text>
+          <View style={styles.headerSpacer} />
         </View>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+        <Text style={styles.subtitle}>
           いつでも変更できます。AIは参考情報として使い、実際の記録を優先します。
         </Text>
         <ProfileForm initial={profile} submitLabel="保存する" onSubmit={handleSubmit} submitting={saving} />
@@ -58,9 +62,24 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { paddingHorizontal: 20, gap: 14, maxWidth: 560, width: '100%', alignSelf: 'center' },
+  content: {
+    paddingHorizontal: screenPadding,
+    gap: space.lg,
+    maxWidth: 560,
+    width: '100%',
+    alignSelf: 'center',
+  },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 19 },
+  backBtn: {
+    width: control.icon,
+    height: control.icon,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: { width: control.icon },
+  title: { ...typography.title, color: colors.foreground },
+  subtitle: { ...typography.callout, color: colors.mutedForeground },
 });

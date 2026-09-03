@@ -1,3 +1,5 @@
+import { activityPalette, colors } from '@/constants/theme';
+import type { IconName } from '@/components/ui/Icon';
 import { getTodayDate } from './dateUtils';
 
 export type GameSlot = 'morning' | 'noon' | 'night';
@@ -30,33 +32,30 @@ export function getSlotConfig(slot: GameSlot) {
   return {
     morning: {
       label: '朝のゲーム',
-      title: '☀️ 朝のゲーム',
+      title: '朝のゲーム',
       description: '10秒でタップ！',
-      emoji: '☀️',
-      color: '#FFB347',
-      gradient: ['#FFD700', '#FFB347'] as const,
+      icon: 'sunrise' as IconName,
+      color: activityPalette.study,
       time: '5:00〜11:59',
-      rewardLabel: '🪙 1〜2pt 獲得',
+      rewardLabel: 'ごはんポイント 1〜2pt 獲得',
     },
     noon: {
       label: '昼のゲーム',
-      title: '☕ 昼のゲーム',
+      title: '昼のゲーム',
       description: 'ラッキーを探そう',
-      emoji: '🎁',
-      color: '#7C3AED',
-      gradient: ['#A855F7', '#7C3AED'] as const,
+      icon: 'gift' as IconName,
+      color: colors.primary,
       time: '12:00〜17:59',
       rewardLabel: 'ランダムでアイテム獲得',
     },
     night: {
       label: '夜のゲーム',
-      title: '🌙 夜のゲーム',
+      title: '夜のゲーム',
       description: '10秒でタップ！',
-      emoji: '⭐',
-      color: '#3B82F6',
-      gradient: ['#6366F1', '#3B82F6'] as const,
+      icon: 'moon' as IconName,
+      color: activityPalette.journal,
       time: '18:00〜4:59',
-      rewardLabel: '✨ XP 5〜10 獲得',
+      rewardLabel: 'XP 5〜10 獲得',
     },
   }[slot];
 }
