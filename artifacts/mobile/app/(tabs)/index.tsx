@@ -246,7 +246,7 @@ export default function HomeScreen() {
                 icon="coffee"
                 tone="food"
                 label="ごはん"
-                style={styles.actionEdge}
+                style={styles.actionButtonFirst}
                 onPress={() => setShowFeed(true)}
               />
               <OrbitAction
@@ -254,7 +254,7 @@ export default function HomeScreen() {
                 icon="edit-3"
                 tone="record"
                 label="記録"
-                style={styles.actionCenter}
+                style={styles.actionButtonSecond}
                 onPress={() => router.push('/(tabs)/record')}
               />
               <OrbitAction
@@ -262,7 +262,7 @@ export default function HomeScreen() {
                 icon="message-circle"
                 tone="chat"
                 label="チャット"
-                style={styles.actionCenter}
+                style={styles.actionButtonThird}
                 onPress={() => router.push('/(tabs)/chat')}
               />
               <OrbitAction
@@ -272,7 +272,7 @@ export default function HomeScreen() {
                 illustration={<GameBoardIllustration size={42} tone="play" />}
                 label="あそぶ"
                 disabled={!canPlay}
-                style={styles.actionEdge}
+                style={styles.actionButtonFourth}
                 onPress={() => setShowMiniGame(true)}
               />
             </View>
@@ -492,9 +492,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     columnGap: space.sm,
     marginBottom: 4,
+    transform: [{ translateY: 4 }],
   },
-  actionEdge: { transform: [{ translateY: 12 }] },
-  actionCenter: { transform: [{ translateY: -8 }] },
+  actionButtonFirst: { transform: [{ translateY: 24 }] },
+  actionButtonSecond: { transform: [{ translateY: -12 }] },
+  actionButtonThird: { transform: [{ translateY: -12 }] },
+  actionButtonFourth: { transform: [{ translateY: 24 }] },
   orbitAction: {
     flex: 1,
     minWidth: 0,
