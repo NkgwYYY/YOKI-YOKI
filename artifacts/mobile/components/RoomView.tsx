@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Platform, StyleSheet, useWindowDimensions, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
@@ -115,22 +115,19 @@ export function RoomItemPreview({
 const GRASS_IMAGE = require('@/public/grass.png');
 const GRASS_SOURCE = Platform.OS === 'web' ? { uri: '/grass.png' } : GRASS_IMAGE;
 
-export function GrassTexture({
-  fill = false,
-  style,
-}: {
-  fill?: boolean;
-  style?: StyleProp<ViewStyle>;
-}) {
+export function GrassTexture({ style }: { style?: StyleProp<ViewStyle> }) {
+  const { height: viewportHeight } = useWindowDimensions();
+
   return (
     <View
       pointerEvents="none"
       style={[
-        fill ? r.grassFill : r.grassContainer,
+        r.grassContainer,
+        { height: viewportHeight * 0.5 },
         style,
       ]}
     >
-      <Image source={GRASS_SOURCE} resizeMode="contain" style={r.grassImage} />
+      <Image source={GRASS_SOURCE} resizeMode="cover" style={r.grassImage} />
     </View>
   );
 }
@@ -165,29 +162,23 @@ const r = StyleSheet.create({
     alignSelf: 'stretch',
     position: 'relative',
     overflow: 'hidden',
+    zIndex: 2,
   },
   grassContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: 200,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  grassFill: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+    zIndex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
   grassImage: {
     width: '100%',
-    aspectRatio: 2048 / 768,
-  },
+    height: '100%',
+    objectFit: 'cover',
+    objectPosition: 'top center',
+  } as ImageStyle,
   landingShadow: {
     position: 'absolute',
     alignSelf: 'center',

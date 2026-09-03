@@ -240,10 +240,7 @@ export default function HomeScreen() {
 
         <View style={styles.centerArea}>
           <View style={styles.sceneStack}>
-            <GrassTexture
-              fill
-              style={[styles.homeGrass, { top: Math.max(0, sceneHeight - 200) }]}
-            />
+            <GrassTexture />
             <RoomView
               level={progress.level}
               streak={progress.streak}
@@ -451,12 +448,6 @@ const styles = StyleSheet.create({
 
   centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', position: 'relative' },
   sceneStack: { width: '100%', alignItems: 'center', position: 'relative' },
-  homeGrass: {
-    left: -space.xl,
-    right: -space.xl,
-    bottom: -120,
-    zIndex: 0,
-  },
   characterGarden: { width: '100%', position: 'relative' },
   characterMain: {
     position: 'absolute',
@@ -468,7 +459,7 @@ const styles = StyleSheet.create({
   },
   companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 4 },
   actionRow: {
-    zIndex: 2,
+    zIndex: 3,
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
