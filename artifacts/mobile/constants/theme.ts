@@ -87,8 +87,6 @@ export const homePalette = {
   backgroundBottom: '#E4ECFB',
   groundTop: '#FFA3C1',
   groundBottom: '#FF6595',
-  grassFurTop: '#FFB6C1',
-  grassFurGlow: '#FF69B4',
   cloudYellow: '#FFE7BF',
   cloudPink: '#F5CBE5',
   cloudBlue: '#C8EAF4',

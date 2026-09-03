@@ -1,17 +1,6 @@
 import React from 'react';
 import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, {
-  Defs,
-  FeDisplacementMap,
-  FeDropShadow,
-  FeGaussianBlur,
-  FeTurbulence,
-  Filter,
-  LinearGradient as SvgLinearGradient,
-  Rect,
-  Stop,
-} from 'react-native-svg';
+import { ImageBackground } from 'react-native';
 import { colors, homePalette, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
@@ -124,89 +113,34 @@ export function RoomItemPreview({
   );
 }
 
-const WEB_GRASS_FILTER = Platform.OS === 'web'
+const GRASS_IMAGE = require('@/public/grass.png');
+const WEB_GRASS_BACKGROUND = Platform.OS === 'web'
   ? ({
-      filter: [
-        'drop-shadow(0 -2px 3px rgba(255, 105, 180, 0.5))',
-        'drop-shadow(0 -1px 1.5px rgba(255, 182, 193, 0.72))',
-        'blur(0.2px)',
-      ].join(' '),
+      backgroundImage: "url('/grass.png')",
+      backgroundRepeat: 'repeat-x',
+      backgroundSize: 'auto 100%',
+      backgroundPosition: 'left bottom',
     } as unknown as ViewStyle)
   : undefined;
 
-function GrassBoundary() {
+function GrassGround() {
   return (
-    <View pointerEvents="none" style={[r.grassBoundary, WEB_GRASS_FILTER]}>
-      <Svg
-        width="100%"
-        height="100%"
-        viewBox="0 0 1200 36"
-        preserveAspectRatio="none"
-      >
-        <Defs>
-          <SvgLinearGradient id="grass-fur-fill" x1="0%" y1="0%" x2="0%" y2="100%">
-            <Stop offset="0%" stopColor={homePalette.grassFurTop} />
-            <Stop offset="100%" stopColor={homePalette.groundTop} />
-          </SvgLinearGradient>
-          <Filter id="grass-fur" x="-5%" y="-60%" width="110%" height="220%">
-            <FeTurbulence
-              type="fractalNoise"
-              baseFrequency={0.8}
-              numOctaves={4}
-              seed={7}
-              stitchTiles="stitch"
-              result="noise"
-            />
-            <FeDisplacementMap
-              in="SourceGraphic"
-              in2="noise"
-              scale={8}
-              xChannelSelector="R"
-              yChannelSelector="G"
-              result="displaced"
-            />
-            <FeGaussianBlur in="displaced" stdDeviation={0.28} result="softFur" />
-            <FeDropShadow
-              in="softFur"
-              dx={0}
-              dy={-2}
-              stdDeviation={2.2}
-              floodColor={homePalette.grassFurGlow}
-              floodOpacity={0.46}
-              result="wideShadow"
-            />
-            <FeDropShadow
-              in="wideShadow"
-              dx={0}
-              dy={-0.8}
-              stdDeviation={0.75}
-              floodColor={homePalette.grassFurTop}
-              floodOpacity={0.72}
-            />
-          </Filter>
-        </Defs>
-        <Rect
-          x={-8}
-          y={10}
-          width={1216}
-          height={28}
-          fill="url(#grass-fur-fill)"
-          filter="url(#grass-fur)"
+    <View pointerEvents="none" style={[r.grassContainer, WEB_GRASS_BACKGROUND]}>
+      {Platform.OS === 'web' ? null : (
+        <ImageBackground
+          source={GRASS_IMAGE}
+          resizeMode="repeat"
+          style={r.grassNativeImage}
         />
-      </Svg>
+      )}
     </View>
   );
 }
 
-function GroundGradient() {
+function Ground() {
   return (
     <View style={r.groundWrap} pointerEvents="none">
-      <LinearGradient
-        colors={[homePalette.groundTop, homePalette.groundBottom]}
-        locations={[0, 1]}
-        style={[r.groundGradient, { top: 8 }]}
-      />
-      <GrassBoundary />
+      <GrassGround />
     </View>
   );
 }
@@ -220,7 +154,7 @@ export function RoomView({ customization, children, sceneHeight = 300, horizonta
 
   return (
     <View style={[r.scene, { height: sceneHeight, marginHorizontal: -horizontalBleed }]}>
-      <GroundGradient />
+      <Ground />
       <View style={r.landingShadow} pointerEvents="none" />
       {customization.flower !== 'none' ? (
         <View style={r.flowerPosition}><FlowerIllustration color={flowerColor} /></View>
@@ -243,9 +177,9 @@ const r = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  groundWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, zIndex: 0 },
-  groundGradient: { ...StyleSheet.absoluteFillObject },
-  grassBoundary: { position: 'absolute', top: -10, left: 0, right: 0, height: 36 },
+  groundWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200, zIndex: 0 },
+  grassContainer: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200 },
+  grassNativeImage: { ...StyleSheet.absoluteFillObject },
   landingShadow: {
     position: 'absolute',
     alignSelf: 'center',
