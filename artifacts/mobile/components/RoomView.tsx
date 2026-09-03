@@ -1,7 +1,6 @@
 import React from 'react';
-import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
-import { ImageBackground } from 'react-native';
-import { colors, homePalette, roomPalette } from '@/constants/theme';
+import { ImageBackground, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { colors, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
 import type { RoomFlower, RoomFurniture, RoomItemKind } from '@/contexts/AppContext';
@@ -120,12 +119,24 @@ const WEB_GRASS_BACKGROUND = Platform.OS === 'web'
       backgroundRepeat: 'repeat-x',
       backgroundSize: 'auto 100%',
       backgroundPosition: 'left bottom',
+      borderTopLeftRadius: '50% 24px',
+      borderTopRightRadius: '50% 24px',
+      overflow: 'hidden',
     } as unknown as ViewStyle)
   : undefined;
 
-function GrassGround() {
+export function GrassTexture({
+  fill = false,
+  style,
+}: {
+  fill?: boolean;
+  style?: StyleProp<ViewStyle>;
+}) {
   return (
-    <View pointerEvents="none" style={[r.grassContainer, WEB_GRASS_BACKGROUND]}>
+    <View
+      pointerEvents="none"
+      style={[fill ? r.grassFill : r.grassContainer, WEB_GRASS_BACKGROUND, style]}
+    >
       {Platform.OS === 'web' ? null : (
         <ImageBackground
           source={GRASS_IMAGE}
@@ -133,14 +144,6 @@ function GrassGround() {
           style={r.grassNativeImage}
         />
       )}
-    </View>
-  );
-}
-
-function Ground() {
-  return (
-    <View style={r.groundWrap} pointerEvents="none">
-      <GrassGround />
     </View>
   );
 }
@@ -154,7 +157,6 @@ export function RoomView({ customization, children, sceneHeight = 300, horizonta
 
   return (
     <View style={[r.scene, { height: sceneHeight, marginHorizontal: -horizontalBleed }]}>
-      <Ground />
       <View style={r.landingShadow} pointerEvents="none" />
       {customization.flower !== 'none' ? (
         <View style={r.flowerPosition}><FlowerIllustration color={flowerColor} /></View>
@@ -177,8 +179,8 @@ const r = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  groundWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200, zIndex: 0 },
-  grassContainer: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200 },
+  grassContainer: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200, overflow: 'hidden' },
+  grassFill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, overflow: 'hidden' },
   grassNativeImage: { ...StyleSheet.absoluteFillObject },
   landingShadow: {
     position: 'absolute',

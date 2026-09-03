@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { colors, homePalette } from '@/constants/theme';
 import { Icon } from '@/components/ui/Icon';
 
@@ -62,22 +61,6 @@ export function GamepadIllustration({ size = 48 }: { size?: number }) {
           <View style={{ width: 8, height: 8, backgroundColor: colors.primary, borderRadius: 4, marginBottom: 8 }} />
         </View>
       </View>
-    </View>
-  );
-}
-
-export function CharacterFacetAura({ width, height }: { width: number; height: number }) {
-  return (
-    <View pointerEvents="none" style={[styles.facetAura, { width, height, borderRadius: width * 0.48 }]}>
-      <LinearGradient
-        colors={[homePalette.auraWarm, homePalette.auraCool, homePalette.auraClear]}
-        start={{ x: 0.16, y: 0.06 }}
-        end={{ x: 0.88, y: 0.94 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={[styles.facet, styles.facetTop]} />
-      <View style={[styles.facet, styles.facetSide]} />
-      <View style={[styles.facet, styles.facetBottom]} />
     </View>
   );
 }
@@ -223,18 +206,4 @@ export function SpecialFoodIcon({ size = 40 }: { size?: number }) {
 }
 
 const styles = StyleSheet.create({
-  facetAura: {
-    position: 'absolute',
-    alignSelf: 'center',
-    overflow: 'hidden',
-    opacity: 0.85,
-  },
-  facet: {
-    position: 'absolute',
-    backgroundColor: homePalette.auraFacet,
-    transform: [{ rotate: '28deg' }],
-  },
-  facetTop: { width: '32%', height: '18%', top: '10%', left: '28%', borderRadius: 8 },
-  facetSide: { width: '22%', height: '28%', top: '34%', right: '10%', borderRadius: 8, transform: [{ rotate: '-24deg' }] },
-  facetBottom: { width: '38%', height: '14%', bottom: '12%', left: '20%', borderRadius: 8, opacity: 0.6 },
 });

@@ -20,8 +20,8 @@ import {
 import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
 import { getCurrentSlot, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
 import { getMascotStage } from '@/utils/mascotUtils';
-import { RoomItemPreview, RoomView } from '@/components/RoomView';
-import { CharacterFacetAura, GameBoardIllustration } from '@/components/ui/Illustrations';
+import { GrassTexture, RoomItemPreview, RoomView } from '@/components/RoomView';
+import { GameBoardIllustration } from '@/components/ui/Illustrations';
 import { HomeSkyBackdrop } from '@/components/SkyBackground';
 
 const FURNITURE_OPTIONS: { id: RoomFurniture; name: string; cost: number }[] = [
@@ -240,7 +240,10 @@ export default function HomeScreen() {
 
         <View style={styles.centerArea}>
           <View style={styles.sceneStack}>
-            <View pointerEvents="none" style={[styles.actionGround, { top: sceneHeight - 96 }]} />
+            <GrassTexture
+              fill
+              style={[styles.homeGrass, { top: Math.max(0, sceneHeight - 200) }]}
+            />
             <RoomView
               level={progress.level}
               streak={progress.streak}
@@ -262,7 +265,6 @@ export default function HomeScreen() {
                     },
                   ]}
                 >
-                  <CharacterFacetAura width={characterSize * 0.98} height={characterSize * 1.7} />
                   <StageCharacter
                     stage={getMascotStage(progress.level)}
                     mood={mascotMood}
@@ -449,14 +451,7 @@ const styles = StyleSheet.create({
 
   centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', position: 'relative' },
   sceneStack: { width: '100%', alignItems: 'center', position: 'relative' },
-  actionGround: {
-    position: 'absolute',
-    left: -space.xl,
-    right: -space.xl,
-    bottom: -300,
-    backgroundColor: homePalette.groundBottom,
-    zIndex: 0,
-  },
+  homeGrass: { left: -space.xl, right: -space.xl, bottom: -120, zIndex: 0 },
   characterGarden: { width: '100%', position: 'relative' },
   characterMain: {
     position: 'absolute',
