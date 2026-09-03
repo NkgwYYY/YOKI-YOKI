@@ -1,35 +1,36 @@
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { Feather, Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
-import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Icon as NativeTabIcon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
+import { border, colors, typography } from '@/constants/theme';
 import { NewFriendModal } from '@/components/dex/NewFriendModal';
 import { LightFlowHost } from '@/components/LightFlowHost';
+import { Icon, iconSize } from '@/components/ui/Icon';
 
 function NativeTabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: 'house', selected: 'house.fill' }} />
+        <NativeTabIcon sf={{ default: 'house', selected: 'house.fill' }} />
         <Label>ホーム</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="record">
-        <Icon sf={{ default: 'pencil.and.scribble', selected: 'pencil.and.scribble' }} />
+        <NativeTabIcon sf={{ default: 'pencil.and.scribble', selected: 'pencil.and.scribble' }} />
         <Label>記録</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="chat">
-        <Icon sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }} />
+        <NativeTabIcon sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }} />
         <Label>チャット</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="growth">
-        <Icon sf={{ default: 'chart.line.uptrend.xyaxis', selected: 'chart.line.uptrend.xyaxis.circle.fill' }} />
+        <NativeTabIcon sf={{ default: 'chart.line.uptrend.xyaxis', selected: 'chart.line.uptrend.xyaxis.circle.fill' }} />
         <Label>成長</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="plant">
-        <Icon sf={{ default: 'bolt', selected: 'bolt.fill' }} />
+        <NativeTabIcon sf={{ default: 'bolt', selected: 'bolt.fill' }} />
         <Label>発電所</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
@@ -43,31 +44,24 @@ function ClassicTabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#EFE7FF',
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.45)',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.subtleForeground,
         headerShown: false,
+        tabBarLabelStyle: typography.micro,
         tabBarStyle: {
           position: 'absolute',
-          backgroundColor: isIOS ? 'transparent' : '#0F0925',
-          borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: 'rgba(255,255,255,0.12)',
+          // 面の区切りは上端の 1px だけ。影は敷かない。
+          backgroundColor: isIOS ? 'transparent' : colors.card,
+          borderTopWidth: border.width,
+          borderTopColor: colors.border,
           elevation: 0,
-          ...(isWeb ? { height: 84 } : {}),
+          ...(isWeb ? { height: 64 } : {}),
         },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView
-              intensity={100}
-              tint="dark"
-              style={StyleSheet.absoluteFill}
-            />
+            <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
           ) : isWeb ? (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: '#0F0925' },
-              ]}
-            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
           ) : null,
       }}
     >
@@ -79,7 +73,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="house" tintColor={color} size={24} />
             ) : (
-              <Ionicons name="home-outline" size={22} color={color} />
+              <Icon name="home" size={iconSize.lg} color={color} />
             ),
         }}
       />
@@ -91,7 +85,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="pencil" tintColor={color} size={24} />
             ) : (
-              <Feather name="edit-2" size={20} color={color} />
+              <Icon name="edit-3" size={iconSize.lg} color={color} />
             ),
         }}
       />
@@ -103,7 +97,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="bubble.left.and.bubble.right" tintColor={color} size={24} />
             ) : (
-              <Ionicons name="chatbubble-ellipses-outline" size={22} color={color} />
+              <Icon name="message-circle" size={iconSize.lg} color={color} />
             ),
         }}
       />
@@ -115,7 +109,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="chart.line.uptrend.xyaxis" tintColor={color} size={24} />
             ) : (
-              <Feather name="trending-up" size={22} color={color} />
+              <Icon name="trending-up" size={iconSize.lg} color={color} />
             ),
         }}
       />
@@ -127,7 +121,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="bolt" tintColor={color} size={24} />
             ) : (
-              <Ionicons name="flash-outline" size={22} color={color} />
+              <Icon name="zap" size={iconSize.lg} color={color} />
             ),
         }}
       />

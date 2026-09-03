@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ImageBackground,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, ImageBackground } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +7,10 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat, withSequence,
   withTiming, withSpring, withDelay, FadeInUp, FadeOut, Easing,
 } from 'react-native-reanimated';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
+import { Button } from '@/components/ui/Button';
+import { Icon, iconSize, type IconName } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 import { CosmicBackground } from '@/components/CosmicBackground';
 import { useApp } from '@/contexts/AppContext';
 import { Mascot } from '@/components/Mascot';
@@ -21,11 +22,11 @@ const easeInOutSine = Easing.inOut(Easing.sin);
 const SCENE_BG = require('@/assets/images/plant/plant-scene-v2.png');
 
 /* ── 元気 → 日差しの段階 ── */
-function sunshineTier(genki: number): { label: string; emoji: string } {
-  if (genki >= 85) return { label: 'まぶしいくらい!', emoji: '🌞' };
-  if (genki >= 60) return { label: 'つよい日差し', emoji: '☀️' };
-  if (genki >= 30) return { label: 'ふつうの日差し', emoji: '🌤️' };
-  return { label: 'よわい日差し', emoji: '⛅' };
+function sunshineTier(genki: number): { label: string; icon: IconName } {
+  if (genki >= 85) return { label: 'まぶしいくらい!', icon: 'sun' };
+  if (genki >= 60) return { label: 'つよい日差し', icon: 'sunrise' };
+  if (genki >= 30) return { label: 'ふつうの日差し', icon: 'cloud' };
+  return { label: 'よわい日差し', icon: 'cloud-rain' };
 }
 
 /* ════════════ シーン内オーバーレイ ════════════ */
@@ -84,7 +85,8 @@ function SceneSun({ genki }: { genki: number }) {
           />
         ))}
       </Animated.View>
-      {/* 本体: あたたかい黄橙のグラデーション */}
+      {/* 本体。ここはイラスト内の光源なのでグラデーションを許容している。
+          UI の面（カード・ボタン・チップ）には決して持ち込まないこと。 */}
       <Animated.View style={bodyStyle}>
         <LinearGradient
           colors={['#FFFBE0', '#FFE066', '#FFAE2E']}
@@ -94,34 +96,6 @@ function SceneSun({ genki }: { genki: number }) {
         <View style={s.sunHighlight} />
       </Animated.View>
     </View>
-  );
-}
-
-/** 太陽からの光線(元気が強いほどはっきり見える) */
-function SunRays({ genki }: { genki: number }) {
-  const o = useSharedValue(0.4);
-  useEffect(() => {
-    o.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2200, easing: easeInOutSine }),
-        withTiming(0.4, { duration: 2200, easing: easeInOutSine }),
-      ), -1, false,
-    );
-  }, []);
-  const base = Math.max(0, (genki - 20) / 100) * 0.5; // 元気20以下ではほぼ見えない
-  const st1 = useAnimatedStyle(() => ({ opacity: base * o.value }));
-  if (genki < 20) return null;
-  return (
-    <Animated.View style={[s.raysWrap, st1]} pointerEvents="none">
-      {[38, 52, 68].map((deg, i) => (
-        <LinearGradient
-          key={i}
-          colors={['rgba(255,224,130,0.85)', 'rgba(255,224,130,0)']}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={[s.ray, { transform: [{ rotate: `${deg}deg` }], top: i * 6 }]}
-        />
-      ))}
-    </Animated.View>
   );
 }
 
@@ -158,39 +132,22 @@ function Mote({ index }: { index: number }) {
       ],
     };
   });
+  const dot = 5 + (index % 2) * 3;
   return (
-    <Animated.Text
+    <Animated.View
       style={[
-        { position: 'absolute', bottom: 118, left: `${52 + (index % 3) * 7}%`, fontSize: 12 + (index % 2) * 4 },
+        {
+          position: 'absolute',
+          bottom: 118,
+          left: `${52 + (index % 3) * 7}%`,
+          width: dot,
+          height: dot,
+          borderRadius: dot / 2,
+          backgroundColor: '#FFE9A0',
+        },
         st,
       ]}
-    >
-      ✦
-    </Animated.Text>
-  );
-}
-
-/** パネル群のきらめき(日差しが強いほどパネルが輝く) */
-function PanelShimmer({ genki }: { genki: number }) {
-  const o = useSharedValue(0.4);
-  useEffect(() => {
-    o.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1900, easing: easeInOutSine }),
-        withTiming(0.4, { duration: 1900, easing: easeInOutSine }),
-      ), -1, false,
-    );
-  }, []);
-  const strength = 0.18 + (genki / 100) * 0.5;
-  const st = useAnimatedStyle(() => ({ opacity: strength * o.value }));
-  return (
-    <Animated.View style={[s.panelShimmer, st]} pointerEvents="none">
-      <LinearGradient
-        colors={['rgba(255,226,140,0)', 'rgba(255,226,140,0.55)', 'rgba(255,240,190,0.75)', 'rgba(255,226,140,0.45)', 'rgba(255,226,140,0)']}
-        start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-    </Animated.View>
+    />
   );
 }
 
@@ -226,14 +183,11 @@ function EnergyDot({ index }: { index: number }) {
     };
   });
   return (
-    <Animated.Text
-      style={[
-        { position: 'absolute', top: `${44 + (index % 3) * 5}%`, left: '28%', fontSize: 11 + (index % 2) * 3, color: '#FFE082' },
-        st,
-      ]}
+    <Animated.View
+      style={[{ position: 'absolute', top: `${44 + (index % 3) * 5}%`, left: '28%' }, st]}
     >
-      ⚡
-    </Animated.Text>
+      <Icon name="zap" size={iconSize.xs + (index % 2) * 2} color="#FFE082" />
+    </Animated.View>
   );
 }
 
@@ -259,7 +213,6 @@ function CharacterAura({ genki }: { genki: number }) {
 /* ════════════ 画面本体 ════════════ */
 
 export default function PlantScreen() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const { lightEnergy, powerPlant, sellEnergy, exchangeEcoPoints, progress } = useApp();
 
@@ -284,12 +237,12 @@ export default function PlantScreen() {
   const darkness = 0.38 * (1 - genki / 100);
 
   const mascotMsg =
-    genki >= 85 ? 'ボクの光、太陽まで\nとどいてるよ🌞'
-      : genki >= 60 ? '今日もいっぱい\n光をつくれたよ✨'
-        : genki >= 30 ? 'すこしずつ光を\nあつめてるよ🌱'
-          : 'キミが元気になると\nボクも光れるんだ…🌙';
+    genki >= 85 ? 'ボクの光、太陽まで\nとどいてるよ'
+      : genki >= 60 ? '今日もいっぱい\n光をつくれたよ'
+        : genki >= 30 ? 'すこしずつ光を\nあつめてるよ'
+          : 'キミが元気になると\nボクも光れるんだ…';
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? space.xl : insets.top;
 
   const sellScale = useSharedValue(1);
   const sellStyle = useAnimatedStyle(() => ({ transform: [{ scale: sellScale.value }] }));
@@ -305,7 +258,7 @@ export default function PlantScreen() {
       const { sold, gained } = await sellEnergy();
       if (sold > 0) {
         setSunBurstSeq((n) => n + 1);
-        setSoldMsg(`⚡${sold} 売電! 🌱ごほうびポイント +${gained}`);
+        setSoldMsg(`${sold} エネルギーを売電。ごほうびポイント +${gained}`);
         if (soldTimerRef.current) clearTimeout(soldTimerRef.current);
         soldTimerRef.current = setTimeout(() => setSoldMsg(null), 3000);
       }
@@ -320,7 +273,7 @@ export default function PlantScreen() {
     try {
       const { exchanged } = await exchangeEcoPoints(powerPlant.ecoPoints);
       if (exchanged > 0) {
-        setExchangedMsg(`🌱${exchanged} → 🍚 ごはんポイント +${exchanged}! ホームでごはんをあげよう`);
+        setExchangedMsg(`ごほうび ${exchanged} をごはんポイント +${exchanged} にかえたよ`);
         if (exTimerRef.current) clearTimeout(exTimerRef.current);
         exTimerRef.current = setTimeout(() => setExchangedMsg(null), 3600);
       }
@@ -330,48 +283,48 @@ export default function PlantScreen() {
   };
 
   return (
-    <View style={[s.flex, { backgroundColor: colors.background }]}>
+    <View style={s.flex}>
       <CosmicBackground />
       <ScrollView
         contentContainerStyle={[
           s.content,
-          { paddingTop: topPad + 14, paddingBottom: Platform.OS === 'web' ? 34 + 90 : insets.bottom + 90 },
+          {
+            paddingTop: topPad + space.lg,
+            paddingBottom:
+              (Platform.OS === 'web' ? space.xxl : insets.bottom) + control.height + space.xl,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── ヘッダー ── */}
         <View>
-          <Text style={[s.title, { color: colors.foreground }]}>☀️ ひかり発電所</Text>
-          <Text style={[s.subtitle, { color: colors.mutedForeground }]}>
+          <Text style={s.title}>ひかり発電所</Text>
+          <Text style={s.subtitle}>
             あなたの元気が、キャラクターの光になり、太陽を照らしています
           </Text>
         </View>
 
         {/* ── ステータス(スクロールなしで見える) ── */}
-        <View style={[s.card, s.statsCard, { borderColor: colors.border }]}>
-          <LinearGradient
-            colors={['rgba(52,32,102,0.92)', 'rgba(30,19,64,0.95)']}
-            style={StyleSheet.absoluteFill}
-          />
+        <View style={[s.card, s.statsCard]}>
           <View style={s.statsRow}>
             <View style={s.statCell}>
-              <Text style={s.statHead}>☀️ 今日の光</Text>
-              <Text style={[s.statValue, { color: '#FFD86B' }]}>+{lightEnergy.todayEnergy}</Text>
+              <Text style={s.statHead}>今日の光</Text>
+              <Text style={s.statValue}>+{lightEnergy.todayEnergy}</Text>
               <Text style={s.statUnit}>Energy</Text>
             </View>
             <View style={s.statDivider} />
             <View style={s.statCell}>
-              <Text style={s.statHead}>⚡ 蓄電量</Text>
-              <Text style={[s.statValue, { color: '#8AF0B8' }]}>{sellable}</Text>
+              <Text style={s.statHead}>蓄電量</Text>
+              <Text style={s.statValue}>{sellable}</Text>
               <Text style={s.statUnit}>Energy</Text>
             </View>
             <View style={s.statDivider} />
             <View style={s.statCell}>
-              <Text style={s.statHead}>💰 売電できる</Text>
-              <Text style={[s.statValue, { color: '#C9B2FF' }]}>{sellable}</Text>
+              <Text style={s.statHead}>売電できる</Text>
+              <Text style={s.statValue}>{sellable}</Text>
               {sellable > 0 ? (
                 <View style={s.sellReadyChip}>
-                  <Text style={s.sellReadyChipText}>売電できるよ!</Text>
+                  <Text style={s.sellReadyChipText}>売電できるよ</Text>
                 </View>
               ) : (
                 <Text style={s.statUnit}>Energy</Text>
@@ -381,7 +334,7 @@ export default function PlantScreen() {
         </View>
 
         {/* ── 発電所の世界 ── */}
-        <View style={[s.card, s.sceneCard, { borderColor: colors.border }]}>
+        <View style={[s.card, s.sceneCard]}>
           {/* カードは画像と同じ縦横比なので stretch で必ず全体が表示される(coverのクロップ事故を防ぐ) */}
           <ImageBackground
             source={SCENE_BG}
@@ -390,14 +343,12 @@ export default function PlantScreen() {
             resizeMode="stretch"
           >
             {/* 元気が低いほど世界が暗くなる */}
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(10,6,32,${darkness})` }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(30,21,51,${darkness})` }]} />
             {/* 売電の瞬間、世界がぱっと明るくなる */}
             <SunBurst seq={sunBurstSeq} />
           </ImageBackground>
 
           <SceneSun genki={genki} />
-          <SunRays genki={genki} />
-          <PanelShimmer genki={genki} />
           <EnergyFlow genki={genki} />
           <LightMotes genki={genki} />
 
@@ -414,72 +365,62 @@ export default function PlantScreen() {
 
           {/* 日差しの状態 */}
           <View style={s.sunshineChip}>
+            <Icon name={tier.icon} size={iconSize.xs} color={colors.foreground} />
             <Text style={s.sunshineChipText}>
-              {tier.emoji} 元気 {genki}% ・ {tier.label}
+              元気 {genki}% ・ {tier.label}
             </Text>
           </View>
         </View>
 
         {/* ── 売電 ── */}
-        <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={s.card}>
           <View style={s.cardHeader}>
-            <Text style={s.cardIcon}>💰</Text>
-            <Text style={[s.cardTitle, { color: colors.foreground }]}>売電する</Text>
+            <Text style={s.cardTitle}>売電する</Text>
             <View style={s.ecoBadge}>
-              <Text style={s.ecoBadgeText}>🌱 {powerPlant.ecoPoints}</Text>
+              <Icon name="gift" size={iconSize.xs} color={colors.success} />
+              <Text style={s.ecoBadgeText}>{powerPlant.ecoPoints}</Text>
             </View>
           </View>
-          <Text style={[s.hint, { color: colors.mutedForeground }]}>
-            貯まった光エネルギーを売って、ごほうびポイントに変えられるよ
-          </Text>
+          <Text style={s.hint}>貯まった光エネルギーを売って、ごほうびポイントに変えられるよ</Text>
           {soldMsg && (
             <Animated.View
               entering={FadeInUp.springify().damping(10)}
               exiting={FadeOut}
-              style={[s.banner, { backgroundColor: '#7FDCA426', borderColor: '#7FDCA466' }]}
+              style={s.banner}
             >
-              <Text style={[s.bannerText, { color: '#7FDCA4' }]}>{soldMsg}</Text>
+              <Text style={s.bannerText}>{soldMsg}</Text>
             </Animated.View>
           )}
           <Animated.View style={sellStyle}>
-            <TouchableOpacity
+            <Button
+              label={sellable > 0 ? `${sellable} エネルギーを売電する` : '蓄電がたまったら売電できるよ'}
+              icon="zap"
               onPress={handleSell}
               disabled={selling || sellable <= 0}
-              activeOpacity={0.9}
-              accessibilityRole="button"
-              accessibilityLabel={sellable > 0 ? `${sellable} エネルギーを売電する` : 'まだ売電できません。蓄電中です'}
-              accessibilityState={{ disabled: selling || sellable <= 0 }}
-              style={s.sellBtnWrap}
-            >
-              <LinearGradient
-                colors={sellable > 0 ? ['#FFC94D', '#FF9D2E'] : ['#3A3357', '#3A3357']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={s.sellBtn}
-              >
-                <Text style={[s.sellBtnText, { color: sellable > 0 ? '#3A2400' : 'rgba(255,255,255,0.4)' }]}>
-                  {sellable > 0 ? `⚡${sellable} を売電する` : '蓄電がたまったら売電できるよ'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
+              loading={selling}
+              fullWidth
+            />
           </Animated.View>
         </View>
 
         {/* ── キャラクターへのご褒美 ── */}
-        <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={s.card}>
           <View style={s.cardHeader}>
-            <Text style={s.cardIcon}>🍚</Text>
-            <Text style={[s.cardTitle, { color: colors.foreground }]}>キャラクターへのご褒美</Text>
+            <Text style={s.cardTitle}>キャラクターへのご褒美</Text>
           </View>
-          <Text style={[s.hint, { color: colors.mutedForeground }]}>
+          <Text style={s.hint}>
             ごほうびポイントをごはんポイントにかえて、キャラにごはんをあげよう
           </Text>
           {/* ごはんのプレビュー */}
           <View style={s.foodRow}>
             {FOOD_ITEMS.slice(0, 4).map((f) => (
               <View key={f.id} style={s.foodCell}>
-                <Text style={s.foodEmoji}>{f.emoji}</Text>
+                <Icon name={f.icon} size={iconSize.md} color={colors.primaryOnSoft} />
                 <Text style={s.foodName}>{f.name}</Text>
-                <Text style={s.foodCost}>🍚{f.cost}</Text>
+                <View style={s.foodCostRow}>
+                  <Icon name="coffee" size={iconSize.xs} color={colors.mutedForeground} />
+                  <Text style={s.foodCost}>{f.cost}</Text>
+                </View>
               </View>
             ))}
           </View>
@@ -487,39 +428,32 @@ export default function PlantScreen() {
             <Animated.View
               entering={FadeInUp.springify().damping(10)}
               exiting={FadeOut}
-              style={[s.banner, { backgroundColor: '#FFC94D22', borderColor: '#FFC94D55' }]}
+              style={s.banner}
             >
-              <Text style={[s.bannerText, { color: '#FFD86B' }]}>{exchangedMsg}</Text>
+              <Text style={s.bannerText}>{exchangedMsg}</Text>
             </Animated.View>
           )}
-          <TouchableOpacity
+          <Button
+            label={
+              powerPlant.ecoPoints > 0
+                ? `ごほうび ${powerPlant.ecoPoints} をごはんポイントにかえる`
+                : '売電するとごほうびポイントがもらえるよ'
+            }
+            icon="refresh-cw"
+            variant="secondary"
             onPress={handleExchange}
             disabled={exchanging || powerPlant.ecoPoints <= 0}
-            activeOpacity={0.9}
-            accessibilityRole="button"
-            accessibilityLabel={
-              powerPlant.ecoPoints > 0
-                ? `ごほうびポイント${powerPlant.ecoPoints}をごはんポイントにかえる`
-                : 'ごほうびポイントがまだありません'
-            }
-            accessibilityState={{ disabled: exchanging || powerPlant.ecoPoints <= 0 }}
-            style={[s.exchangeBtn, { backgroundColor: powerPlant.ecoPoints > 0 ? '#7FDCA4' : colors.muted }]}
-          >
-            <Text style={[s.exchangeBtnText, { color: powerPlant.ecoPoints > 0 ? '#0D3321' : colors.mutedForeground }]}>
-              {powerPlant.ecoPoints > 0
-                ? `🌱${powerPlant.ecoPoints} を 🍚ごはんポイントにかえる`
-                : '売電するとごほうびポイントがもらえるよ'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+            loading={exchanging}
+            fullWidth
+          />
+          <PressScale
             onPress={() => router.push('/(tabs)')}
-            activeOpacity={0.85}
-            accessibilityRole="button"
             accessibilityLabel="ホームへ移動してごはんをあげる"
             style={s.feedLinkBtn}
           >
-            <Text style={s.feedLinkText}>🏠 ホームでごはんをあげにいく →</Text>
-          </TouchableOpacity>
+            <Text style={s.feedLinkText}>ホームでごはんをあげにいく</Text>
+            <Icon name="arrow-right" size={iconSize.sm} color={colors.primaryOnSoft} />
+          </PressScale>
         </View>
       </ScrollView>
     </View>
@@ -537,103 +471,184 @@ function SunBurst({ seq }: { seq: number }) {
     );
   }, [seq]);
   const st = useAnimatedStyle(() => ({ opacity: o.value }));
-  return <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#FFE9A0' }, st]} pointerEvents="none" />;
+  return <Animated.View style={[StyleSheet.absoluteFill, s.sunBurst, st]} pointerEvents="none" />;
 }
 
 /* ════════════ styles ════════════ */
 
 const s = StyleSheet.create({
   flex: { flex: 1 },
-  content: { paddingHorizontal: 20, gap: 13 },
-  title: { fontSize: 24, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
-  subtitle: { fontSize: 11.5, fontFamily: 'Inter_400Regular', marginTop: 4, lineHeight: 17 },
+  content: { paddingHorizontal: screenPadding, gap: space.lg },
+  title: { ...typography.display, color: colors.foreground },
+  subtitle: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
 
-  card: { borderRadius: 22, padding: 18, borderWidth: 1, gap: 12, overflow: 'hidden' },
-
-  /* stats */
-  statsCard: { padding: 14 },
-  statsRow: { flexDirection: 'row', alignItems: 'stretch' },
-  statCell: { flex: 1, alignItems: 'center', gap: 3 },
-  statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 4 },
-  statHead: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.6)' },
-  statValue: { fontSize: 22, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
-  statUnit: { fontSize: 9, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.4)' },
-  sellReadyChip: {
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8,
-    backgroundColor: 'rgba(201,178,255,0.18)',
+  card: {
+    backgroundColor: colors.card,
+    ...border.hairline,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.md,
+    overflow: 'hidden',
   },
-  sellReadyChipText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: '#C9B2FF' },
 
-  /* scene */
+  /* ステータス */
+  statsCard: { paddingVertical: space.lg },
+  statsRow: { flexDirection: 'row', alignItems: 'stretch' },
+  statCell: { flex: 1, alignItems: 'center', gap: space.xs },
+  statDivider: { width: border.width, backgroundColor: colors.border },
+  statHead: { ...typography.micro, color: colors.mutedForeground },
+  statValue: { ...typography.title, color: colors.foreground },
+  statUnit: { ...typography.micro, color: colors.subtleForeground },
+  sellReadyChip: {
+    paddingHorizontal: space.sm,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+  },
+  sellReadyChipText: { ...typography.micro, color: colors.primaryOnSoft },
+
+  /* ── シーン ──
+     ここから下はイラストの一部。アプリの面ではなく絵の上に載るので、
+     デザイントークンではなく絵に合わせた色を使う。 */
   // 画像(800x1024)と同じ縦横比にして、パネル群が必ず全部見えるようにする
   sceneCard: { width: '100%', aspectRatio: 800 / 1024, padding: 0, gap: 0 },
+  sunBurst: { backgroundColor: '#FFF3D0' },
   sunWrap: {
-    position: 'absolute', left: '7%', top: 40,
-    width: 96, height: 96, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute',
+    left: '7%',
+    top: space.xxl,
+    width: 96,
+    height: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  sunGlow: { position: 'absolute', width: 96, height: 96, borderRadius: 48, backgroundColor: '#FFD86B' },
-  sunRaysRing: { position: 'absolute', width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
+  sunGlow: {
+    position: 'absolute',
+    width: 96,
+    height: 96,
+    borderRadius: radius.pill,
+    backgroundColor: '#FFD86B',
+  },
+  sunRaysRing: {
+    position: 'absolute',
+    width: 96,
+    height: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sunRaySpike: {
-    position: 'absolute', width: 7, height: 18, borderRadius: 4, backgroundColor: '#FFD24D',
+    position: 'absolute',
+    width: 7,
+    height: 18,
+    borderRadius: 4,
+    backgroundColor: '#FFD24D',
   },
   sunRaySpikeSmall: {
-    position: 'absolute', width: 5, height: 12, borderRadius: 3, backgroundColor: '#FFE58A',
+    position: 'absolute',
+    width: 5,
+    height: 12,
+    borderRadius: 3,
+    backgroundColor: '#FFE58A',
   },
   sunBody: { width: 50, height: 50, borderRadius: 25 },
   sunHighlight: {
-    position: 'absolute', top: 8, left: 10, width: 16, height: 10,
-    borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.75)',
+    position: 'absolute',
+    top: space.sm,
+    left: space.md,
+    width: 16,
+    height: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.75)',
     transform: [{ rotate: '-20deg' }],
   },
-  raysWrap: { position: 'absolute', left: '14%', top: 92, width: 180, height: 120 },
-  panelShimmer: { position: 'absolute', left: 0, right: 0, top: '36%', height: '30%' },
-  ray: { position: 'absolute', left: 0, width: 150, height: 7, borderRadius: 4 },
-
-  mascotWrap: { position: 'absolute', bottom: 14, alignSelf: 'center', alignItems: 'center', gap: 4 },
+  mascotWrap: {
+    position: 'absolute',
+    bottom: space.lg,
+    alignSelf: 'center',
+    alignItems: 'center',
+    gap: space.xs,
+  },
   mascotStand: { alignItems: 'center', justifyContent: 'flex-end' },
   aura: {
-    position: 'absolute', bottom: -6, width: 110, height: 46, borderRadius: 55,
+    position: 'absolute',
+    bottom: -6,
+    width: 110,
+    height: 46,
+    borderRadius: radius.pill,
     backgroundColor: '#FFE9A0',
   },
+  // 絵の上の吹き出し／チップは、白い面 + 濃い文字で可読性を確保する。
   mascotBubble: {
-    backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 14,
-    paddingHorizontal: 11, paddingVertical: 7, maxWidth: 170,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    maxWidth: 176,
   },
-  mascotBubbleText: { fontSize: 10.5, fontFamily: 'Inter_600SemiBold', color: '#3A2A6A', lineHeight: 15, textAlign: 'center' },
-
+  mascotBubbleText: {
+    ...typography.micro,
+    color: colors.foreground,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
   sunshineChip: {
-    position: 'absolute', top: 12, right: 12,
-    backgroundColor: 'rgba(20,12,44,0.78)', borderRadius: 12,
-    paddingHorizontal: 11, paddingVertical: 7,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)',
+    position: 'absolute',
+    top: space.md,
+    right: space.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    backgroundColor: colors.card,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    ...border.hairline,
   },
-  sunshineChipText: { fontSize: 11, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.92)' },
+  sunshineChipText: { ...typography.micro, color: colors.foreground },
 
-  /* cards */
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cardIcon: { fontSize: 16 },
-  cardTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold', flex: 1 },
-  ecoBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: '#7FDCA422' },
-  ecoBadgeText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#7FDCA4' },
-  hint: { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 18 },
-  banner: { padding: 11, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
-  bannerText: { fontSize: 12.5, fontFamily: 'Inter_700Bold', textAlign: 'center' },
+  /* カード内 */
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  cardTitle: { ...typography.subhead, color: colors.foreground, flex: 1 },
+  ecoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.successSoft,
+  },
+  ecoBadgeText: { ...typography.label, color: colors.success },
+  hint: { ...typography.caption, color: colors.mutedForeground },
+  banner: {
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
+    ...border.hairline,
+    alignItems: 'center',
+  },
+  bannerText: { ...typography.calloutStrong, color: colors.primaryOnSoft, textAlign: 'center' },
 
-  sellBtnWrap: { borderRadius: 14, overflow: 'hidden' },
-  sellBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 48, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 14 },
-  sellBtnText: { fontSize: 14.5, fontFamily: 'Inter_700Bold' },
-
-  foodRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  /* ごはんプレビュー */
+  foodRow: { flexDirection: 'row', gap: space.sm },
   foodCell: {
-    width: '23%', alignItems: 'center', gap: 2, paddingVertical: 9,
-    borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)',
+    flex: 1,
+    alignItems: 'center',
+    gap: space.xs,
+    paddingVertical: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
   },
-  foodEmoji: { fontSize: 22 },
-  foodName: { fontSize: 10, fontFamily: 'Inter_500Medium', color: 'rgba(255,255,255,0.8)' },
-  foodCost: { fontSize: 9.5, fontFamily: 'Inter_700Bold', color: '#FFD86B' },
+  foodName: { ...typography.micro, color: colors.mutedForeground },
+  foodCostRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  foodCost: { ...typography.micro, color: colors.foreground },
 
-  exchangeBtn: { minHeight: 48, padding: 13, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  exchangeBtnText: { fontSize: 13.5, fontFamily: 'Inter_700Bold', textAlign: 'center' },
-  feedLinkBtn: { minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingVertical: 10 },
-  feedLinkText: { fontSize: 12.5, fontFamily: 'Inter_600SemiBold', color: '#C9B2FF' },
+  feedLinkBtn: {
+    minHeight: control.minTouch,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+  },
+  feedLinkText: { ...typography.calloutStrong, color: colors.primaryOnSoft },
 });

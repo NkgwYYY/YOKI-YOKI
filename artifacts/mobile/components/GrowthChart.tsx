@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Polyline, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop, Polygon } from 'react-native-svg';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import Svg, { Polyline, Circle, Line, Text as SvgText, Polygon } from 'react-native-svg';
+import { colors, space, typography } from '@/constants/theme';
 import { DailyRecord } from '@/contexts/AppContext';
 import { getLast7Days, getDayLabel } from '@/utils/dateUtils';
 
@@ -19,7 +19,6 @@ const PLOT_W = CHART_W - PAD_L - PAD_R;
 const PLOT_H = CHART_H - PAD_T - PAD_B;
 
 export function GrowthChart({ records }: GrowthChartProps) {
-  const colors = useColors();
   const days = getLast7Days();
   const moodByDate: Record<string, number> = {};
   records.forEach((r) => {
@@ -46,14 +45,7 @@ export function GrowthChart({ records }: GrowthChartProps) {
   return (
     <View>
       <Svg width={CHART_W} height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
-        <Defs>
-          <LinearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <Stop offset="0%" stopColor={colors.primary} stopOpacity="0.25" />
-            <Stop offset="100%" stopColor={colors.primary} stopOpacity="0" />
-          </LinearGradient>
-        </Defs>
-
-        {/* Horizontal grid lines */}
+        {/* 目安の横罫。1px の点線だけ。 */}
         {[1, 2, 3, 4, 5].map((mood) => {
           const y = PAD_T + PLOT_H - ((mood - 1) / 4) * PLOT_H;
           return (
@@ -70,21 +62,16 @@ export function GrowthChart({ records }: GrowthChartProps) {
           );
         })}
 
-        {/* Area fill */}
-        {areaPoints !== '' && (
-          <Polygon
-            points={areaPoints}
-            fill="url(#areaGrad)"
-          />
-        )}
+        {/* 折れ線の下の面。グラデーションではなく単一の淡い塗り。 */}
+        {areaPoints !== '' && <Polygon points={areaPoints} fill={colors.primary} fillOpacity="0.08" />}
 
-        {/* Line */}
+        {/* 折れ線 */}
         {validPoints.length >= 2 && (
           <Polyline
             points={polylinePoints}
             fill="none"
             stroke={colors.primary}
-            strokeWidth="2.5"
+            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
@@ -95,8 +82,8 @@ export function GrowthChart({ records }: GrowthChartProps) {
           <React.Fragment key={i}>
             {p.mood !== null && (
               <>
-                <Circle cx={p.x} cy={p.y} r={5} fill={colors.primary} />
-                <Circle cx={p.x} cy={p.y} r={2.5} fill={colors.background} />
+                <Circle cx={p.x} cy={p.y} r={4} fill={colors.primary} />
+                <Circle cx={p.x} cy={p.y} r={2} fill={colors.card} />
               </>
             )}
             {/* X-axis labels */}
@@ -116,16 +103,14 @@ export function GrowthChart({ records }: GrowthChartProps) {
 
       {!hasData && (
         <View style={styles.emptyOverlay}>
-          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-            記録をつけるとグラフが表示されます
-          </Text>
+          <Text style={styles.emptyText}>記録をつけるとグラフが表示されます</Text>
         </View>
       )}
 
       {/* Y-axis labels */}
       <View style={styles.yLabels}>
         {['最高', '', '普通', '', '最低'].map((label, i) => (
-          <Text key={i} style={[styles.yLabel, { color: colors.mutedForeground }]}>
+          <Text key={i} style={styles.yLabel}>
             {label}
           </Text>
         ))}
@@ -136,29 +121,19 @@ export function GrowthChart({ records }: GrowthChartProps) {
 
 const styles = StyleSheet.create({
   emptyOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyText: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-  },
+  emptyText: { ...typography.caption, color: colors.mutedForeground },
   yLabels: {
     position: 'absolute',
     left: 0,
-    top: 10,
+    top: space.md,
     height: PLOT_H,
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     width: PAD_L - 2,
   },
-  yLabel: {
-    fontSize: 8,
-    fontFamily: 'Inter_400Regular',
-  },
+  yLabel: { ...typography.micro, fontSize: 9, color: colors.mutedForeground },
 });

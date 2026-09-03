@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  View, Text, StyleSheet, Modal, TouchableOpacity, Dimensions,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COSMIC_SHEET } from '@/constants/cosmicTheme';
+import { View, Text, StyleSheet, Modal, Pressable, Dimensions } from 'react-native';
+import { border, colors, control, radius, space, typography } from '@/constants/theme';
+import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 import { GameSlot, getSlotConfig } from '@/utils/miniGameUtils';
 import { useApp } from '@/contexts/AppContext';
 import { Analytics } from '@/utils/analytics';
@@ -20,7 +19,7 @@ interface Props {
   onReward: (reward: { fp?: number; xp?: number; stars?: number }) => void;
 }
 
-/** リズムゲームの結果 → 報酬 (既存の報酬水準を維持: 🪙1〜3pt / ✨XP 0〜10)
+/** リズムゲームの結果 → 報酬 (既存の報酬水準を維持: ごはん 1〜3pt / XP 0〜10)
  *  ミニゲームの報酬はごはんポイント(fp)と経験値のみ。光エネルギーは日々の記録から生まれる */
 function resultToReward(r: PlayResult): { fp: number; xp?: number; stars: number } {
   const stars = starRating(r);
@@ -79,62 +78,56 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
 
   // プレイ中は閉じられない (誤タップで曲が中断しないように)
   const canClose = !playing;
-  const header = choice === 'runner'
-    ? { emoji: '🌟', title: 'STARLIGHT RUN' }
+  const header: { icon: IconName; title: string } = choice === 'runner'
+    ? { icon: 'star', title: 'STARLIGHT RUN' }
     : choice === 'rhythm'
-      ? { emoji: '🎵', title: 'リズムであそぼう' }
-      : { emoji: '✨', title: 'ミニゲーム' };
+      ? { icon: 'music', title: 'リズムであそぼう' }
+      : { icon: 'play-circle', title: 'ミニゲーム' };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={canClose ? onClose : () => {}}>
       <View style={s.overlay}>
-        <TouchableOpacity style={s.backdrop} activeOpacity={1} onPress={canClose ? onClose : undefined} />
+        <Pressable style={s.backdrop} onPress={canClose ? onClose : undefined} accessibilityLabel="閉じる" />
 
-        <View style={[s.sheet, choice === 'runner' && s.runnerSheet, { backgroundColor: COSMIC_SHEET }]}>
-          <LinearGradient colors={cfg.gradient} style={s.header}>
-            <Text style={s.headerEmoji}>{header.emoji}</Text>
+        <View style={[s.sheet, choice === 'runner' && s.runnerSheet]}>
+          <View style={s.header}>
+            <Icon name={header.icon} size={iconSize.lg} color={colors.primaryOnSoft} />
             <Text style={s.headerTitle}>{header.title}</Text>
             {canClose && (
-              <TouchableOpacity style={s.closeBtn} onPress={onClose}>
-                <Text style={s.closeTxt}>✕</Text>
-              </TouchableOpacity>
+              <PressScale style={s.closeBtn} onPress={onClose} accessibilityLabel="閉じる">
+                <Icon name="x" size={iconSize.md} color={colors.foreground} />
+              </PressScale>
             )}
-          </LinearGradient>
+          </View>
 
           {visible && choice === 'menu' && (
             <View style={s.gameList}>
               <Text style={s.listTitle}>今日はどれであそぶ？</Text>
               <Text style={s.listSub}>短い時間でも、ゆっくり楽しめるよ。</Text>
-              <TouchableOpacity
+              <PressScale
                 testID="mini-game-rhythm"
                 style={s.gameCard}
                 onPress={() => { setChoice('rhythm'); setPlaying(false); }}
-                activeOpacity={0.86}
               >
-                <LinearGradient colors={['#6B4CC5', '#3C8FCE']} style={s.gameCardIcon}>
-                  <Text style={s.gameCardEmoji}>🎵</Text>
-                </LinearGradient>
+                <IconBadge name="music" />
                 <View style={s.gameCardCopy}>
                   <Text style={s.gameCardTitle}>リズムであそぶ</Text>
                   <Text style={s.gameCardDesc}>音楽に合わせてタップ・ジャンプ</Text>
                 </View>
-                <Text style={s.gameCardArrow}>›</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+                <Icon name="chevron-right" size={iconSize.sm} color={colors.subtleForeground} />
+              </PressScale>
+              <PressScale
                 testID="mini-game-runner"
                 style={s.gameCard}
                 onPress={() => { setChoice('runner'); setPlaying(true); }}
-                activeOpacity={0.86}
               >
-                <LinearGradient colors={['#9B72CB', '#F49AC2']} style={s.gameCardIcon}>
-                  <Text style={s.gameCardEmoji}>🌟</Text>
-                </LinearGradient>
+                <IconBadge name="star" />
                 <View style={s.gameCardCopy}>
                   <Text style={s.gameCardTitle}>STARLIGHT RUN</Text>
                   <Text style={s.gameCardDesc}>星の道を走ってキラキラ集め</Text>
                 </View>
-                <Text style={s.gameCardArrow}>›</Text>
-              </TouchableOpacity>
+                <Icon name="chevron-right" size={iconSize.sm} color={colors.subtleForeground} />
+              </PressScale>
             </View>
           )}
 
@@ -165,28 +158,57 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
 
 const s = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.scrim },
   sheet: {
-    borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden',
-    minHeight: SH * 0.62, maxHeight: SH * 0.92,
+    backgroundColor: colors.sheet,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    borderTopWidth: border.width,
+    borderTopColor: colors.border,
+    overflow: 'hidden',
+    minHeight: SH * 0.62,
+    maxHeight: SH * 0.92,
   },
   runnerSheet: { minHeight: SH * 0.9, maxHeight: SH * 0.96 },
+  // ヘッダーは下端の 1px だけで本文と区切る。塗りは他の面と同じ白。
   header: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 20, paddingTop: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.lg,
+    borderBottomWidth: border.width,
+    borderBottomColor: colors.border,
   },
-  headerEmoji: { fontSize: 26 },
-  headerTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF', flex: 1 },
-  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
-  closeTxt: { color: '#FFF', fontSize: 14, fontFamily: 'Inter_700Bold' },
-  gameList: { padding: 22, gap: 9 },
-  listTitle: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#FFF', textAlign: 'center', marginTop: 2 },
-  listSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.65)', textAlign: 'center', marginBottom: 8 },
-  gameCard: { minHeight: 76, borderRadius: 18, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: 'rgba(255,255,255,0.09)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)' },
-  gameCardIcon: { width: 54, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  gameCardEmoji: { fontSize: 27 },
+  headerTitle: { ...typography.heading, color: colors.foreground, flex: 1 },
+  closeBtn: {
+    width: control.iconSm,
+    height: control.iconSm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  gameList: { padding: space.xl, gap: space.sm },
+  listTitle: { ...typography.title, color: colors.foreground, textAlign: 'center' },
+  listSub: {
+    ...typography.caption,
+    color: colors.mutedForeground,
+    textAlign: 'center',
+    marginBottom: space.sm,
+  },
+  gameCard: {
+    minHeight: 72,
+    borderRadius: radius.lg,
+    padding: space.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: colors.card,
+    ...border.hairline,
+  },
   gameCardCopy: { flex: 1 },
-  gameCardTitle: { color: '#FFF', fontSize: 15, fontFamily: 'Inter_700Bold' },
-  gameCardDesc: { color: 'rgba(255,255,255,0.62)', fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 3 },
-  gameCardArrow: { color: 'rgba(255,255,255,0.65)', fontSize: 28, fontFamily: 'Inter_400Regular', paddingHorizontal: 4 },
+  gameCardTitle: { ...typography.subhead, color: colors.foreground },
+  gameCardDesc: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
 });

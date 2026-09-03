@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { colors, radius, space, typography } from '@/constants/theme';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Icon, IconBadge, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileToContext } from '@/utils/profileContext';
@@ -14,7 +13,6 @@ const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const STORAGE_KEY = '@mentore/insight_v1';
 
 interface Insight {
-  emoji: string;
   title: string;
   body: string;
 }
@@ -29,8 +27,6 @@ function todayStr() {
 }
 
 export function InsightCard() {
-  const colors = useColors();
-  const isDark = true; // 宇宙テーマ固定
   const { records, progress, checkedState, unlockedBadges, mascotName, profile } = useApp();
   const { getToken } = useAuth();
 
@@ -109,69 +105,40 @@ export function InsightCard() {
   const hasData = records.length > 0;
 
   return (
-    <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-      <LinearGradient
-        colors={['rgba(40,24,72,0.72)', 'rgba(20,14,50,0.6)']}
-        style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
-      />
-      <View style={styles.header}>
-        <View style={styles.titleWrap}>
-          <Text style={styles.sparkle}>🔮</Text>
-          <View>
-            <Text style={[styles.title, { color: colors.foreground }]}>
-              {mascotName}のきづき
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              あなたが気づいていない頑張り、見つけるよ
-            </Text>
-          </View>
+    <Card style={styles.card}>
+      <View style={styles.titleWrap}>
+        <IconBadge name="activity" />
+        <View style={styles.titleCopy}>
+          <Text style={styles.title}>{mascotName}のきづき</Text>
+          <Text style={styles.subtitle}>あなたが気づいていない頑張り、見つけるよ</Text>
         </View>
       </View>
 
       {insights ? (
         <View style={styles.list}>
           {insights.map((ins, i) => (
-            <View
-              key={i}
-              style={[styles.item, { backgroundColor: isDark ? '#FFFFFF10' : '#FFFFFFB0' }]}
-            >
-              <Text style={styles.itemEmoji}>{ins.emoji}</Text>
+            <View key={i} style={styles.item}>
+              <Icon name="check" size={iconSize.sm} color={colors.primaryOnSoft} style={styles.itemMark} />
               <View style={styles.itemBody}>
-                <Text style={[styles.itemTitle, { color: colors.foreground }]}>{ins.title}</Text>
-                <Text style={[styles.itemText, { color: colors.mutedForeground }]}>{ins.body}</Text>
+                <Text style={styles.itemTitle}>{ins.title}</Text>
+                <Text style={styles.itemText}>{ins.body}</Text>
               </View>
             </View>
           ))}
-          <Text style={[styles.note, { color: colors.mutedForeground }]}>
-            明日になると、また新しい発見を探せるよ
-          </Text>
+          <Text style={styles.note}>明日になると、また新しい発見を探せるよ</Text>
         </View>
+      ) : !hasData ? (
+        <Text style={styles.emptyText}>
+          記録がたまると、{mascotName}があなたのすごいところを見つけられるよ。まずは今日の気分を記録してみよう！
+        </Text>
       ) : (
         <>
-          {!hasData ? (
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              記録がたまると、{mascotName}があなたのすごいところを見つけられるよ。まずは今日の気分を記録してみよう！
-            </Text>
-          ) : (
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: colors.primary }]}
-              onPress={generate}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              {loading ? (
-                <>
-                  <ActivityIndicator size="small" color="#FFF" />
-                  <Text style={styles.buttonText}>記録をじっくり見てる…</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="sparkles" size={17} color="#FFF" />
-                  <Text style={styles.buttonText}>すごいところを見つけてもらう</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
+          <Button
+            label={loading ? '記録をじっくり見てる…' : 'すごいところを見つけてもらう'}
+            onPress={generate}
+            loading={loading}
+            icon="activity"
+          />
           {error && (
             <Text style={styles.errorText}>
               うまく見つけられなかった…少し待ってもう一度試してね
@@ -179,33 +146,35 @@ export function InsightCard() {
           )}
         </>
       )}
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 22, padding: 20, borderWidth: 1, gap: 16 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  titleWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  sparkle: { fontSize: 26 },
-  title: { fontSize: 15, fontFamily: 'Inter_600SemiBold' },
-  subtitle: { fontSize: 11.5, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  list: { gap: 10 },
+  card: { gap: space.lg },
+  titleWrap: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  titleCopy: { flex: 1 },
+  title: { ...typography.subhead, color: colors.foreground },
+  subtitle: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
+  list: { gap: space.sm },
   item: {
-    flexDirection: 'row', gap: 10, padding: 14, borderRadius: 16, alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
+    alignItems: 'flex-start',
   },
-  itemEmoji: { fontSize: 20, marginTop: 1 },
-  itemBody: { flex: 1, gap: 3 },
-  itemTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-  itemText: { fontSize: 12.5, fontFamily: 'Inter_400Regular', lineHeight: 19 },
-  note: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 2 },
-  button: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 14, paddingVertical: 14,
+  itemMark: { marginTop: 2 },
+  itemBody: { flex: 1, gap: space.xs },
+  itemTitle: { ...typography.calloutStrong, color: colors.foreground },
+  itemText: { ...typography.caption, color: colors.mutedForeground, lineHeight: 20 },
+  note: {
+    ...typography.micro,
+    color: colors.mutedForeground,
+    textAlign: 'center',
+    marginTop: space.xs,
   },
-  buttonText: { color: '#FFF', fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-  emptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 20 },
-  errorText: {
-    fontSize: 12, fontFamily: 'Inter_400Regular', color: '#EF4444', textAlign: 'center',
-  },
+  emptyText: { ...typography.callout, color: colors.mutedForeground },
+  errorText: { ...typography.caption, color: colors.danger, textAlign: 'center' },
 });

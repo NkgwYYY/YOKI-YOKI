@@ -11,21 +11,22 @@ import {
 } from '@/utils/rhythm/types';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
 import { RhythmMascot, RhythmMascotHandle, SwipeDirection } from './RhythmMascot';
+import { border, colors, gameSurface, judgePalette, lanePalette } from '@/constants/theme';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const TRAVEL_S = 2.0;
 
 const ARROWS: Record<SwipeDirection, string> = { left: '←', up: '↑', down: '↓', right: '→' };
 const DIR_COLORS: Record<SwipeDirection, string> = {
-  left: '#FF6B8A', up: '#FFC75E', down: '#5EE0B8', right: '#5EB8FF',
+  left: lanePalette[0], up: lanePalette[1], down: lanePalette[2], right: lanePalette[3],
 };
 
 const MISS_LABELS = ['だいじょうぶ', 'つぎいこう', 'どんまい', 'ゆっくりでOK'];
 const JUDGE_STYLE: Record<Judgment, { text: string; color: string }> = {
-  perfect: { text: 'PERFECT', color: '#FFD75E' },
-  great:   { text: 'GREAT',   color: '#5EE0B8' },
-  good:    { text: 'GOOD',    color: '#5EB8FF' },
-  miss:    { text: '',        color: '#8A83B8' },
+  perfect: { text: 'PERFECT', color: judgePalette.perfect },
+  great:   { text: 'GREAT',   color: judgePalette.great },
+  good:    { text: 'GOOD',    color: judgePalette.good },
+  miss:    { text: '',        color: judgePalette.miss },
 };
 
 interface LiveNote extends Note { id: number; judged: boolean }
@@ -202,7 +203,7 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
         <View style={st.mascotWrap}>
           <RhythmMascot ref={mascotRef} song={song} size={58} />
         </View>
-        <Text style={st.combo}>{combo > 1 ? `♪ ${combo}` : ' '}</Text>
+        <Text style={st.combo}>{combo > 1 ? `${combo} COMBO` : ' '}</Text>
       </View>
 
       {/* 矢印レーン */}
@@ -248,35 +249,34 @@ const st = StyleSheet.create({
   root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 8, alignItems: 'stretch' },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, minHeight: 56 },
   mascotWrap: { alignItems: 'center', justifyContent: 'center' },
-  score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.92)' },
-  combo: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFD75E' },
+  score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: colors.foreground },
+  combo: { fontSize: 15, fontFamily: 'Inter_700Bold', color: judgePalette.perfect },
   noteArea: {
     marginHorizontal: 16, borderRadius: 18, overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: gameSurface.background,
+    borderWidth: 1, borderColor: colors.border,
   },
   hitZone: {
     position: 'absolute', left: 12, right: 12, height: 60, borderRadius: 16,
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)', borderStyle: 'dashed',
+    borderWidth: border.width, borderColor: colors.borderStrong, borderStyle: 'dashed',
   },
   arrowNote: {
     position: 'absolute', alignSelf: 'center', width: 54, height: 54, borderRadius: 27,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
   },
-  arrowTxt: { fontSize: 26, color: '#FFF', fontFamily: 'Inter_700Bold' },
+  arrowTxt: { fontSize: 26, color: colors.primaryForeground, fontFamily: 'Inter_700Bold' },
   judgeTxt: { position: 'absolute', alignSelf: 'center', fontSize: 20, fontFamily: 'Inter_700Bold' },
   tapToStart: {
     ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(10,8,30,0.72)',
+    backgroundColor: gameSurface.scrim,
   },
-  tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
   swipeArea: {
     marginHorizontal: 16, height: 110, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: gameSurface.background,
+    borderWidth: border.width, borderColor: colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  swipeHint: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.6)' },
-  quitTxt: { textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: 'Inter_400Regular', paddingTop: 2 },
+  swipeHint: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.mutedForeground },
+  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.subtleForeground, fontFamily: 'Inter_400Regular', paddingTop: 2 },
 });

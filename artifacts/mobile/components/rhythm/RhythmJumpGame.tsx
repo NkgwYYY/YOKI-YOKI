@@ -12,16 +12,17 @@ import {
 } from '@/utils/rhythm/types';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
 import { RhythmMascot, RhythmMascotHandle } from './RhythmMascot';
+import { border, colors, gameSurface, judgePalette } from '@/constants/theme';
 
 const { width: SW } = Dimensions.get('window');
 const TRAVEL_S = 1.9; // ノーツが右→判定リングまで流れる秒数
 
 const MISS_LABELS = ['だいじょうぶ', 'つぎいこう', 'どんまい', 'ゆっくりでOK'];
 const JUDGE_STYLE: Record<Judgment, { text: string; color: string }> = {
-  perfect: { text: 'PERFECT', color: '#FFD75E' },
-  great:   { text: 'GREAT',   color: '#5EE0B8' },
-  good:    { text: 'GOOD',    color: '#5EB8FF' },
-  miss:    { text: '',        color: '#8A83B8' },
+  perfect: { text: 'PERFECT', color: judgePalette.perfect },
+  great:   { text: 'GREAT',   color: judgePalette.great },
+  good:    { text: 'GOOD',    color: judgePalette.good },
+  miss:    { text: '',        color: judgePalette.miss },
 };
 
 interface LiveNote extends Note { id: number; judged: boolean }
@@ -171,7 +172,7 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
     <View style={st.root}>
       <View style={st.topRow}>
         <Text style={st.score}>SCORE {score}</Text>
-        <Text style={st.combo}>{combo > 1 ? `♪ ${combo}` : ' '}</Text>
+        <Text style={st.combo}>{combo > 1 ? `${combo} COMBO` : ' '}</Text>
       </View>
 
       {/* ステージ: キャラ + 流れるビート */}
@@ -215,28 +216,27 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
 const st = StyleSheet.create({
   root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 10, alignItems: 'stretch' },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, minHeight: 32 },
-  score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.92)' },
-  combo: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFD75E' },
+  score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: colors.foreground },
+  combo: { fontSize: 15, fontFamily: 'Inter_700Bold', color: judgePalette.perfect },
   stage: {
     marginHorizontal: 16, borderRadius: 18, overflow: 'hidden', minHeight: 330,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: gameSurface.background,
+    borderWidth: 1, borderColor: colors.border,
     justifyContent: 'flex-end', paddingTop: 28, paddingBottom: 16,
   },
   mascotArea: { alignItems: 'flex-start', paddingLeft: 26, marginBottom: 6 },
   ground: {
     width: 96, height: 6, borderRadius: 3, marginTop: 2,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: colors.borderStrong,
   },
   beatTrack: { height: 54, justifyContent: 'center' },
   hitRing: {
     position: 'absolute', width: 54, height: 54, borderRadius: 27,
-    borderWidth: 3, borderColor: 'rgba(255,255,255,0.6)',
+    borderWidth: 3, borderColor: colors.borderStrong,
   },
   beatDot: {
     position: 'absolute', width: 34, height: 34, borderRadius: 17,
-    backgroundColor: '#FFC75E', top: 10,
-    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 4, shadowOffset: { width: 0, height: 2 },
+    backgroundColor: colors.primary, top: 10,
   },
   judgeTxt: {
     position: 'absolute', alignSelf: 'center', top: 30,
@@ -244,15 +244,15 @@ const st = StyleSheet.create({
   },
   tapToStart: {
     ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(10,8,30,0.72)',
+    backgroundColor: gameSurface.scrim,
   },
-  tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
   jumpBtn: {
     marginHorizontal: 16, height: 68, borderRadius: 20,
-    backgroundColor: 'rgba(255,199,94,0.35)', borderWidth: 2, borderColor: '#FFC75E',
+    backgroundColor: colors.primarySoft, borderWidth: border.width, borderColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
-  jumpBtnPressed: { backgroundColor: 'rgba(255,199,94,0.85)' },
-  jumpBtnTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF' },
-  quitTxt: { textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: 'Inter_400Regular', paddingTop: 2 },
+  jumpBtnPressed: { backgroundColor: colors.primary },
+  jumpBtnTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
+  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.subtleForeground, fontFamily: 'Inter_400Regular', paddingTop: 2 },
 });

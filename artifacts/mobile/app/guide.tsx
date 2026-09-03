@@ -1,81 +1,90 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { SkyBackground } from '@/components/SkyBackground';
+import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 
 type SectionProps = {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: IconName;
   title: string;
   children: React.ReactNode;
 };
 
 export default function GuideScreen() {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const topPad = Platform.OS === 'web' ? 24 : insets.top + 8;
+  const topPad = Platform.OS === 'web' ? space.xl : insets.top + space.sm;
 
   const Section = ({ icon, title, children }: SectionProps) => (
-    <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-      <View style={[StyleSheet.absoluteFill, { borderRadius: 22, backgroundColor: colors.card }]} />
+    <View style={styles.card}>
       <View style={styles.sectionHeader}>
-        <View style={[styles.iconCircle, { backgroundColor: colors.primary + '22' }]}>
-          <Ionicons name={icon} size={20} color={colors.primary} />
-        </View>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{title}</Text>
+        <IconBadge name={icon} size="sm" />
+        <Text style={styles.sectionTitle}>{title}</Text>
       </View>
       {children}
     </View>
   );
 
+  const FlowArrow = () => (
+    <Icon
+      name="chevron-down"
+      size={iconSize.xs}
+      color={colors.subtleForeground}
+      style={styles.flowArrow}
+    />
+  );
   const P = ({ children }: { children: React.ReactNode }) => (
-    <Text style={[styles.body, { color: colors.foreground }]}>{children}</Text>
+    <Text style={styles.body}>{children}</Text>
   );
   const Hint = ({ children }: { children: React.ReactNode }) => (
-    <Text style={[styles.hint, { color: colors.mutedForeground }]}>{children}</Text>
+    <Text style={styles.hint}>{children}</Text>
   );
   const Bullet = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <View style={styles.bulletRow}>
-      <Text style={[styles.bulletLabel, { color: colors.primary }]}>{label}</Text>
-      <Text style={[styles.bulletBody, { color: colors.foreground }]}>{children}</Text>
+      <Text style={styles.bulletLabel}>{label}</Text>
+      <Text style={styles.bulletBody}>{children}</Text>
     </View>
   );
-  const FlowStep = ({ emoji, text }: { emoji: string; text: string }) => (
+  const FlowStep = ({ icon, text }: { icon: IconName; text: string }) => (
     <View style={styles.flowRow}>
-      <Text style={styles.flowEmoji}>{emoji}</Text>
-      <Text style={[styles.flowText, { color: colors.foreground }]}>{text}</Text>
+      <Icon name={icon} size={iconSize.md} color={colors.primaryOnSoft} />
+      <Text style={styles.flowText}>{text}</Text>
     </View>
   );
 
   return (
-    <View style={[styles.flex, { backgroundColor: colors.background }]}>
+    <View style={styles.flex}>
       <SkyBackground />
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={[styles.content, { paddingTop: topPad, paddingBottom: insets.bottom + 40 }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: topPad, paddingBottom: insets.bottom + space.xxxl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
-          <TouchableOpacity
+          <PressScale
             onPress={() => router.back()}
-            hitSlop={12}
-            style={[styles.backBtn, { backgroundColor: colors.muted }]}
+            hitSlop={space.md}
+            style={styles.backBtn}
+            accessibilityLabel="戻る"
           >
-            <Ionicons name="chevron-back" size={22} color={colors.foreground} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.foreground }]}>使い方ガイド</Text>
-          <View style={{ width: 38 }} />
+            <Icon name="chevron-left" size={iconSize.md} color={colors.foreground} />
+          </PressScale>
+          <Text style={styles.title}>使い方ガイド</Text>
+          <View style={styles.headerSpacer} />
         </View>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+        <Text style={styles.subtitle}>
           このアプリでできること、AIとの付き合い方をまとめました。
         </Text>
 
         {/* コンセプト */}
-        <Section icon="sparkles-outline" title="このアプリのコンセプト">
+        <Section icon="feather" title="このアプリのコンセプト">
           <P>
             YOKKY は「あなたの元気が世界を動かす」メンタルケアアプリです。
           </P>
@@ -85,61 +94,61 @@ export default function GuideScreen() {
             発電したエネルギーを売って、キャラクターへのごほうびに変えることができます。
           </P>
           <View style={styles.flowBox}>
-            <FlowStep emoji="💗" text="あなたが記録・チェックをする" />
-            <Text style={[styles.flowArrow, { color: colors.mutedForeground }]}>↓</Text>
-            <FlowStep emoji="😊" text="キャラクターが元気になり、光を放つ" />
-            <Text style={[styles.flowArrow, { color: colors.mutedForeground }]}>↓</Text>
-            <FlowStep emoji="☀️" text="太陽が明るくなり、日差しが強くなる" />
-            <Text style={[styles.flowArrow, { color: colors.mutedForeground }]}>↓</Text>
-            <FlowStep emoji="⚡" text="ソーラーパネルが輝き、エネルギーが蓄まる" />
-            <Text style={[styles.flowArrow, { color: colors.mutedForeground }]}>↓</Text>
-            <FlowStep emoji="🍚" text="売電してキャラクターにごはんをあげる" />
+            <FlowStep icon="edit-3" text="あなたが記録・チェックをする" />
+            <FlowArrow />
+            <FlowStep icon="heart" text="キャラクターが元気になり、光を放つ" />
+            <FlowArrow />
+            <FlowStep icon="sun" text="太陽が明るくなり、日差しが強くなる" />
+            <FlowArrow />
+            <FlowStep icon="zap" text="ソーラーパネルが輝き、エネルギーが蓄まる" />
+            <FlowArrow />
+            <FlowStep icon="coffee" text="売電してキャラクターにごはんをあげる" />
           </View>
           <Hint>自分を大切にすることが、そのままキャラクターへの愛情になる——そんなループを体験してください。</Hint>
         </Section>
 
         {/* ホーム */}
-        <Section icon="home-outline" title="ホーム">
+        <Section icon="home" title="ホーム">
           <P>あなたの相棒(キャラクター)が住んでいる場所です。毎日の記録やチェックを続けると、キャラクターが元気になり、光があふれてきます。</P>
-          <Bullet label="ごはん🍚">ごはんポイントを使ってキャラクターにごはんをあげると、満腹度が上がって元気になります。</Bullet>
+          <Bullet label="ごはん">ごはんポイントを使ってキャラクターにごはんをあげると、満腹度が上がって元気になります。</Bullet>
           <Bullet label="なでる">キャラクターをタップしてなでてあげましょう。</Bullet>
           <Hint>まずは1日1回、顔を見に来るだけでOKです。</Hint>
         </Section>
 
         {/* きろく */}
-        <Section icon="pencil-outline" title="きろく(記録タブ)">
+        <Section icon="edit-3" title="きろく(記録タブ)">
           <P>気分・チェック・できごとを記録する場所です。短い一言でも十分。記録するたびに光エネルギーが増えます。</P>
-          <Bullet label="チェック ✅">今日の心の状態をかんたんな質問で確認。達成ごとにごはんポイント +2、全完了で +10。</Bullet>
-          <Bullet label="気分きろく 📝">今日あったことや気持ちを書き留めましょう。記録すると +5pt。</Bullet>
+          <Bullet label="チェック">今日の心の状態をかんたんな質問で確認。達成ごとにごはんポイント +2、全完了で +10。</Bullet>
+          <Bullet label="気分きろく">今日あったことや気持ちを書き留めましょう。記録すると +5pt。</Bullet>
           <Hint>毎日同じ時間帯にやると、変化に気づきやすくなります。</Hint>
         </Section>
 
         {/* チャット */}
-        <Section icon="chatbubble-ellipses-outline" title="チャット">
+        <Section icon="message-circle" title="チャット">
           <P>AIにいつでも話しかけられます。愚痴でも相談でも雑談でもOK。あなたの記録とプロフィールを踏まえて返事をしてくれます。</P>
           <Hint>AIの提案は参考情報です。つらい状態が続くときは、専門家や身近な人にも相談してください。</Hint>
         </Section>
 
         {/* 成長 */}
-        <Section icon="trending-up-outline" title="成長">
+        <Section icon="trending-up" title="成長">
           <P>続けた分だけレベルやバッジが増え、気分の推移もグラフやカレンダーで振り返れます。</P>
         </Section>
 
         {/* 発電所 */}
-        <Section icon="flash-outline" title="ひかり発電所">
+        <Section icon="zap" title="ひかり発電所">
           <P>キャラクターの元気が太陽を照らし、ソーラーパネルが発電する幻想的な場所です。</P>
-          <Bullet label="売電 ⚡">蓄まったエネルギーを売って🌱ごほうびポイントを獲得。</Bullet>
-          <Bullet label="交換 🍚">ごほうびポイントをごはんポイントに変換。ホームでキャラクターにごはんをあげよう。</Bullet>
+          <Bullet label="売電">蓄まったエネルギーを売って、ごほうびポイントを獲得。</Bullet>
+          <Bullet label="交換">ごほうびポイントをごはんポイントに変換。ホームでキャラクターにごはんをあげよう。</Bullet>
           <Hint>元気(キャラクターのコンディション)が高いほど、太陽が明るく輝きパネルの発電量も増えます。</Hint>
         </Section>
 
         {/* ミニゲーム */}
-        <Section icon="game-controller-outline" title="ミニゲーム">
-          <P>ホームから遊べるリズムゲームです。結果に応じてごはんポイントが貯まります(⭐4以上で +3pt)。光エネルギーは増えませんが、キャラクターとの絆が深まります。</P>
+        <Section icon="music" title="ミニゲーム">
+          <P>ホームから遊べるリズムゲームです。結果に応じてごはんポイントが貯まります(星4つ以上で +3pt)。光エネルギーは増えませんが、キャラクターとの絆が深まります。</P>
         </Section>
 
         {/* プロフィール */}
-        <Section icon="person-outline" title="プロフィールとAIの関係">
+        <Section icon="user" title="プロフィールとAIの関係">
           <P>プロフィールに入力した情報は、AIがあなたに合わせた言葉やアドバイスを選ぶための「参考情報」として使われます。</P>
           <Bullet label="ニックネーム">呼びかけに使われます。</Bullet>
           <Bullet label="年代・性別・職業">言葉選びや例え話があなたに合ったものになります。</Bullet>
@@ -156,7 +165,7 @@ export default function GuideScreen() {
         </Section>
 
         {/* データ */}
-        <Section icon="cloud-outline" title="データについて">
+        <Section icon="cloud" title="データについて">
           <P>ログインなしでも記録はこの端末内に保存されます。ログインすると自動でクラウドにも同期され、機種変更しても同じアカウントでデータを戻せます。</P>
           <Hint>アプリの削除、ブラウザデータの削除、端末の変更だけでは、ログインしていないデータを復元できません。</Hint>
         </Section>
@@ -167,23 +176,49 @@ export default function GuideScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { paddingHorizontal: 20, gap: 14, maxWidth: 560, width: '100%', alignSelf: 'center' },
+  content: {
+    paddingHorizontal: screenPadding,
+    gap: space.lg,
+    maxWidth: 560,
+    width: '100%',
+    alignSelf: 'center',
+  },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backBtn: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
-  subtitle: { fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 19 },
-  card: { borderRadius: 22, padding: 20, borderWidth: 1, gap: 10 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  iconCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', letterSpacing: -0.3 },
-  body: { fontSize: 14, fontFamily: 'Inter_400Regular', lineHeight: 22 },
-  hint: { fontSize: 12.5, fontFamily: 'Inter_400Regular', lineHeight: 19 },
-  bulletRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  bulletLabel: { fontSize: 13.5, fontFamily: 'Inter_600SemiBold', lineHeight: 21, minWidth: 110 },
-  bulletBody: { flex: 1, fontSize: 13.5, fontFamily: 'Inter_400Regular', lineHeight: 21 },
-  flowBox: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, gap: 2 },
-  flowRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  flowEmoji: { fontSize: 18, width: 28 },
-  flowText: { fontSize: 13.5, fontFamily: 'Inter_500Medium', lineHeight: 22, flex: 1 },
-  flowArrow: { fontSize: 16, textAlign: 'center', paddingLeft: 14 },
+  backBtn: {
+    width: control.icon,
+    height: control.icon,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSpacer: { width: control.icon },
+  title: { ...typography.title, color: colors.foreground },
+  subtitle: { ...typography.callout, color: colors.mutedForeground },
+
+  card: {
+    backgroundColor: colors.card,
+    ...border.hairline,
+    borderRadius: radius.lg,
+    padding: space.xl,
+    gap: space.md,
+  },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  sectionTitle: { ...typography.subhead, color: colors.foreground, flex: 1 },
+  body: { ...typography.body, color: colors.foreground },
+  hint: { ...typography.caption, color: colors.mutedForeground, lineHeight: 20 },
+  bulletRow: { flexDirection: 'row', gap: space.sm, alignItems: 'flex-start' },
+  bulletLabel: { ...typography.calloutStrong, color: colors.primaryOnSoft, minWidth: 104 },
+  bulletBody: { ...typography.callout, flex: 1, color: colors.foreground },
+  flowBox: {
+    backgroundColor: colors.backgroundSunken,
+    ...border.hairline,
+    borderRadius: radius.md,
+    padding: space.lg,
+    gap: space.sm,
+  },
+  flowRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  flowText: { ...typography.callout, flex: 1, color: colors.foreground },
+  flowArrow: { marginLeft: space.xs },
 });

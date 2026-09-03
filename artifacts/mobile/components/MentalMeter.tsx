@@ -13,7 +13,7 @@ import Animated, {
 const easeBezier = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
 import Svg, { Circle, G, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { useColors } from '@/hooks/useColors';
+import { useColors } from '@/constants/theme';
 
 // @ts-ignore
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);

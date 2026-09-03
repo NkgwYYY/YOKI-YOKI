@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, Modal, TouchableOpacity,
+  View, Text, StyleSheet, Modal,
   Dimensions, Animated as RNAnimated, PanResponder,
 } from 'react-native';
 import Svg, {
@@ -9,11 +9,13 @@ import Svg, {
 } from 'react-native-svg';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useCosmicColors as useColors, COSMIC_SHEET } from '@/constants/cosmicTheme';
+import { border, colors, control, elevation, radius, space, typography } from '@/constants/theme';
+import { Button, ButtonRow } from '@/components/ui/Button';
 import { Mascot } from '@/components/Mascot';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { Analytics } from '@/utils/analytics';
+import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const SCENE_DURATION = 10_000;
@@ -22,11 +24,15 @@ type Scene = 'campfire' | 'rain' | 'stars' | 'cat';
 type Phase = 'choose' | 'playing' | 'outro';
 type CatState = 'sleeping' | 'alert' | 'purring';
 
-const SCENES: { key: Scene; emoji: string; label: string; bg: readonly [string, string] }[] = [
-  { key: 'campfire', emoji: '🔥', label: '焚き火を見る',  bg: ['#1A0A00', '#3D1A00'] },
-  { key: 'rain',     emoji: '🌧️', label: '雨の音を聞く', bg: ['#0A1020', '#162040'] },
-  { key: 'stars',    emoji: '🌌', label: '星空を見る',   bg: ['#050510', '#0A0A30'] },
-  { key: 'cat',      emoji: '🐱', label: '猫を撫でる',   bg: ['#18100A', '#352010'] },
+/**
+ * 休憩シーン。背景はグラデーションではなく単色の暗い面にする
+ * （UI の面は塗り 1 枚と 1px の境界だけで作る、という原則をここでも守る）。
+ */
+const SCENES: { key: Scene; icon: IconName; label: string; bg: string }[] = [
+  { key: 'campfire', icon: 'sun',        label: '焚き火を見る', bg: '#2A1200' },
+  { key: 'rain',     icon: 'cloud-rain', label: '雨の音を聞く', bg: '#101A33' },
+  { key: 'stars',    icon: 'star',       label: '星空を見る',   bg: '#07071F' },
+  { key: 'cat',      icon: 'heart',      label: '猫を撫でる',   bg: '#26180D' },
 ];
 
 const SOUND_MAP: Record<Scene, any> = {
@@ -338,14 +344,14 @@ function CatScene() {
   const labelText =
     catState === 'sleeping' ? 'すやすや眠ってる…\nそっとなでてみよう' :
     catState === 'alert'    ? 'むにゃ…？' :
-    'ゴロゴロゴロ〜♪';
+    'ゴロゴロゴロ〜';
 
   return (
     <View style={sc.scene} {...panResponder.panHandlers}>
       {/* Night ambience */}
-      <Text style={sc.catMoon}>🌙</Text>
-      <Text style={sc.catStar1}>✨</Text>
-      <Text style={sc.catStar2}>⭐</Text>
+      <Icon name="moon" size={36} color="#F5E6B8" style={sc.catMoon} />
+      <Icon name="star" size={20} color="#F5E6B8" style={sc.catStar1} />
+      <Icon name="star" size={14} color="#F5E6B8" style={sc.catStar2} />
 
       {/* The cat */}
       <View style={sc.catStage} pointerEvents="none">
@@ -393,20 +399,22 @@ function CatScene() {
                 { translateX: zzzFloat.interpolate({ inputRange: [0, 1], outputRange: [0, 14] }) },
               ],
             }]}
-          >💤</RNAnimated.Text>
+          >Zzz</RNAnimated.Text>
         )}
       </View>
 
       {/* Floating hearts */}
       <View style={sc.catHeartsWrap} pointerEvents="none">
         {hearts.map((h, i) => (
-          <RNAnimated.Text
+          <RNAnimated.View
             key={i}
             style={[sc.floatHeart, {
               opacity: h.opacity,
               transform: [{ translateY: h.y }, { translateX: h.x }],
             }]}
-          >💗</RNAnimated.Text>
+          >
+            <Icon name="heart" size={28} color="#F2A9C4" />
+          </RNAnimated.View>
         ))}
       </View>
 
@@ -687,7 +695,7 @@ function StarsScene() {
       {shooters.map((s, i) => (
         <RNAnimated.View key={`sh${i}`} style={[sc.shootingStar, { top: s.y, opacity: s.opacity, transform: [{ translateX: s.x }] }]} />
       ))}
-      <Text style={sc.moon}>🌙</Text>
+      <Icon name="moon" size={44} color="#DDE4FF" style={sc.moon} />
       <Text style={[sc.sceneLabel, { color: '#A0B4FF' }]}>広い宇宙の中でひと休み</Text>
     </View>
   );
@@ -702,7 +710,6 @@ interface Props {
 }
 
 export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
-  const colors      = useColors();
   const mascotStage = getMascotStage(level);
   const { play, stop } = useSceneAudio();
 
@@ -754,61 +761,70 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
 
         {/* Choose phase */}
         {phase === 'choose' && (
-          <View style={[m.sheet, { backgroundColor: COSMIC_SHEET }]}>
-            <LinearGradient colors={['#1A0A3C', '#0D0820']} style={m.chooseHeader}>
-              <Mascot stage={mascotStage} mood="sleepy" size={72} />
+          <View style={m.sheet}>
+            <View style={m.chooseHeader}>
+              <Mascot stage={mascotStage} mood="sleepy" size={64} />
               <Text style={m.chooseTitle}>今日は一緒に休もう。</Text>
               <Text style={m.chooseSub}>どれがいい？</Text>
-            </LinearGradient>
+            </View>
             <View style={m.sceneList}>
-              {SCENES.map(s => (
-                <TouchableOpacity key={s.key} style={m.sceneBtn} onPress={() => startScene(s.key)} activeOpacity={0.82}>
-                  <LinearGradient colors={s.bg} style={m.sceneBtnInner}>
-                    <Text style={m.sceneBtnEmoji}>{s.emoji}</Text>
-                    <Text style={m.sceneBtnLabel}>{s.label}</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+              {SCENES.map((s) => (
+                <PressScale
+                  key={s.key}
+                  style={m.sceneBtn}
+                  onPress={() => startScene(s.key)}
+                >
+                  <IconBadge name={s.icon} size="sm" />
+                  <Text style={m.sceneBtnLabel}>{s.label}</Text>
+                  <Icon name="chevron-right" size={iconSize.sm} color={colors.subtleForeground} />
+                </PressScale>
               ))}
             </View>
-            <TouchableOpacity style={m.skipBtn} onPress={handleClose}>
-              <Text style={[m.skipText, { color: colors.mutedForeground }]}>今は大丈夫</Text>
-            </TouchableOpacity>
+            <Button label="今は大丈夫" variant="ghost" onPress={handleClose} style={m.skipBtn} />
           </View>
         )}
 
         {/* Playing phase */}
         {phase === 'playing' && (
-          <LinearGradient colors={cfg.bg} style={m.fullScreen}>
+          <View style={[m.fullScreen, { backgroundColor: cfg.bg }]}>
             <SceneView />
             <View style={m.timerPill}>
               <Text style={m.timerText}>{timeLeft}s</Text>
             </View>
-          </LinearGradient>
+          </View>
         )}
 
         {/* Outro phase */}
         {phase === 'outro' && (
-          <LinearGradient colors={cfg.bg} style={m.fullScreen}>
+          <View style={[m.fullScreen, { backgroundColor: cfg.bg }]}>
             <SceneView />
             <View style={m.outroCard}>
               <Mascot stage={mascotStage} mood="happy" size={64} />
               <Text style={m.outroQuestion}>少し楽になった？</Text>
-              <View style={m.outroRow}>
-                <TouchableOpacity
-                  style={[m.outroBtn, { backgroundColor: '#7C3AED' }]}
-                  onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); Analytics.restEventCompleted(true); handleClose(); }}
-                >
-                  <Text style={m.outroBtnText}>うん 😊</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[m.outroBtn, { backgroundColor: '#374151' }]}
-                  onPress={() => { Analytics.restEventCompleted(false); stop(); clearInterval(timerRef.current!); setPhase('choose'); }}
-                >
-                  <Text style={m.outroBtnText}>まだかな…</Text>
-                </TouchableOpacity>
-              </View>
+              <ButtonRow>
+                <Button
+                  label="うん"
+                  onPress={() => {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    Analytics.restEventCompleted(true);
+                    handleClose();
+                  }}
+                  style={m.outroBtn}
+                />
+                <Button
+                  label="まだかな…"
+                  variant="outline"
+                  onPress={() => {
+                    Analytics.restEventCompleted(false);
+                    stop();
+                    clearInterval(timerRef.current!);
+                    setPhase('choose');
+                  }}
+                  style={m.outroBtn}
+                />
+              </ButtonRow>
             </View>
-          </LinearGradient>
+          </View>
         )}
 
       </View>
@@ -826,7 +842,7 @@ const sc = StyleSheet.create({
   ripple:       { position: 'absolute', width: 40, height: 14, borderRadius: 20, borderWidth: 1, borderColor: '#7FBFFF' },
   star:         { position: 'absolute', backgroundColor: '#FFFFFF' },
   shootingStar: { position: 'absolute', width: 60, height: 1.5, backgroundColor: '#FFFFFF', borderRadius: 1 },
-  moon:         { position: 'absolute', top: SH * 0.07, right: 36, fontSize: 38 },
+  moon:         { position: 'absolute', top: SH * 0.07, right: 36 },
   sceneLabel:   { position: 'absolute', bottom: 36, alignSelf: 'center', color: '#FF9966', fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', opacity: 0.85 },
 
   // Campfire glow
@@ -841,9 +857,9 @@ const sc = StyleSheet.create({
   },
 
   // Cat scene — full-bleed photo
-  catMoon:  { position: 'absolute', top: SH * 0.06, left: 28,  fontSize: 36 },
-  catStar1: { position: 'absolute', top: SH * 0.08, right: 44, fontSize: 20 },
-  catStar2: { position: 'absolute', top: SH * 0.14, right: 76, fontSize: 14, opacity: 0.6 },
+  catMoon:  { position: 'absolute', top: SH * 0.06, left: 28 },
+  catStar1: { position: 'absolute', top: SH * 0.08, right: 44 },
+  catStar2: { position: 'absolute', top: SH * 0.14, right: 76, opacity: 0.6 },
   catStage: {
     position: 'absolute',
     top: SH * 0.2,
@@ -874,7 +890,7 @@ const sc = StyleSheet.create({
     alignSelf: 'center',
     alignItems: 'center',
   },
-  floatHeart:  { position: 'absolute', top: 20, fontSize: 30 },
+  floatHeart:  { position: 'absolute', top: 20 },
   petBadge:    {
     position: 'absolute', top: 54, right: 18,
     backgroundColor: 'rgba(220,80,80,0.88)',
@@ -884,29 +900,64 @@ const sc = StyleSheet.create({
 });
 
 const m = StyleSheet.create({
-  overlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.82)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' },
   fullScreen: { flex: 1, position: 'relative' },
 
-  sheet:        { borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' },
-  chooseHeader: { alignItems: 'center', paddingVertical: 28, paddingHorizontal: 20, gap: 8 },
-  chooseTitle:  { fontSize: 22, fontFamily: 'Inter_700Bold', color: '#FFF', textAlign: 'center' },
-  chooseSub:    { fontSize: 14, color: 'rgba(255,255,255,0.6)', fontFamily: 'Inter_400Regular' },
+  /* 選択シート — アプリの面なのでトークンに従う */
+  sheet: {
+    backgroundColor: colors.sheet,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    borderTopWidth: border.width,
+    borderTopColor: colors.border,
+    overflow: 'hidden',
+    paddingBottom: space.sm,
+    ...elevation.overlay,
+  },
+  chooseHeader: { alignItems: 'center', paddingVertical: space.xl, gap: space.sm },
+  chooseTitle: { ...typography.title, color: colors.foreground, textAlign: 'center' },
+  chooseSub: { ...typography.callout, color: colors.mutedForeground },
 
-  sceneList:     { padding: 16, gap: 10 },
-  sceneBtn:      { borderRadius: 18, overflow: 'hidden' },
-  sceneBtnInner: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
-  sceneBtnEmoji: { fontSize: 28 },
-  sceneBtnLabel: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: '#FFF' },
+  sceneList: { paddingHorizontal: space.xl, gap: space.sm },
+  sceneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    minHeight: 64,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    ...border.hairline,
+  },
+  sceneBtnLabel: { ...typography.subhead, color: colors.foreground, flex: 1 },
+  skipBtn: { marginTop: space.sm },
 
-  skipBtn:  { alignItems: 'center', paddingVertical: 18 },
-  skipText: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  /* ── 以下は没入シーン（イラスト）の上に載る要素。
+       絵の上での可読性を優先し、白い面 + 濃い文字で統一する。 ── */
+  timerPill: {
+    position: 'absolute',
+    top: space.xxl + space.xl,
+    right: space.xl,
+    backgroundColor: colors.card,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.pill,
+  },
+  timerText: { ...typography.calloutStrong, color: colors.foreground },
 
-  timerPill: { position: 'absolute', top: 56, right: 20, backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 },
-  timerText: { color: '#FFF', fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-
-  outroCard:     { position: 'absolute', bottom: 48, left: 24, right: 24, backgroundColor: 'rgba(10,5,30,0.87)', borderRadius: 24, padding: 24, alignItems: 'center', gap: 14 },
-  outroQuestion: { fontSize: 20, fontFamily: 'Inter_700Bold', color: '#FFF', textAlign: 'center' },
-  outroRow:      { flexDirection: 'row', gap: 12, width: '100%' },
-  outroBtn:      { flex: 1, paddingVertical: 14, borderRadius: 16, alignItems: 'center' },
-  outroBtnText:  { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  outroCard: {
+    position: 'absolute',
+    bottom: space.xxxl,
+    left: space.xl,
+    right: space.xl,
+    backgroundColor: colors.sheet,
+    ...border.hairline,
+    borderRadius: radius.xl,
+    padding: space.xl,
+    alignItems: 'center',
+    gap: space.md,
+    ...elevation.overlay,
+  },
+  outroQuestion: { ...typography.title, color: colors.foreground, textAlign: 'center' },
+  outroBtn: { flex: 1, minHeight: control.height },
 });

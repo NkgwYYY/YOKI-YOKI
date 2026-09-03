@@ -103,7 +103,7 @@ export function getMascotMood(
 
 export const MOOD_MESSAGES: Record<MascotMood, string[]> = {
   excited: [
-    '全部できた！最高だね✨',
+    '全部できた！最高だね',
     'すごい！パーフェクトだよ！',
     'やったね！今日も輝いてる！',
   ],
@@ -127,7 +127,7 @@ export const MOOD_MESSAGES: Record<MascotMood, string[]> = {
     'きのうから待ってたし。べつに。',
   ],
   tired: [
-    'お腹すいたよ〜🥺',
+    'お腹すいたよ〜',
     'もっとかまってほしいな…',
     'さみしかった…会いに来てくれてよかった',
   ],

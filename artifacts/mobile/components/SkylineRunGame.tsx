@@ -14,14 +14,14 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mascot } from '@/components/Mascot';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { useApp } from '@/contexts/AppContext';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import { useColors } from '@/constants/theme';
+import { Icon, iconSize, type IconName } from '@/components/ui/Icon';
 
 const { width: INITIAL_WIDTH } = Dimensions.get('window');
 
@@ -343,7 +343,7 @@ function EffectBurst({ effect, cameraX, groundY, sceneHeight }: { effect: Effect
       Animated.timing(opacity, { toValue: 0, duration: 440, useNativeDriver: true }),
     ]).start();
   }, [opacity, scale]);
-  const icon = effect.kind === 'damage' ? 'heart-dislike-outline' : 'sparkles';
+  const icon: IconName = effect.kind === 'damage' ? 'x-circle' : 'star';
   return (
     <Animated.View
       pointerEvents="none"
@@ -358,7 +358,7 @@ function EffectBurst({ effect, cameraX, groundY, sceneHeight }: { effect: Effect
         },
       ]}
     >
-      <Ionicons name={icon} size={25} color={effect.color} />
+      <Icon name={icon} size={25} color={effect.color} />
     </Animated.View>
   );
 }
@@ -424,7 +424,8 @@ function ItemSprite({
   colors: ReturnType<typeof useColors>;
 }) {
   if (item.collected) return null;
-  const icon = item.kind === 'heart' ? 'heart' : item.kind === 'light' ? 'sparkles' : 'star';
+  const icon: IconName =
+    item.kind === 'heart' ? 'heart' : item.kind === 'light' ? 'zap' : 'star';
   const color = item.kind === 'heart' ? colors.destructive : item.kind === 'light' ? colors.secondary : colors.accent;
   return (
     <View
@@ -432,7 +433,7 @@ function ItemSprite({
       style={[styles.item, { left: item.x - cameraX - 15, bottom: sceneHeight - groundY + item.y - 15 }]}
     >
       <Text style={[styles.itemShine, { opacity: 0.45 + Math.sin(elapsed * 5 + item.x) * 0.25 }]}>·</Text>
-      <Ionicons name={icon} size={28} color={color} />
+      <Icon name={icon} size={28} color={color} />
     </View>
   );
 }
@@ -795,15 +796,15 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
         </View>
         <View style={styles.statusCluster}>
           <View style={styles.statusPill}>
-            <Ionicons name="trophy-outline" size={15} color={colors.secondary} />
+            <Icon name="award" size={15} color={colors.secondary} />
             <Text style={styles.statusText}>{world.player.score}</Text>
           </View>
           <View style={styles.statusPill}>
-            <Ionicons name="sparkles" size={16} color={colors.accent} />
+            <Icon name="star" size={16} color={colors.accent} />
             <Text style={styles.statusText}>{world.player.collected}/{ITEMS.length}</Text>
           </View>
           <View style={styles.statusPill}>
-            <Ionicons name="heart" size={15} color={colors.destructive} />
+            <Icon name="heart" size={15} color={colors.destructive} />
             <Text style={styles.statusText}>{world.player.hp}</Text>
           </View>
         </View>
@@ -847,7 +848,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
             ]}
           >
             <View style={[styles.platformTop, { backgroundColor: platform.kind === 'moving' ? colors.accent : colors.tint }]} />
-            {platform.kind === 'moving' && <Ionicons name="sparkles" size={15} color={colors.accent} style={styles.movingIcon} />}
+            {platform.kind === 'moving' && <Icon name="star" size={15} color={colors.accent} style={styles.movingIcon} />}
           </View>
         ))}
 
@@ -866,7 +867,11 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
               },
             ]}
           >
-            <Ionicons name={obstacle.kind === 'thorn' ? 'warning-outline' : 'diamond-outline'} size={25} color={obstacle.kind === 'thorn' ? colors.destructive : colors.secondary} />
+            <Icon
+              name={obstacle.kind === 'thorn' ? 'alert-triangle' : 'octagon'}
+              size={25}
+              color={obstacle.kind === 'thorn' ? colors.destructive : colors.secondary}
+            />
           </View>
         ))}
 
@@ -881,7 +886,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
           <View pointerEvents="none" style={[styles.goalGate, { left: GOAL_X - cameraX - 14, bottom: sceneSize.height - groundY }]}>
             <View style={[styles.goalPillar, { backgroundColor: colors.secondary }]} />
             <View style={[styles.goalArch, { borderColor: colors.accent }]}>
-              <Ionicons name="sparkles" size={25} color={colors.accent} />
+              <Icon name="star" size={25} color={colors.accent} />
             </View>
             <View style={[styles.goalPillar, { backgroundColor: colors.secondary }]} />
             <Text style={[styles.goalLabel, { color: colors.accent }]}>GOAL</Text>
@@ -927,7 +932,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
                 onPointerCancel={() => directRelease('left')}
                 onPointerLeave={() => directRelease('left')}
               >
-                <Ionicons name="chevron-back" size={30} color="#FFF" />
+                <Icon name="chevron-left" size={30} color="#FFF" />
                 <Text style={styles.controlLabel}>左</Text>
               </Pressable>
               <Pressable
@@ -944,7 +949,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
                 onPointerCancel={() => directRelease('right')}
                 onPointerLeave={() => directRelease('right')}
               >
-                <Ionicons name="chevron-forward" size={30} color="#FFF" />
+                <Icon name="chevron-right" size={30} color="#FFF" />
                 <Text style={styles.controlLabel}>右</Text>
               </Pressable>
             </View>
@@ -963,7 +968,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
                 onPointerCancel={() => directRelease('crouch')}
                 onPointerLeave={() => directRelease('crouch')}
               >
-                <MaterialCommunityIcons name="arrow-collapse-down" size={20} color="#FFF" />
+                <Icon name="chevrons-down" size={20} color="#FFF" />
                 <Text style={styles.smallControlLabel}>しゃがむ</Text>
               </Pressable>
               <Pressable
@@ -980,7 +985,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
                 onPointerCancel={() => directRelease('jump')}
                 onPointerLeave={() => directRelease('jump')}
               >
-                <Ionicons name="arrow-up" size={33} color="#FFF" />
+                <Icon name="arrow-up" size={33} color="#FFF" />
                 <Text style={styles.jumpLabel}>ジャンプ</Text>
               </Pressable>
             </View>
@@ -989,7 +994,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
 
         {phase === 'intro' && (
           <View style={styles.overlayCard}>
-            <View style={styles.overlayIcon}><Ionicons name="planet-outline" size={35} color={colors.accent} /></View>
+            <View style={styles.overlayIcon}><Icon name="globe" size={35} color={colors.accent} /></View>
             <Text style={styles.overlayTitle}>星の道を探検しよう</Text>
             <Text style={styles.overlayDescription}>自分で歩いて、ジャンプして、仲間とゴールを目指そう。</Text>
             <View style={styles.instructionRow}>
@@ -998,19 +1003,19 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
             </View>
             <Pressable testID="skyline-run-start" style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={resetGame}>
               <Text style={styles.primaryButtonText}>はじめる</Text>
-              <Ionicons name="arrow-forward" size={18} color="#FFF" />
+              <Icon name="arrow-right" size={18} color="#FFF" />
             </Pressable>
           </View>
         )}
 
         {phase === 'failed' && (
           <View style={styles.overlayCard}>
-            <View style={styles.overlayIcon}><Ionicons name="moon-outline" size={35} color={colors.secondary} /></View>
+            <View style={styles.overlayIcon}><Icon name="moon" size={35} color={colors.secondary} /></View>
             <Text style={styles.overlayTitle}>ここでひとやすみ</Text>
             <Text style={styles.overlayDescription}>だいじょうぶ。星の道は、何度でも挑戦できるよ。</Text>
             <Pressable testID="skyline-run-retry" style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={resetGame}>
               <Text style={styles.primaryButtonText}>もう一度</Text>
-              <Ionicons name="refresh" size={18} color="#FFF" />
+              <Icon name="refresh-cw" size={18} color="#FFF" />
             </Pressable>
             <Pressable testID="skyline-run-quit-failed" style={styles.secondaryButton} onPress={onQuit}>
               <Text style={styles.secondaryButtonText}>今日はここまで</Text>
@@ -1020,10 +1025,12 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
 
         {phase === 'complete' && (
           <View style={styles.overlayCard}>
-            <View style={styles.overlayIcon}><Ionicons name="sparkles" size={38} color={colors.accent} /></View>
+            <View style={styles.overlayIcon}><Icon name="star" size={38} color={colors.accent} /></View>
             <Text style={[styles.completeTitle, { color: colors.accent }]}>今日もよくできました！</Text>
             <Text style={styles.overlayDescription}>自分で星の道を進んで、最後までたどり着いたね。</Text>
-            <Text style={styles.completeMeta}>✦ {world.player.collected}個　 SCORE {world.player.score}</Text>
+            <Text style={styles.completeMeta}>
+              {world.player.collected}個あつめた　SCORE {world.player.score}
+            </Text>
             <Pressable testID="skyline-run-quit-complete" style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={onQuit}>
               <Text style={styles.primaryButtonText}>とじる</Text>
             </Pressable>

@@ -10,6 +10,7 @@ import { Song, PlayResult, Judgment, Difficulty, SCORE_PER } from '@/utils/rhyth
 import { getCopyPhrases } from '@/utils/rhythm/charts';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
 import { RhythmMascot, RhythmMascotHandle } from './RhythmMascot';
+import { border, colors, gameSurface, judgePalette } from '@/constants/theme';
 
 /* COPYは記憶+再現なので判定窓をさらに優しく */
 const COPY_PERFECT_MS = 160;
@@ -98,10 +99,10 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
   const showJudge = (j: Judgment) => {
     judgeKeyRef.current += 1;
     const map: Record<Judgment, { text: string; color: string }> = {
-      perfect: { text: 'ぴったり！', color: '#FFD75E' },
-      great:   { text: 'いいね！',   color: '#5EE0B8' },
-      good:    { text: 'まあまあ',   color: '#5EB8FF' },
-      miss:    { text: 'だいじょうぶ', color: '#8A83B8' },
+      perfect: { text: 'ぴったり！', color: judgePalette.perfect },
+      great:   { text: 'いいね！',   color: judgePalette.great },
+      good:    { text: 'まあまあ',   color: judgePalette.good },
+      miss:    { text: 'だいじょうぶ', color: judgePalette.miss },
     };
     setJudge({ ...map[j], key: judgeKeyRef.current });
   };
@@ -231,7 +232,7 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
     }
   }, [started, clock]);
 
-  const phaseLabel = phase === 'watch' ? '👀 よくきいてね…' : phase === 'copy' ? '🎵 まねしてタップ！' : '…';
+  const phaseLabel = phase === 'watch' ? 'よくきいてね…' : phase === 'copy' ? 'まねしてタップ！' : '…';
   const totalPhrases = runsRef.current.length;
 
   return (
@@ -275,29 +276,29 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
 const st = StyleSheet.create({
   root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 10, alignItems: 'stretch' },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, minHeight: 32 },
-  score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.92)' },
-  phraseCount: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFD75E' },
+  score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: colors.foreground },
+  phraseCount: { fontSize: 15, fontFamily: 'Inter_700Bold', color: judgePalette.perfect },
   stage: {
     marginHorizontal: 16, borderRadius: 18, minHeight: 280,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: gameSurface.background,
+    borderWidth: 1, borderColor: colors.border,
     alignItems: 'center', justifyContent: 'center', gap: 14, overflow: 'hidden',
   },
-  phaseTxt: { fontSize: 16, fontFamily: 'Inter_700Bold', color: 'rgba(255,255,255,0.6)' },
-  phaseTxtActive: { color: '#FFD75E' },
+  phaseTxt: { fontSize: 16, fontFamily: 'Inter_700Bold', color: colors.mutedForeground },
+  phaseTxtActive: { color: judgePalette.perfect },
   judgeTxt: { position: 'absolute', top: 18, fontSize: 20, fontFamily: 'Inter_700Bold' },
   tapToStart: {
     ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(10,8,30,0.72)',
+    backgroundColor: gameSurface.scrim,
   },
-  tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF' },
+  tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
   tapBtn: {
     marginHorizontal: 16, height: 74, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: colors.muted, borderWidth: border.width, borderColor: colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  tapBtnActive: { backgroundColor: 'rgba(124,92,255,0.4)', borderColor: '#7C5CFF' },
+  tapBtnActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   tapBtnPressed: { backgroundColor: 'rgba(124,92,255,0.85)' },
-  tapBtnTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: '#FFF' },
-  quitTxt: { textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: 'Inter_400Regular', paddingTop: 2 },
+  tapBtnTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
+  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.subtleForeground, fontFamily: 'Inter_400Regular', paddingTop: 2 },
 });

@@ -1,21 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, Platform, KeyboardAvoidingView,
-  Alert, Dimensions,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  useSharedValue, useAnimatedStyle,
-  withRepeat, withSequence, withTiming,
-} from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
 const easeOut = (t: number) => t * (2 - t);
-const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
 
-import { useCosmicColors as useColors, COSMIC_SHEET } from '@/constants/cosmicTheme';
+import { border, colors, control, radius, space, typography } from '@/constants/theme';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { Button } from '@/components/ui/Button';
+import { Icon, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { ChecklistItemRow } from '@/components/ChecklistItemRow';
 import {
@@ -23,37 +26,17 @@ import {
   CATEGORY_ORDER,
   CATEGORY_LABELS,
   CATEGORY_ICONS,
-  CATEGORY_COLORS_DARK,
+  CATEGORY_COLORS,
 } from '@/data/defaultChecklist';
 import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
+import { PressScale } from '@/components/ui/PressScale';
 
-const { height: SH } = Dimensions.get('window');
-
-/* ---------- Complete banner ---------- */
+/** すべて完了したときの一行。点滅も発光もさせず、色と文字だけで伝える。 */
 function CompleteBanner() {
-  const colors = useColors();
-  const glow = useSharedValue(0.6);
-  useEffect(() => {
-    glow.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 900, easing: easeInOutSine }),
-        withTiming(0.6, { duration: 900, easing: easeInOutSine })
-      ), -1, false
-    );
-  }, []);
-  const style = useAnimatedStyle(() => ({ opacity: glow.value }));
   return (
-    <View style={{ position: 'relative', overflow: 'hidden', borderRadius: 14 }}>
-      <LinearGradient
-        colors={[colors.primary + 'CC', colors.secondary + '99']}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-        style={styles.completeBanner}
-      >
-        <Ionicons name="star" size={17} color="#FFF" />
-        <Text style={styles.completeText}>全て完了！よく頑張りました</Text>
-        <Ionicons name="star" size={17} color="#FFF" />
-      </LinearGradient>
-      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#FFFFFF', borderRadius: 14 }, style]} pointerEvents="none" />
+    <View style={styles.completeBanner}>
+      <Icon name="check-circle" size={16} color={colors.success} />
+      <Text style={styles.completeText}>全て完了！よく頑張りました</Text>
     </View>
   );
 }
@@ -65,7 +48,6 @@ interface Props {
 
 /** 「今日できたこと」チェックリスト(旧チェックタブの機能をシート化) */
 export function ChecklistSheet({ visible, onClose }: Props) {
-  const colors = useColors();
   const insets = useSafeAreaInsets();
   const {
     checkedState, checklistItems,
@@ -90,7 +72,7 @@ export function ChecklistSheet({ visible, onClose }: Props) {
     if (!visible) { setEditMode(false); setShowAddSheet(false); }
   }, [visible]);
 
-  const catColors  = CATEGORY_COLORS_DARK; // 宇宙テーマ固定
+  const catColors = CATEGORY_COLORS;
   const completed  = getCompletedCount();
   const total      = getTotalCheckCount();
   const progressPct = total > 0 ? (completed / total) * 100 : 0;
@@ -136,264 +118,295 @@ export function ChecklistSheet({ visible, onClose }: Props) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={[styles.sheetWrap, { backgroundColor: COSMIC_SHEET }]}>
-          {/* Header */}
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <View style={styles.headerRow}>
-              <View>
-                <Text style={[styles.title, { color: colors.foreground }]}>今日できたこと</Text>
-                <Text style={[styles.dateLabel, { color: colors.mutedForeground }]}>
-                  {formatDateJP(getTodayDate())}
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="今日できたこと"
+      subtitle={formatDateJP(getTodayDate())}
+      maxHeightRatio={0.92}
+      contentStyle={styles.content}
+    >
+      {/* 進捗 */}
+      {!editMode ? (
+        <View style={styles.progressBlock}>
+          <View style={styles.progressHead}>
+            <Text style={styles.progressCount}>
+              {completed}
+              <Text style={styles.progressTotal}> / {total}</Text>
+            </Text>
+            <PressScale
+              style={styles.iconBtn}
+              onPress={() => setEditMode(true)}
+              hitSlop={space.sm}
+              accessibilityLabel="項目を編集"
+            >
+              <Icon name="edit-3" size={16} color={colors.foreground} />
+            </PressScale>
+          </View>
+          <View style={styles.progressTrack}>
+            <Animated.View style={[styles.progressFill, barStyle]} />
+          </View>
+          {allDone && <CompleteBanner />}
+        </View>
+      ) : (
+        <View style={styles.editBar}>
+          <Text style={styles.editHint}>− で項目を削除　＋ で項目を追加</Text>
+          <View style={styles.editActions}>
+            <PressScale onPress={handleReset} style={styles.resetBtn}>
+              <Text style={styles.resetBtnText}>リセット</Text>
+            </PressScale>
+            <Button label="完了" size="sm" onPress={() => setEditMode(false)} />
+          </View>
+        </View>
+      )}
+
+      {CATEGORY_ORDER.map((cat) => {
+        const items = checklistItems.filter((i) => i.category === cat);
+        const catColor = catColors[cat];
+        const catDone = items.filter((i) => isChecked(i.id)).length;
+        return (
+          <View key={cat} style={styles.section}>
+            <View style={styles.catHeader}>
+              <Icon name={CATEGORY_ICONS[cat]} size={iconSize.md} color={catColor} />
+              <Text style={styles.catLabel}>{CATEGORY_LABELS[cat]}</Text>
+              {!editMode ? (
+                <Text style={[styles.catCount, { color: catColor }]}>
+                  {catDone}/{items.length}
                 </Text>
-              </View>
-              <View style={styles.headerRight}>
-                {!editMode ? (
-                  <>
-                    <View style={styles.countBadge}>
-                      <Text style={[styles.countNum, { color: colors.primary }]}>{completed}</Text>
-                      <Text style={[styles.countSep, { color: colors.mutedForeground }]}>/{total}</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.editBtn, { backgroundColor: colors.muted }]}
-                      onPress={() => setEditMode(true)}
-                      hitSlop={8}
-                    >
-                      <Ionicons name="pencil" size={16} color={colors.mutedForeground} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.editBtn, { backgroundColor: colors.muted }]}
-                      onPress={onClose}
-                      hitSlop={8}
-                    >
-                      <Ionicons name="close" size={18} color={colors.mutedForeground} />
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <View style={styles.editActions}>
-                    <TouchableOpacity onPress={handleReset} style={[styles.resetBtn, { borderColor: '#EF4444' }]}>
-                      <Text style={styles.resetBtnText}>リセット</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setEditMode(false)}
-                      style={[styles.doneBtn, { backgroundColor: colors.primary }]}
-                    >
-                      <Text style={styles.doneBtnText}>完了</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
+              ) : (
+                <PressScale
+                  style={styles.addCatBtn}
+                  onPress={() => openAddForCategory(cat)}
+                >
+                  <Icon name="plus" size={14} color={colors.primaryOnSoft} />
+                  <Text style={styles.addCatText}>追加</Text>
+                </PressScale>
+              )}
             </View>
 
-            {!editMode && (
-              <>
-                <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
-                  <Animated.View style={[styles.progressFill, { backgroundColor: colors.primary }, barStyle]} />
-                </View>
-                {allDone && <CompleteBanner />}
-              </>
-            )}
-
-            {editMode && (
-              <Text style={[styles.editHint, { color: colors.mutedForeground }]}>
-                − で項目を削除　＋ で項目を追加
-              </Text>
+            {items.length === 0 ? (
+              <PressScale
+                style={styles.emptyRow}
+                onPress={() => openAddForCategory(cat)}
+              >
+                <Icon name="plus-circle" size={16} color={colors.mutedForeground} />
+                <Text style={styles.emptyRowText}>タップして追加</Text>
+              </PressScale>
+            ) : (
+              <View style={styles.rows}>
+                {items.map((item, idx) => (
+                  <ChecklistItemRow
+                    key={item.id}
+                    id={item.id}
+                    text={item.text}
+                    isChecked={isChecked(item.id)}
+                    categoryColor={catColor}
+                    onToggle={toggleCheckItem}
+                    onDelete={handleDelete}
+                    editMode={editMode}
+                    index={idx}
+                  />
+                ))}
+              </View>
             )}
           </View>
+        );
+      })}
 
-          <ScrollView
-            contentContainerStyle={[
-              styles.scrollContent,
-              { paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 24 },
+      {/* 項目の追加 */}
+      <Modal
+        visible={showAddSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAddSheet(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.addOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <PressScale
+            style={styles.addBackdrop}
+            onPress={() => setShowAddSheet(false)}
+          />
+          <View
+            style={[
+              styles.addSheet,
+              { paddingBottom: Platform.OS === 'web' ? space.xl : insets.bottom + space.lg },
             ]}
-            showsVerticalScrollIndicator={false}
           >
-            {CATEGORY_ORDER.map((cat) => {
-              const items = checklistItems.filter(i => i.category === cat);
-              const catColor = catColors[cat];
-              const catDone = items.filter(i => isChecked(i.id)).length;
-              return (
-                <View key={cat} style={styles.section}>
-                  <View style={styles.catHeader}>
-                    <Text style={styles.catIcon}>{CATEGORY_ICONS[cat]}</Text>
-                    <Text style={[styles.catLabel, { color: colors.foreground }]}>
+            <View style={styles.handle} />
+            <Text style={styles.addTitle}>チェック項目を追加</Text>
+
+            <Text style={styles.pickerLabel}>カテゴリ</Text>
+            <View style={styles.catPicker}>
+              {CATEGORY_ORDER.map((cat) => {
+                const active = addCategory === cat;
+                return (
+                  <PressScale
+                    key={cat}
+                    style={[styles.catChip, active && styles.catChipActive]}
+                    onPress={() => setAddCategory(cat)}
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Icon
+                      name={CATEGORY_ICONS[cat]}
+                      size={iconSize.sm}
+                      color={active ? colors.primaryOnSoft : colors.subtleForeground}
+                    />
+                    <Text style={[styles.catChipText, active && styles.catChipTextActive]}>
                       {CATEGORY_LABELS[cat]}
                     </Text>
-                    {!editMode && (
-                      <View style={[styles.catCountBadge, { backgroundColor: catColor + '22' }]}>
-                        <Text style={[styles.catCount, { color: catColor }]}>{catDone}/{items.length}</Text>
-                      </View>
-                    )}
-                    {editMode && (
-                      <TouchableOpacity
-                        style={[styles.addCatBtn, { backgroundColor: catColor + '22', borderColor: catColor + '55' }]}
-                        onPress={() => openAddForCategory(cat)}
-                      >
-                        <Ionicons name="add" size={14} color={catColor} />
-                        <Text style={[styles.addCatText, { color: catColor }]}>追加</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                  </PressScale>
+                );
+              })}
+            </View>
 
-                  {items.length === 0 ? (
-                    <TouchableOpacity
-                      style={[styles.emptyRow, { borderColor: catColor + '40', backgroundColor: catColor + '08' }]}
-                      onPress={() => openAddForCategory(cat)}
-                    >
-                      <Ionicons name="add-circle-outline" size={18} color={catColor} />
-                      <Text style={[styles.emptyRowText, { color: catColor }]}>タップして追加</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    items.map((item, idx) => (
-                      <ChecklistItemRow
-                        key={item.id}
-                        id={item.id}
-                        text={item.text}
-                        isChecked={isChecked(item.id)}
-                        categoryColor={catColor}
-                        onToggle={toggleCheckItem}
-                        onDelete={handleDelete}
-                        editMode={editMode}
-                        index={idx}
-                      />
-                    ))
-                  )}
-                </View>
-              );
-            })}
-          </ScrollView>
-
-          {/* Add Item Sheet */}
-          <Modal visible={showAddSheet} transparent animationType="slide" onRequestClose={() => setShowAddSheet(false)}>
-            <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-              <TouchableOpacity style={styles.addBackdrop} activeOpacity={1} onPress={() => setShowAddSheet(false)} />
-              <View style={[styles.sheet, { backgroundColor: COSMIC_SHEET, paddingBottom: Platform.OS === 'web' ? 34 : insets.bottom + 16 }]}>
-                <View style={[styles.handle, { backgroundColor: colors.border }]} />
-                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>チェック項目を追加</Text>
-
-                <Text style={[styles.pickerLabel, { color: colors.mutedForeground }]}>カテゴリ</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                  <View style={styles.catPicker}>
-                    {CATEGORY_ORDER.map(cat => {
-                      const active = addCategory === cat;
-                      const cc = catColors[cat];
-                      return (
-                        <TouchableOpacity
-                          key={cat}
-                          style={[
-                            styles.catChip,
-                            {
-                              backgroundColor: active ? cc : colors.muted,
-                              borderColor: active ? cc : colors.border,
-                            },
-                          ]}
-                          onPress={() => setAddCategory(cat)}
-                        >
-                          <Text style={styles.catChipIcon}>{CATEGORY_ICONS[cat]}</Text>
-                          <Text style={[styles.catChipText, { color: active ? '#fff' : colors.mutedForeground }]}>
-                            {CATEGORY_LABELS[cat]}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
-
-                <TextInput
-                  style={[styles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
-                  placeholder="例：お風呂に入った"
-                  placeholderTextColor={colors.mutedForeground}
-                  value={newText}
-                  onChangeText={setNewText}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={handleAdd}
-                />
-                <TouchableOpacity
-                  style={[styles.saveBtn, { backgroundColor: newText.trim() ? colors.primary : colors.muted }]}
-                  onPress={handleAdd}
-                  disabled={!newText.trim()}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.saveBtnText, { color: newText.trim() ? '#FFF' : colors.mutedForeground }]}>
-                    追加する
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </KeyboardAvoidingView>
-          </Modal>
-        </View>
-      </View>
-    </Modal>
+            <TextInput
+              style={styles.input}
+              placeholder="例：お風呂に入った"
+              placeholderTextColor={colors.subtleForeground}
+              value={newText}
+              onChangeText={setNewText}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleAdd}
+            />
+            <Button label="追加する" onPress={handleAdd} disabled={!newText.trim()} />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.55)' },
-  sheetWrap: {
-    borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden',
-    height: SH * 0.92,
+  content: { gap: space.xl },
+
+  /* 進捗 */
+  progressBlock: { gap: space.md },
+  progressHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  progressCount: { ...typography.display, color: colors.foreground },
+  progressTotal: { ...typography.body, color: colors.mutedForeground },
+  progressTrack: {
+    height: space.sm,
+    borderRadius: radius.pill,
+    backgroundColor: colors.muted,
+    overflow: 'hidden',
   },
-  header: {
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
-    borderBottomWidth: 1, gap: 12,
+  progressFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  title: { fontSize: 20, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
-  dateLabel: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  countBadge: { flexDirection: 'row', alignItems: 'baseline' },
-  countNum: { fontSize: 28, fontFamily: 'Inter_700Bold' },
-  countSep: { fontSize: 15, fontFamily: 'Inter_400Regular' },
-  editBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  editActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  resetBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
-  resetBtnText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: '#EF4444' },
-  doneBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 10 },
-  doneBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' },
-  editHint: { fontSize: 12, fontFamily: 'Inter_400Regular' },
-  progressTrack: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 4, position: 'absolute', top: 0, left: 0 },
+  iconBtn: {
+    width: control.icon,
+    height: control.icon,
+    borderRadius: radius.pill,
+    backgroundColor: colors.muted,
+    ...border.hairline,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   completeBanner: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, padding: 12, borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.successSoft,
   },
-  completeText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#FFF', flex: 1, textAlign: 'center' },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 20 },
-  section: { marginBottom: 26 },
-  catHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  catIcon: { fontSize: 16 },
-  catLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', flex: 1 },
-  catCountBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  catCount: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  completeText: { ...typography.calloutStrong, color: colors.success },
+
+  /* 編集モード */
+  editBar: { gap: space.md },
+  editHint: { ...typography.caption, color: colors.mutedForeground },
+  editActions: { flexDirection: 'row', gap: space.sm, alignItems: 'center' },
+  resetBtn: {
+    minHeight: control.heightSm,
+    justifyContent: 'center',
+    paddingHorizontal: space.lg,
+    borderRadius: radius.md,
+    borderWidth: border.width,
+    borderColor: colors.danger,
+  },
+  resetBtnText: { ...typography.label, color: colors.danger },
+
+  /* カテゴリ */
+  section: { gap: space.md },
+  catHeader: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  catLabel: { ...typography.subhead, color: colors.foreground, flex: 1 },
+  catCount: { ...typography.label },
   addCatBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
   },
-  addCatText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  addCatText: { ...typography.micro, color: colors.primaryOnSoft },
+  rows: { gap: space.sm },
   emptyRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    padding: 14, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed',
-    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    minHeight: control.height,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.md,
+    borderWidth: border.width,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
   },
-  emptyRowText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
-  addBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  sheet: { borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 24, gap: 12 },
-  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 4 },
-  sheetTitle: { fontSize: 18, fontFamily: 'Inter_700Bold' },
-  pickerLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', marginBottom: 4 },
-  catPicker: { flexDirection: 'row', gap: 8 },
+  emptyRowText: { ...typography.callout, color: colors.mutedForeground },
+
+  /* 追加シート */
+  addOverlay: { flex: 1, justifyContent: 'flex-end' },
+  addBackdrop: { flex: 1, backgroundColor: colors.scrim },
+  addSheet: {
+    backgroundColor: colors.sheet,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    borderTopWidth: border.width,
+    borderTopColor: colors.border,
+    paddingHorizontal: space.xl,
+    paddingTop: space.md,
+    gap: space.md,
+  },
+  handle: {
+    width: 32,
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.borderStrong,
+    alignSelf: 'center',
+  },
+  addTitle: { ...typography.heading, color: colors.foreground, marginTop: space.sm },
+  pickerLabel: { ...typography.label, color: colors.mutedForeground },
+  catPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   catChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    minHeight: control.heightSm,
+    paddingHorizontal: space.md,
+    borderRadius: radius.pill,
+    backgroundColor: colors.muted,
+    ...border.hairline,
   },
-  catChipIcon: { fontSize: 14 },
-  catChipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
-  input: { padding: 15, borderRadius: 14, fontSize: 15, fontFamily: 'Inter_400Regular', borderWidth: 1 },
-  saveBtn: { padding: 16, borderRadius: 14, alignItems: 'center' },
-  saveBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  catChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  catChipText: { ...typography.label, color: colors.mutedForeground },
+  catChipTextActive: { color: colors.primaryOnSoft },
+  input: {
+    ...typography.body,
+    height: control.height,
+    paddingHorizontal: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.input,
+    ...border.hairlineStrong,
+    color: colors.foreground,
+  },
 });

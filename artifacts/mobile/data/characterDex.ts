@@ -3,6 +3,7 @@
  * キャラ本体(見た目・リグ)には一切手を加えず、紹介文だけを持つ。
  */
 import { CharacterKey } from '@/utils/mascotUtils';
+import type { IconName } from '@/components/ui/Icon';
 
 export interface DexProfile {
   charKey: CharacterKey;
@@ -60,9 +61,9 @@ export const DEX_PROFILES: Record<CharacterKey, DexProfile> = {
 };
 
 /** 「この子たちについて」— 世界観をカードで自然に読める短い説明 */
-export const WORLD_CARDS: { emoji: string; title: string; text: string }[] = [
-  { emoji: '💪', title: '自分を整えると', text: 'お風呂・ごはん・すいみん。君が自分を大切にすると、この子は元気になるよ。' },
-  { emoji: '✨', title: '元気は光になる', text: '元気になったこの子は、からだから小さな光を生み出すんだ。' },
-  { emoji: '🌞', title: '光は太陽へ', text: '生まれた光は空にのぼって、太陽をすこしだけ明るくする。' },
-  { emoji: '🏙️', title: '太陽は街を照らす', text: '太陽の光は発電所に蓄えられて、街のあかりや緑になる。君の毎日が、世界を明るくしてる。' },
+export const WORLD_CARDS: { icon: IconName; title: string; text: string }[] = [
+  { icon: 'heart',    title: '自分を整えると', text: 'お風呂・ごはん・すいみん。君が自分を大切にすると、この子は元気になるよ。' },
+  { icon: 'feather',  title: '元気は光になる', text: '元気になったこの子は、からだから小さな光を生み出すんだ。' },
+  { icon: 'sun',      title: '光は太陽へ', text: '生まれた光は空にのぼって、太陽をすこしだけ明るくする。' },
+  { icon: 'zap',      title: '太陽は街を照らす', text: '太陽の光は発電所に蓄えられて、街のあかりや緑になる。君の毎日が、世界を明るくしてる。' },
 ];

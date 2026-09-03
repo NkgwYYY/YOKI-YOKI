@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -9,7 +9,8 @@ import Animated, {
   withRepeat,
   withSequence,
 } from 'react-native-reanimated';
-import { useColors } from '@/hooks/useColors';
+import { border, colors, radius, space, typography } from '@/constants/theme';
+import { PressScale } from '@/components/ui/PressScale';
 
 interface SpeechBubbleProps {
   message: string;
@@ -17,8 +18,6 @@ interface SpeechBubbleProps {
 }
 
 export function SpeechBubble({ message, onPress }: SpeechBubbleProps) {
-  const colors = useColors();
-
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.8);
   const wiggle = useSharedValue(0);
@@ -47,48 +46,35 @@ export function SpeechBubble({ message, onPress }: SpeechBubbleProps) {
 
   return (
     <Animated.View style={bubbleStyle}>
-      <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
-        <View style={[styles.bubble, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.text, { color: colors.foreground }]}>{message}</Text>
-          <Text style={[styles.tap, { color: colors.mutedForeground }]}>タップで変更</Text>
+      <PressScale onPress={onPress} accessibilityLabel={message}>
+        <View style={styles.bubble}>
+          <Text style={styles.text}>{message}</Text>
+          <Text style={styles.tap}>タップで変更</Text>
         </View>
-        {/* tail */}
+        {/* しっぽ。面と同じ 1px の輪郭を三角形で継ぐ */}
         <View style={styles.tailWrap}>
-          <View style={[styles.tailOuter, { borderTopColor: colors.border }]} />
-          <View style={[styles.tailInner, { borderTopColor: colors.card }]} />
+          <View style={styles.tailOuter} />
+          <View style={styles.tailInner} />
         </View>
-      </TouchableOpacity>
+      </PressScale>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
+  // 影は付けない。面は白 + 1px のボーダーだけで背景から浮かせる。
   bubble: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 18,
-    borderWidth: 1.5,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    ...border.hairline,
     alignItems: 'center',
-    gap: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    gap: space.xs,
   },
-  text: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    textAlign: 'center',
-  },
-  tap: {
-    fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-  },
-  tailWrap: {
-    alignItems: 'center',
-    marginTop: -1,
-  },
+  text: { ...typography.calloutStrong, color: colors.foreground, textAlign: 'center' },
+  tap: { ...typography.micro, color: colors.mutedForeground },
+  tailWrap: { alignItems: 'center', marginTop: -1 },
   tailOuter: {
     width: 0,
     height: 0,
@@ -97,6 +83,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 10,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
+    borderTopColor: colors.border,
   },
   tailInner: {
     width: 0,
@@ -106,6 +93,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 8,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
+    borderTopColor: colors.card,
     marginTop: -9,
   },
 });

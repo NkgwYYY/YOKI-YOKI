@@ -1,21 +1,26 @@
 /**
  * 活動カウント(今日の記録の「やったこと」)の共通定義。
  * 記録タブのカウンターと成長タブの集計で共用する。
+ * 色はデザインシステムの activityPalette が唯一の出どころ。
  */
+import { activityPalette } from '@/constants/theme';
+import type { IconName } from '@/components/ui/Icon';
+
 export interface ActivityDef {
   key: string;
   label: string;
-  icon: string;   // Ionicons name
+  /** 単色線画アイコン。絵文字は使わない。 */
+  icon: IconName;
   color: string;
 }
 
 export const ACTIVITY_DEFS: ActivityDef[] = [
-  { key: 'reading', label: '読書', icon: 'book-outline', color: '#9F8CFF' },
-  { key: 'exercise', label: '運動', icon: 'walk-outline', color: '#64FFDA' },
-  { key: 'study', label: '勉強・学習', icon: 'school-outline', color: '#FFB86B' },
-  { key: 'journal', label: '日記・振り返り', icon: 'create-outline', color: '#7FDCA4' },
-  { key: 'earlySleep', label: '早く寝る', icon: 'moon-outline', color: '#8AB4FF' },
-  { key: 'selfCare', label: '自分を大切に', icon: 'heart-outline', color: '#FF6FA3' },
+  { key: 'reading', label: '読書', icon: 'book-open', color: activityPalette.reading },
+  { key: 'exercise', label: '運動', icon: 'activity', color: activityPalette.exercise },
+  { key: 'study', label: '勉強・学習', icon: 'book', color: activityPalette.study },
+  { key: 'journal', label: '日記・振り返り', icon: 'edit-3', color: activityPalette.journal },
+  { key: 'earlySleep', label: '早く寝る', icon: 'moon', color: activityPalette.earlySleep },
+  { key: 'selfCare', label: '自分を大切に', icon: 'heart', color: activityPalette.selfCare },
 ];
 
 /** 1日分のカウント合計 */

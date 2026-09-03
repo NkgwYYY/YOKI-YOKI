@@ -1,30 +1,32 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, Modal,
+  View, Text, StyleSheet, Modal,
   ScrollView,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useCosmicColors as useColors } from '@/constants/cosmicTheme';
+import {
+  border,
+  colors,
+  moodPalette,
+  radius,
+  space,
+  typography,
+} from '@/constants/theme';
+import { CenterDialog } from '@/components/ui/BottomSheet';
 import { DailyRecord } from '@/contexts/AppContext';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MascotFace, MoodLevel } from '@/components/MascotFace';
+import { Icon, iconSize } from '@/components/ui/Icon';
+import { PressScale } from '@/components/ui/PressScale';
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
-const MOOD_COLORS: Record<number, string> = {
-  1: '#EF4444',
-  2: '#FF6B35',
-  3: '#FFB800',
-  4: '#00C4A7',
-  5: '#7C4DCC',
-};
+const MOOD_COLORS = moodPalette;
 
 const MOOD_LABELS: Record<number, string> = {
-  1: '最悪 😢',
-  2: '辛い 😞',
-  3: '普通 😐',
-  4: '良い 😊',
-  5: '最高 🌟',
+  1: '最悪',
+  2: '辛い',
+  3: '普通',
+  4: '良い',
+  5: '最高',
 };
 
 
@@ -42,9 +44,6 @@ interface Props {
 }
 
 export function MoodCalendar({ records }: Props) {
-  const colors = useColors();
-  const isDark = true; // 宇宙テーマ固定
-
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth()); // 0-indexed
@@ -92,47 +91,55 @@ export function MoodCalendar({ records }: Props) {
     return max;
   })();
 
-  const cardBg = ['rgba(28,18,61,0.62)', 'rgba(28,18,61,0.45)'] as const;
-
   return (
     <>
-      <View style={[styles.card, { borderColor: colors.border, overflow: 'hidden' }]}>
-        <LinearGradient colors={cardBg} style={[StyleSheet.absoluteFill, { borderRadius: 22 }]} />
-
-        {/* Header */}
+      <View style={styles.card}>
+        {/* 月の移動 */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={prevMonth} style={styles.navBtn} hitSlop={8}>
-            <Ionicons name="chevron-back" size={22} color={colors.primary} />
-          </TouchableOpacity>
-          <Text style={[styles.monthLabel, { color: colors.foreground }]}>
+          <PressScale
+            onPress={prevMonth}
+            style={styles.navBtn}
+            hitSlop={space.sm}
+            accessibilityLabel="前の月"
+          >
+            <Icon name="chevron-left" size={20} color={colors.primary} />
+          </PressScale>
+          <Text style={styles.monthLabel}>
             {year}年{month + 1}月
           </Text>
-          <TouchableOpacity onPress={nextMonth} style={styles.navBtn} hitSlop={8}>
-            <Ionicons name="chevron-forward" size={22} color={colors.primary} />
-          </TouchableOpacity>
+          <PressScale
+            onPress={nextMonth}
+            style={styles.navBtn}
+            hitSlop={space.sm}
+            accessibilityLabel="次の月"
+          >
+            <Icon name="chevron-right" size={20} color={colors.primary} />
+          </PressScale>
         </View>
 
         {/* Month stats */}
         {monthRecords.length > 0 && (
           <View style={styles.statsRow}>
-            <View style={[styles.statChip, { backgroundColor: colors.muted }]}>
-              <Text style={[styles.statChipVal, { color: colors.foreground }]}>{monthRecords.length}日</Text>
-              <Text style={[styles.statChipLbl, { color: colors.mutedForeground }]}>記録</Text>
+            <View style={styles.statChip}>
+              <Text style={styles.statChipVal}>{monthRecords.length}日</Text>
+              <Text style={styles.statChipLbl}>記録</Text>
             </View>
             {avgMood !== null && (
-              <View style={[styles.statChip, { backgroundColor: MOOD_COLORS[Math.round(avgMood)] + '22' }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <MascotFace mood={Math.round(avgMood) as MoodLevel} size={22} />
-                  <Text style={[styles.statChipVal, { color: MOOD_COLORS[Math.round(avgMood)] }]}>
+              <View style={styles.statChip}>
+                <View style={styles.statChipInline}>
+                  <MascotFace mood={Math.round(avgMood) as MoodLevel} size={20} />
+                  <Text
+                    style={[styles.statChipVal, { color: MOOD_COLORS[Math.round(avgMood)] }]}
+                  >
                     {avgMood.toFixed(1)}
                   </Text>
                 </View>
-                <Text style={[styles.statChipLbl, { color: colors.mutedForeground }]}>平均気分</Text>
+                <Text style={styles.statChipLbl}>平均気分</Text>
               </View>
             )}
-            <View style={[styles.statChip, { backgroundColor: '#FF6FA322' }]}>
-              <Text style={[styles.statChipVal, { color: '#FF6FA3' }]}>{bestStreak}日</Text>
-              <Text style={[styles.statChipLbl, { color: colors.mutedForeground }]}>最長継続</Text>
+            <View style={styles.statChip}>
+              <Text style={styles.statChipVal}>{bestStreak}日</Text>
+              <Text style={styles.statChipLbl}>最長継続</Text>
             </View>
           </View>
         )}
@@ -142,10 +149,7 @@ export function MoodCalendar({ records }: Props) {
           {WEEKDAYS.map((w, i) => (
             <Text
               key={w}
-              style={[
-                styles.weekday,
-                { color: i === 0 ? '#EF4444' : i === 6 ? '#7C4DCC' : colors.mutedForeground },
-              ]}
+              style={[styles.weekday, (i === 0 || i === 6) && styles.weekdayEnd]}
             >
               {w}
             </Text>
@@ -163,50 +167,28 @@ export function MoodCalendar({ records }: Props) {
               const moodColor = rec ? MOOD_COLORS[rec.mood] : null;
 
               return (
-                <TouchableOpacity
+                <PressScale
                   key={col}
                   style={styles.cell}
                   onPress={() => rec && setSelected(rec)}
-                  activeOpacity={rec ? 0.7 : 1}
                 >
                   <View
                     style={[
                       styles.dayCircle,
-                      moodColor
-                        ? { backgroundColor: moodColor + '18', borderColor: moodColor + '70', borderWidth: 1.5 }
-                        : { backgroundColor: colors.muted },
-                      isToday && !rec && styles.todayBorder,
-                      isToday && !!rec && { borderColor: '#7C4DCC', borderWidth: 2.5 },
+                      moodColor ? { borderColor: moodColor } : null,
+                      isToday && styles.dayCircleToday,
                     ]}
                   >
                     {rec ? (
-                      <MascotFace mood={rec.mood as MoodLevel} size={30} />
+                      <MascotFace mood={rec.mood as MoodLevel} size={28} />
                     ) : (
-                      <Text
-                        style={[
-                          styles.dayNum,
-                          {
-                            color: isToday
-                              ? colors.primary
-                              : col === 0
-                              ? '#EF4444'
-                              : col === 6
-                              ? '#7C4DCC'
-                              : colors.mutedForeground,
-                            fontWeight: isToday ? '700' : '400',
-                          },
-                        ]}
-                      >
-                        {day}
-                      </Text>
+                      <Text style={[styles.dayNum, isToday && styles.dayNumToday]}>{day}</Text>
                     )}
                   </View>
-                  {rec && (
-                    <Text style={[styles.dayNumSmall, { color: moodColor! }]}>
-                      {day}
-                    </Text>
+                  {rec && moodColor && (
+                    <Text style={[styles.dayNumSmall, { color: moodColor }]}>{day}</Text>
                   )}
-                </TouchableOpacity>
+                </PressScale>
               );
             })}
           </View>
@@ -217,81 +199,63 @@ export function MoodCalendar({ records }: Props) {
           {([1, 2, 3, 4, 5] as MoodLevel[]).map((m) => (
             <View key={m} style={styles.legendItem}>
               <MascotFace mood={m} size={20} />
-              <Text style={[styles.legendText, { color: colors.mutedForeground }]}>{MOOD_LABELS[m].split(' ')[0]}</Text>
+              <Text style={styles.legendText}>{MOOD_LABELS[m].split(' ')[0]}</Text>
             </View>
           ))}
         </View>
       </View>
 
-      {/* Day detail modal */}
-      <Modal
-        visible={!!selected}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setSelected(null)}
-      >
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={() => setSelected(null)}
-        >
-          {selected && (
-            <TouchableOpacity activeOpacity={1} style={[styles.detailCard, { backgroundColor: colors.background }]}>
-              <LinearGradient
-                colors={[MOOD_COLORS[selected.mood] + '18', colors.background]}
-                style={[StyleSheet.absoluteFill, { borderRadius: 24 }]}
-              />
-              {/* Date & close */}
-              <View style={styles.detailHeader}>
-                <Text style={[styles.detailDate, { color: colors.mutedForeground }]}>
-                  {selected.date}
+      {/* 選んだ日の詳細 */}
+      <CenterDialog visible={!!selected} onClose={() => setSelected(null)}>
+        {selected && (
+          <>
+            <View style={styles.detailHeader}>
+              <Text style={styles.detailDate}>{selected.date}</Text>
+              <PressScale
+                onPress={() => setSelected(null)}
+                hitSlop={space.sm}
+                accessibilityLabel="閉じる"
+              >
+                <Icon name="x" size={20} color={colors.subtleForeground} />
+              </PressScale>
+            </View>
+
+            <View style={styles.detailMoodRow}>
+              <MascotFace mood={selected.mood as MoodLevel} size={48} />
+              <View style={styles.detailMoodCopy}>
+                <Text style={[styles.detailMoodLabel, { color: MOOD_COLORS[selected.mood] }]}>
+                  {MOOD_LABELS[selected.mood]}
                 </Text>
-                <TouchableOpacity onPress={() => setSelected(null)}>
-                  <Ionicons name="close-circle" size={26} color={colors.mutedForeground} />
-                </TouchableOpacity>
+                <Text style={styles.detailSub}>気分スコア {selected.mood}/5</Text>
               </View>
+            </View>
 
-              {/* Mood */}
-              <View style={[styles.detailMoodRow, { backgroundColor: MOOD_COLORS[selected.mood] + '18' }]}>
-                <MascotFace mood={selected.mood as MoodLevel} size={56} />
-                <View>
-                  <Text style={[styles.detailMoodLabel, { color: MOOD_COLORS[selected.mood] }]}>
-                    {MOOD_LABELS[selected.mood]}
-                  </Text>
-                  <Text style={[styles.detailSub, { color: colors.mutedForeground }]}>気分スコア {selected.mood}/5</Text>
-                </View>
-              </View>
+            <View style={styles.detailRow}>
+              <Icon name="moon" size={16} color={colors.subtleForeground} />
+              <Text style={styles.detailRowText}>睡眠 {selected.sleep}時間</Text>
+            </View>
 
-              {/* Sleep */}
+            {selected.behaviors.length > 0 && (
               <View style={styles.detailRow}>
-                <Ionicons name="moon-outline" size={18} color={colors.primary} />
-                <Text style={[styles.detailRowText, { color: colors.foreground }]}>睡眠 {selected.sleep}時間</Text>
+                <Icon name="check-circle" size={16} color={colors.subtleForeground} />
+                <View style={styles.tagWrap}>
+                  {selected.behaviors.map((b) => (
+                    <View key={b} style={styles.tag}>
+                      <Text style={styles.tagText}>{b}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
+            )}
 
-              {/* Behaviors */}
-              {selected.behaviors.length > 0 && (
-                <View style={styles.detailRow}>
-                  <Ionicons name="checkmark-circle-outline" size={18} color="#00C4A7" />
-                  <View style={styles.tagWrap}>
-                    {selected.behaviors.map((b) => (
-                      <View key={b} style={[styles.tag, { backgroundColor: '#00C4A722' }]}>
-                        <Text style={[styles.tagText, { color: '#00C4A7' }]}>{b}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Notes */}
-              {!!selected.notes && (
-                <View style={[styles.notesBox, { backgroundColor: colors.muted }]}>
-                  <Text style={[styles.notesText, { color: colors.foreground }]}>{selected.notes}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          )}
-        </TouchableOpacity>
-      </Modal>
+            {!!selected.notes && (
+              <View style={styles.notesBox}>
+                <Text style={styles.notesText}>{selected.notes}</Text>
+              </View>
+            )}
+          </>
+        )}
+      </CenterDialog>
     </>
   );
 }
@@ -300,117 +264,94 @@ const CELL_SIZE = 44;
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 22,
-    borderWidth: 1,
-    padding: 18,
-    marginBottom: 16,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.lg,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  navBtn: { padding: 4 },
-  monthLabel: { fontSize: 18, fontFamily: 'Inter_700Bold' },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
-  },
+
+  /* 月の移動 */
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  navBtn: { padding: space.xs },
+  monthLabel: { ...typography.heading, color: colors.foreground },
+
+  /* 月の統計 */
+  statsRow: { flexDirection: 'row', gap: space.sm },
   statChip: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
     alignItems: 'center',
+    backgroundColor: colors.muted,
   },
-  statChipVal: { fontSize: 14, fontFamily: 'Inter_700Bold' },
-  statChipLbl: { fontSize: 10, fontFamily: 'Inter_400Regular', marginTop: 1 },
-  weekRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 4,
-  },
+  statChipInline: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  statChipVal: { ...typography.calloutStrong, color: colors.foreground },
+  statChipLbl: { ...typography.micro, color: colors.mutedForeground },
+
+  /* グリッド */
+  weekRow: { flexDirection: 'row', justifyContent: 'space-around' },
   weekday: {
+    ...typography.micro,
     width: CELL_SIZE,
     textAlign: 'center',
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    marginBottom: 4,
+    color: colors.mutedForeground,
+    marginBottom: space.xs,
   },
-  cell: {
-    width: CELL_SIZE,
-    alignItems: 'center',
-    marginBottom: 6,
-  },
+  // 土日は色を変えず、少し薄くするだけにする。
+  weekdayEnd: { color: colors.subtleForeground },
+  cell: { width: CELL_SIZE, alignItems: 'center', marginBottom: space.xs },
+  // 記録がある日はボーダーの色だけで気分を示す。塗りは常に同じ。
   dayCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.muted,
+    ...border.hairline,
   },
-  todayBorder: {
-    borderWidth: 2.5,
-    borderColor: '#7C4DCC',
-  },
-  dayNum: { fontSize: 13, fontFamily: 'Inter_400Regular' },
-  dayNumSmall: { fontSize: 9, fontFamily: 'Inter_600SemiBold', marginTop: 1 },
-  moodEmoji: { fontSize: 18 },
+  dayCircleToday: { borderColor: colors.primary },
+  dayNum: { ...typography.caption, color: colors.mutedForeground },
+  dayNumToday: { color: colors.primary, fontFamily: 'Inter_700Bold' },
+  dayNumSmall: { ...typography.micro, marginTop: 1 },
+
+  /* 凡例 */
   legend: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#00000010',
+    paddingTop: space.md,
+    borderTopWidth: border.width,
+    borderTopColor: colors.border,
   },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 10, fontFamily: 'Inter_400Regular' },
-  // Modal
-  overlay: {
-    flex: 1,
-    backgroundColor: '#00000050',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  detailCard: {
-    width: '100%',
-    borderRadius: 24,
-    padding: 20,
-    overflow: 'hidden',
-  },
-  detailHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  detailDate: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  legendText: { ...typography.micro, color: colors.mutedForeground },
+
+  /* 日別の詳細 */
+  detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  detailDate: { ...typography.label, color: colors.mutedForeground },
   detailMoodRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
+    gap: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.muted,
+    padding: space.lg,
   },
-  detailEmoji: { fontSize: 36 },
-  detailMoodLabel: { fontSize: 18, fontFamily: 'Inter_700Bold' },
-  detailSub: { fontSize: 12, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 10,
+  detailMoodCopy: { flex: 1 },
+  detailMoodLabel: { ...typography.heading },
+  detailSub: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
+  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
+  detailRowText: { ...typography.callout, color: colors.foreground },
+  tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, flex: 1 },
+  tag: {
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: space.sm,
+    paddingVertical: 2,
   },
-  detailRowText: { fontSize: 14, fontFamily: 'Inter_500Medium', lineHeight: 20 },
-  tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1 },
-  tag: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  tagText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
-  notesBox: { borderRadius: 12, padding: 12, marginTop: 4 },
-  notesText: { fontSize: 13, fontFamily: 'Inter_400Regular', lineHeight: 20 },
+  tagText: { ...typography.micro, color: colors.primaryOnSoft },
+  notesBox: { borderRadius: radius.md, backgroundColor: colors.muted, padding: space.md },
+  notesText: { ...typography.callout, color: colors.foreground },
 });

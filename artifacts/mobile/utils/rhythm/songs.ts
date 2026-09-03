@@ -1,3 +1,4 @@
+import { activityPalette } from '@/constants/theme';
 import { Song } from './types';
 
 /**
@@ -14,8 +15,8 @@ export const SONGS: Song[] = [
     firstBeat: 0.302,
     duration: 29.5,
     mood: 'ノリノリ',
-    emoji: '🕺',
-    gradient: ['#FF8A5C', '#FF5C8A'] as const,
+    icon: 'activity',
+    accent: activityPalette.selfCare,
   },
   {
     id: 'night_barometer',
@@ -25,8 +26,8 @@ export const SONGS: Song[] = [
     firstBeat: 0.511,
     duration: 29.5,
     mood: 'しっとり',
-    emoji: '🌙',
-    gradient: ['#5C6BFF', '#8A5CFF'] as const,
+    icon: 'moon',
+    accent: activityPalette.reading,
   },
   {
     id: 'rolling_days',
@@ -36,8 +37,8 @@ export const SONGS: Song[] = [
     firstBeat: 0.215,
     duration: 29.5,
     mood: 'るんるん',
-    emoji: '🎡',
-    gradient: ['#41C98E', '#37A8D8'] as const,
+    icon: 'sun',
+    accent: activityPalette.exercise,
   },
   {
     id: 'bouncy_away',
@@ -47,8 +48,8 @@ export const SONGS: Song[] = [
     firstBeat: 0.313,
     duration: 29.5,
     mood: 'はずむ',
-    emoji: '🫧',
-    gradient: ['#F7B733', '#E8638C'] as const,
+    icon: 'wind',
+    accent: activityPalette.study,
   },
 ];
 
