@@ -77,11 +77,11 @@ function OrbitAction({
     >
       <LinearGradient
         colors={[
-          'rgba(255, 255, 255, 0.55)',
-          'rgba(255, 194, 232, 0.2)',
-          'rgba(185, 220, 255, 0.15)',
-          'rgba(220, 190, 255, 0.2)',
-          'rgba(255, 255, 255, 0.55)',
+          'rgba(255, 255, 255, 0.68)',
+          'rgba(255, 255, 255, 0.34)',
+          'rgba(255, 255, 255, 0.24)',
+          'rgba(255, 255, 255, 0.34)',
+          'rgba(255, 255, 255, 0.68)',
         ]}
         start={{ x: 0.08, y: 0.08 }}
         end={{ x: 0.92, y: 0.92 }}
@@ -354,6 +354,7 @@ export default function HomeScreen() {
         <MenuAction icon="coffee" label="ごはんをあげる" onPress={() => { setShowMenu(false); setShowFeed(true); }} />
         <MenuAction icon="music" label={canPlay ? 'リズムであそぶ' : 'リズムであそぶ（またあとで）'} onPress={() => { setShowMenu(false); if (canPlay) setShowMiniGame(true); }} />
         <MenuAction icon="trending-up" label="成長を見る" onPress={() => { setShowMenu(false); router.push('/(tabs)/growth'); }} />
+        <MenuAction icon="book-open" label="使い方ガイド" onPress={() => { setShowMenu(false); router.push('/guide'); }} />
         <MenuAction icon="edit-3" label="背景をカスタムする" onPress={() => { setShowMenu(false); setShopMessage(''); setShowAtelier(true); }} />
         <MenuAction icon="edit-3" label={mascotName ? 'なかまの名前を変える' : 'なかまに名前をつける'} onPress={openName} />
       </BottomSheet>
@@ -459,7 +460,7 @@ const styles = StyleSheet.create({
     width: control.icon,
     height: control.icon,
     borderRadius: radius.pill,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },
