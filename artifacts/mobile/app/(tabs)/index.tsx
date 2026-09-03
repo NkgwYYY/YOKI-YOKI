@@ -146,6 +146,9 @@ export default function HomeScreen() {
   const slotPlays = currentSlot ? miniGameState[currentSlot] ?? 0 : MAX_PLAYS_PER_SLOT;
   const canPlay = !!currentSlot && slotPlays < MAX_PLAYS_PER_SLOT;
   const mascotMood = todayRecord ? 'happy' : 'normal';
+  const characterSize = companionState.extraEggs > 0 ? 92 : 104;
+  const characterFrame = characterSize * 1.7;
+  const characterHeight = characterSize * 2.4;
 
   const openName = () => {
     setShowMenu(false);
@@ -200,14 +203,23 @@ export default function HomeScreen() {
             totalDays={progress.totalDays}
             mascotName={mascotName}
             customization={roomCustomization}
-            onOpenCustomize={() => { setShopMessage(''); setShowAtelier(true); }}
           >
             <View style={styles.characterGarden}>
-              <View style={styles.characterMain}>
+              <View
+                style={[
+                  styles.characterMain,
+                  {
+                    width: characterFrame,
+                    height: characterHeight,
+                    marginLeft: -characterFrame / 2,
+                    marginTop: -characterHeight / 2,
+                  },
+                ]}
+              >
                 <StageCharacter
                   stage={getMascotStage(progress.level)}
                   mood={mascotMood}
-                  size={companionState.extraEggs > 0 ? 92 : 104}
+                  size={characterSize}
                   growthSize={growth.growthSize}
                 />
               </View>
@@ -248,13 +260,12 @@ export default function HomeScreen() {
               />
             </View>
           </RoomView>
-        </View>
-
-        <View style={styles.statusRow}>
-          <HomeSatietyGauge satiety={currentSatiety} />
-          <View style={styles.pointsBalance}>
-            <Icon name="star" size={14} color={colors.primary} />
-            <Text style={styles.pointsBalanceText}>{feedState.points} pt</Text>
+          <View style={styles.statusRow}>
+            <HomeSatietyGauge satiety={currentSatiety} />
+            <View style={styles.pointsBalance}>
+              <Icon name="star" size={14} color={colors.primary} />
+              <Text style={styles.pointsBalanceText}>{feedState.points} pt</Text>
+            </View>
           </View>
         </View>
       </Screen>
@@ -360,7 +371,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  homeContent: { justifyContent: 'space-between' },
+  homeContent: { justifyContent: 'space-between', overflow: 'hidden' },
   header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   logo: { width: 120, height: 28, tintColor: colors.foreground },
   date: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
@@ -376,13 +387,20 @@ const styles = StyleSheet.create({
 
   centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' },
   characterGarden: { width: '100%', height: 310, position: 'relative' },
-  characterMain: { position: 'absolute', top: 18, left: '50%', marginLeft: -88, zIndex: 3 },
+  characterMain: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    zIndex: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 4 },
   orbitAction: {
     position: 'absolute',
     zIndex: 12,
     width: 82,
-    minHeight: 62,
+    height: 64,
     borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.84)',
     borderWidth: 1,
@@ -390,13 +408,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
+    paddingHorizontal: 5,
   },
   orbitActionDisabled: { opacity: 0.45 },
   orbitActionLabel: { ...typography.micro, color: colors.foreground, fontFamily: 'Inter_600SemiBold' },
-  orbitTopLeft: { left: 0, top: 52 },
-  orbitTopRight: { right: 0, top: 72 },
-  orbitBottomLeft: { left: 0, bottom: 48 },
-  orbitBottomRight: { right: 0, bottom: 28 },
+  orbitTopLeft: { left: 0, top: 38 },
+  orbitTopRight: { right: 0, top: 38 },
+  orbitBottomLeft: { left: 0, bottom: 38 },
+  orbitBottomRight: { right: 0, bottom: 38 },
 
   satietyContainer: {
     flexDirection: 'row',
@@ -406,12 +425,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: 6,
     gap: space.sm,
+    minHeight: 38,
     ...border.hairline,
   },
   satietyTrack: { width: 80, height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },
   satietyText: { ...typography.micro, color: colors.foreground, width: 28, textAlign: 'right' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, paddingBottom: space.sm },
+  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, paddingTop: 2, paddingBottom: space.sm },
   pointsBalance: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -420,6 +440,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: 7,
     gap: space.xs,
+    minHeight: 38,
     ...border.hairline,
   },
   pointsBalanceText: { ...typography.micro, color: colors.foreground },

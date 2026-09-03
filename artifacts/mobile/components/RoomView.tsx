@@ -1,14 +1,12 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { colors, control, roomPalette, radius } from '@/constants/theme';
-import { PressScale } from '@/components/ui/PressScale';
+import { colors, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
 import type { RoomFlower, RoomFurniture, RoomItemKind } from '@/contexts/AppContext';
 
 interface Props {
   customization: RoomCustomization;
-  onOpenCustomize: () => void;
   children: React.ReactNode;
   level?: number;
   streak?: number;
@@ -112,7 +110,7 @@ export function RoomItemPreview({
   );
 }
 
-export function RoomView({ customization, onOpenCustomize, children }: Props) {
+export function RoomView({ customization, children }: Props) {
   const flowerColor = customization.flower === 'violet'
     ? roomPalette.flowerViolet
     : customization.flower === 'rainbow'
@@ -132,14 +130,6 @@ export function RoomView({ customization, onOpenCustomize, children }: Props) {
       </View>
 
       <View style={r.characterLayer} pointerEvents="box-none">{children}</View>
-
-      <PressScale
-        onPress={onOpenCustomize}
-        accessibilityLabel="背景をカスタムする"
-        style={r.editButton}
-      >
-        <Icon name="edit-3" size={iconSize.sm} color={colors.foreground} />
-      </PressScale>
     </View>
   );
 }
@@ -149,25 +139,13 @@ const r = StyleSheet.create({
     width: '100%',
     height: 310,
     position: 'relative',
-    overflow: 'visible',
+    overflow: 'hidden',
   },
   characterLayer: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'flex-start',
     zIndex: 3,
-  },
-  editButton: {
-    position: 'absolute',
-    right: 0,
-    top: 8,
-    zIndex: 8,
-    width: control.icon,
-    height: control.icon,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.72)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   flowerPosition: { position: 'absolute', left: 8, bottom: 27, zIndex: 1 },
   furniturePosition: { position: 'absolute', right: 3, bottom: 20, zIndex: 1 },

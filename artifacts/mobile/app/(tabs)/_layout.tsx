@@ -50,6 +50,9 @@ function ClassicTabLayout() {
         tabBarLabelStyle: typography.micro,
         tabBarStyle: {
           position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
           // 面の区切りは上端の 1px だけ。影は敷かない。
           backgroundColor: isIOS ? 'transparent' : colors.card,
           borderTopWidth: border.width,
