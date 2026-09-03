@@ -1,5 +1,5 @@
 import React from 'react';
-import { ImageBackground, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
@@ -113,14 +113,7 @@ export function RoomItemPreview({
 }
 
 const GRASS_IMAGE = require('@/public/grass.png');
-const WEB_GRASS_BACKGROUND = Platform.OS === 'web'
-  ? ({
-      backgroundImage: "url('/grass.png')",
-      backgroundRepeat: 'repeat-x',
-      backgroundSize: 'contain',
-      backgroundPosition: 'bottom center',
-    } as unknown as ViewStyle)
-  : undefined;
+const GRASS_SOURCE = Platform.OS === 'web' ? { uri: '/grass.png' } : GRASS_IMAGE;
 
 export function GrassTexture({
   fill = false,
@@ -134,17 +127,10 @@ export function GrassTexture({
       pointerEvents="none"
       style={[
         fill ? r.grassFill : r.grassContainer,
-        WEB_GRASS_BACKGROUND,
         style,
       ]}
     >
-      {Platform.OS === 'web' ? null : (
-        <ImageBackground
-          source={GRASS_IMAGE}
-          resizeMode="repeat"
-          style={r.grassNativeImage}
-        />
-      )}
+      <Image source={GRASS_SOURCE} resizeMode="contain" style={r.grassImage} />
     </View>
   );
 }
@@ -180,9 +166,28 @@ const r = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  grassContainer: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200 },
-  grassFill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  grassNativeImage: { ...StyleSheet.absoluteFillObject },
+  grassContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  grassFill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  grassImage: {
+    width: '100%',
+    aspectRatio: 2048 / 768,
+  },
   landingShadow: {
     position: 'absolute',
     alignSelf: 'center',
