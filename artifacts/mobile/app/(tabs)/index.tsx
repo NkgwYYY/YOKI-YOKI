@@ -246,6 +246,7 @@ export default function HomeScreen() {
                 icon="coffee"
                 tone="food"
                 label="ごはん"
+                style={styles.actionEdge}
                 onPress={() => setShowFeed(true)}
               />
               <OrbitAction
@@ -253,6 +254,7 @@ export default function HomeScreen() {
                 icon="edit-3"
                 tone="record"
                 label="記録"
+                style={styles.actionCenter}
                 onPress={() => router.push('/(tabs)/record')}
               />
               <OrbitAction
@@ -260,6 +262,7 @@ export default function HomeScreen() {
                 icon="message-circle"
                 tone="chat"
                 label="チャット"
+                style={styles.actionCenter}
                 onPress={() => router.push('/(tabs)/chat')}
               />
               <OrbitAction
@@ -269,6 +272,7 @@ export default function HomeScreen() {
                 illustration={<GameBoardIllustration size={42} tone="play" />}
                 label="あそぶ"
                 disabled={!canPlay}
+                style={styles.actionEdge}
                 onPress={() => setShowMiniGame(true)}
               />
             </View>
@@ -487,8 +491,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     columnGap: space.sm,
-    marginBottom: 8,
+    marginBottom: 4,
   },
+  actionEdge: { transform: [{ translateY: 12 }] },
+  actionCenter: { transform: [{ translateY: -8 }] },
   orbitAction: {
     flex: 1,
     minWidth: 0,
