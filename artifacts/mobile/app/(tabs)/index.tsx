@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Image, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { border, colors, control, elevation, homePalette, radius, space, typography } from '@/constants/theme';
 import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
@@ -39,18 +39,11 @@ const FLOWER_OPTIONS: { id: RoomFlower; name: string; cost: number }[] = [
 ];
 
 const ACTION_TONES = {
-  food: { icon: homePalette.foodIcon, surface: homePalette.foodSurface },
-  record: { icon: homePalette.recordIcon, surface: homePalette.recordSurface },
-  chat: { icon: homePalette.chatIcon, surface: homePalette.chatSurface },
-  play: { icon: homePalette.playIcon, surface: homePalette.playSurface },
+  food: { icon: homePalette.foodIcon },
+  record: { icon: homePalette.recordIcon },
+  chat: { icon: homePalette.chatIcon },
+  play: { icon: homePalette.playIcon },
 } as const;
-
-const webGlassActionStyle = Platform.OS === 'web'
-  ? {
-      backdropFilter: 'blur(8px)',
-      WebkitBackdropFilter: 'blur(8px)',
-    }
-  : {};
 
 function OrbitAction({
   icon,
@@ -80,7 +73,7 @@ function OrbitAction({
       accessibilityLabel={label}
       style={[styles.orbitAction, style, disabled && styles.orbitActionDisabled]}
     >
-      <View style={[styles.actionIconBubble, { backgroundColor: actionTone.surface }]}>
+      <View style={styles.actionIconBubble}>
         {illustration ?? <Icon name={icon} size={iconSize.lg} color={actionTone.icon} />}
       </View>
       <Text style={styles.orbitActionLabel} numberOfLines={1}>{label}</Text>
@@ -494,32 +487,27 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     columnGap: space.sm,
-    marginBottom: 20,
+    marginBottom: 8,
   },
   orbitAction: {
     flex: 1,
     minWidth: 0,
     maxWidth: 96,
-    height: 94,
-    borderRadius: radius.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    ...webGlassActionStyle,
-    borderWidth: 0,
-    boxShadow: '0px 4px 15px rgba(0, 0, 0, 0.03)',
+    minHeight: 68,
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.xs,
     paddingHorizontal: space.xs,
+    paddingVertical: space.xs,
   },
   actionIconBubble: {
     width: 44,
     height: 44,
-    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   orbitActionDisabled: { opacity: 0.45 },
-  orbitActionLabel: { ...typography.calloutStrong, fontSize: 13, lineHeight: 18, letterSpacing: 0, color: colors.foreground, textAlign: 'center' },
+  orbitActionLabel: { ...typography.calloutStrong, fontSize: 13, lineHeight: 18, letterSpacing: 0, color: '#4A3B69', textAlign: 'center' },
 
   satietyContainer: {
     flex: 1,
