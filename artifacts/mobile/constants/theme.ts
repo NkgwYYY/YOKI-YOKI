@@ -1,310 +1,228 @@
 /**
  * YOKI-YOKI デザインシステム — 単一のソース・オブ・トゥルース。
  *
- * 原則
- * 1. 色は「ライトパープル」1系統に統一する。装飾的なグラデーションは使わない。
- * 2. 面の区切りは 1px の hairline ボーダー（`colors.border`）で表現する。影は
- *    コンテンツの上に浮くもの（モーダル・シート）だけに限定する。
- * 3. 余白は 8pt グリッド（`space`）。4 は half-step。生の数値は書かない。
- * 4. 文字は `typography` のスケールから選ぶ。fontSize / lineHeight / fontFamily /
- *    letterSpacing を個別に指定しない。
- * 5. 絵文字は使わない。アイコンは `components/ui/Icon` の単色線画だけ。
+ * コンセプト: "Cosmic Cozy" (静かだけれど個性のある小さな宇宙の居場所)
+ * 暗い宇宙色（深い紫・紺）をベースに、星の光のようなイエロー/ゴールドをアクセントにする。
+ * 白いカードの反復ではなく、深みのある面と光の表現で居場所感を演出する。
  */
 
 /* ------------------------------------------------------------------ *
- * Primitives — 意味を持たない生の値。UI から直接参照しないこと。
+ * Primitives
  * ------------------------------------------------------------------ */
 
-/** ブランドの土台となるライトパープルの階調。面と境界に使う。 */
-const purple = {
-  25: '#FCFBFE',
-  50: '#FAF8FF',
-  100: '#F3E8FF',
-  200: '#E9D5FF',
-  300: '#DCC6F5',
-  400: '#C6A8EB',
+const spaceColors = {
+  900: '#06040A',
+  800: '#0F0C20', // Background
+  700: '#181328', // Card
+  600: '#241E3A', // Muted / Sunken
+  500: '#322A4E', // Border Strong
+  400: '#4A416D',
+  300: '#6C6582', // Subtle Foreground
+  200: '#9A92B4', // Muted Foreground
+  100: '#D3CBEA',
+  50:  '#FDFBFF', // Foreground
 } as const;
 
-/** 操作可能な要素に使う彩度の高い端。面には広く敷かない。 */
-const violet = {
-  500: '#8B5CF6',
-  600: '#7C3AED',
-  700: '#6D28D9',
-  800: '#5B21B6',
+const starColors = {
+  500: '#FFD166', // Primary Starlight
+  600: '#E5B955', // Primary Pressed
+  900: '#3D2F0A', // Soft background for primary
 } as const;
-
-/** ニュートラルグレー。文字とアイコン用。 */
-const ink = {
-  900: '#111827',
-  700: '#374151',
-  500: '#6B7280',
-  400: '#9CA3AF',
-  300: '#D1D5DB',
-} as const;
-
-/* ------------------------------------------------------------------ *
- * Semantic colors
- * ------------------------------------------------------------------ */
 
 export const colors = {
   /* 面 */
-  background: purple[25],
-  /** 背景から一段沈めたい区画（セクション帯など） */
-  backgroundSunken: purple[50],
-  card: '#FFFFFF',
-  cardForeground: ink[900],
-  /** モーダル・ボトムシートなど、不透明が必須の面 */
-  sheet: '#FFFFFF',
-  /** シート背後のスクリム */
-  scrim: 'rgba(17, 24, 39, 0.32)',
+  background: spaceColors[800],
+  backgroundSunken: spaceColors[900],
+  card: spaceColors[700],
+  cardForeground: spaceColors[50],
+  sheet: spaceColors[700],
+  scrim: 'rgba(6, 4, 10, 0.8)', // 暗いスクリム
 
   /* 文字 */
-  foreground: ink[900],
-  text: ink[900],
-  /** 補足・キャプション。本文サイズでも AA を満たす明度に留めてある。 */
-  mutedForeground: ink[500],
-  /** アイコンや区切り記号など、読解に必須でない要素のみ */
-  subtleForeground: ink[400],
-  disabledForeground: ink[300],
+  foreground: spaceColors[50],
+  text: spaceColors[50],
+  mutedForeground: spaceColors[200],
+  subtleForeground: spaceColors[300],
+  disabledForeground: spaceColors[400],
 
   /* 塗り */
-  /** チップ・入力欄・二次ボタンの塗り */
-  muted: purple[100],
-  /** muted の上にさらに重ねる面 */
-  mutedStrong: purple[200],
-  input: '#FFFFFF',
+  muted: spaceColors[600],
+  mutedStrong: spaceColors[500],
+  input: spaceColors[900],
 
-  /* 境界 — すべて 1px */
-  /** 白い面（card / sheet）の上の境界 */
-  border: purple[200],
-  /** `background` の上に直接置く要素の境界。border では明度差が足りない。 */
-  borderStrong: purple[300],
-  /** 入力欄など、面と同色の背景の上で輪郭を出したいとき */
-  borderSubtle: purple[100],
-  /** 濃い面の内側に入れる 1px。光が当たったような立体感を作る。 */
-  borderOnFill: 'rgba(255, 255, 255, 0.2)',
+  /* 境界 */
+  border: spaceColors[600],
+  borderStrong: spaceColors[500],
+  borderSubtle: spaceColors[700],
+  borderOnFill: 'rgba(255, 255, 255, 0.15)',
 
   /* ブランド */
-  primary: violet[600],
-  primaryForeground: '#FFFFFF',
-  primaryPressed: violet[700],
-  /** primary の淡い面。上に載せる文字は primaryOnSoft を使う。 */
-  primarySoft: purple[100],
-  primaryOnSoft: violet[700],
-  /** フォーカスリング */
-  ring: violet[500],
-  tint: violet[600],
+  primary: starColors[500],
+  primaryForeground: '#241900', // 暗い文字色でコントラスト確保
+  primaryPressed: starColors[600],
+  primarySoft: 'rgba(255, 209, 102, 0.15)',
+  primaryOnSoft: starColors[500],
+  ring: starColors[500],
+  tint: starColors[500],
 
-  /* 補助（意味を持つ色。装飾には使わない） */
-  success: '#0E7C5A',
-  successSoft: '#E3F4EE',
-  warning: '#9A6410',
-  warningSoft: '#FBF0DE',
-  danger: '#C0344A',
-  dangerSoft: '#FBE9EC',
-  destructive: '#C0344A',
+  /* 補助 */
+  success: '#06D6A0',
+  successSoft: 'rgba(6, 214, 160, 0.15)',
+  warning: '#FF9F1C',
+  warningSoft: 'rgba(255, 159, 28, 0.15)',
+  danger: '#EF476F',
+  dangerSoft: 'rgba(239, 71, 111, 0.15)',
+  destructive: '#EF476F',
   destructiveForeground: '#FFFFFF',
 
-  /* 旧トークンとの互換（段階的に上の意味的トークンへ寄せる） */
-  secondary: purple[100],
-  secondaryForeground: violet[700],
-  accent: violet[600],
-  accentForeground: '#FFFFFF',
+  /* 互換 */
+  secondary: spaceColors[600],
+  secondaryForeground: spaceColors[100],
+  accent: starColors[500],
+  accentForeground: '#241900',
 } as const;
 
 /* ------------------------------------------------------------------ *
- * Spacing — 8pt グリッド。4 のみ half-step として許容する。
+ * Spacing
  * ------------------------------------------------------------------ */
-
 export const space = {
-  /** 4 — アイコンとラベルの間など、密着させたいときだけ */
   xs: 4,
-  /** 8 — 基準単位 */
   sm: 8,
   md: 12,
-  /** 16 — カード内側の標準パディング */
   lg: 16,
-  /** 24 — 画面左右の標準マージン、大きめカードの内側 */
   xl: 24,
-  /** 32 — セクション間 */
   xxl: 32,
-  /** 48 — 画面上下の大きな区切り */
   xxxl: 48,
 } as const;
-
-/** 画面の左右マージン。全画面で共通。 */
 export const screenPadding = space.xl;
 
 /* ------------------------------------------------------------------ *
  * Radius
  * ------------------------------------------------------------------ */
-
 export const radius = {
-  /** 8 — チップ、小さなアイコン枠 */
   sm: 8,
-  /** 10 — ボタン・入力欄・リスト行（コントロール共通） */
-  md: 10,
-  /** 16 — カード */
-  lg: 16,
-  /** 24 — ボトムシートの上端、ダイアログ */
-  xl: 24,
+  md: 12,
+  lg: 20,
+  xl: 28,
   pill: 999,
 } as const;
 
 /* ------------------------------------------------------------------ *
- * Border — 1px のみ。太い枠線は使わない。
+ * Border
  * ------------------------------------------------------------------ */
-
 export const border = {
   width: 1,
-  /** `{ borderWidth: 1, borderColor: colors.border }` の省略形 */
   hairline: { borderWidth: 1, borderColor: colors.border },
   hairlineStrong: { borderWidth: 1, borderColor: colors.borderStrong },
-  /** primary など濃い塗りの内側に入れる 1px */
   inner: { borderWidth: 1, borderColor: colors.borderOnFill },
 } as const;
 
 /* ------------------------------------------------------------------ *
- * Elevation — コンテンツの上に浮くものだけ。カードには影を付けない。
+ * Elevation
  * ------------------------------------------------------------------ */
-
 export const elevation = {
-  /** モーダル・ボトムシート */
   overlay: {
-    shadowColor: '#111827',
-    shadowOpacity: 0.08,
+    shadowColor: '#000000',
+    shadowOpacity: 0.3,
     shadowRadius: 24,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 6,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 10,
   },
-  /** ポップオーバー、トースト */
   raised: {
-    shadowColor: '#111827',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowColor: '#000000',
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
 } as const;
 
 /* ------------------------------------------------------------------ *
- * Typography — Inter。ここにあるスタイルだけを使う。
- * lineHeight はすべて 4 の倍数。字間は小さい文字ほど広げる。
+ * Typography
  * ------------------------------------------------------------------ */
-
 export const typography = {
-  display: { fontSize: 28, lineHeight: 36, fontFamily: 'Inter_700Bold', letterSpacing: 0 },
-  title: { fontSize: 22, lineHeight: 32, fontFamily: 'Inter_700Bold', letterSpacing: 0 },
-  heading: { fontSize: 18, lineHeight: 28, fontFamily: 'Inter_700Bold', letterSpacing: 0.2 },
-  subhead: { fontSize: 16, lineHeight: 24, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.3 },
-  body: { fontSize: 15, lineHeight: 24, fontFamily: 'Inter_400Regular', letterSpacing: 0.3 },
-  bodyStrong: { fontSize: 15, lineHeight: 24, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.3 },
-  callout: { fontSize: 14, lineHeight: 20, fontFamily: 'Inter_400Regular', letterSpacing: 0.5 },
-  calloutStrong: { fontSize: 14, lineHeight: 20, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5 },
-  label: { fontSize: 13, lineHeight: 20, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5 },
-  caption: { fontSize: 12, lineHeight: 20, fontFamily: 'Inter_400Regular', letterSpacing: 0.5 },
+  display: { fontSize: 28, lineHeight: 36, fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
+  title: { fontSize: 22, lineHeight: 32, fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
+  heading: { fontSize: 18, lineHeight: 28, fontFamily: 'Inter_700Bold', letterSpacing: 0 },
+  subhead: { fontSize: 16, lineHeight: 24, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.1 },
+  body: { fontSize: 15, lineHeight: 24, fontFamily: 'Inter_400Regular', letterSpacing: 0.2 },
+  bodyStrong: { fontSize: 15, lineHeight: 24, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.2 },
+  callout: { fontSize: 14, lineHeight: 20, fontFamily: 'Inter_400Regular', letterSpacing: 0.3 },
+  calloutStrong: { fontSize: 14, lineHeight: 20, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.3 },
+  label: { fontSize: 13, lineHeight: 20, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.4 },
+  caption: { fontSize: 12, lineHeight: 20, fontFamily: 'Inter_400Regular', letterSpacing: 0.4 },
   micro: { fontSize: 11, lineHeight: 16, fontFamily: 'Inter_500Medium', letterSpacing: 0.5 },
 } as const;
 
 /* ------------------------------------------------------------------ *
- * Control sizes — タップ領域は 44 を下回らない。
+ * Control sizes
  * ------------------------------------------------------------------ */
-
 export const control = {
-  /** 標準ボタン・入力欄の高さ */
-  height: 48,
-  /** リスト行・二次ボタン */
+  height: 52,
   heightSm: 40,
-  /** 最小タップ領域 */
   minTouch: 44,
-  /** 円形アイコンボタン */
-  icon: 40,
+  icon: 44,
   iconSm: 32,
-  /** ボタンの内側余白。上下 14 / 左右 24 で固定する。 */
   padV: 14,
   padH: 24,
-  /** 小さいボタンの内側余白 */
   padVSm: 10,
   padHSm: 16,
-  /** 押し込みアニメーションの縮小率 */
-  pressScale: 0.97,
+  pressScale: 0.96,
 } as const;
 
 /* ------------------------------------------------------------------ *
- * Data palettes — 意味のある分類にだけ使う彩色。
- * どれも白の上で 4.5:1 以上を満たす。
+ * Data palettes
  * ------------------------------------------------------------------ */
-
-/** 気分 1〜5。ネガティブ=暖色 → ニュートラル → ポジティブ=紫の発散スケール。 */
 export const moodPalette: Record<number, string> = {
-  1: '#B03A54',
-  2: '#A6612A',
-  3: '#6F6688',
-  4: '#2E7D6B',
-  5: '#6D28D9',
+  1: '#EF476F',
+  2: '#FF9F1C',
+  3: '#A49DBE',
+  4: '#06D6A0',
+  5: '#FFD166',
 };
 
-/** 記録できる行動カテゴリ。 */
 export const activityPalette = {
-  reading: '#6D5BA6',
-  exercise: '#2F7D6E',
-  study: '#8F5E1E',
-  journal: '#4A6FA5',
-  earlySleep: '#5B5F8F',
-  selfCare: '#A6486E',
+  reading: '#9D8BCE',
+  exercise: '#06D6A0',
+  study: '#FF9F1C',
+  journal: '#118AB2',
+  earlySleep: '#4A416D',
+  selfCare: '#EF476F',
 } as const;
 
-/** チェックリストのカテゴリ。 */
 export const categoryPalette = {
-  basics: '#8F5E1E',
-  body: '#2F7D6E',
-  mind: '#6D5BA6',
-  social: '#4A6FA5',
+  basics: '#FF9F1C',
+  body: '#06D6A0',
+  mind: '#9D8BCE',
+  social: '#118AB2',
 } as const;
 
-/** アイテムのレアリティ。塗り・文字・境界の三点セット。 */
 export const rarityPalette = {
-  common: { bg: '#F4F3F7', text: ink[500], border: '#E5E7EB' },
-  rare: { bg: purple[100], text: violet[700], border: purple[200] },
-  special: { bg: '#FBF0DE', text: '#8A590C', border: '#E6CB98' },
+  common: { bg: spaceColors[600], text: spaceColors[100], border: spaceColors[500] },
+  rare: { bg: 'rgba(157, 139, 206, 0.2)', text: '#D3CBEA', border: '#9D8BCE' },
+  special: { bg: 'rgba(255, 209, 102, 0.2)', text: '#FFD166', border: '#FFD166' },
 } as const;
 
-/** リズムゲームの判定表示。白い面の上で読める明度にそろえてある。 */
 export const judgePalette = {
-  perfect: violet[600],
-  great: '#0E7C5A',
-  good: '#4A6FA5',
-  miss: ink[500],
+  perfect: starColors[500],
+  great: '#06D6A0',
+  good: '#118AB2',
+  miss: spaceColors[400],
 } as const;
 
-/** リズムゲームのレーン／方向。塗りとして白の上で十分に見分けられる4色。 */
-export const lanePalette = ['#A6486E', '#8F5E1E', '#2F7D6E', '#4A6FA5'] as const;
+export const lanePalette = ['#EF476F', '#FF9F1C', '#06D6A0', '#118AB2'] as const;
 
-/** ゲーム面の共通トークン。没入させたい領域だけに使う。 */
 export const gameSurface = {
-  /** 譜面・ステージの面 */
-  background: purple[50],
-  /** 開始前・一時停止のスクリム（明るいまま重ねる） */
-  scrim: 'rgba(250, 248, 255, 0.92)',
+  background: spaceColors[900],
+  scrim: 'rgba(6, 4, 10, 0.85)',
 } as const;
 
-/** グラフの系列色。1系統目から順に使う。 */
-export const chartPalette = ['#7C3AED', '#2F7D6E', '#4A6FA5', '#A6612A', '#A6486E'] as const;
+export const chartPalette = ['#FFD166', '#06D6A0', '#118AB2', '#FF9F1C', '#EF476F'] as const;
 
 /* ------------------------------------------------------------------ *
  * Hook
  * ------------------------------------------------------------------ */
-
 export type ThemeColors = typeof colors & { radius: number };
-
-/**
- * 画面から色を引くための入口。テーマは 1 つだけなので状態を持たない。
- * `radius` は旧コードとの互換で同梱している（新規コードは `radius.lg` を使う）。
- */
-export function useColors(): ThemeColors {
-  return THEME_COLORS;
-}
-
+export function useColors(): ThemeColors { return THEME_COLORS; }
 const THEME_COLORS: ThemeColors = { ...colors, radius: radius.lg };
-
 export default colors;

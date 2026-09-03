@@ -15,10 +15,6 @@ import { border, colors, elevation, radius, space, typography } from '@/constant
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
 
-/**
- * 下から出るシート。スクリム・つまみ・上端 1px・角丸をここで統一する。
- * 画面ごとに Modal を組み立てないこと。
- */
 export function BottomSheet({
   visible,
   onClose,
@@ -26,7 +22,6 @@ export function BottomSheet({
   subtitle,
   children,
   scroll = true,
-  /** 画面の高さに対する最大比。既定は 88%。 */
   maxHeightRatio = 0.88,
   contentStyle,
 }: {
@@ -75,9 +70,6 @@ export function BottomSheet({
   );
 }
 
-/**
- * 中央に出るダイアログ。確認・単一入力など、シートより軽い用途に。
- */
 export function CenterDialog({
   visible,
   onClose,
@@ -105,7 +97,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     borderTopWidth: border.width,
-    borderTopColor: colors.border,
+    borderTopColor: colors.borderStrong,
     paddingTop: space.md,
     ...elevation.overlay,
   },
@@ -134,6 +126,7 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: colors.sheet,
     ...border.hairline,
+    borderColor: colors.borderStrong,
     borderRadius: radius.xl,
     padding: space.xl,
     gap: space.md,

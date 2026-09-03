@@ -303,14 +303,13 @@ export default function LoginScreen() {
         >
           {/* Mascot */}
           <View style={styles.mascotWrap}>
-            <Mascot stage="stage3" mood="happy" size={100} />
+            <Mascot stage="stage3" mood="happy" size={120} />
             <Image
               source={require('@/assets/images/yoki_logo.png')}
               style={styles.titleLogo}
               resizeMode="contain"
             />
-            <Text style={styles.subtitle}>メンタルケア育成アプリ</Text>
-            <Text style={styles.subtitleSm}>データを引き継ぐためにアカウントを作ろう</Text>
+            <Text style={styles.subtitle}>小さな宇宙の、あなたの居場所</Text>
           </View>
 
           {needsVerification ? (
@@ -444,24 +443,18 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' && { maxWidth: 480, width: '100%', alignSelf: 'center' as any }),
   },
   mascotWrap: { alignItems: 'center', marginBottom: space.xxl },
-  titleLogo: { width: 200, height: 30, marginTop: space.md },
+  titleLogo: { width: 180, height: 40, marginTop: space.md, tintColor: colors.foreground },
   subtitle: {
     ...typography.callout,
-    color: colors.mutedForeground,
+    color: colors.primary,
     marginTop: space.sm,
-    textAlign: 'center',
-  },
-  subtitleSm: {
-    ...typography.caption,
-    color: colors.subtleForeground,
-    marginTop: space.xs,
     textAlign: 'center',
   },
 
   /* タブ — 選択は塗りではなく白い面と 1px で示す */
   tabRow: {
     flexDirection: 'row',
-    backgroundColor: colors.muted,
+    backgroundColor: 'rgba(255,255,255,0.05)',
     ...border.hairline,
     borderRadius: radius.md,
     padding: space.xs,
@@ -478,7 +471,7 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: colors.card },
   tabText: { ...typography.label, color: colors.mutedForeground },
-  tabTextActive: { color: colors.primaryOnSoft },
+  tabTextActive: { color: colors.primary },
 
   form: { width: '100%', gap: space.sm },
   label: { ...typography.label, color: colors.foreground },
@@ -507,7 +500,7 @@ const styles = StyleSheet.create({
   },
   resendText: {
     ...typography.callout,
-    color: colors.primaryOnSoft,
+    color: colors.primary,
     textAlign: 'center',
     marginTop: space.lg,
   },
@@ -535,7 +528,7 @@ const styles = StyleSheet.create({
   },
   forgotText: { ...typography.callout, color: colors.mutedForeground },
   guestButton: { alignItems: 'center', justifyContent: 'center', minHeight: control.height },
-  guestButtonText: { ...typography.bodyStrong, color: colors.primaryOnSoft },
+  guestButtonText: { ...typography.bodyStrong, color: colors.primary, textDecorationLine: 'underline' },
 });
 
 // パスワード再設定シートのスタイル
@@ -585,7 +578,7 @@ const s = StyleSheet.create({
   btn: { marginTop: space.lg },
   resend: {
     ...typography.callout,
-    color: colors.primaryOnSoft,
+    color: colors.primary,
     textAlign: 'center',
     marginTop: space.md,
   },

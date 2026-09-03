@@ -1,45 +1,91 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, View, type DimensionValue } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+  withDelay,
+} from 'react-native-reanimated';
 import { colors } from '@/constants/theme';
 
 /**
- * 全画面の下敷き。時間帯でごくわずかに色味が変わる単色の面。
- *
- * 以前はここに写真の空とグラデーションのスクリムを重ねていたが、
- * 前面のカード（白 + 1px ボーダー）の輪郭を濁らせていたため単色にした。
- * 時間帯の手がかりは残しつつ、差は本文の可読性を一切動かさない範囲に収めている。
+ * 星空の背景。Cosmic Cozyテーマの根幹。
+ * 微かにまたたく星と、深い紫から紺へのグラデーション。
  */
-const SKY_TINTS = {
-  morning: '#FBF8FF',
-  day: colors.background,
-  sunset: '#FDF7FB',
-  night: '#F6F3FD',
-} as const;
+function Star({ top, left, size, delay, maxOpacity = 0.8 }: { top: DimensionValue; left: DimensionValue; size: number; delay: number; maxOpacity?: number }) {
+  const op = useSharedValue(0.1);
 
-export type SkyPeriod = keyof typeof SKY_TINTS;
+  useEffect(() => {
+    op.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(maxOpacity, { duration: 2000 + Math.random() * 2000, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.1, { duration: 2000 + Math.random() * 2000, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      )
+    );
+  }, []);
 
-export function getSkyPeriod(hour: number): SkyPeriod {
-  if (hour >= 5 && hour < 10) return 'morning';
-  if (hour >= 10 && hour < 16) return 'day';
-  if (hour >= 16 && hour < 19) return 'sunset';
-  return 'night';
+  const st = useAnimatedStyle(() => ({ opacity: op.value }));
+
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          top,
+          left,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: '#FFFFFF',
+        },
+        st,
+      ]}
+    />
+  );
 }
 
 export function SkyBackground() {
-  const [period, setPeriod] = useState<SkyPeriod>(() => getSkyPeriod(new Date().getHours()));
-
-  // 時間の経過とともに色味を切り替える（1分ごとに時間帯をチェック）
-  useEffect(() => {
-    const iv = setInterval(() => {
-      setPeriod(getSkyPeriod(new Date().getHours()));
-    }, 60_000);
-    return () => clearInterval(iv);
-  }, []);
-
   return (
-    <View
-      style={[StyleSheet.absoluteFill, { backgroundColor: SKY_TINTS[period] }]}
-      pointerEvents="none"
-    />
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <LinearGradient
+        colors={['#06040A', '#0F0C20', '#181328']}
+        locations={[0, 0.4, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* 遠くの星々 */}
+      <Star top="15%" left="22%" size={2} delay={0} maxOpacity={0.6} />
+      <Star top="28%" left="78%" size={3} delay={800} maxOpacity={0.9} />
+      <Star top="45%" left="12%" size={2} delay={1500} maxOpacity={0.5} />
+      <Star top="65%" left="85%" size={2} delay={400} maxOpacity={0.7} />
+      <Star top="82%" left="30%" size={3} delay={2000} maxOpacity={0.8} />
+      <Star top="12%" left="60%" size={1.5} delay={1100} maxOpacity={0.4} />
+      <Star top="75%" left="18%" size={2} delay={600} maxOpacity={0.6} />
+
+      {/* うっすらとした光のオーラ */}
+      <View
+        style={{
+          position: 'absolute',
+          top: '30%',
+          left: '50%',
+          width: 300,
+          height: 300,
+          marginLeft: -150,
+          borderRadius: 150,
+          backgroundColor: colors.primary,
+          opacity: 0.03,
+          transform: [{ scale: 2 }],
+        }}
+      />
+    </View>
   );
 }

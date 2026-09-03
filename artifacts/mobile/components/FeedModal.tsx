@@ -12,58 +12,47 @@ import { useApp } from '@/contexts/AppContext';
 import { Mascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
 import { FOOD_ITEMS, FoodItem, RARITY_COLORS, FoodRarity } from '@/data/foodItems';
+import { BerryIcon, AppleIcon, CandyIcon, CakeFoodIcon, RamenIcon, SpecialFoodIcon } from '@/components/ui/Illustrations';
 
 interface FeedModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
-function FoodCard({
-  food,
-  canAfford,
-  onFeed,
-}: {
-  food: FoodItem;
-  canAfford: boolean;
-  onFeed: (id: string) => void;
-}) {
+function getFoodIllustration(id: string) {
+  switch (id) {
+    case 'berry': return <BerryIcon size={32} />;
+    case 'apple': return <AppleIcon size={32} />;
+    case 'candy': return <CandyIcon size={32} />;
+    case 'cake': return <CakeFoodIcon size={32} />;
+    case 'ramen': return <RamenIcon size={32} />;
+    case 'special': return <SpecialFoodIcon size={32} />;
+    default: return <BerryIcon size={32} />;
+  }
+}
+
+function FoodCard({ food, canAfford, onFeed }: { food: FoodItem; canAfford: boolean; onFeed: (id: string) => void; }) {
   const scale = useSharedValue(1);
   const rarityColor = RARITY_COLORS[food.rarity as FoodRarity];
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   const handlePress = () => {
     if (!canAfford) {
-      scale.value = withSequence(
-        withTiming(0.95, { duration: 60 }),
-        withTiming(1, { duration: 60 }),
-      );
+      scale.value = withSequence(withTiming(0.95, { duration: 60 }), withTiming(1, { duration: 60 }));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return;
     }
-    scale.value = withSequence(
-      withSpring(0.9, { damping: 8, stiffness: 400 }),
-      withSpring(1, { damping: 8, stiffness: 300 }),
-    );
+    scale.value = withSequence(withSpring(0.9, { damping: 8, stiffness: 400 }), withSpring(1, { damping: 8, stiffness: 300 }));
     onFeed(food.id);
   };
 
   return (
     <Animated.View style={style}>
       <Pressable
-        style={[
-          cardStyles.card,
-          { borderColor: rarityColor.border },
-          !canAfford && cardStyles.cardLocked,
-        ]}
+        style={[cardStyles.card, { borderColor: rarityColor.border }, !canAfford && cardStyles.cardLocked]}
         onPress={handlePress}
-        onPressIn={() => {
-          scale.value = withSpring(control.pressScale, { damping: 28, stiffness: 420 });
-        }}
-        onPressOut={() => {
-          scale.value = withSpring(1, { damping: 28, stiffness: 420 });
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={`${food.name} ${food.cost}ポイント`}
+        onPressIn={() => scale.value = withSpring(control.pressScale, { damping: 28, stiffness: 420 })}
+        onPressOut={() => scale.value = withSpring(1, { damping: 28, stiffness: 420 })}
       >
         <View style={[cardStyles.rarityBadge, { backgroundColor: rarityColor.bg }]}>
           <Text style={[cardStyles.rarityText, { color: rarityColor.text }]}>
@@ -71,8 +60,8 @@ function FoodCard({
           </Text>
         </View>
 
-        <View style={[cardStyles.iconWrap, { backgroundColor: rarityColor.bg }]}>
-          <Icon name={food.icon} size={iconSize.lg} color={rarityColor.text} />
+        <View style={cardStyles.iconWrap}>
+          {getFoodIllustration(food.id)}
         </View>
 
         <Text style={cardStyles.name}>{food.name}</Text>
@@ -84,7 +73,7 @@ function FoodCard({
         <Text style={cardStyles.satietyLabel}>満腹度 +{food.satietyGain}</Text>
 
         <View style={cardStyles.costRow}>
-          <Icon name="coffee" size={iconSize.xs} color={colors.mutedForeground} />
+          <Icon name="coffee" size={iconSize.xs} color={colors.primary} />
           <Text style={cardStyles.costText}>{food.cost}</Text>
         </View>
       </Pressable>
@@ -97,52 +86,24 @@ const cardStyles = StyleSheet.create({
     width: '100%',
     borderRadius: radius.lg,
     borderWidth: border.width,
-    backgroundColor: colors.card,
+    backgroundColor: colors.muted,
     padding: space.md,
     alignItems: 'center',
     gap: space.xs,
   },
-  // ポイント不足は透明度だけで示す。塗りは変えない。
-  cardLocked: { opacity: 0.5 },
-  rarityBadge: {
-    paddingHorizontal: space.sm,
-    paddingVertical: 2,
-    borderRadius: radius.pill,
-    alignSelf: 'flex-end',
-  },
+  cardLocked: { opacity: 0.4 },
+  rarityBadge: { paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.pill, alignSelf: 'flex-end' },
   rarityText: { ...typography.micro, fontSize: 10 },
-  iconWrap: {
-    width: control.icon,
-    height: control.icon,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: space.xs,
-  },
+  iconWrap: { height: 44, alignItems: 'center', justifyContent: 'center', marginBottom: space.xs },
   name: { ...typography.calloutStrong, color: colors.foreground, textAlign: 'center' },
   desc: { ...typography.micro, color: colors.mutedForeground, textAlign: 'center' },
-  satietyTrack: {
-    height: 4,
-    borderRadius: radius.pill,
-    width: '100%',
-    backgroundColor: colors.muted,
-    overflow: 'hidden',
-  },
+  satietyTrack: { height: 4, borderRadius: radius.pill, width: '100%', backgroundColor: colors.mutedStrong, overflow: 'hidden', marginTop: space.xs },
   satietyFill: { height: '100%', borderRadius: radius.pill, backgroundColor: colors.success },
   satietyLabel: { ...typography.micro, fontSize: 10, color: colors.mutedForeground },
-  costRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.xs,
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs,
-    borderRadius: radius.pill,
-    backgroundColor: colors.muted,
-  },
+  costRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.pill, backgroundColor: colors.card, marginTop: space.xs },
   costText: { ...typography.label, color: colors.foreground },
 });
 
-/* ── Toast notification ── */
 function FeedToast({ message, visible }: { message: string; visible: boolean }) {
   const opacity = useSharedValue(0);
   const ty = useSharedValue(10);
@@ -162,20 +123,12 @@ function FeedToast({ message, visible }: { message: string; visible: boolean }) 
     </Animated.View>
   );
 }
+
 const toastStyles = StyleSheet.create({
-  toast: {
-    position: 'absolute',
-    top: space.lg,
-    alignSelf: 'center',
-    backgroundColor: colors.foreground,
-    paddingHorizontal: space.xl,
-    paddingVertical: space.md,
-    borderRadius: radius.pill,
-  },
-  text: { ...typography.calloutStrong, color: colors.primaryForeground },
+  toast: { position: 'absolute', top: space.lg, alignSelf: 'center', backgroundColor: colors.foreground, paddingHorizontal: space.xl, paddingVertical: space.md, borderRadius: radius.pill },
+  text: { ...typography.calloutStrong, color: colors.background },
 });
 
-/* ── Main modal ── */
 export function FeedModal({ visible, onClose }: FeedModalProps) {
   const { feedState, currentSatiety, feedMascot, progress, getTodayRecord, getCompletedCount, getTotalCheckCount } = useApp();
 
@@ -198,76 +151,41 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
     setTimeout(() => setToast({ visible: false, message: '' }), 2200);
   };
 
-  const satietyColor =
-    currentSatiety >= 70 ? colors.success : currentSatiety >= 40 ? colors.warning : colors.danger;
-
-  const hungerLabel =
-    currentSatiety >= 80 ? 'お腹いっぱい' :
-    currentSatiety >= 60 ? 'まあまあかな' :
-    currentSatiety >= 40 ? 'すこし空腹だよ' :
-    currentSatiety >= 20 ? 'お腹すいた〜！' :
-    'ぺこぺこだよ';
+  const satietyColor = currentSatiety >= 70 ? colors.success : currentSatiety >= 40 ? colors.warning : colors.danger;
+  const hungerLabel = currentSatiety >= 80 ? 'お腹いっぱい' : currentSatiety >= 60 ? 'まあまあかな' : currentSatiety >= 40 ? 'すこし空腹だよ' : currentSatiety >= 20 ? 'お腹すいた〜！' : 'ぺこぺこだよ';
 
   return (
-    <BottomSheet
-      visible={visible}
-      onClose={onClose}
-      title="ごはんをあげる"
-      subtitle="達成するとごはんポイントが貯まるよ"
-      maxHeightRatio={0.88}
-      contentStyle={modalStyles.content}
-    >
+    <BottomSheet visible={visible} onClose={onClose} title="ごはんをあげる" subtitle="ポイントを使って元気回復" maxHeightRatio={0.88} contentStyle={modalStyles.content}>
       <View style={modalStyles.pointsBadge}>
         <Icon name="coffee" size={iconSize.sm} color={colors.primaryOnSoft} />
-        <Text style={modalStyles.pointsText}>{feedState.points} ごはんpt</Text>
+        <Text style={modalStyles.pointsText}>{feedState.points} pt</Text>
       </View>
 
-      {/* マスコットと満腹度 */}
       <View style={modalStyles.mascotRow}>
-        <Mascot
-          stage={mascotStage}
-          mood={isEating ? 'excited' : mascotMood}
-          size={80}
-          isEating={isEating}
-        />
+        <Mascot stage={mascotStage} mood={isEating ? 'excited' : mascotMood} size={80} isEating={isEating} />
         <View style={modalStyles.satietyWrap}>
           <View style={modalStyles.satietyLabelRow}>
             <Text style={modalStyles.satietyTitle}>満腹度</Text>
-            <Text style={[modalStyles.satietyValue, { color: satietyColor }]}>
-              {currentSatiety}%
-            </Text>
+            <Text style={[modalStyles.satietyValue, { color: satietyColor }]}>{currentSatiety}%</Text>
           </View>
           <View style={modalStyles.satietyTrack}>
-            <View
-              style={[
-                modalStyles.satietyFill,
-                { width: `${currentSatiety}%`, backgroundColor: satietyColor },
-              ]}
-            />
+            <View style={[modalStyles.satietyFill, { width: `${currentSatiety}%`, backgroundColor: satietyColor }]} />
           </View>
           <Text style={modalStyles.hungerLabel}>{hungerLabel}</Text>
         </View>
       </View>
 
-      {/* ごはん一覧 */}
       <View style={modalStyles.grid}>
         {FOOD_ITEMS.map((food) => (
           <View key={food.id} style={modalStyles.gridItem}>
-            <FoodCard
-              food={food}
-              canAfford={feedState.points >= food.cost}
-              onFeed={handleFeed}
-            />
+            <FoodCard food={food} canAfford={feedState.points >= food.cost} onFeed={handleFeed} />
           </View>
         ))}
       </View>
 
-      {/* ポイントの貯め方 */}
       <View style={modalStyles.hint}>
         <Icon name="info" size={iconSize.xs} color={colors.subtleForeground} />
-        <Text style={modalStyles.hintText}>
-          チェック達成 +2・全達成 +10・きろく +5・ミニゲーム +1〜3・発電所で交換もできるよ
-        </Text>
+        <Text style={modalStyles.hintText}>ポイントは記録やミニゲームで貯まるよ</Text>
       </View>
 
       <FeedToast message={toast.message} visible={toast.visible} />
@@ -277,43 +195,18 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
 
 const modalStyles = StyleSheet.create({
   content: { gap: space.xl },
-
-  pointsBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.xs,
-    alignSelf: 'flex-start',
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primarySoft,
-  },
+  pointsBadge: { flexDirection: 'row', alignItems: 'center', gap: space.xs, alignSelf: 'flex-start', paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.pill, backgroundColor: colors.primarySoft },
   pointsText: { ...typography.bodyStrong, color: colors.primaryOnSoft },
-
   mascotRow: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   satietyWrap: { flex: 1, gap: space.xs },
   satietyLabelRow: { flexDirection: 'row', justifyContent: 'space-between' },
   satietyTitle: { ...typography.label, color: colors.foreground },
   satietyValue: { ...typography.label },
-  satietyTrack: {
-    height: space.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.muted,
-    overflow: 'hidden',
-  },
+  satietyTrack: { height: space.sm, borderRadius: radius.pill, backgroundColor: colors.muted, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: radius.pill },
   hungerLabel: { ...typography.caption, color: colors.mutedForeground },
-
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   gridItem: { flexGrow: 1, flexBasis: '45%' },
-
-  hint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    padding: space.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.muted,
-  },
+  hint: { flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.md, borderRadius: radius.md, backgroundColor: colors.muted },
   hintText: { ...typography.micro, color: colors.mutedForeground, flex: 1 },
 });

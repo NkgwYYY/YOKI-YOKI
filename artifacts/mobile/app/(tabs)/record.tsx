@@ -17,7 +17,7 @@ export default function RecordScreen() {
   return (
     <>
       <Screen>
-        <View>
+        <View style={styles.header}>
           <Text style={styles.title}>今日のあなたへ</Text>
           <Text style={styles.date}>{formatDateJP(getTodayDate())}</Text>
         </View>
@@ -25,7 +25,7 @@ export default function RecordScreen() {
         <ButtonRow>
           <Button
             label="くわしく残す"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onPress={() => setShowDetails(true)}
             style={styles.grow}
@@ -33,7 +33,7 @@ export default function RecordScreen() {
           />
           <Button
             label="チェックを見る"
-            variant="outline"
+            variant="secondary"
             size="sm"
             onPress={() => setShowChecklist(true)}
             style={styles.grow}
@@ -49,7 +49,8 @@ export default function RecordScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { ...typography.display, color: colors.foreground },
-  date: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
+  header: { alignItems: 'center', marginBottom: space.md },
+  title: { ...typography.display, color: colors.foreground, textAlign: 'center' },
+  date: { ...typography.callout, color: colors.primary, marginTop: space.xs, textAlign: 'center' },
   grow: { flex: 1 },
 });

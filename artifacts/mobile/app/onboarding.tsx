@@ -44,14 +44,11 @@ export default function OnboardingScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>はじめまして！</Text>
+        <Text style={styles.title}>小さな宇宙へようこそ</Text>
         <Text style={styles.subtitle}>
-          あなたのことを少し教えてください。{'\n'}AIがあなたに合わせたサポートをしやすくなります。
+          あなたのことを少し教えてください。{'\n'}あなたに合わせた居場所を作ります。
         </Text>
-        <Text style={styles.localNote}>
-          ログインなしで始められます。記録はこの端末に保存され、あとからログインするとバックアップできます。
-        </Text>
-        <ProfileForm submitLabel="はじめる" onSubmit={handleSubmit} submitting={saving} />
+        <ProfileForm submitLabel="宇宙へ出発する" onSubmit={handleSubmit} submitting={saving} />
       </ScrollView>
     </View>
   );
@@ -66,7 +63,6 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  title: { ...typography.display, color: colors.foreground },
-  subtitle: { ...typography.body, color: colors.mutedForeground },
-  localNote: { ...typography.caption, color: colors.subtleForeground, lineHeight: 20 },
+  title: { ...typography.display, color: colors.primary, textAlign: 'center', marginBottom: space.sm },
+  subtitle: { ...typography.body, color: colors.mutedForeground, textAlign: 'center', marginBottom: space.lg },
 });

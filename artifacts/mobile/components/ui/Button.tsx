@@ -13,29 +13,21 @@ import { Icon, iconSize, type IconName } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
 
 export type ButtonVariant =
-  /** 画面の主導線。1 画面に 1 つまで。 */
   | 'primary'
-  /** 淡い紫の面。副次的な操作。 */
   | 'secondary'
-  /** 白 + 1px ボーダー。並列する選択肢。 */
   | 'outline'
-  /** 面を持たない。取り消し・戻るなど。 */
   | 'ghost';
 
-/**
- * 塗りと 1px の内側ボーダー。ボーダーは面より 1 段明るい線を入れて、
- * 塗りっぱなしに見えないようにするためのもの。影は使わない。
- */
 const FILL: Record<ButtonVariant, ViewStyle> = {
   primary: { backgroundColor: colors.primary, ...border.inner },
-  secondary: { backgroundColor: colors.primarySoft, ...border.hairline },
-  outline: { backgroundColor: colors.card, ...border.hairlineStrong },
+  secondary: { backgroundColor: colors.secondary, ...border.hairline },
+  outline: { backgroundColor: 'transparent', ...border.hairlineStrong },
   ghost: { backgroundColor: 'transparent', borderWidth: border.width, borderColor: 'transparent' },
 };
 
 const LABEL: Record<ButtonVariant, string> = {
   primary: colors.primaryForeground,
-  secondary: colors.primaryOnSoft,
+  secondary: colors.foreground,
   outline: colors.foreground,
   ghost: colors.mutedForeground,
 };
@@ -56,13 +48,10 @@ export function Button({
   label: string;
   onPress: () => void;
   variant?: ButtonVariant;
-  /** md = 上下 14 / 左右 24（主要操作） / sm = 行内・並列 */
   size?: 'md' | 'sm';
   disabled?: boolean;
   loading?: boolean;
-  /** ラベルの左に置くアイコン。色は variant から自動で決まる。 */
   icon?: IconName;
-  /** 横幅いっぱいに伸ばす */
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
   labelStyle?: StyleProp<TextStyle>;
@@ -100,7 +89,6 @@ export function Button({
   );
 }
 
-/** ボタンを横並びにする器。等幅にそろえる。 */
 export function ButtonRow({ children }: { children: React.ReactNode }) {
   return <View style={styles.row}>{children}</View>;
 }
@@ -113,7 +101,6 @@ const styles = StyleSheet.create({
     gap: space.sm,
     borderRadius: radius.md,
   },
-  /** 仕様どおり上下 14 / 左右 24。高さは文字とアイコンに任せる。 */
   sizeMd: {
     paddingVertical: control.padV,
     paddingHorizontal: control.padH,
@@ -125,7 +112,7 @@ const styles = StyleSheet.create({
     minHeight: control.heightSm,
   },
   fullWidth: { alignSelf: 'stretch' },
-  disabled: { backgroundColor: colors.muted, borderColor: colors.border },
+  disabled: { backgroundColor: colors.mutedStrong, borderColor: colors.border },
   label: { ...typography.bodyStrong },
   labelSm: { ...typography.calloutStrong },
   row: { flexDirection: 'row', gap: space.sm },
