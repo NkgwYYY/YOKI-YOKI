@@ -123,11 +123,11 @@ export function GrassTexture({ style }: { style?: StyleProp<ViewStyle> }) {
       pointerEvents="none"
       style={[
         r.grassContainer,
-        { height: viewportHeight * 0.48 },
+        { height: Math.max(viewportHeight * 0.28, 230) },
         style,
       ]}
     >
-      <Image source={GRASS_SOURCE} resizeMode="stretch" style={r.grassImage} />
+      <Image source={GRASS_SOURCE} resizeMode="cover" style={r.grassImage} />
     </View>
   );
 }
@@ -166,18 +166,17 @@ const r = StyleSheet.create({
   },
   grassContainer: {
     position: 'absolute',
-    overflow: 'hidden',
     left: 0,
     width: '100%',
     bottom: 0,
     zIndex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    transform: [{ translateY: 78 }],
   },
   grassImage: {
     width: '100%',
     height: '100%',
-    objectPosition: 'bottom center',
   } as ImageStyle,
   landingShadow: {
     position: 'absolute',
