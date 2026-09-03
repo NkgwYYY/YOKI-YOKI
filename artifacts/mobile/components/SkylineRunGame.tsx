@@ -40,6 +40,7 @@ const MAX_CROUCH_SPEED = 105;
 const FALL_LIMIT = -185;
 const PLATFORM_THICKNESS = 18;
 const CONTROL_SIZE = 58;
+const RENDER_FRAME_MS = 1000 / 30;
 
 type Phase = 'intro' | 'playing' | 'failed' | 'complete';
 type PlatformKind = 'ground' | 'step' | 'high' | 'moving';
@@ -229,6 +230,16 @@ function createWorld(): WorldState {
     items: ITEMS.map((item) => ({ ...item, collected: false })),
     effects: [],
     elapsed: 0,
+  };
+}
+
+function snapshotWorld(world: WorldState): WorldState {
+  return {
+    ...world,
+    player: { ...world.player },
+    enemies: world.enemies.map((enemy) => ({ ...enemy })),
+    items: world.items.map((item) => ({ ...item })),
+    effects: [...world.effects],
   };
 }
 
@@ -452,6 +463,9 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
   const startTimeRef = useRef(0);
   const finishRef = useRef(false);
   const effectIdRef = useRef(0);
+  const knownEffectIdsRef = useRef<Set<number>>(new Set());
+  const lastFrameAtRef = useRef(0);
+  const lastRenderAtRef = useRef(0);
   const itemSoundRef = useRef<Audio.Sound | null>(null);
   const finishSoundRef = useRef<Audio.Sound | null>(null);
 
@@ -505,8 +519,11 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
     controlsRef.current = createControls();
     finishRef.current = false;
     startTimeRef.current = Date.now();
+    lastFrameAtRef.current = 0;
+    lastRenderAtRef.current = 0;
+    knownEffectIdsRef.current.clear();
     phaseRef.current = 'playing';
-    setWorld(next);
+    setWorld(snapshotWorld(next));
     setLastEffectIds([]);
     setPhase('playing');
   }, []);
@@ -585,9 +602,13 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
       const previousX = player.x;
       const previousY = player.y;
       const controls = controlsRef.current;
-      const dt = nextWorld.elapsed === 0 ? 0.016 : Math.min(0.032, 0.016);
+      const dt = lastFrameAtRef.current === 0
+        ? 1 / 60
+        : Math.min(0.032, Math.max(0.001, (time - lastFrameAtRef.current) / 1000));
+      lastFrameAtRef.current = time;
       nextWorld.elapsed += dt;
       const platforms = getPlatformsAtTime(nextWorld.elapsed);
+      const currentPlayerHeight = getPlayerHeight(player);
       // 左右は押している間だけ有効。ジャンプ単独で横移動は発生させない。
       const direction = ((controls.right ? 1 : 0) - (controls.left ? 1 : 0));
       const targetSpeed = direction * (controls.crouch ? MAX_CROUCH_SPEED : MAX_RUN_SPEED);
@@ -642,11 +663,11 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
         } else {
           const ceiling = platforms.find((platform) =>
             overlaps(player.x + 7, PLAYER_WIDTH - 14, platform.x, platform.width)
-            && previousY + playerHeight <= platform.y
-            && player.y + playerHeight >= platform.y,
+            && previousY + currentPlayerHeight <= platform.y
+            && player.y + currentPlayerHeight >= platform.y,
           );
           if (ceiling) {
-            player.y = ceiling.y - playerHeight;
+            player.y = ceiling.y - currentPlayerHeight;
             player.vy = 0;
           }
         }
@@ -731,13 +752,18 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       });
 
-      const newEffects = nextWorld.effects.filter((effect) => !lastEffectIds.includes(effect.id));
-      if (newEffects.length > 0) setLastEffectIds((previous) => [...previous, ...newEffects.map((effect) => effect.id)].slice(-12));
+      const newEffectIds = nextWorld.effects
+        .map((effect) => effect.id)
+        .filter((id) => !knownEffectIdsRef.current.has(id));
+      if (newEffectIds.length > 0) {
+        newEffectIds.forEach((id) => knownEffectIdsRef.current.add(id));
+        setLastEffectIds((previous) => [...previous, ...newEffectIds].slice(-12));
+      }
 
       if (player.hp <= 0 || player.y < FALL_LIMIT) {
         phaseRef.current = 'failed';
         setPhase('failed');
-        setWorld({ ...nextWorld, player: { ...player } });
+        setWorld(snapshotWorld(nextWorld));
         return;
       }
 
@@ -753,18 +779,15 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
           duration: Math.max(1, Math.round((Date.now() - startTimeRef.current) / 1000)),
           score: player.score,
         });
-        setWorld({ ...nextWorld, player: { ...player } });
+        setWorld(snapshotWorld(nextWorld));
         return;
       }
 
-      setWorld({
-        ...nextWorld,
-        player: { ...player },
-        enemies: nextWorld.enemies.map((enemy) => ({ ...enemy })),
-        items: nextWorld.items.map((item) => ({ ...item })),
-        effects: [...nextWorld.effects],
-      });
       worldRef.current = nextWorld;
+      if (time - lastRenderAtRef.current >= RENDER_FRAME_MS) {
+        lastRenderAtRef.current = time;
+        setWorld(snapshotWorld(nextWorld));
+      }
       rafRef.current = requestAnimationFrame(loop);
     };
 
@@ -773,7 +796,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [colors.accent, colors.destructive, groundY, lastEffectIds, onFinish, phase, playSound, playerHeight]);
+  }, [colors.accent, colors.destructive, onFinish, phase, playSound]);
 
   const progressPercent = Math.min(100, Math.round((world.player.x / GOAL_X) * 100));
   const visiblePlatforms = currentPlatforms.filter((platform) =>

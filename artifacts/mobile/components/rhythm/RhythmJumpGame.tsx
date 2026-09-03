@@ -16,6 +16,7 @@ import { border, colors, gameSurface, judgePalette } from '@/constants/theme';
 
 const { width: SW } = Dimensions.get('window');
 const TRAVEL_S = 1.9; // ノーツが右→判定リングまで流れる秒数
+const RENDER_FRAME_MS = 1000 / 30;
 
 const MISS_LABELS = ['だいじょうぶ', 'つぎいこう', 'どんまい', 'ゆっくりでOK'];
 const JUDGE_STYLE: Record<Judgment, { text: string; color: string }> = {
@@ -53,6 +54,7 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
   const rafRef = useRef<number | null>(null);
   const startAtRef = useRef(0);
   const judgeKeyRef = useRef(0);
+  const lastRenderAtRef = useRef(0);
 
   useEffect(() => {
     notesRef.current = chart.notes.map((n, i) => ({ ...n, id: i, judged: false }));
@@ -98,10 +100,13 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
 
   useEffect(() => {
     if (!started) return;
-    const loop = () => {
+    const loop = (frameTime: number) => {
       if (finishedRef.current || !mountedRef.current) return;
       const t = clock.getTime();
-      setNow(t);
+      if (frameTime - lastRenderAtRef.current >= RENDER_FRAME_MS) {
+        lastRenderAtRef.current = frameTime;
+        setNow(t);
+      }
       for (const n of notesRef.current) {
         if (!n.judged && t - n.time > JUDGE_GOOD_MS / 1000) applyJudgment(n, 'miss');
       }
@@ -109,9 +114,10 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
       if (allDone || t >= song.duration - 0.2) { finish(); return; }
       rafRef.current = requestAnimationFrame(loop);
     };
+    lastRenderAtRef.current = 0;
     rafRef.current = requestAnimationFrame(loop);
     return () => { if (rafRef.current != null) cancelAnimationFrame(rafRef.current); };
-  }, [started]);
+  }, [clock, finish, song.duration, started]);
 
   useEffect(() => {
     let cancelled = false;

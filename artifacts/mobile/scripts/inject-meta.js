@@ -9,7 +9,33 @@ let html = fs.readFileSync(file, 'utf8');
 
 const GA_ID = 'G-VEK3NC9XFS';
 
+function findAssetHref(directory, filePattern) {
+  if (!fs.existsSync(directory)) return null;
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      const nested = findAssetHref(absolute, filePattern);
+      if (nested) return nested;
+    } else if (filePattern.test(entry.name)) {
+      return `/${path.relative(path.dirname(file), absolute).split(path.sep).join('/')}`;
+    }
+  }
+  return null;
+}
+
+const exportedRoot = path.dirname(file);
+const preloadHrefs = [
+  '/grass.png',
+  findAssetHref(exportedRoot, /^plant-scene-v2\..+\.png$/),
+  findAssetHref(exportedRoot, /^yoki_logo\..+\.png$/),
+  findAssetHref(exportedRoot, /^normal\..+\.png$/),
+].filter(Boolean);
+const PRELOADS = preloadHrefs
+  .map((href) => `    <link rel="preload" as="image" href="${href}" />`)
+  .join('\n');
+
 const META = `
+${PRELOADS}
     <meta name="google-site-verification" content="pz2YpceAZWVu-OXqardhMy8WmaPi_OXsSOugCiVPm2A" />
     <meta name="google-site-verification" content="4R-ZlbEXRH_5og-OkUNngJYN28bYCvVGXw5IY1m5UEw" />
     <meta property="og:title" content="YOKI YOKI｜毎日の気分記録・メンタルケアアプリ" />

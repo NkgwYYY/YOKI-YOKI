@@ -119,23 +119,46 @@ const WEB_GRASS_BACKGROUND = Platform.OS === 'web'
       backgroundRepeat: 'repeat-x',
       backgroundSize: 'auto 100%',
       backgroundPosition: 'left bottom',
-      borderTopLeftRadius: '50% 24px',
-      borderTopRightRadius: '50% 24px',
-      overflow: 'hidden',
+    } as unknown as ViewStyle)
+  : undefined;
+const WEB_GRASS_SOFT_EDGE = Platform.OS === 'web'
+  ? ({
+      WebkitMaskImage: [
+        'radial-gradient(ellipse 66% 30px at 50% 30px, #000 84%, rgba(0,0,0,0.8) 92%, transparent 100%)',
+        'linear-gradient(#000, #000)',
+      ].join(', '),
+      maskImage: [
+        'radial-gradient(ellipse 66% 30px at 50% 30px, #000 84%, rgba(0,0,0,0.8) 92%, transparent 100%)',
+        'linear-gradient(#000, #000)',
+      ].join(', '),
+      WebkitMaskSize: '100% 60px, 100% calc(100% - 27px)',
+      maskSize: '100% 60px, 100% calc(100% - 27px)',
+      WebkitMaskPosition: 'center top, center bottom',
+      maskPosition: 'center top, center bottom',
+      WebkitMaskRepeat: 'no-repeat',
+      maskRepeat: 'no-repeat',
+      filter: 'drop-shadow(0 -3px 5px rgba(255, 166, 196, 0.36))',
     } as unknown as ViewStyle)
   : undefined;
 
 export function GrassTexture({
   fill = false,
+  softEdge = false,
   style,
 }: {
   fill?: boolean;
+  softEdge?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
     <View
       pointerEvents="none"
-      style={[fill ? r.grassFill : r.grassContainer, WEB_GRASS_BACKGROUND, style]}
+      style={[
+        fill ? r.grassFill : r.grassContainer,
+        WEB_GRASS_BACKGROUND,
+        softEdge ? WEB_GRASS_SOFT_EDGE : undefined,
+        style,
+      ]}
     >
       {Platform.OS === 'web' ? null : (
         <ImageBackground

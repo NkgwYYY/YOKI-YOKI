@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Audio, AVPlaybackStatus } from 'expo-av';
 
 /**
@@ -76,5 +76,8 @@ export function useSongClock() {
 
   useEffect(() => () => { unload(); }, [unload]);
 
-  return { load, play, stop, unload, getTime, setOnFinish };
+  return useMemo(
+    () => ({ load, play, stop, unload, getTime, setOnFinish }),
+    [getTime, load, play, setOnFinish, stop, unload],
+  );
 }
