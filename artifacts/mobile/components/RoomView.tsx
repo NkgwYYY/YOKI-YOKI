@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Platform, StyleSheet, useWindowDimensions, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Platform, StyleSheet, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
 import { colors, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
@@ -112,22 +112,19 @@ export function RoomItemPreview({
   );
 }
 
-const GRASS_IMAGE = require('@/public/grass.png');
-const GRASS_SOURCE = Platform.OS === 'web' ? { uri: '/grass.png' } : GRASS_IMAGE;
+const GRASS_IMAGE = require('@/public/grass-hill.png');
+const GRASS_SOURCE = Platform.OS === 'web' ? { uri: '/grass-hill.png' } : GRASS_IMAGE;
 
 export function GrassTexture({ style }: { style?: StyleProp<ViewStyle> }) {
-  const { height: viewportHeight } = useWindowDimensions();
-
   return (
     <View
       pointerEvents="none"
       style={[
         r.grassContainer,
-        { height: viewportHeight * 0.5 },
         style,
       ]}
     >
-      <Image source={GRASS_SOURCE} resizeMode="cover" style={r.grassImage} />
+      <Image source={GRASS_SOURCE} resizeMode="contain" style={r.grassImage} />
     </View>
   );
 }
@@ -175,9 +172,7 @@ const r = StyleSheet.create({
   },
   grassImage: {
     width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    objectPosition: 'top center',
+    height: 'auto',
   } as ImageStyle,
   landingShadow: {
     position: 'absolute',

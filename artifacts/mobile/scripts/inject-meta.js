@@ -25,7 +25,7 @@ function findAssetHref(directory, filePattern) {
 
 const exportedRoot = path.dirname(file);
 const preloadHrefs = [
-  '/grass.png',
+  '/grass-hill.png',
   findAssetHref(exportedRoot, /^plant-scene-v2\..+\.png$/),
   findAssetHref(exportedRoot, /^yoki_logo\..+\.png$/),
   findAssetHref(exportedRoot, /^normal\..+\.png$/),
