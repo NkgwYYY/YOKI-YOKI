@@ -203,6 +203,7 @@ export default function HomeScreen() {
     <>
       <Screen scroll={false} gap={space.xs} contentStyle={styles.homeContent}>
         <HomeSkyBackdrop />
+        <GrassTexture />
         <View style={styles.header}>
           <View>
             <Image source={require('@/assets/images/yoki_logo.png')} style={styles.logo} resizeMode="contain" />
@@ -238,9 +239,8 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.centerArea}>
+          <View style={styles.centerArea}>
           <View style={styles.sceneStack}>
-            <GrassTexture />
             <RoomView
               level={progress.level}
               streak={progress.streak}
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   characterGarden: { width: '100%', position: 'relative' },
   characterMain: {
     position: 'absolute',
-    top: '31%',
+    top: '16%',
     left: '50%',
     zIndex: 10,
     alignItems: 'center',
@@ -459,17 +459,14 @@ const styles = StyleSheet.create({
   },
   companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 11 },
   actionRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 18,
+    position: 'relative',
     zIndex: 10,
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     columnGap: space.sm,
-    marginTop: space.sm,
+    marginTop: space.xxl,
   },
   orbitAction: {
     flex: 1,
