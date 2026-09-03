@@ -88,6 +88,8 @@ export const homePalette = {
   groundTop: '#FFB2C9',
   groundBottom: '#FF8CAE',
   groundEdge: '#F69CB9',
+  grassLight: '#FFD5E1',
+  grassDeep: '#E986A7',
   cloudYellow: '#FFE7BF',
   cloudPink: '#F5CBE5',
   cloudBlue: '#C8EAF4',

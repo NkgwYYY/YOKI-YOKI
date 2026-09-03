@@ -113,6 +113,73 @@ export function RoomItemPreview({
   );
 }
 
+const GRASS_TUFTS = [
+  { left: -2, scale: 0.82, lean: -4, variant: 0 },
+  { left: 1, scale: 1.08, lean: 2, variant: 1 },
+  { left: 4, scale: 0.76, lean: -3, variant: 2 },
+  { left: 7, scale: 1.18, lean: 4, variant: 1 },
+  { left: 10, scale: 0.9, lean: -2, variant: 0 },
+  { left: 13, scale: 1.04, lean: 3, variant: 2 },
+  { left: 16, scale: 0.72, lean: -5, variant: 1 },
+  { left: 19, scale: 1.12, lean: 2, variant: 0 },
+  { left: 22, scale: 0.86, lean: -3, variant: 2 },
+  { left: 25, scale: 1.2, lean: 4, variant: 1 },
+  { left: 29, scale: 0.78, lean: -2, variant: 0 },
+  { left: 32, scale: 1.02, lean: 3, variant: 2 },
+  { left: 35, scale: 0.92, lean: -4, variant: 1 },
+  { left: 38, scale: 1.16, lean: 2, variant: 0 },
+  { left: 42, scale: 0.74, lean: -3, variant: 2 },
+  { left: 45, scale: 1.1, lean: 5, variant: 1 },
+  { left: 48, scale: 0.86, lean: -2, variant: 0 },
+  { left: 51, scale: 1.2, lean: 3, variant: 2 },
+  { left: 55, scale: 0.78, lean: -4, variant: 1 },
+  { left: 58, scale: 1.06, lean: 2, variant: 0 },
+  { left: 61, scale: 0.9, lean: -3, variant: 2 },
+  { left: 64, scale: 1.18, lean: 4, variant: 1 },
+  { left: 68, scale: 0.76, lean: -2, variant: 0 },
+  { left: 71, scale: 1.04, lean: 3, variant: 2 },
+  { left: 74, scale: 0.88, lean: -5, variant: 1 },
+  { left: 77, scale: 1.14, lean: 2, variant: 0 },
+  { left: 81, scale: 0.74, lean: -3, variant: 2 },
+  { left: 84, scale: 1.2, lean: 4, variant: 1 },
+  { left: 87, scale: 0.84, lean: -2, variant: 0 },
+  { left: 90, scale: 1.06, lean: 3, variant: 2 },
+  { left: 93, scale: 0.78, lean: -4, variant: 1 },
+  { left: 96, scale: 1.12, lean: 2, variant: 0 },
+  { left: 99, scale: 0.86, lean: -3, variant: 2 },
+  { left: 102, scale: 1.02, lean: 4, variant: 1 },
+];
+
+function GrassTuft({
+  left,
+  scale,
+  lean,
+  variant,
+}: {
+  left: number;
+  scale: number;
+  lean: number;
+  variant: number;
+}) {
+  const colors = [homePalette.grassLight, homePalette.groundEdge, homePalette.grassDeep];
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        r.grassTuft,
+        {
+          left: `${left}%`,
+          transform: [{ scale }, { rotate: `${lean}deg` }],
+        },
+      ]}
+    >
+      <View style={[r.grassBlade, r.grassBladeLeft, { height: variant === 2 ? 8 : 11, backgroundColor: colors[variant] }]} />
+      <View style={[r.grassBlade, r.grassBladeCenter, { height: variant === 0 ? 13 : 9, backgroundColor: colors[(variant + 1) % colors.length] }]} />
+      <View style={[r.grassBlade, r.grassBladeRight, { height: variant === 1 ? 12 : 8, backgroundColor: colors[(variant + 2) % colors.length] }]} />
+    </View>
+  );
+}
+
 function GroundGradient() {
   return (
     <View style={r.groundWrap} pointerEvents="none">
@@ -122,19 +189,7 @@ function GroundGradient() {
         style={r.groundGradient}
       />
       <View style={r.grassEdge}>
-        {Array.from({ length: 18 }).map((_, index) => (
-          <View
-            key={index}
-            style={[
-              r.grassBlade,
-              {
-                left: `${(index / 17) * 100}%`,
-                height: 6 + (index % 3) * 3,
-                transform: [{ rotate: index % 2 === 0 ? '-14deg' : '14deg' }],
-              },
-            ]}
-          />
-        ))}
+        {GRASS_TUFTS.map((tuft, index) => <GrassTuft key={index} {...tuft} />)}
       </View>
     </View>
   );
@@ -174,8 +229,12 @@ const r = StyleSheet.create({
   },
   groundWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, zIndex: 0 },
   groundGradient: { ...StyleSheet.absoluteFillObject },
-  grassEdge: { position: 'absolute', top: -4, left: 0, right: 0, height: 18, flexDirection: 'row', justifyContent: 'space-between' },
-  grassBlade: { position: 'absolute', width: 3, borderRadius: 3, backgroundColor: homePalette.groundEdge, transformOrigin: 'bottom' },
+  grassEdge: { position: 'absolute', top: -5, left: 0, right: 0, height: 21 },
+  grassTuft: { position: 'absolute', bottom: 0, width: 15, height: 18, transformOrigin: 'bottom center' },
+  grassBlade: { position: 'absolute', bottom: 0, width: 3, borderRadius: 3, transformOrigin: 'bottom' },
+  grassBladeLeft: { left: 1 },
+  grassBladeCenter: { left: 6 },
+  grassBladeRight: { left: 11 },
   landingShadow: {
     position: 'absolute',
     alignSelf: 'center',
