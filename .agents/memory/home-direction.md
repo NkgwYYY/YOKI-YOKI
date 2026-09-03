@@ -7,6 +7,8 @@ Keep the home as one seamless scene: a light lavender upper background with a so
 
 Use one shared currency name, 「きらめきポイント」, for food, furniture, flowers, and additional companions.
 
-**Why:** A separate “atelier” card and pre-filled decorative room made the character feel pasted into a UI module rather than living naturally in the app’s world. The pale-pink ground now anchors the character without restoring a room frame. Food-specific currency naming also stopped making sense once the wallet paid for decor and companions.
+Treat the pink ground edge as dense, irregular fur or grass texture. Never use generated triangular teeth, clip-path polygons, or a single simple wave path. Prefer a real transparent texture; when no texture asset is available, use fractal noise, displacement, blur, and layered shadows to produce an organic edge.
 
-**How to apply:** When adding home features, preserve the unframed lavender-sky/pink-ground scene and fixed-height primary interaction area. Keep name and status information above the character and the four primary actions below it. Put secondary controls in sheets or menus rather than extending the home vertically. New purchasable decor must remain absent until owned.
+**Why:** A separate “atelier” card and pre-filled decorative room made the character feel pasted into a UI module rather than living naturally in the app’s world. The pale-pink ground now anchors the character without restoring a room frame. Repeated sawtooth edges looked artificial and failed to match the requested high-density pink-fur reference. Food-specific currency naming also stopped making sense once the wallet paid for decor and companions.
+
+**How to apply:** When adding home features, preserve the unframed lavender-sky/pink-ground scene and fixed-height primary interaction area. Keep name and status information above the character and the four primary actions below it. Any ground-edge change must retain an organic fur-like texture rather than geometric teeth. Put secondary controls in sheets or menus rather than extending the home vertically. New purchasable decor must remain absent until owned.

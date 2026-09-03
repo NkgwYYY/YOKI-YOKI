@@ -1,7 +1,17 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
+import Svg, {
+  Defs,
+  FeDisplacementMap,
+  FeDropShadow,
+  FeGaussianBlur,
+  FeTurbulence,
+  Filter,
+  LinearGradient as SvgLinearGradient,
+  Rect,
+  Stop,
+} from 'react-native-svg';
 import { colors, homePalette, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
@@ -114,48 +124,75 @@ export function RoomItemPreview({
   );
 }
 
-const GRASS_VIEWBOX_WIDTH = 1200;
-const GRASS_VIEWBOX_HEIGHT = 24;
-const GRASS_TOOTH_WIDTHS = [11, 8, 14, 10, 13, 9, 12, 14, 8, 11, 13, 9, 12, 10, 14, 8];
-const GRASS_TOOTH_HEIGHTS = [6, 4, 7, 5, 8, 5, 6, 4, 7, 5, 8, 4, 6, 5, 7, 4];
-
-function createGrassPath(baseY: number, peakOffset = 0) {
-  let x = 0;
-  let tooth = 0;
-  let path = `M 0 ${GRASS_VIEWBOX_HEIGHT} L 0 ${baseY}`;
-
-  while (x < GRASS_VIEWBOX_WIDTH) {
-    const remaining = GRASS_VIEWBOX_WIDTH - x;
-    const width = Math.min(GRASS_TOOTH_WIDTHS[tooth % GRASS_TOOTH_WIDTHS.length], remaining);
-    if (width < 2) {
-      path += ` L ${GRASS_VIEWBOX_WIDTH} ${baseY}`;
-      break;
-    }
-    const peakX = x + width / 2;
-    const nextX = x + width;
-    const peakY = baseY - GRASS_TOOTH_HEIGHTS[tooth % GRASS_TOOTH_HEIGHTS.length] + peakOffset;
-    path += ` L ${peakX} ${peakY} L ${nextX} ${baseY}`;
-    x = nextX;
-    tooth += 1;
-  }
-
-  return `${path} L ${GRASS_VIEWBOX_WIDTH} ${GRASS_VIEWBOX_HEIGHT} Z`;
-}
-
-const BACK_GRASS_PATH = createGrassPath(15, -1);
-const FRONT_GRASS_PATH = createGrassPath(16);
+const WEB_GRASS_FILTER = Platform.OS === 'web'
+  ? ({
+      filter: [
+        'drop-shadow(0 -2px 3px rgba(255, 105, 180, 0.5))',
+        'drop-shadow(0 -1px 1.5px rgba(255, 182, 193, 0.72))',
+        'blur(0.2px)',
+      ].join(' '),
+    } as unknown as ViewStyle)
+  : undefined;
 
 function GrassBoundary() {
   return (
-    <View pointerEvents="none" style={r.grassBoundary}>
+    <View pointerEvents="none" style={[r.grassBoundary, WEB_GRASS_FILTER]}>
       <Svg
         width="100%"
         height="100%"
-        viewBox={`0 0 ${GRASS_VIEWBOX_WIDTH} ${GRASS_VIEWBOX_HEIGHT}`}
+        viewBox="0 0 1200 36"
         preserveAspectRatio="none"
       >
-        <Path d={BACK_GRASS_PATH} fill={homePalette.grassBack} opacity={0.6} />
-        <Path d={FRONT_GRASS_PATH} fill={homePalette.groundTop} />
+        <Defs>
+          <SvgLinearGradient id="grass-fur-fill" x1="0%" y1="0%" x2="0%" y2="100%">
+            <Stop offset="0%" stopColor={homePalette.grassFurTop} />
+            <Stop offset="100%" stopColor={homePalette.groundTop} />
+          </SvgLinearGradient>
+          <Filter id="grass-fur" x="-5%" y="-60%" width="110%" height="220%">
+            <FeTurbulence
+              type="fractalNoise"
+              baseFrequency={0.8}
+              numOctaves={4}
+              seed={7}
+              stitchTiles="stitch"
+              result="noise"
+            />
+            <FeDisplacementMap
+              in="SourceGraphic"
+              in2="noise"
+              scale={8}
+              xChannelSelector="R"
+              yChannelSelector="G"
+              result="displaced"
+            />
+            <FeGaussianBlur in="displaced" stdDeviation={0.28} result="softFur" />
+            <FeDropShadow
+              in="softFur"
+              dx={0}
+              dy={-2}
+              stdDeviation={2.2}
+              floodColor={homePalette.grassFurGlow}
+              floodOpacity={0.46}
+              result="wideShadow"
+            />
+            <FeDropShadow
+              in="wideShadow"
+              dx={0}
+              dy={-0.8}
+              stdDeviation={0.75}
+              floodColor={homePalette.grassFurTop}
+              floodOpacity={0.72}
+            />
+          </Filter>
+        </Defs>
+        <Rect
+          x={-8}
+          y={10}
+          width={1216}
+          height={28}
+          fill="url(#grass-fur-fill)"
+          filter="url(#grass-fur)"
+        />
       </Svg>
     </View>
   );
@@ -208,7 +245,7 @@ const r = StyleSheet.create({
   },
   groundWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, zIndex: 0 },
   groundGradient: { ...StyleSheet.absoluteFillObject },
-  grassBoundary: { position: 'absolute', top: -8, left: 0, right: 0, height: 24 },
+  grassBoundary: { position: 'absolute', top: -10, left: 0, right: 0, height: 36 },
   landingShadow: {
     position: 'absolute',
     alignSelf: 'center',
