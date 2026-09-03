@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Image, Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { border, colors, control, elevation, homePalette, radius, space, typography } from '@/constants/theme';
 import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
@@ -44,6 +44,13 @@ const ACTION_TONES = {
   chat: { icon: homePalette.chatIcon, surface: homePalette.chatSurface },
   play: { icon: homePalette.playIcon, surface: homePalette.playSurface },
 } as const;
+
+const webGlassActionStyle = Platform.OS === 'web'
+  ? {
+      backdropFilter: 'blur(8px)',
+      WebkitBackdropFilter: 'blur(8px)',
+    }
+  : {};
 
 function OrbitAction({
   icon,
@@ -495,13 +502,10 @@ const styles = StyleSheet.create({
     maxWidth: 96,
     height: 94,
     borderRadius: radius.lg,
-    backgroundColor: colors.card,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    ...webGlassActionStyle,
     borderWidth: 0,
-    shadowColor: homePalette.actionShadow,
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 4,
+    boxShadow: '0px 4px 15px rgba(0, 0, 0, 0.03)',
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.xs,
