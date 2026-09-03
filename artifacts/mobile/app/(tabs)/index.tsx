@@ -240,43 +240,7 @@ export default function HomeScreen() {
 
         <View style={styles.centerArea}>
           <View style={styles.sceneStack}>
-            <GrassTexture />
-            <RoomView
-              level={progress.level}
-              streak={progress.streak}
-              totalDays={progress.totalDays}
-              mascotName={mascotName}
-              customization={roomCustomization}
-              sceneHeight={sceneHeight}
-              horizontalBleed={space.xl}
-            >
-              <View style={[styles.characterGarden, { height: sceneHeight }]}>
-                <View
-                  style={[
-                    styles.characterMain,
-                    {
-                      width: characterFrame,
-                      height: characterHeight,
-                      marginLeft: -characterFrame / 2,
-                      marginTop: -characterHeight / 2,
-                    },
-                  ]}
-                >
-                  <StageCharacter
-                    stage={getMascotStage(progress.level)}
-                    mood={mascotMood}
-                    size={characterSize}
-                    growthSize={growth.growthSize}
-                  />
-                </View>
-                {companionState.extraEggs > 0 ? (
-                  <View style={styles.companionEgg}>
-                    <StageCharacter stage="egg" mood="happy" size={58} growthSize={0.78} />
-                  </View>
-                ) : null}
-              </View>
-            </RoomView>
-            <View style={styles.actionRow}>
+            <View style={styles.actionButtonsContainer}>
               <OrbitAction
                 testID="home-feed"
                 icon="coffee"
@@ -308,6 +272,44 @@ export default function HomeScreen() {
                 onPress={() => setShowMiniGame(true)}
               />
             </View>
+            <View style={[styles.characterContainer, { height: sceneHeight }]}>
+              <RoomView
+                level={progress.level}
+                streak={progress.streak}
+                totalDays={progress.totalDays}
+                mascotName={mascotName}
+                customization={roomCustomization}
+                sceneHeight={sceneHeight}
+                horizontalBleed={space.xl}
+              >
+                <View style={[styles.characterGarden, { height: sceneHeight }]}>
+                  <View
+                    style={[
+                      styles.characterMain,
+                      {
+                        width: characterFrame,
+                        height: characterHeight,
+                        marginLeft: -characterFrame / 2,
+                        marginTop: -characterHeight / 2,
+                      },
+                    ]}
+                  >
+                    <StageCharacter
+                      stage={getMascotStage(progress.level)}
+                      mood={mascotMood}
+                      size={characterSize}
+                      growthSize={growth.growthSize}
+                    />
+                  </View>
+                  {companionState.extraEggs > 0 ? (
+                    <View style={styles.companionEgg}>
+                      <StageCharacter stage="egg" mood="happy" size={58} growthSize={0.78} />
+                    </View>
+                  ) : null}
+                </View>
+              </RoomView>
+            </View>
+            <GrassTexture />
           </View>
         </View>
       </Screen>
@@ -413,7 +415,14 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  homeContent: { justifyContent: 'space-between', overflow: 'hidden', position: 'relative' },
+  homeContent: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 80,
+    overflow: 'hidden',
+    position: 'relative',
+  },
   header: { zIndex: 2, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   logo: { width: 122, height: 29, tintColor: colors.foreground },
   date: { ...typography.caption, color: homePalette.dateText, marginTop: 2 },
@@ -447,8 +456,21 @@ const styles = StyleSheet.create({
   nameFieldPlaceholder: { color: colors.mutedForeground },
 
   centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' },
-  sceneStack: { width: '100%', alignItems: 'center', position: 'relative' },
+  sceneStack: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    position: 'relative',
+  },
   characterGarden: { width: '100%', position: 'relative' },
+  characterContainer: {
+    width: '100%',
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    zIndex: 10,
+  },
   characterMain: {
     position: 'absolute',
     top: '31%',
@@ -458,18 +480,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 11 },
-  actionRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 18,
+  actionButtonsContainer: {
     zIndex: 10,
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     columnGap: space.sm,
-    marginTop: space.sm,
+    marginBottom: 20,
   },
   orbitAction: {
     flex: 1,
