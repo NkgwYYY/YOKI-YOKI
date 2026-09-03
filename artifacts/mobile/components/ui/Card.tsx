@@ -1,9 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { border, colors, radius, space, typography } from '@/constants/theme';
+import { border, colors, radius, space, typography, elevation } from '@/constants/theme';
 
 /**
- * 宇宙の居場所テーマに合わせた、半透明で浮遊感のあるカード。
+ * Dream Atelierテーマに合わせた、明るく柔らかなカード。
  */
 export function Card({
   children,
@@ -42,12 +42,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     ...border.hairline,
     borderRadius: radius.lg,
-    // 暗いテーマに合わせた微かな輝き
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
+    ...elevation.raised,
   },
   header: {
     flexDirection: 'row',

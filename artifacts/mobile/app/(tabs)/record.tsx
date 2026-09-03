@@ -8,6 +8,7 @@ import { QuickAffirmationRecord } from '@/components/record/QuickAffirmationReco
 import { MoodRecordSheet } from '@/components/record/MoodRecordSheet';
 import { ChecklistSheet } from '@/components/record/ChecklistSheet';
 import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
+import { SkyBackground } from '@/components/SkyBackground';
 
 export default function RecordScreen() {
   const router = useRouter();
@@ -16,7 +17,8 @@ export default function RecordScreen() {
 
   return (
     <>
-      <Screen>
+      <SkyBackground />
+      <Screen scroll={true}>
         <View style={styles.header}>
           <Text style={styles.title}>今日のあなたへ</Text>
           <Text style={styles.date}>{formatDateJP(getTodayDate())}</Text>

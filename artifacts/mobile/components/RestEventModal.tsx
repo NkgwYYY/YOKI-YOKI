@@ -31,7 +31,7 @@ type CatState = 'sleeping' | 'alert' | 'purring';
 const SCENES: { key: Scene; icon: IconName; label: string; bg: string }[] = [
   { key: 'campfire', icon: 'sun',        label: '焚き火を見る', bg: '#2A1200' },
   { key: 'rain',     icon: 'cloud-rain', label: '雨の音を聞く', bg: '#101A33' },
-  { key: 'stars',    icon: 'star',       label: '星空を見る',   bg: '#07071F' },
+  { key: 'stars',    icon: 'star',       label: '夜空を見る',   bg: '#6650A4' },
   { key: 'cat',      icon: 'heart',      label: '猫を撫でる',   bg: '#26180D' },
 ];
 
@@ -696,7 +696,7 @@ function StarsScene() {
         <RNAnimated.View key={`sh${i}`} style={[sc.shootingStar, { top: s.y, opacity: s.opacity, transform: [{ translateX: s.x }] }]} />
       ))}
       <Icon name="moon" size={44} color="#DDE4FF" style={sc.moon} />
-      <Text style={[sc.sceneLabel, { color: '#A0B4FF' }]}>広い宇宙の中でひと休み</Text>
+      <Text style={[sc.sceneLabel, { color: '#D8CCFF' }]}>静かな夜の中でひと休み</Text>
     </View>
   );
 }

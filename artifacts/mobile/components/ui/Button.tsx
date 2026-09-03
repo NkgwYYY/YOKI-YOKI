@@ -19,9 +19,9 @@ export type ButtonVariant =
   | 'ghost';
 
 const FILL: Record<ButtonVariant, ViewStyle> = {
-  primary: { backgroundColor: colors.primary, ...border.inner },
+  primary: { backgroundColor: colors.primary, ...border.inner, borderColor: 'rgba(255,255,255,0.4)' },
   secondary: { backgroundColor: colors.secondary, ...border.hairline },
-  outline: { backgroundColor: 'transparent', ...border.hairlineStrong },
+  outline: { backgroundColor: colors.card, ...border.hairlineStrong, borderColor: colors.borderStrong },
   ghost: { backgroundColor: 'transparent', borderWidth: border.width, borderColor: 'transparent' },
 };
 
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.sm,
-    borderRadius: radius.md,
+    borderRadius: radius.pill, // Buttons use pill radius for softer feel
   },
   sizeMd: {
     paddingVertical: control.padV,

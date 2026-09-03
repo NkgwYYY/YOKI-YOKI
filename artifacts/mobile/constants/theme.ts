@@ -1,85 +1,84 @@
 /**
  * YOKI-YOKI デザインシステム — 単一のソース・オブ・トゥルース。
  *
- * コンセプト: "Cosmic Cozy" (静かだけれど個性のある小さな宇宙の居場所)
- * 暗い宇宙色（深い紫・紺）をベースに、星の光のようなイエロー/ゴールドをアクセントにする。
- * 白いカードの反復ではなく、深みのある面と光の表現で居場所感を演出する。
+ * コンセプト: "Dream Atelier" (ファンシーで明るい、心落ち着く小さなアトリエ・街)
+ * ピンク、ラベンダー、パープルを基調とした、透明感と温かみのある世界観。
  */
 
 /* ------------------------------------------------------------------ *
  * Primitives
  * ------------------------------------------------------------------ */
 
-const spaceColors = {
-  900: '#06040A',
-  800: '#0F0C20', // Background
-  700: '#181328', // Card
-  600: '#241E3A', // Muted / Sunken
-  500: '#322A4E', // Border Strong
-  400: '#4A416D',
-  300: '#6C6582', // Subtle Foreground
-  200: '#9A92B4', // Muted Foreground
-  100: '#D3CBEA',
-  50:  '#FDFBFF', // Foreground
+const atelierColors = {
+  900: '#2A1846', // Very dark purple
+  800: '#422765', // Main text
+  700: '#62418B', // Muted text
+  600: '#8A67B4', // Borders strong, Icons
+  500: '#B093D6', // Disabled
+  400: '#D1BDF0', // Borders subtle
+  300: '#E6D8F8', // Muted backgrounds / Dividers
+  200: '#F3EAFB', // Secondary surfaces
+  100: '#F9F4FD', // App background
+  50:  '#FFFBFF', // Pink-white card highlights
 } as const;
 
-const starColors = {
-  500: '#FFD166', // Primary Starlight
-  600: '#E5B955', // Primary Pressed
-  900: '#3D2F0A', // Soft background for primary
+const charmColors = {
+  500: '#FA5C98', // Primary pink
+  600: '#E03D7B', // Primary pressed
+  900: '#FFF0F5', // Soft pink
 } as const;
 
 export const colors = {
   /* 面 */
-  background: spaceColors[800],
-  backgroundSunken: spaceColors[900],
-  card: spaceColors[700],
-  cardForeground: spaceColors[50],
-  sheet: spaceColors[700],
-  scrim: 'rgba(6, 4, 10, 0.8)', // 暗いスクリム
+  background: atelierColors[100],
+  backgroundSunken: atelierColors[300],
+  card: atelierColors[50], // White for crispness
+  cardForeground: atelierColors[900],
+  sheet: atelierColors[50],
+  scrim: 'rgba(42, 24, 70, 0.4)', // Soft purple shadow
 
   /* 文字 */
-  foreground: spaceColors[50],
-  text: spaceColors[50],
-  mutedForeground: spaceColors[200],
-  subtleForeground: spaceColors[300],
-  disabledForeground: spaceColors[400],
+  foreground: atelierColors[900],
+  text: atelierColors[900],
+  mutedForeground: atelierColors[700],
+  subtleForeground: atelierColors[600],
+  disabledForeground: atelierColors[500],
 
   /* 塗り */
-  muted: spaceColors[600],
-  mutedStrong: spaceColors[500],
-  input: spaceColors[900],
+  muted: atelierColors[200],
+  mutedStrong: atelierColors[300],
+  input: atelierColors[50],
 
   /* 境界 */
-  border: spaceColors[600],
-  borderStrong: spaceColors[500],
-  borderSubtle: spaceColors[700],
-  borderOnFill: 'rgba(255, 255, 255, 0.15)',
+  border: atelierColors[300],
+  borderStrong: atelierColors[400],
+  borderSubtle: atelierColors[200],
+  borderOnFill: 'rgba(255, 255, 255, 0.5)',
 
   /* ブランド */
-  primary: starColors[500],
-  primaryForeground: '#241900', // 暗い文字色でコントラスト確保
-  primaryPressed: starColors[600],
-  primarySoft: 'rgba(255, 209, 102, 0.15)',
-  primaryOnSoft: starColors[500],
-  ring: starColors[500],
-  tint: starColors[500],
+  primary: charmColors[500],
+  primaryForeground: '#FFFFFF',
+  primaryPressed: charmColors[600],
+  primarySoft: charmColors[900],
+  primaryOnSoft: charmColors[600],
+  ring: charmColors[500],
+  tint: charmColors[500],
 
   /* 補助 */
-  success: '#06D6A0',
-  successSoft: 'rgba(6, 214, 160, 0.15)',
-  warning: '#FF9F1C',
-  warningSoft: 'rgba(255, 159, 28, 0.15)',
-  danger: '#EF476F',
-  dangerSoft: 'rgba(239, 71, 111, 0.15)',
-  destructive: '#EF476F',
+  success: '#20D695', // Cool-toned green
+  successSoft: 'rgba(32, 214, 149, 0.15)',
+  warning: '#FF9533', // Vibrant orange
+  warningSoft: 'rgba(255, 149, 51, 0.15)',
+  danger: '#FF4D6D',
+  dangerSoft: 'rgba(255, 77, 109, 0.15)',
+  destructive: '#FF4D6D',
   destructiveForeground: '#FFFFFF',
 
   /* 互換 */
-  secondary: spaceColors[600],
-  secondaryForeground: spaceColors[100],
-  accent: starColors[500],
-  accentForeground: '#241900',
+  secondary: atelierColors[200],
+  secondaryForeground: atelierColors[800],
+  accent: charmColors[500],
+  accentForeground: '#FFFFFF',
 } as const;
 
 /* ------------------------------------------------------------------ *
@@ -101,9 +100,9 @@ export const screenPadding = space.xl;
  * ------------------------------------------------------------------ */
 export const radius = {
   sm: 8,
-  md: 12,
-  lg: 20,
-  xl: 28,
+  md: 16, // Softer curves for dream aesthetic
+  lg: 24,
+  xl: 32,
   pill: 999,
 } as const;
 
@@ -111,10 +110,10 @@ export const radius = {
  * Border
  * ------------------------------------------------------------------ */
 export const border = {
-  width: 1,
-  hairline: { borderWidth: 1, borderColor: colors.border },
-  hairlineStrong: { borderWidth: 1, borderColor: colors.borderStrong },
-  inner: { borderWidth: 1, borderColor: colors.borderOnFill },
+  width: 1.5, // Slightly thicker for cute aesthetic
+  hairline: { borderWidth: 1.5, borderColor: colors.border },
+  hairlineStrong: { borderWidth: 1.5, borderColor: colors.borderStrong },
+  inner: { borderWidth: 1.5, borderColor: colors.borderOnFill },
 } as const;
 
 /* ------------------------------------------------------------------ *
@@ -122,15 +121,15 @@ export const border = {
  * ------------------------------------------------------------------ */
 export const elevation = {
   overlay: {
-    shadowColor: '#000000',
-    shadowOpacity: 0.3,
+    shadowColor: atelierColors[700],
+    shadowOpacity: 0.15,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
     elevation: 10,
   },
   raised: {
-    shadowColor: '#000000',
-    shadowOpacity: 0.2,
+    shadowColor: atelierColors[700],
+    shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
@@ -167,57 +166,57 @@ export const control = {
   padH: 24,
   padVSm: 10,
   padHSm: 16,
-  pressScale: 0.96,
+  pressScale: 0.94, // slightly squishier
 } as const;
 
 /* ------------------------------------------------------------------ *
  * Data palettes
  * ------------------------------------------------------------------ */
 export const moodPalette: Record<number, string> = {
-  1: '#EF476F',
-  2: '#FF9F1C',
-  3: '#A49DBE',
-  4: '#06D6A0',
-  5: '#FFD166',
+  1: '#FF4D6D',
+  2: '#FF9533',
+  3: '#B093D6',
+  4: '#20D695',
+  5: '#FA5C98',
 };
 
 export const activityPalette = {
   reading: '#9D8BCE',
-  exercise: '#06D6A0',
-  study: '#FF9F1C',
-  journal: '#118AB2',
-  earlySleep: '#4A416D',
-  selfCare: '#EF476F',
+  exercise: '#20D695',
+  study: '#FF9533',
+  journal: '#33B5E5',
+  earlySleep: '#8A67B4',
+  selfCare: '#FA5C98',
 } as const;
 
 export const categoryPalette = {
-  basics: '#FF9F1C',
-  body: '#06D6A0',
+  basics: '#FF9533',
+  body: '#20D695',
   mind: '#9D8BCE',
-  social: '#118AB2',
+  social: '#33B5E5',
 } as const;
 
 export const rarityPalette = {
-  common: { bg: spaceColors[600], text: spaceColors[100], border: spaceColors[500] },
-  rare: { bg: 'rgba(157, 139, 206, 0.2)', text: '#D3CBEA', border: '#9D8BCE' },
-  special: { bg: 'rgba(255, 209, 102, 0.2)', text: '#FFD166', border: '#FFD166' },
+  common: { bg: atelierColors[200], text: atelierColors[800], border: atelierColors[400] },
+  rare: { bg: '#E4F4FF', text: '#0083B0', border: '#70C2E8' },
+  special: { bg: '#FFF0F5', text: '#E03D7B', border: '#FA5C98' },
 } as const;
 
 export const judgePalette = {
-  perfect: starColors[500],
-  great: '#06D6A0',
-  good: '#118AB2',
-  miss: spaceColors[400],
+  perfect: charmColors[500],
+  great: '#20D695',
+  good: '#33B5E5',
+  miss: atelierColors[500],
 } as const;
 
-export const lanePalette = ['#EF476F', '#FF9F1C', '#06D6A0', '#118AB2'] as const;
+export const lanePalette = ['#FA5C98', '#FF9533', '#20D695', '#33B5E5'] as const;
 
 export const gameSurface = {
-  background: spaceColors[900],
-  scrim: 'rgba(6, 4, 10, 0.85)',
+  background: atelierColors[100],
+  scrim: 'rgba(42, 24, 70, 0.6)',
 } as const;
 
-export const chartPalette = ['#FFD166', '#06D6A0', '#118AB2', '#FF9F1C', '#EF476F'] as const;
+export const chartPalette = ['#FA5C98', '#20D695', '#33B5E5', '#FF9533', '#FF4D6D'] as const;
 
 /* ------------------------------------------------------------------ *
  * Hook

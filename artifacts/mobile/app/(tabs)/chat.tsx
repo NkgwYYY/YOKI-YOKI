@@ -23,16 +23,13 @@ import { PressScale } from '@/components/ui/PressScale';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
-// Tab bar height constants (matches _layout.tsx)
 const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 64 : 0;
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  /** ISO日時。旧履歴はidに含まれる時刻から復元する */
   timestamp: string;
-  /** 端末ローカル日付。会話を「今日」と「過去」に分けるために使う */
   dateKey: string;
 }
 
@@ -48,7 +45,6 @@ function messageDateFromId(id: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/** v1の履歴も安全に読み込み、日時のないメッセージはidの保存時刻から復元する */
 function normalizeStoredMessage(raw: unknown): Message | null {
   if (!raw || typeof raw !== 'object') return null;
   const message = raw as Partial<Message>;
@@ -82,7 +78,6 @@ function messageDateLabel(dateKey: string): string {
   return formatDateJP(dateKey);
 }
 
-/* ── Typing dots ── */
 function TypingDots() {
   const d0 = useSharedValue(0);
   const d1 = useSharedValue(0);
@@ -119,7 +114,6 @@ const dotStyles = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.subtleForeground },
 });
 
-/* ── Message bubble ── */
 function MessageBubble({ msg, mascotStage, mascotMood }: {
   msg: Message;
   mascotStage: ReturnType<typeof getMascotStage>;
@@ -176,7 +170,6 @@ const bubbleStyles = StyleSheet.create({
     paddingHorizontal: screenPadding,
   },
   avatar: { flexShrink: 0 },
-  // 発話の向きは尻尾（片側だけ radius.sm）で示す。色の濃淡は変えない。
   bubbleUser: {
     maxWidth: '76%',
     padding: space.md,
@@ -204,7 +197,6 @@ const bubbleStyles = StyleSheet.create({
   dateText: { ...typography.micro, color: colors.mutedForeground },
 });
 
-/* ── Suggestion chip ── */
 function Chip({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <PressScale style={chipStyles.chip} onPress={onPress}>
@@ -225,10 +217,9 @@ const chipStyles = StyleSheet.create({
 });
 
 const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
-const MAX_STORED = 60; // keep last 60 messages in storage
-const MAX_CONTEXT = 20; // send last 20 to API
+const MAX_STORED = 60;
+const MAX_CONTEXT = 20;
 
-/* ── Main screen ── */
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
@@ -252,7 +243,6 @@ export default function ChatScreen() {
   const listRef = useRef<FlatList>(null);
   const sendScale = useSharedValue(1);
 
-  // ── Load history from storage on mount ──
   useEffect(() => {
     (async () => {
       try {
@@ -271,7 +261,6 @@ export default function ChatScreen() {
     })();
   }, []);
 
-  // ── Save to storage whenever messages change (after initial load) ──
   useEffect(() => {
     if (!historyLoaded) return;
     const toSave = messages.filter(m => m.id !== 'welcome').slice(-MAX_STORED);
@@ -309,7 +298,6 @@ export default function ChatScreen() {
         .slice(-MAX_CONTEXT)
         .map(m => ({ role: m.role, content: m.content, dateKey: m.dateKey }));
 
-      // Compact life-condition context so the mascot knows how the user is really doing
       const recent = [...records].sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
       const todayRec = getTodayRecord();
       const avgOf = (nums: number[]) =>
@@ -373,7 +361,6 @@ export default function ChatScreen() {
     <View style={styles.root}>
       <SkyBackground />
 
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPad + space.md }]}>
         <Mascot stage={mascotStage} mood={mascotMood} size={40} />
         <View style={styles.headerCopy}>
@@ -387,7 +374,6 @@ export default function ChatScreen() {
             </Text>
           </View>
         </View>
-        {/* Clear button */}
         {messages.length > 1 && (
           <PressScale
             onPress={clearHistory}
@@ -399,7 +385,6 @@ export default function ChatScreen() {
         )}
       </View>
 
-      {/* Messages */}
       <FlatList
         ref={listRef}
         data={messages}
@@ -428,7 +413,6 @@ export default function ChatScreen() {
         ) : null}
       />
 
-      {/* Input area */}
       <View
         style={[
           styles.inputArea,
@@ -471,7 +455,6 @@ export default function ChatScreen() {
         </View>
       </View>
 
-      {/* ── Rest Event Modal ── */}
       <RestEventModal
         visible={showRestEvent}
         level={progress.level}
@@ -485,7 +468,6 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
-  /* ヘッダー — 下端の 1px だけで本文と区切る */
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -512,7 +494,6 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   listContent: { paddingVertical: space.lg, gap: space.md },
 
-  /* 入力欄 — 上端の 1px だけ。影やぼかしは重ねない。 */
   inputArea: {
     borderTopWidth: border.width,
     borderTopColor: colors.border,
@@ -526,7 +507,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     borderRadius: radius.xl,
-    backgroundColor: colors.background,
+    backgroundColor: colors.input,
     ...border.hairlineStrong,
     paddingLeft: space.lg,
     paddingRight: space.xs,

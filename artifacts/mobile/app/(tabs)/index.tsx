@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { border, colors, control, radius, space, typography } from '@/constants/theme';
+import { border, colors, control, radius, space, typography, elevation } from '@/constants/theme';
 import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -54,7 +54,7 @@ function HomeActionModule({
 function MenuAction({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
   return (
     <PressScale onPress={onPress} accessibilityLabel={label} style={styles.menuAction}>
-      <IconBadge name={icon} size="sm" background={colors.mutedStrong} tint={colors.foreground} />
+      <IconBadge name={icon} size="sm" background={colors.muted} tint={colors.primary} />
       <Text style={styles.menuActionText}>{label}</Text>
       <Icon name="chevron-right" size={iconSize.sm} color={colors.subtleForeground} />
     </PressScale>
@@ -124,7 +124,6 @@ export default function HomeScreen() {
             <Text style={styles.speechText}>
               {todayRecord ? '今日も来てくれて、うれしい！' : '今日は、ひとつできたら十分。'}
             </Text>
-            {/* しっぽ */}
             <View style={styles.speechTail} />
           </View>
 
@@ -138,7 +137,6 @@ export default function HomeScreen() {
           <HomeSatietyGauge satiety={currentSatiety} />
         </View>
 
-        {/* 3つの主要アクションをコンパクトな横並びで配置 */}
         <View style={styles.actionsGrid}>
           <HomeActionModule
             testID="home-feed"
@@ -164,7 +162,6 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* 記録カード */}
         {todayRecord && !showQuickRecord ? (
           <Card padding={space.lg} style={styles.completedCard}>
             <View style={styles.completedRow}>
@@ -244,33 +241,34 @@ const styles = StyleSheet.create({
     width: control.icon,
     height: control.icon,
     borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    ...border.hairlineStrong,
+    backgroundColor: colors.card,
+    ...border.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   centerArea: { alignItems: 'center', marginVertical: space.md, gap: space.md },
   speechBubble: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    ...border.hairlineStrong,
+    backgroundColor: colors.card,
+    ...border.hairline,
     borderRadius: radius.lg,
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
     position: 'relative',
     marginBottom: space.sm,
+    ...elevation.raised,
   },
   speechTail: {
     position: 'absolute',
-    bottom: -6,
+    bottom: -7,
     left: '50%',
     marginLeft: -6,
     width: 12,
     height: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderBottomWidth: 1,
-    borderRightWidth: 1,
-    borderColor: colors.borderStrong,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1.5,
+    borderRightWidth: 1.5,
+    borderColor: colors.border,
     transform: [{ rotate: '45deg' }],
   },
   speechText: { ...typography.bodyStrong, color: colors.foreground, textAlign: 'center' },
@@ -278,14 +276,14 @@ const styles = StyleSheet.create({
   satietyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: colors.card,
     borderRadius: radius.pill,
     paddingHorizontal: space.md,
     paddingVertical: 6,
     gap: space.sm,
     ...border.hairline,
   },
-  satietyTrack: { width: 80, height: 6, backgroundColor: colors.mutedStrong, borderRadius: 3, overflow: 'hidden' },
+  satietyTrack: { width: 80, height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },
   satietyText: { ...typography.micro, color: colors.foreground, width: 28, textAlign: 'right' },
 
@@ -293,13 +291,14 @@ const styles = StyleSheet.create({
   actionModule: {
     flex: 1,
     backgroundColor: colors.card,
-    ...border.hairlineStrong,
+    ...border.hairline,
     borderRadius: radius.xl,
     paddingVertical: space.lg,
     alignItems: 'center',
     gap: space.xs,
+    ...elevation.raised,
   },
-  actionModuleDisabled: { opacity: 0.5 },
+  actionModuleDisabled: { opacity: 0.6 },
   actionIlluWrap: { height: 56, justifyContent: 'center' },
   actionLabel: { ...typography.label, color: colors.foreground, marginTop: space.xs },
   actionSub: { ...typography.micro, color: colors.primary },

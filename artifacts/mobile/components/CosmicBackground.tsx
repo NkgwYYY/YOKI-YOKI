@@ -1,18 +1,18 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { colors } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 /**
- * 発電所画面の下敷き。イラストのシーンをそのまま載せるための単色の面。
- *
- * 以前は深宇宙のグラデーション・星・惑星をコードで描いていたが、
- * 手前のシーン画像と二重に情報を持ってしまうため単色に置き換えた。
+ * 発電所画面の下敷き。イラストのシーンをそのまま載せるための面。
+ * ダークな宇宙から、淡いピンク・パープルの明るい空に変更。
  */
 export function CosmicBackground() {
   return (
-    <View
-      style={[StyleSheet.absoluteFill, { backgroundColor: colors.background }]}
-      pointerEvents="none"
-    />
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <LinearGradient
+        colors={['#FFF0F5', '#F5E6FE', '#E4DFF8']}
+        style={StyleSheet.absoluteFill}
+      />
+    </View>
   );
 }

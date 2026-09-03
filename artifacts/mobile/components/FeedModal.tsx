@@ -86,12 +86,12 @@ const cardStyles = StyleSheet.create({
     width: '100%',
     borderRadius: radius.lg,
     borderWidth: border.width,
-    backgroundColor: colors.muted,
+    backgroundColor: colors.card,
     padding: space.md,
     alignItems: 'center',
     gap: space.xs,
   },
-  cardLocked: { opacity: 0.4 },
+  cardLocked: { opacity: 0.5 },
   rarityBadge: { paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.pill, alignSelf: 'flex-end' },
   rarityText: { ...typography.micro, fontSize: 10 },
   iconWrap: { height: 44, alignItems: 'center', justifyContent: 'center', marginBottom: space.xs },
@@ -100,7 +100,7 @@ const cardStyles = StyleSheet.create({
   satietyTrack: { height: 4, borderRadius: radius.pill, width: '100%', backgroundColor: colors.mutedStrong, overflow: 'hidden', marginTop: space.xs },
   satietyFill: { height: '100%', borderRadius: radius.pill, backgroundColor: colors.success },
   satietyLabel: { ...typography.micro, fontSize: 10, color: colors.mutedForeground },
-  costRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.pill, backgroundColor: colors.card, marginTop: space.xs },
+  costRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.pill, backgroundColor: colors.background, marginTop: space.xs },
   costText: { ...typography.label, color: colors.foreground },
 });
 
@@ -125,8 +125,8 @@ function FeedToast({ message, visible }: { message: string; visible: boolean }) 
 }
 
 const toastStyles = StyleSheet.create({
-  toast: { position: 'absolute', top: space.lg, alignSelf: 'center', backgroundColor: colors.foreground, paddingHorizontal: space.xl, paddingVertical: space.md, borderRadius: radius.pill },
-  text: { ...typography.calloutStrong, color: colors.background },
+  toast: { position: 'absolute', top: space.lg, alignSelf: 'center', backgroundColor: colors.primary, paddingHorizontal: space.xl, paddingVertical: space.md, borderRadius: radius.pill },
+  text: { ...typography.calloutStrong, color: colors.primaryForeground },
 });
 
 export function FeedModal({ visible, onClose }: FeedModalProps) {
@@ -157,7 +157,7 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
   return (
     <BottomSheet visible={visible} onClose={onClose} title="ごはんをあげる" subtitle="ポイントを使って元気回復" maxHeightRatio={0.88} contentStyle={modalStyles.content}>
       <View style={modalStyles.pointsBadge}>
-        <Icon name="coffee" size={iconSize.sm} color={colors.primaryOnSoft} />
+        <Icon name="coffee" size={iconSize.sm} color={colors.primary} />
         <Text style={modalStyles.pointsText}>{feedState.points} pt</Text>
       </View>
 
@@ -195,8 +195,8 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
 
 const modalStyles = StyleSheet.create({
   content: { gap: space.xl },
-  pointsBadge: { flexDirection: 'row', alignItems: 'center', gap: space.xs, alignSelf: 'flex-start', paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.pill, backgroundColor: colors.primarySoft },
-  pointsText: { ...typography.bodyStrong, color: colors.primaryOnSoft },
+  pointsBadge: { flexDirection: 'row', alignItems: 'center', gap: space.xs, alignSelf: 'flex-start', paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.pill, backgroundColor: colors.primarySoft, ...border.hairline, borderColor: colors.primary },
+  pointsText: { ...typography.bodyStrong, color: colors.primary },
   mascotRow: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
   satietyWrap: { flex: 1, gap: space.xs },
   satietyLabelRow: { flexDirection: 'row', justifyContent: 'space-between' },

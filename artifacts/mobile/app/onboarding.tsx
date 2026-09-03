@@ -44,11 +44,11 @@ export default function OnboardingScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>小さな宇宙へようこそ</Text>
+        <Text style={styles.title}>小さな世界へようこそ</Text>
         <Text style={styles.subtitle}>
           あなたのことを少し教えてください。{'\n'}あなたに合わせた居場所を作ります。
         </Text>
-        <ProfileForm submitLabel="宇宙へ出発する" onSubmit={handleSubmit} submitting={saving} />
+        <ProfileForm submitLabel="いっしょにはじめる" onSubmit={handleSubmit} submitting={saving} />
       </ScrollView>
     </View>
   );

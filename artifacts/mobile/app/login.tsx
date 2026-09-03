@@ -30,7 +30,6 @@ function clerkErrorMessage(error: unknown): string {
     session_exists: 'すでにログインしています',
   };
   if (code && map[code]) return map[code];
-  // Fallback: translate common English messages from Clerk
   const raw = first?.longMessage || first?.message || '';
   const textMap: [string, string][] = [
     ["couldn't find your account", 'このメールアドレスは登録されていません。「新規登録」からアカウントを作成してください'],
@@ -44,14 +43,12 @@ function clerkErrorMessage(error: unknown): string {
   for (const [en, ja] of textMap) {
     if (lower.includes(en)) return ja;
   }
-  // If the message is already Japanese, show it; otherwise show a generic Japanese message
   if (/[ぁ-んァ-ン一-龥]/.test(raw)) return raw;
   return raw
     ? `エラーが発生しました。もう一度お試しください（${raw}）`
     : 'エラーが発生しました。もう一度お試しください';
 }
 
-// ── Forgot-password flow (Clerk: email code → new password) ──────────────
 type ResetStep = 'email' | 'code';
 
 function ForgotPasswordModal({
@@ -130,8 +127,6 @@ function ForgotPasswordModal({
         <PressScale style={s.overlay} onPress={handleClose} />
         <View style={[s.sheet, { paddingBottom: Platform.OS === 'web' ? 32 : insets.bottom + 24 }]}>
           <View style={s.handle} />
-
-          {/* Header */}
           <View style={s.sheetHeader}>
             <Text style={s.sheetTitle}>
               {step === 'email' ? 'パスワードを再設定' : 'コードを入力'}
@@ -140,9 +135,7 @@ function ForgotPasswordModal({
               <Icon name="x" size={20} color={colors.subtleForeground} />
             </PressScale>
           </View>
-
           {step === 'email' ? (
-            /* ── Step 1: email ── */
             <View style={s.sheetBody}>
               <Text style={s.sheetSub}>登録したメールアドレスを入力してください。確認コードをメールでお送りします。</Text>
               <TextInput
@@ -166,10 +159,8 @@ function ForgotPasswordModal({
               />
             </View>
           ) : (
-            /* ── Step 2: code + new password ── */
             <View style={s.sheetBody}>
               <Text style={s.sheetSub}>{email} に送られたコードを入力</Text>
-
               <TextInput
                 style={[s.input, s.codeInput]}
                 value={code}
@@ -179,7 +170,6 @@ function ForgotPasswordModal({
                 placeholderTextColor={colors.subtleForeground}
                 maxLength={6}
               />
-
               <Text style={[s.label, { marginTop: 14 }]}>新しいパスワード</Text>
               <TextInput
                 style={s.input}
@@ -189,9 +179,7 @@ function ForgotPasswordModal({
                 placeholder="8文字以上"
                 placeholderTextColor={colors.subtleForeground}
               />
-
               {!!error && <Text style={s.errorText}>{error}</Text>}
-
               <Button
                 label="パスワードを変更する"
                 onPress={handleReset}
@@ -199,7 +187,6 @@ function ForgotPasswordModal({
                 fullWidth
                 style={s.btn}
               />
-
               <PressScale onPress={() => signIn.resetPasswordEmailCode.sendCode()}>
                 <Text style={s.resend}>コードが届かない場合は再送する</Text>
               </PressScale>
@@ -211,7 +198,6 @@ function ForgotPasswordModal({
   );
 }
 
-// ── Login / Register screen ───────────────────────────────────────────────
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -244,7 +230,6 @@ export default function LoginScreen() {
     [router],
   );
 
-  // ── Email / password ──
   const handleSubmit = async () => {
     setError('');
     if (!email.trim() || !password.trim()) {
@@ -283,7 +268,6 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Sign-up: email verification step ──
   const needsVerification =
     tab === 'register' &&
     signUp.status === 'missing_requirements' &&
@@ -301,7 +285,6 @@ export default function LoginScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Mascot */}
           <View style={styles.mascotWrap}>
             <Mascot stage="stage3" mood="happy" size={120} />
             <Image
@@ -309,11 +292,10 @@ export default function LoginScreen() {
               style={styles.titleLogo}
               resizeMode="contain"
             />
-            <Text style={styles.subtitle}>小さな宇宙の、あなたの居場所</Text>
+            <Text style={styles.subtitle}>小さな夢の、あなたの居場所</Text>
           </View>
 
           {needsVerification ? (
-            /* ── Email verification step ── */
             <View style={styles.form}>
               <Text style={styles.verifyTitle}>メールを確認してください</Text>
               <Text style={styles.verifySub}>{email.trim()} に6桁の確認コードを送りました</Text>
@@ -345,7 +327,6 @@ export default function LoginScreen() {
             </View>
           ) : (
             <>
-              {/* Tabs */}
               <View style={styles.tabRow}>
                 {(['login', 'register'] as const).map(t => (
                   <PressScale
@@ -360,7 +341,6 @@ export default function LoginScreen() {
                 ))}
               </View>
 
-              {/* Form */}
               <View style={styles.form}>
                 <Text style={styles.label}>メールアドレス</Text>
                 <TextInput
@@ -416,7 +396,6 @@ export default function LoginScreen() {
                   <Text style={styles.guestButtonText}>ログインせずに始める</Text>
                 </PressScale>
 
-                {/* Required for sign-up flows: Clerk bot protection */}
                 <View nativeID="clerk-captcha" />
               </View>
             </>
@@ -424,7 +403,6 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Forgot-password modal */}
       <ForgotPasswordModal
         visible={showForgot}
         onClose={() => setShowForgot(false)}
@@ -434,7 +412,6 @@ export default function LoginScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   container: {
@@ -451,12 +428,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  /* タブ — 選択は塗りではなく白い面と 1px で示す */
   tabRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.4)',
     ...border.hairline,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     padding: space.xs,
     marginBottom: space.xl,
     width: '100%',
@@ -466,10 +442,10 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: control.heightSm,
     justifyContent: 'center',
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
     alignItems: 'center',
   },
-  tabActive: { backgroundColor: colors.card },
+  tabActive: { backgroundColor: colors.card, ...border.hairline, borderColor: colors.borderOnFill },
   tabText: { ...typography.label, color: colors.mutedForeground },
   tabTextActive: { color: colors.primary },
 
@@ -516,7 +492,6 @@ const styles = StyleSheet.create({
   },
   errorText: { ...typography.caption, color: colors.danger, flexShrink: 1 },
 
-  // 影は付けない。主導線は色だけで十分に立つ。
   submit: { marginTop: space.lg },
   hint: { ...typography.caption, color: colors.success, marginTop: space.md, textAlign: 'center' },
   forgotWrap: {
@@ -531,7 +506,6 @@ const styles = StyleSheet.create({
   guestButtonText: { ...typography.bodyStrong, color: colors.primary, textDecorationLine: 'underline' },
 });
 
-// パスワード再設定シートのスタイル
 const s = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: colors.scrim },
   sheet: {
