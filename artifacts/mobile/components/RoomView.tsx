@@ -114,6 +114,17 @@ export function RoomItemPreview({
 
 const GRASS_IMAGE = require('@/public/grass-hill.png');
 const GRASS_SOURCE = Platform.OS === 'web' ? { uri: '/grass-hill.png' } : GRASS_IMAGE;
+const NO_CLIP = {
+  overflow: 'visible',
+  ...(Platform.OS === 'web'
+    ? {
+        clipPath: 'none',
+        WebkitClipPath: 'none',
+        mask: 'none',
+        WebkitMaskImage: 'none',
+      }
+    : {}),
+} as any;
 
 export function GrassTexture({ style }: { style?: StyleProp<ViewStyle> }) {
   const { height: viewportHeight } = useWindowDimensions();
@@ -159,10 +170,9 @@ export function RoomView({ customization, children, sceneHeight = 300, horizonta
 
 const r = StyleSheet.create({
   scene: {
+    ...NO_CLIP,
     alignSelf: 'stretch',
     position: 'relative',
-    overflow: 'hidden',
-    zIndex: 2,
   },
   grassContainer: {
     position: 'absolute',
@@ -191,6 +201,7 @@ const r = StyleSheet.create({
   },
   characterLayer: {
     ...StyleSheet.absoluteFillObject,
+    ...NO_CLIP,
     alignItems: 'center',
     justifyContent: 'flex-start',
     zIndex: 10,

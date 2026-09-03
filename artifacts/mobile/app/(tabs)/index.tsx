@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Image, Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -46,6 +46,18 @@ const ACTION_TONES = {
   chat: { icon: homePalette.chatIcon },
   play: { icon: homePalette.playIcon },
 } as const;
+
+const NO_CLIP = {
+  overflow: 'visible',
+  ...(Platform.OS === 'web'
+    ? {
+        clipPath: 'none',
+        WebkitClipPath: 'none',
+        mask: 'none',
+        WebkitMaskImage: 'none',
+      }
+    : {}),
+} as any;
 
 function OrbitAction({
   icon,
@@ -446,11 +458,11 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   homeContent: {
+    ...NO_CLIP,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingBottom: 80,
-    overflow: 'hidden',
     position: 'relative',
   },
   header: { zIndex: 2, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
@@ -485,16 +497,18 @@ const styles = StyleSheet.create({
   nameFieldText: { ...typography.body, flex: 1, color: colors.foreground },
   nameFieldPlaceholder: { color: colors.mutedForeground },
 
-  centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' },
+  centerArea: { ...NO_CLIP, flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' },
   sceneStack: {
+    ...NO_CLIP,
     width: '100%',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-end',
     position: 'relative',
   },
-  characterGarden: { width: '100%', position: 'relative' },
+  characterGarden: { ...NO_CLIP, width: '100%', position: 'relative' },
   characterContainer: {
+    ...NO_CLIP,
     width: '100%',
     position: 'relative',
     alignItems: 'center',
@@ -502,6 +516,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   characterMain: {
+    ...NO_CLIP,
     position: 'absolute',
     top: '31%',
     left: '50%',
@@ -511,6 +526,7 @@ const styles = StyleSheet.create({
   },
   companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 11 },
   actionButtonsContainer: {
+    ...NO_CLIP,
     position: 'relative',
     zIndex: 20,
     width: '100%',

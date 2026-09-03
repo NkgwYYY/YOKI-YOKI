@@ -13,6 +13,20 @@ import { Mascot } from '@/components/Mascot';
 import type { MascotStage, MascotMood } from '@/utils/mascotUtils';
 import { getCharacter } from '@/utils/mascotUtils';
 
+const STAGE_LAYOUT_HEIGHT_RATIO = 2.4;
+const STAGE_VIEWPORT_HEIGHT_RATIO = 3.2;
+const STAGE_NO_CLIP = {
+  overflow: 'visible',
+  ...(Platform.OS === 'web'
+    ? {
+        clipPath: 'none',
+        WebkitClipPath: 'none',
+        mask: 'none',
+        WebkitMaskImage: 'none',
+      }
+    : {}),
+} as any;
+
 interface Props {
   stage: MascotStage;
   mood: MascotMood;
@@ -92,7 +106,7 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
 
   /* ── フォールバック(ネイティブ読み込み失敗時)。成長スケールも反映 ── */
   const fallback = (
-    <View style={{ width: size * 1.7, height: size * 2.4, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size * 1.7, height: size * STAGE_LAYOUT_HEIGHT_RATIO, alignItems: 'center', justifyContent: 'center', ...STAGE_NO_CLIP }}>
       <View style={{ transform: [{ scale: growthSize }] }}>
         <Mascot
           stage={stage}
@@ -118,56 +132,63 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
       return fallback;
     }
     return (
-      <View style={{ width: size * 1.7, height: size * 2.4 }}>
-        <WebView
-          ref={webviewRef}
-          source={{ uri: src }}
-          style={{ flex: 1, backgroundColor: 'transparent' }}
-          containerStyle={{ backgroundColor: 'transparent' }}
-          javaScriptEnabled
-          domStorageEnabled={false}
-          scrollEnabled={false}
-          overScrollMode="never"
-          bounces={false}
-          onError={() => setNativeFailed(true)}
-          onHttpError={() => setNativeFailed(true)}
-          onLoadEnd={() => {
-            // ready欠落時の初期同期補強 + ステージ以外のページ(旧ビルド等)を検出してフォールバック
-            sendState();
-            setTimeout(() => {
-              if (!nativeReadyRef.current) setNativeFailed(true);
-            }, 6000);
-          }}
-          onMessage={(e: any) => {
-            try {
-              const d = JSON.parse(e.nativeEvent.data);
-              if (d?.type === 'yokky-stage-ready') {
-                nativeReadyRef.current = true;
-                sendState();
-              }
-            } catch {}
-          }}
-        />
+      <View style={{ width: size * 1.7, height: size * STAGE_LAYOUT_HEIGHT_RATIO, position: 'relative', ...STAGE_NO_CLIP }}>
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: size * STAGE_VIEWPORT_HEIGHT_RATIO, ...STAGE_NO_CLIP }}>
+          <WebView
+            ref={webviewRef}
+            source={{ uri: src }}
+            style={{ flex: 1, backgroundColor: 'transparent' }}
+            containerStyle={{ backgroundColor: 'transparent', ...STAGE_NO_CLIP }}
+            javaScriptEnabled
+            domStorageEnabled={false}
+            scrollEnabled={false}
+            overScrollMode="never"
+            bounces={false}
+            onError={() => setNativeFailed(true)}
+            onHttpError={() => setNativeFailed(true)}
+            onLoadEnd={() => {
+              // ready欠落時の初期同期補強 + ステージ以外のページ(旧ビルド等)を検出してフォールバック
+              sendState();
+              setTimeout(() => {
+                if (!nativeReadyRef.current) setNativeFailed(true);
+              }, 6000);
+            }}
+            onMessage={(e: any) => {
+              try {
+                const d = JSON.parse(e.nativeEvent.data);
+                if (d?.type === 'yokky-stage-ready') {
+                  nativeReadyRef.current = true;
+                  sendState();
+                }
+              } catch {}
+            }}
+          />
+        </View>
       </View>
     );
   }
 
   // Web: 透明iframe。ステージ側が物理・掴み操作を全て処理する
   return (
-    <View style={{ width: size * 1.7, height: size * 2.4 }}>
-      {React.createElement('iframe', {
-        ref: iframeRef,
-        src,
-        title: 'character-stage',
-        style: {
-          width: '100%',
-          height: '100%',
-          border: 'none',
-          background: 'transparent',
-          display: 'block',
-        },
-        scrolling: 'no',
-      })}
+    <View style={{ width: size * 1.7, height: size * STAGE_LAYOUT_HEIGHT_RATIO, position: 'relative', ...STAGE_NO_CLIP }}>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: size * STAGE_VIEWPORT_HEIGHT_RATIO, ...STAGE_NO_CLIP }}>
+        {React.createElement('iframe', {
+          ref: iframeRef,
+          src,
+          title: 'character-stage',
+          style: {
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            background: 'transparent',
+            display: 'block',
+            overflow: 'visible',
+            clipPath: 'none',
+            mask: 'none',
+          },
+          scrolling: 'no',
+        })}
+      </View>
     </View>
   );
 }

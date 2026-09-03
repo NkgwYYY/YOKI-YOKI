@@ -76,16 +76,18 @@ function Stage() {
   }, []);
 
   return (
-    /* キャラは下部に接地させ、上側に「持ち上げ」用のヘッドルームを確保する。
-       svg自体は下55%だが overflow:visible なので持ち上げ中も枠内に描画される */
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', background: 'transparent', overflow: 'hidden' }}>
+    /* 見た目のサイズを保ったまま、拡張されたiframe上部をジャンプ用ヘッドルームに使う。 */
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', background: 'transparent', overflow: 'visible', clipPath: 'none', mask: 'none' }}>
       <div
         style={{
           position: 'absolute',
           bottom: 0,
           left: '50%',
           width: '100%',
-          height: '55%',
+          height: '41.25%',
+          overflow: 'visible',
+          clipPath: 'none',
+          mask: 'none',
           transform: `translateX(-50%) scale(${scale})`,
           transformOrigin: 'center bottom',
           transition: 'transform 4s ease',

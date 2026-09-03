@@ -6,7 +6,17 @@
     <title>キャラクターステージ</title>
     <meta name="robots" content="noindex" />
     <style>
-      html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+      html, body, #root {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        overflow: visible !important;
+        clip-path: none !important;
+        mask: none !important;
+        -webkit-mask: none !important;
+      }
     </style>
   </head>
   <body>
