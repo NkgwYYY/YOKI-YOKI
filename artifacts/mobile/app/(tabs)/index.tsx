@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { border, colors, control, elevation, radius, space, typography } from '@/constants/theme';
 import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
@@ -136,6 +136,7 @@ export default function HomeScreen() {
     companionState, buyEggCompanion,
   } = useApp();
   const todayRecord = getTodayRecord();
+  const { height: viewportHeight } = useWindowDimensions();
 
   const [showMenu, setShowMenu] = useState(false);
   const [showFeed, setShowFeed] = useState(false);
@@ -149,7 +150,11 @@ export default function HomeScreen() {
   const slotPlays = currentSlot ? miniGameState[currentSlot] ?? 0 : MAX_PLAYS_PER_SLOT;
   const canPlay = !!currentSlot && slotPlays < MAX_PLAYS_PER_SLOT;
   const mascotMood = todayRecord ? 'happy' : 'normal';
-  const characterSize = companionState.extraEggs > 0 ? 98 : 112;
+  const compactHome = viewportHeight < 740;
+  const sceneHeight = compactHome ? 270 : 300;
+  const characterSize = companionState.extraEggs > 0
+    ? compactHome ? 88 : 98
+    : compactHome ? 100 : 112;
   const characterFrame = characterSize * 1.7;
   const characterHeight = characterSize * 2.4;
 
@@ -183,7 +188,7 @@ export default function HomeScreen() {
 
   return (
     <>
-      <Screen scroll={false} gap={space.sm} contentStyle={styles.homeContent}>
+      <Screen scroll={false} gap={space.xs} contentStyle={styles.homeContent}>
         <View style={styles.header}>
           <View>
             <Image source={require('@/assets/images/yoki_logo.png')} style={styles.logo} resizeMode="contain" />
@@ -199,6 +204,26 @@ export default function HomeScreen() {
           </PressScale>
         </View>
 
+        <PressScale
+          testID="home-name-field"
+          accessibilityLabel={mascotName ? `なかまの名前・${mascotName}` : 'なまえをいれてね'}
+          onPress={openName}
+          style={styles.nameField}
+        >
+          <Icon name="edit-3" size={iconSize.md} color={colors.subtleForeground} />
+          <Text style={[styles.nameFieldText, !mascotName && styles.nameFieldPlaceholder]} numberOfLines={1}>
+            {mascotName || 'なまえをいれてね'}
+          </Text>
+        </PressScale>
+
+        <View style={styles.topStatusRow}>
+          <HomeSatietyGauge satiety={currentSatiety} />
+          <View style={styles.pointsBalance}>
+            <Icon name="star" size={14} color={colors.primary} />
+            <Text style={styles.pointsBalanceText}>{feedState.points} pt</Text>
+          </View>
+        </View>
+
         <View style={styles.centerArea}>
           <RoomView
             level={progress.level}
@@ -206,8 +231,9 @@ export default function HomeScreen() {
             totalDays={progress.totalDays}
             mascotName={mascotName}
             customization={roomCustomization}
+            sceneHeight={sceneHeight}
           >
-            <View style={styles.characterGarden}>
+            <View style={[styles.characterGarden, { height: sceneHeight }]}>
               <View
                 style={[
                   styles.characterMain,
@@ -260,13 +286,6 @@ export default function HomeScreen() {
               disabled={!canPlay}
               onPress={() => setShowMiniGame(true)}
             />
-          </View>
-          <View style={styles.statusRow}>
-            <HomeSatietyGauge satiety={currentSatiety} />
-            <View style={styles.pointsBalance}>
-              <Icon name="star" size={14} color={colors.primary} />
-              <Text style={styles.pointsBalanceText}>{feedState.points} pt</Text>
-            </View>
           </View>
         </View>
       </Screen>
@@ -384,9 +403,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  nameField: {
+    minHeight: 48,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    ...elevation.raised,
+  },
+  nameFieldText: { ...typography.body, flex: 1, color: colors.foreground },
+  nameFieldPlaceholder: { color: colors.mutedForeground },
 
   centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' },
-  characterGarden: { width: '100%', height: 300, position: 'relative' },
+  characterGarden: { width: '100%', position: 'relative' },
   characterMain: {
     position: 'absolute',
     top: '50%',
@@ -422,6 +455,7 @@ const styles = StyleSheet.create({
   orbitActionLabel: { ...typography.calloutStrong, color: colors.foreground, textAlign: 'center' },
 
   satietyContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
@@ -432,10 +466,10 @@ const styles = StyleSheet.create({
     minHeight: 38,
     ...border.hairline,
   },
-  satietyTrack: { width: 80, height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: 'hidden' },
+  satietyTrack: { flex: 1, minWidth: 80, height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },
   satietyText: { ...typography.micro, color: colors.foreground, width: 28, textAlign: 'right' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, paddingTop: space.md, paddingBottom: space.sm },
+  topStatusRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: space.sm },
   pointsBalance: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -445,6 +479,8 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     gap: space.xs,
     minHeight: 38,
+    minWidth: 74,
+    justifyContent: 'center',
     ...border.hairline,
   },
   pointsBalanceText: { ...typography.micro, color: colors.foreground },

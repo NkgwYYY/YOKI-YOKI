@@ -96,6 +96,10 @@ export const roomPalette = {
   flowerRainbow: '#FFB5DF',
   leaf: '#55D6B0',
   panel: '#F7D8F0',
+  groundTop: '#FFF5F8',
+  groundMid: '#F8D2E2',
+  groundBottom: '#EEA7C5',
+  grassEdge: '#E69ABB',
 } as const;
 
 /* ------------------------------------------------------------------ *

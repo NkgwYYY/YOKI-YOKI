@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
@@ -12,6 +13,7 @@ interface Props {
   streak?: number;
   totalDays?: number;
   mascotName?: string;
+  sceneHeight?: number;
 }
 
 function FlowerIllustration({ color }: { color: string }) {
@@ -110,7 +112,34 @@ export function RoomItemPreview({
   );
 }
 
-export function RoomView({ customization, children }: Props) {
+function GroundGradient() {
+  return (
+    <View style={r.groundWrap} pointerEvents="none">
+      <LinearGradient
+        colors={[roomPalette.groundTop, roomPalette.groundMid, roomPalette.groundBottom]}
+        locations={[0, 0.36, 1]}
+        style={r.groundGradient}
+      />
+      <View style={r.grassEdge}>
+        {Array.from({ length: 18 }).map((_, index) => (
+          <View
+            key={index}
+            style={[
+              r.grassBlade,
+              {
+                left: `${(index / 17) * 100}%`,
+                height: 6 + (index % 3) * 3,
+                transform: [{ rotate: index % 2 === 0 ? '-14deg' : '14deg' }],
+              },
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+export function RoomView({ customization, children, sceneHeight = 300 }: Props) {
   const flowerColor = customization.flower === 'violet'
     ? roomPalette.flowerViolet
     : customization.flower === 'rainbow'
@@ -118,7 +147,8 @@ export function RoomView({ customization, children }: Props) {
       : roomPalette.flowerPink;
 
   return (
-    <View style={r.scene}>
+    <View style={[r.scene, { height: sceneHeight }]}>
+      <GroundGradient />
       {customization.flower !== 'none' ? (
         <View style={r.flowerPosition}><FlowerIllustration color={flowerColor} /></View>
       ) : null}
@@ -137,10 +167,13 @@ export function RoomView({ customization, children }: Props) {
 const r = StyleSheet.create({
   scene: {
     width: '100%',
-    height: 300,
     position: 'relative',
     overflow: 'hidden',
   },
+  groundWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 124, zIndex: 0 },
+  groundGradient: { ...StyleSheet.absoluteFillObject },
+  grassEdge: { position: 'absolute', top: -3, left: 0, right: 0, height: 16, flexDirection: 'row', justifyContent: 'space-between' },
+  grassBlade: { position: 'absolute', width: 3, borderRadius: 3, backgroundColor: roomPalette.grassEdge, transformOrigin: 'bottom' },
   characterLayer: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
