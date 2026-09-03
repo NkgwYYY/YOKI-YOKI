@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { border, colors, control, radius, space, typography } from '@/constants/theme';
+import { border, colors, control, elevation, radius, space, typography } from '@/constants/theme';
 import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
@@ -52,7 +52,7 @@ function OrbitAction({
   onPress: () => void;
   disabled?: boolean;
   testID: string;
-  style: object;
+  style?: object;
 }) {
   return (
     <PressScale
@@ -149,7 +149,7 @@ export default function HomeScreen() {
   const slotPlays = currentSlot ? miniGameState[currentSlot] ?? 0 : MAX_PLAYS_PER_SLOT;
   const canPlay = !!currentSlot && slotPlays < MAX_PLAYS_PER_SLOT;
   const mascotMood = todayRecord ? 'happy' : 'normal';
-  const characterSize = companionState.extraEggs > 0 ? 92 : 104;
+  const characterSize = companionState.extraEggs > 0 ? 98 : 112;
   const characterFrame = characterSize * 1.7;
   const characterHeight = characterSize * 2.4;
 
@@ -231,39 +231,36 @@ export default function HomeScreen() {
                   <StageCharacter stage="egg" mood="happy" size={58} growthSize={0.78} />
                 </View>
               ) : null}
-
-              <OrbitAction
-                testID="home-feed"
-                icon="coffee"
-                label="ごはん"
-                onPress={() => setShowFeed(true)}
-                style={styles.orbitFeed}
-              />
-              <OrbitAction
-                testID="home-record"
-                icon="edit-3"
-                label={todayRecord ? '記録を見る' : '記録する'}
-                onPress={() => router.push('/(tabs)/record')}
-                style={styles.orbitRecord}
-              />
-              <OrbitAction
-                testID="home-chat"
-                icon="message-circle"
-                label="チャット"
-                onPress={() => router.push('/(tabs)/chat')}
-                style={styles.orbitChat}
-              />
-              <OrbitAction
-                testID="home-game"
-                icon="star"
-                illustration={<GameBoardIllustration size={46} />}
-                label="あそぶ"
-                disabled={!canPlay}
-                onPress={() => setShowMiniGame(true)}
-                style={styles.orbitGame}
-              />
             </View>
           </RoomView>
+          <View style={styles.actionRow}>
+            <OrbitAction
+              testID="home-feed"
+              icon="coffee"
+              label="ごはん"
+              onPress={() => setShowFeed(true)}
+            />
+            <OrbitAction
+              testID="home-record"
+              icon="edit-3"
+              label="記録"
+              onPress={() => router.push('/(tabs)/record')}
+            />
+            <OrbitAction
+              testID="home-chat"
+              icon="message-circle"
+              label="チャット"
+              onPress={() => router.push('/(tabs)/chat')}
+            />
+            <OrbitAction
+              testID="home-game"
+              icon="star"
+              illustration={<GameBoardIllustration size={42} />}
+              label="あそぶ"
+              disabled={!canPlay}
+              onPress={() => setShowMiniGame(true)}
+            />
+          </View>
           <View style={styles.statusRow}>
             <HomeSatietyGauge satiety={currentSatiety} />
             <View style={styles.pointsBalance}>
@@ -383,14 +380,13 @@ const styles = StyleSheet.create({
     width: control.icon,
     height: control.icon,
     borderRadius: radius.pill,
-    backgroundColor: colors.card,
-    ...border.hairline,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' },
-  characterGarden: { width: '100%', height: 310, position: 'relative' },
+  characterGarden: { width: '100%', height: 300, position: 'relative' },
   characterMain: {
     position: 'absolute',
     top: '50%',
@@ -400,25 +396,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 4 },
+  actionRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    columnGap: space.sm,
+    marginTop: space.sm,
+  },
   orbitAction: {
-    position: 'absolute',
-    zIndex: 12,
-    width: 72,
-    height: 68,
-    borderRadius: 18,
-    backgroundColor: 'transparent',
-    borderWidth: 0,
+    flex: 1,
+    minWidth: 0,
+    maxWidth: 92,
+    height: 88,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+    ...border.hairline,
+    ...elevation.raised,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    paddingHorizontal: 0,
+    gap: space.xs,
+    paddingHorizontal: space.xs,
   },
   orbitActionDisabled: { opacity: 0.45 },
-  orbitActionLabel: { ...typography.micro, color: colors.foreground, fontFamily: 'Inter_600SemiBold' },
-  orbitFeed: { left: 0, top: 28 },
-  orbitRecord: { left: 0, top: 120 },
-  orbitChat: { left: 0, top: 212 },
-  orbitGame: { right: 0, top: 120 },
+  orbitActionLabel: { ...typography.calloutStrong, color: colors.foreground, textAlign: 'center' },
 
   satietyContainer: {
     flexDirection: 'row',
@@ -434,7 +435,7 @@ const styles = StyleSheet.create({
   satietyTrack: { width: 80, height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },
   satietyText: { ...typography.micro, color: colors.foreground, width: 28, textAlign: 'right' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, paddingTop: 2, paddingBottom: space.sm },
+  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, paddingTop: space.md, paddingBottom: space.sm },
   pointsBalance: {
     flexDirection: 'row',
     alignItems: 'center',

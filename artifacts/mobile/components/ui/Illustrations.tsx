@@ -106,7 +106,7 @@ export function GameBoardIllustration({ size = 48 }: { size?: number }) {
           borderRadius: size,
           backgroundColor: colors.success,
           borderWidth: 1,
-          borderColor: '#FFFFFF',
+           borderColor: colors.card,
         }} />
       </View>
     </View>

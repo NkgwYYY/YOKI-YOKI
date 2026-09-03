@@ -137,7 +137,7 @@ export function RoomView({ customization, children }: Props) {
 const r = StyleSheet.create({
   scene: {
     width: '100%',
-    height: 310,
+    height: 300,
     position: 'relative',
     overflow: 'hidden',
   },
