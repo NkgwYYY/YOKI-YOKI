@@ -77,11 +77,11 @@ function OrbitAction({
     >
       <LinearGradient
         colors={[
-          'rgba(255, 255, 255, 0.9)',
-          'rgba(255, 194, 232, 0.76)',
-          'rgba(185, 220, 255, 0.78)',
-          'rgba(220, 190, 255, 0.82)',
-          'rgba(255, 255, 255, 0.9)',
+          'rgba(255, 255, 255, 0.55)',
+          'rgba(255, 194, 232, 0.2)',
+          'rgba(185, 220, 255, 0.15)',
+          'rgba(220, 190, 255, 0.2)',
+          'rgba(255, 255, 255, 0.55)',
         ]}
         start={{ x: 0.08, y: 0.08 }}
         end={{ x: 0.92, y: 0.92 }}
@@ -528,11 +528,13 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 999,
     padding: 1.5,
-    shadowColor: '#D9C5FF',
-    shadowOpacity: 0.72,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    shadowColor: 'rgba(0, 0, 0, 0.02)',
+    shadowOpacity: 1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   orbitBubbleSurface: {
     flex: 1,
