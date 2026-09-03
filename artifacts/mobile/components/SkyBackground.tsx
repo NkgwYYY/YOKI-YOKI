@@ -107,10 +107,10 @@ export function SkyBackground() {
   const isSunset = hour >= 16 && hour < 19;
 
   const gradientColors = isNight
-    ? ['#E8DEF8', '#D4C4F0', '#C1AAE4']
+    ? ['#8E70C4', '#6B55A2', '#49377D']
     : isSunset
-    ? ['#FFF0F5', '#F3D8EE', '#E2D1F9']
-    : ['#FFFFFF', '#FDF8FF', '#F3EAFB'];
+    ? ['#F09BC9', '#C47DE4', '#9C6DCE']
+    : ['#D7B6F0', '#E69ACA', '#C58AE2'];
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -143,7 +143,7 @@ export function SkyBackground() {
           marginLeft: -200,
           borderRadius: 200,
           backgroundColor: '#FFFFFF',
-          opacity: isNight ? 0.1 : 0.3,
+          opacity: isNight ? 0.08 : 0.14,
           transform: [{ scale: 2 }],
         }}
       />

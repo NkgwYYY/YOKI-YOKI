@@ -211,32 +211,32 @@ export default function HomeScreen() {
             <View style={styles.speechTail} />
           </View>
 
-          <View style={styles.characterGarden}>
-            <StageCharacter
-              stage={getMascotStage(progress.level)}
-              mood={mascotMood}
-              size={companionState.extraEggs > 0 ? 102 : 120}
-              growthSize={growth.growthSize}
-            />
-            {companionState.extraEggs > 0 ? (
-              <View style={styles.companionEgg}>
-                <StageCharacter stage="egg" mood="happy" size={76} growthSize={0.82} />
-                <Text style={styles.companionLabel}>あたらしい仲間</Text>
-              </View>
-            ) : null}
-          </View>
+          <RoomView
+            level={progress.level}
+            streak={progress.streak}
+            totalDays={progress.totalDays}
+            mascotName={mascotName}
+            customization={roomCustomization}
+            onOpenCustomize={() => { setShopMessage(''); setShowAtelier(true); }}
+          >
+            <View style={styles.characterGarden}>
+              <StageCharacter
+                stage={getMascotStage(progress.level)}
+                mood={mascotMood}
+                size={companionState.extraEggs > 0 ? 102 : 120}
+                growthSize={growth.growthSize}
+              />
+              {companionState.extraEggs > 0 ? (
+                <View style={styles.companionEgg}>
+                  <StageCharacter stage="egg" mood="happy" size={76} growthSize={0.82} />
+                  <Text style={styles.companionLabel}>あたらしい仲間</Text>
+                </View>
+              ) : null}
+            </View>
+          </RoomView>
 
           <HomeSatietyGauge satiety={currentSatiety} />
         </View>
-
-        <RoomView
-          level={progress.level}
-          streak={progress.streak}
-          totalDays={progress.totalDays}
-          mascotName={mascotName}
-          customization={roomCustomization}
-          onOpenCustomize={() => { setShopMessage(''); setShowAtelier(true); }}
-        />
 
         <View style={styles.actionsGrid}>
           <HomeActionModule

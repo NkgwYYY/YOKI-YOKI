@@ -20,6 +20,7 @@ interface Props {
   mascotName?: string;
   customization?: RoomCustomization;
   onOpenCustomize?: () => void;
+  children?: React.ReactNode;
 }
 
 function getSky(hour: number, month: number): string {
@@ -55,6 +56,7 @@ export function RoomView({
   mascotName,
   customization,
   onOpenCustomize,
+  children,
 }: Props) {
   const hour = new Date().getHours();
   const month = new Date().getMonth() + 1;
@@ -99,45 +101,47 @@ export function RoomView({
         ) : null}
       </View>
 
-      <View style={r.wallArea}>
-        <View style={[r.window, { backgroundColor: isNight ? roomPalette.windowNight : roomPalette.window }]}>
-          <Text style={r.windowSky}>{getSky(hour, month)}</Text>
-          {streak >= 3 ? <Animated.Text style={[r.windowFlower, { color: flowerColor }]}>✦</Animated.Text> : null}
-          <Text style={r.windowSeasonal}>{getSeasonal(month)}</Text>
-        </View>
-        <View style={r.wallDeco}>
-          <View style={r.wallCard}>
-            <Text style={r.wallCardSpark}>✦</Text>
-            <Text style={r.wallCardText}>{hasPicture ? '今日のきらめき' : 'YOUR LITTLE SPACE'}</Text>
+      <View style={r.room}>
+        <View style={r.wallArea}>
+          <View style={[r.window, { backgroundColor: isNight ? roomPalette.windowNight : roomPalette.window }]}>
+            <Text style={r.windowSky}>{getSky(hour, month)}</Text>
+            {streak >= 3 ? <Animated.Text style={[r.windowFlower, { color: flowerColor }]}>✦</Animated.Text> : null}
+            <Text style={r.windowSeasonal}>{getSeasonal(month)}</Text>
           </View>
-          {hasBookshelf ? <RoomItem emoji="✿" size={24} delay={180} /> : null}
-          {level >= 4 ? <RoomItem emoji="♫" size={23} delay={260} /> : null}
-          {level >= 6 ? <RoomItem emoji="✧" size={27} delay={340} /> : null}
-        </View>
-      </View>
-
-      <View style={r.floorLine} />
-      <View style={r.floorArea}>
-        <View style={r.floorItems}>
-          <View style={r.rug} />
-          <View style={r.plant}>
-            <Text style={[r.flower, { color: flowerColor }]}>{room.flower === 'rainbow' ? '✿' : '✦'}</Text>
-            <View style={[r.stem, { backgroundColor: roomPalette.leaf }]} />
-            {hasPlant ? <View style={[r.leaf, { backgroundColor: roomPalette.leaf }]} /> : null}
-          </View>
-          <View style={[r.furniture, { backgroundColor: furnitureColor }]}>
-            {room.furniture === 'bookshelf' ? (
-              <><View style={r.shelfLine} /><View style={r.shelfLine} /><View style={r.shelfLine} /></>
-            ) : room.furniture === 'vanity' ? (
-              <><View style={r.mirror} /><View style={r.tableLine} /></>
-            ) : (
-              <><View style={r.sofaBack} /><View style={r.sofaSeat} /></>
-            )}
-          </View>
-          <View style={r.floorSparkles}>
-            <Text style={r.sparkle}>✦</Text><Text style={r.sparkle}>·</Text><Text style={r.sparkle}>✧</Text>
+          <View style={r.wallDeco}>
+            <View style={r.wallCard}>
+              <Text style={r.wallCardSpark}>✦</Text>
+              <Text style={r.wallCardText}>{hasPicture ? '今日のきらめき' : 'YOUR LITTLE SPACE'}</Text>
+            </View>
+            {hasBookshelf ? <RoomItem emoji="✿" size={24} delay={180} /> : null}
+            {level >= 4 ? <RoomItem emoji="♫" size={23} delay={260} /> : null}
+            {level >= 6 ? <RoomItem emoji="✧" size={27} delay={340} /> : null}
           </View>
         </View>
+        <View style={r.floorLine} />
+        <View style={r.floorArea}>
+          <View style={r.floorItems}>
+            <View style={r.rug} />
+            <View style={r.plant}>
+              <Text style={[r.flower, { color: flowerColor }]}>{room.flower === 'rainbow' ? '✿' : '✦'}</Text>
+              <View style={[r.stem, { backgroundColor: roomPalette.leaf }]} />
+              {hasPlant ? <View style={[r.leaf, { backgroundColor: roomPalette.leaf }]} /> : null}
+            </View>
+            <View style={[r.furniture, { backgroundColor: furnitureColor }]}>
+              {room.furniture === 'bookshelf' ? (
+                <><View style={r.shelfLine} /><View style={r.shelfLine} /><View style={r.shelfLine} /></>
+              ) : room.furniture === 'vanity' ? (
+                <><View style={r.mirror} /><View style={r.tableLine} /></>
+              ) : (
+                <><View style={r.sofaBack} /><View style={r.sofaSeat} /></>
+              )}
+            </View>
+            <View style={r.floorSparkles}>
+              <Text style={r.sparkle}>✦</Text><Text style={r.sparkle}>·</Text><Text style={r.sparkle}>✧</Text>
+            </View>
+          </View>
+        </View>
+        <View style={r.characterLayer} pointerEvents="box-none">{children}</View>
       </View>
 
       <View style={r.progressRow}>
@@ -176,14 +180,16 @@ const r = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  room: { width: '100%', height: 286, position: 'relative' },
   wallArea: {
+    position: 'absolute', top: 0, left: 0, right: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 14,
     paddingTop: 8,
     paddingBottom: 12,
     gap: 12,
-    minHeight: 126,
+    height: 211,
     backgroundColor: roomPalette.wallLight,
   },
   window: {
@@ -222,11 +228,12 @@ const r = StyleSheet.create({
   },
   wallCardSpark: { color: '#FFFFFF', fontSize: 18 },
   wallCardText: { color: '#FFFFFF', fontSize: 8, fontFamily: 'Inter_700Bold', letterSpacing: 0.8 },
-  floorLine: { height: 3, width: '100%', backgroundColor: roomPalette.floorLine },
+  floorLine: { position: 'absolute', left: 0, right: 0, bottom: 75, height: 3, backgroundColor: roomPalette.floorLine },
   floorArea: {
+    position: 'absolute', left: 0, right: 0, bottom: 0,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    minHeight: 76,
+    height: 75,
     justifyContent: 'center',
     backgroundColor: roomPalette.floor,
   },
@@ -244,6 +251,13 @@ const r = StyleSheet.create({
   shelfLine: { height: 7, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)', marginBottom: 3 },
   floorSparkles: { flexDirection: 'row', gap: 4, alignItems: 'center', marginLeft: 'auto', alignSelf: 'center' },
   sparkle: { color: '#FCE9FA', fontSize: 15 },
+  characterLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 2,
+    zIndex: 4,
+  },
   progressRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16, paddingBottom: 12, paddingTop: 3 },
   hint: { fontSize: 11, fontFamily: 'Inter_500Medium', color: '#FCE9FA' },
 });
