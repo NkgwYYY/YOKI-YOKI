@@ -242,7 +242,6 @@ export default function HomeScreen() {
           <View style={styles.sceneStack}>
             <GrassTexture
               fill
-              softEdge
               style={[styles.homeGrass, { top: Math.max(0, sceneHeight - 200) }]}
             />
             <RoomView
@@ -457,9 +456,6 @@ const styles = StyleSheet.create({
     right: -space.xl,
     bottom: -120,
     zIndex: 0,
-    overflow: 'hidden',
-    borderTopLeftRadius: 180,
-    borderTopRightRadius: 180,
   },
   characterGarden: { width: '100%', position: 'relative' },
   characterMain: {

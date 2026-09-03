@@ -117,37 +117,16 @@ const WEB_GRASS_BACKGROUND = Platform.OS === 'web'
   ? ({
       backgroundImage: "url('/grass.png')",
       backgroundRepeat: 'repeat-x',
-      backgroundSize: 'auto 100%',
-      backgroundPosition: 'left bottom',
-    } as unknown as ViewStyle)
-  : undefined;
-const WEB_GRASS_SOFT_EDGE = Platform.OS === 'web'
-  ? ({
-      WebkitMaskImage: [
-        'radial-gradient(ellipse 66% 30px at 50% 30px, #000 84%, rgba(0,0,0,0.8) 92%, transparent 100%)',
-        'linear-gradient(#000, #000)',
-      ].join(', '),
-      maskImage: [
-        'radial-gradient(ellipse 66% 30px at 50% 30px, #000 84%, rgba(0,0,0,0.8) 92%, transparent 100%)',
-        'linear-gradient(#000, #000)',
-      ].join(', '),
-      WebkitMaskSize: '100% 60px, 100% calc(100% - 27px)',
-      maskSize: '100% 60px, 100% calc(100% - 27px)',
-      WebkitMaskPosition: 'center top, center bottom',
-      maskPosition: 'center top, center bottom',
-      WebkitMaskRepeat: 'no-repeat',
-      maskRepeat: 'no-repeat',
-      filter: 'drop-shadow(0 -3px 5px rgba(255, 166, 196, 0.36))',
+      backgroundSize: 'contain',
+      backgroundPosition: 'bottom center',
     } as unknown as ViewStyle)
   : undefined;
 
 export function GrassTexture({
   fill = false,
-  softEdge = false,
   style,
 }: {
   fill?: boolean;
-  softEdge?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   return (
@@ -156,7 +135,6 @@ export function GrassTexture({
       style={[
         fill ? r.grassFill : r.grassContainer,
         WEB_GRASS_BACKGROUND,
-        softEdge ? WEB_GRASS_SOFT_EDGE : undefined,
         style,
       ]}
     >
@@ -202,8 +180,8 @@ const r = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  grassContainer: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200, overflow: 'hidden' },
-  grassFill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, overflow: 'hidden' },
+  grassContainer: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200 },
+  grassFill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   grassNativeImage: { ...StyleSheet.absoluteFillObject },
   landingShadow: {
     position: 'absolute',
