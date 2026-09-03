@@ -271,7 +271,7 @@ export default function HomeScreen() {
                 icon="coffee"
                 tone="food"
                 label="ごはん"
-                style={{ position: 'absolute', left: '5%', top: 50, width: '20%' }}
+                style={{ position: 'absolute', left: '5%', top: 50, width: '20%', zIndex: 21 }}
                 onPress={() => setShowFeed(true)}
               />
               <OrbitAction
@@ -279,7 +279,7 @@ export default function HomeScreen() {
                 icon="edit-3"
                 tone="record"
                 label="記録"
-                style={{ position: 'absolute', left: '29%', top: 10, width: '20%' }}
+                style={{ position: 'absolute', left: '29%', top: 10, width: '20%', zIndex: 21 }}
                 onPress={() => router.push('/(tabs)/record')}
               />
               <OrbitAction
@@ -287,7 +287,7 @@ export default function HomeScreen() {
                 icon="message-circle"
                 tone="chat"
                 label="チャット"
-                style={{ position: 'absolute', left: '53%', top: 10, width: '20%' }}
+                style={{ position: 'absolute', left: '53%', top: 10, width: '20%', zIndex: 21 }}
                 onPress={() => router.push('/(tabs)/chat')}
               />
               <OrbitAction
@@ -297,7 +297,7 @@ export default function HomeScreen() {
                 illustration={<GameBoardIllustration size={42} tone="play" />}
                 label="あそぶ"
                 disabled={!canPlay}
-                style={{ position: 'absolute', left: '77%', top: 50, width: '20%' }}
+                style={{ position: 'absolute', left: '77%', top: 50, width: '20%', zIndex: 21 }}
                 onPress={() => setShowMiniGame(true)}
               />
             </View>
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 11 },
   actionButtonsContainer: {
     position: 'relative',
-    zIndex: 10,
+    zIndex: 20,
     width: '100%',
     left: 0,
     height: 120,
