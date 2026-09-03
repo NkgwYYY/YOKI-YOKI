@@ -123,7 +123,7 @@ export function GrassTexture({ style }: { style?: StyleProp<ViewStyle> }) {
       pointerEvents="none"
       style={[
         r.grassContainer,
-        { height: Math.max(viewportHeight * 0.28, 230) },
+        { height: Math.max(viewportHeight * 0.22, 200) },
         style,
       ]}
     >
@@ -172,7 +172,7 @@ const r = StyleSheet.create({
     zIndex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    transform: [{ translateY: 78 }],
+    transform: [{ translateY: 125 }],
   },
   grassImage: {
     width: '100%',
