@@ -114,28 +114,27 @@ export function RoomItemPreview({
   );
 }
 
-const GRASS_VIEWBOX_WIDTH = 320;
+const GRASS_VIEWBOX_WIDTH = 1200;
 const GRASS_VIEWBOX_HEIGHT = 24;
-const GRASS_BASE_Y = 16;
-const GRASS_TOOTH_WIDTHS = [3, 2, 4, 3, 2, 3, 4, 2, 3, 3, 4, 2, 3, 2, 4, 3];
+const GRASS_TOOTH_WIDTHS = [11, 8, 14, 10, 13, 9, 12, 14, 8, 11, 13, 9, 12, 10, 14, 8];
 const GRASS_TOOTH_HEIGHTS = [6, 4, 7, 5, 8, 5, 6, 4, 7, 5, 8, 4, 6, 5, 7, 4];
 
-function createGrassPath() {
+function createGrassPath(baseY: number, peakOffset = 0) {
   let x = 0;
   let tooth = 0;
-  let path = `M 0 ${GRASS_VIEWBOX_HEIGHT} L 0 ${GRASS_BASE_Y}`;
+  let path = `M 0 ${GRASS_VIEWBOX_HEIGHT} L 0 ${baseY}`;
 
   while (x < GRASS_VIEWBOX_WIDTH) {
     const remaining = GRASS_VIEWBOX_WIDTH - x;
     const width = Math.min(GRASS_TOOTH_WIDTHS[tooth % GRASS_TOOTH_WIDTHS.length], remaining);
     if (width < 2) {
-      path += ` L ${GRASS_VIEWBOX_WIDTH} ${GRASS_BASE_Y}`;
+      path += ` L ${GRASS_VIEWBOX_WIDTH} ${baseY}`;
       break;
     }
     const peakX = x + width / 2;
     const nextX = x + width;
-    const peakY = GRASS_BASE_Y - GRASS_TOOTH_HEIGHTS[tooth % GRASS_TOOTH_HEIGHTS.length];
-    path += ` L ${peakX} ${peakY} L ${nextX} ${GRASS_BASE_Y}`;
+    const peakY = baseY - GRASS_TOOTH_HEIGHTS[tooth % GRASS_TOOTH_HEIGHTS.length] + peakOffset;
+    path += ` L ${peakX} ${peakY} L ${nextX} ${baseY}`;
     x = nextX;
     tooth += 1;
   }
@@ -143,7 +142,8 @@ function createGrassPath() {
   return `${path} L ${GRASS_VIEWBOX_WIDTH} ${GRASS_VIEWBOX_HEIGHT} Z`;
 }
 
-const GRASS_PATH = createGrassPath();
+const BACK_GRASS_PATH = createGrassPath(15, -1);
+const FRONT_GRASS_PATH = createGrassPath(16);
 
 function GrassBoundary() {
   return (
@@ -154,7 +154,8 @@ function GrassBoundary() {
         viewBox={`0 0 ${GRASS_VIEWBOX_WIDTH} ${GRASS_VIEWBOX_HEIGHT}`}
         preserveAspectRatio="none"
       >
-        <Path d={GRASS_PATH} fill={homePalette.groundTop} />
+        <Path d={BACK_GRASS_PATH} fill={homePalette.grassBack} opacity={0.6} />
+        <Path d={FRONT_GRASS_PATH} fill={homePalette.groundTop} />
       </Svg>
     </View>
   );
