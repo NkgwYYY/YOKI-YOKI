@@ -3,7 +3,7 @@ name: YOKI YOKI home direction
 description: Durable visual and interaction rules for the mobile app home screen.
 ---
 
-Keep the home as one seamless scene: a light lavender upper background with pale-pink image grass at the character's feet. The grass must fill the lower half edge-to-edge and meet the bottom navigation without side or bottom gaps. Overlay the four main actions on the hill rather than placing them below it. Do not place a translucent capsule or aura behind the character, or a flat-color panel behind the main actions. Furniture and flowers appear only after purchase. The main actions stay visible below the character within one screen.
+Keep the home as one seamless scene: a light lavender upper background with pale-pink image grass at the character's feet. The grass must fill the lower area edge-to-edge and meet the bottom navigation without side or bottom gaps, but stay low enough that its central crest does not cover the character. The character always renders above the grass and sits lightly on that central crest. Overlay the four main actions on the hill rather than placing them below it. Do not place a translucent capsule or aura behind the character, or a flat-color panel behind the main actions. Furniture and flowers appear only after purchase. The main actions stay visible below the character within one screen.
 
 Use one shared currency name, 「きらめきポイント」, for food, furniture, flowers, and additional companions.
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -19,6 +19,7 @@ import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { initAnalytics } from '@/utils/analytics';
+import { StartupLoadingOverlay } from '@/components/StartupLoadingOverlay';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -115,10 +116,11 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
               <AppProvider>
-                <GestureHandlerRootView>
+                <GestureHandlerRootView style={styles.root}>
                   <KeyboardProvider>
                     <RootLayoutNav />
                   </KeyboardProvider>
+                  <StartupLoadingOverlay />
                 </GestureHandlerRootView>
               </AppProvider>
             </AuthProvider>
@@ -128,3 +130,7 @@ export default function RootLayout() {
     </ClerkProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});

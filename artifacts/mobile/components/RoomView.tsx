@@ -123,7 +123,7 @@ export function GrassTexture({ style }: { style?: StyleProp<ViewStyle> }) {
       pointerEvents="none"
       style={[
         r.grassContainer,
-        { height: Math.max(viewportHeight * 0.55, 320) },
+        { height: Math.max(viewportHeight * 0.34, 260) },
         style,
       ]}
     >
@@ -172,6 +172,7 @@ const r = StyleSheet.create({
     zIndex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    transform: [{ translateY: 52 }],
   },
   grassImage: {
     width: '100%',
@@ -192,7 +193,7 @@ const r = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    zIndex: 3,
+    zIndex: 10,
   },
   flowerPosition: { position: 'absolute', left: 8, bottom: 27, zIndex: 1 },
   furniturePosition: { position: 'absolute', right: 3, bottom: 20, zIndex: 1 },

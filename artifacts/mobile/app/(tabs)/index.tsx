@@ -451,13 +451,13 @@ const styles = StyleSheet.create({
   characterGarden: { width: '100%', position: 'relative' },
   characterMain: {
     position: 'absolute',
-    top: '50%',
+    top: '47%',
     left: '50%',
-    zIndex: 3,
+    zIndex: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 4 },
+  companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 11 },
   actionRow: {
     position: 'absolute',
     left: 0,
