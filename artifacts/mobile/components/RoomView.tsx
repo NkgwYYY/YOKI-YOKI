@@ -1,237 +1,249 @@
 /**
- * RoomView — ユーザーの成長で少しずつ家具・植物・飾りが増える部屋
- *
- * アンロック条件:
- *  記録日数  3d: 小さな植物　7d: 鉢植え　14d: 本棚　21d: 猫　30d: 机　60d: トロフィー
- *  連続日数  3d: 窓辺の花　 7d: ラグ    14d: ランプ
- *  レベル    2: 絵画　      4: 音楽飾り  6: 星飾り
- *  季節      春:桜　夏:ひまわり　秋:もみじ　冬:雪
- *  時間帯    窓の外の空が変わる
+ * ホームに表示する小さなアトリエ。
+ * 家具と花は購入・選択状態を持ち、日々の記録で増える飾りと一緒に部屋を育てる。
  */
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withDelay, withSpring,
 } from 'react-native-reanimated';
+import { control, elevation, roomPalette, radius } from '@/constants/theme';
+import { PressScale } from '@/components/ui/PressScale';
+import { Icon, iconSize } from '@/components/ui/Icon';
+import type { RoomCustomization, RoomFlower, RoomFurniture } from '@/contexts/AppContext';
 
 interface Props {
   level: number;
   streak: number;
   totalDays: number;
   mascotName?: string;
+  customization?: RoomCustomization;
+  onOpenCustomize?: () => void;
 }
 
-/* ── helpers ── */
 function getSky(hour: number, month: number): string {
-  // seasonal override at night/dusk
-  if (hour >= 22 || hour < 5)  return month >= 12 || month <= 2 ? '🌨️' : '🌙';
-  if (hour >= 5  && hour < 8)  return '🌅';
+  if (hour >= 22 || hour < 5) return month >= 12 || month <= 2 ? '🌨️' : '🌙';
+  if (hour >= 5 && hour < 8) return '🌅';
   if (hour >= 18 && hour < 21) return '🌇';
-  // daytime sky by season
-  if (month >= 3  && month <= 5)  return '🌸';
-  if (month >= 6  && month <= 8)  return '☀️';
-  if (month >= 9  && month <= 11) return '🍂';
-  return '❄️'; // winter
+  if (month >= 3 && month <= 5) return '🌸';
+  if (month >= 6 && month <= 8) return '☀️';
+  if (month >= 9 && month <= 11) return '🍂';
+  return '❄️';
 }
 
 function getSeasonal(month: number): string {
-  if (month >= 3  && month <= 5)  return '🌸';
-  if (month >= 6  && month <= 8)  return '🌻';
-  if (month >= 9  && month <= 11) return '🍁';
+  if (month >= 3 && month <= 5) return '🌸';
+  if (month >= 6 && month <= 8) return '🌻';
+  if (month >= 9 && month <= 11) return '🍁';
   return '⛄';
 }
 
-/* ── animated item ── */
 function RoomItem({ emoji, size = 28, delay = 0 }: { emoji: string; size?: number; delay?: number }) {
   const scale = useSharedValue(0);
   useEffect(() => {
     scale.value = withDelay(delay, withSpring(1, { damping: 10, stiffness: 180 }));
   }, []);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  return (
-    <Animated.Text style={[{ fontSize: size }, style]}>{emoji}</Animated.Text>
-  );
+  return <Animated.Text style={[{ fontSize: size }, style]}>{emoji}</Animated.Text>;
 }
 
-export function RoomView({ level, streak, totalDays, mascotName }: Props) {
-  const isDark = useColorScheme() === 'dark';
-  const hour  = new Date().getHours();
+export function RoomView({
+  level,
+  streak,
+  totalDays,
+  mascotName,
+  customization,
+  onOpenCustomize,
+}: Props) {
+  const hour = new Date().getHours();
   const month = new Date().getMonth() + 1;
-
-  const sky      = getSky(hour, month);
-  const seasonal = getSeasonal(month);
-
-  /* ── unlocks ── */
-  const hasPlantSmall  = totalDays >= 3;
-  const hasPlantBig    = totalDays >= 7;
-  const hasBookshelf   = totalDays >= 14;
-  const hasCat         = totalDays >= 21;
-  const hasDesk        = totalDays >= 30;
-  const hasTrophy      = totalDays >= 60;
-
-  const hasWindowFlower = streak >= 3;
-  const hasRug          = streak >= 7;
-  const hasLamp         = streak >= 14;
-
-  const hasPicture      = level >= 2;
-  const hasMusic        = level >= 4;
-  const hasStar         = level >= 6;
-
-  /* ── wall slots (right of window) ── */
-  const wallItems: Array<{ emoji: string; delay: number }> = [];
-  if (hasPicture)    wallItems.push({ emoji: '🖼️',  delay: 100 });
-  if (hasBookshelf)  wallItems.push({ emoji: '📚',  delay: 200 });
-  if (hasMusic)      wallItems.push({ emoji: '🎵',  delay: 300 });
-  if (hasTrophy)     wallItems.push({ emoji: '🏆',  delay: 400 });
-  if (hasStar)       wallItems.push({ emoji: '✨',  delay: 500 });
-
-  /* ── floor slots ── */
-  const floorItems: Array<{ emoji: string; delay: number }> = [];
-  if (hasRug)          floorItems.push({ emoji: '🟤',  delay: 0   });  // placeholder rug
-  if (hasPlantBig)     floorItems.push({ emoji: '🪴',  delay: 80  });
-  else if (hasPlantSmall) floorItems.push({ emoji: '🌱', delay: 80 });
-  if (hasLamp)         floorItems.push({ emoji: '🪔',  delay: 160 });
-  if (hasCat)          floorItems.push({ emoji: '🐱',  delay: 240 });
-  if (hasDesk)         floorItems.push({ emoji: '💻',  delay: 320 });
-
-  const colors = {
-    wall:        isDark ? '#1B1530' : '#FDF6EE',
-    wallAccent:  isDark ? '#251E3A' : '#F5E8D6',
-    floor:       isDark ? '#120F1C' : '#E8D5B7',
-    floorLine:   isDark ? '#2A2240' : '#CEB89E',
-    windowBg:    hour >= 22 || hour < 5
-                   ? (isDark ? '#0A0620' : '#1A0A3C')
-                   : (isDark ? '#1A3A6A' : '#87CEEB'),
-    windowBorder: isDark ? '#3A2E5A' : '#B8A88A',
-    text:        isDark ? '#E2D9F3' : '#5C4A2A',
-    subtext:     isDark ? '#8B7AAA' : '#9A7A5A',
+  const room = customization ?? {
+    furniture: 'sofa' as RoomFurniture,
+    flower: 'pink' as RoomFlower,
+    ownedFurniture: ['sofa'] as RoomFurniture[],
+    ownedFlowers: ['pink'] as RoomFlower[],
   };
-
-  const isRoomEmpty = !hasPlantSmall && !hasPicture;
+  const hasPlant = totalDays >= 3;
+  const hasBookshelf = totalDays >= 14 || room.furniture === 'bookshelf';
+  const hasPicture = level >= 2;
+  const isNight = hour >= 19 || hour < 5;
+  const furnitureColor = room.furniture === 'vanity'
+    ? roomPalette.vanity
+    : room.furniture === 'bookshelf'
+      ? roomPalette.shelf
+      : roomPalette.sofa;
+  const flowerColor = room.flower === 'violet'
+    ? roomPalette.flowerViolet
+    : room.flower === 'rainbow'
+      ? roomPalette.flowerRainbow
+      : roomPalette.flowerPink;
 
   return (
-    <View style={[r.card, { backgroundColor: colors.wall, borderColor: isDark ? '#2A2240' : '#E0CEBC' }]}>
-      {/* Title row */}
+    <View style={r.card}>
       <View style={r.titleRow}>
-        <Text style={[r.titleText, { color: colors.text }]}>🏡 {mascotName ? `${mascotName}のへや` : 'キャラクターのへや'}</Text>
-        {isRoomEmpty && (
-          <Text style={[r.hintText, { color: colors.subtext }]}>続けると家具が増えるよ…</Text>
-        )}
+        <View style={r.titleCopy}>
+          <Text style={r.titleText}>{mascotName ? `${mascotName}のアトリエ` : 'ちいさなアトリエ'}</Text>
+          <Text style={r.hintText}>
+            {hasPlant || hasPicture ? '今日の気分で、部屋の表情も変えてみよう' : '家具や花を飾って、自分だけの場所にしよう'}
+          </Text>
+        </View>
+        {onOpenCustomize ? (
+          <PressScale
+            onPress={onOpenCustomize}
+            accessibilityLabel="アトリエをアレンジする"
+            style={r.editButton}
+          >
+            <Icon name="edit-3" size={iconSize.sm} color={roomPalette.shelf} />
+          </PressScale>
+        ) : null}
       </View>
 
-      {/* Room body */}
-      <View style={r.room}>
-        {/* ── WALL AREA ── */}
-        <View style={[r.wallArea, { backgroundColor: colors.wall }]}>
-          {/* Window */}
-          <View style={[r.window, { backgroundColor: colors.windowBg, borderColor: colors.windowBorder }]}>
-            <Text style={r.windowSky}>{sky}</Text>
-            {hasWindowFlower && (
-              <Animated.Text style={[r.windowFlower]}>🌸</Animated.Text>
-            )}
-            <Text style={r.windowSeasonal}>{seasonal}</Text>
+      <View style={r.wallArea}>
+        <View style={[r.window, { backgroundColor: isNight ? roomPalette.windowNight : roomPalette.window }]}>
+          <Text style={r.windowSky}>{getSky(hour, month)}</Text>
+          {streak >= 3 ? <Animated.Text style={[r.windowFlower, { color: flowerColor }]}>✦</Animated.Text> : null}
+          <Text style={r.windowSeasonal}>{getSeasonal(month)}</Text>
+        </View>
+        <View style={r.wallDeco}>
+          <View style={r.wallCard}>
+            <Text style={r.wallCardSpark}>✦</Text>
+            <Text style={r.wallCardText}>{hasPicture ? '今日のきらめき' : 'YOUR LITTLE SPACE'}</Text>
           </View>
+          {hasBookshelf ? <RoomItem emoji="✿" size={24} delay={180} /> : null}
+          {level >= 4 ? <RoomItem emoji="♫" size={23} delay={260} /> : null}
+          {level >= 6 ? <RoomItem emoji="✧" size={27} delay={340} /> : null}
+        </View>
+      </View>
 
-          {/* Wall decorations */}
-          <View style={r.wallDeco}>
-            {wallItems.length === 0 ? (
-              <Text style={[r.emptyWall, { color: colors.subtext }]}>···</Text>
+      <View style={r.floorLine} />
+      <View style={r.floorArea}>
+        <View style={r.floorItems}>
+          <View style={r.rug} />
+          <View style={r.plant}>
+            <Text style={[r.flower, { color: flowerColor }]}>{room.flower === 'rainbow' ? '✿' : '✦'}</Text>
+            <View style={[r.stem, { backgroundColor: roomPalette.leaf }]} />
+            {hasPlant ? <View style={[r.leaf, { backgroundColor: roomPalette.leaf }]} /> : null}
+          </View>
+          <View style={[r.furniture, { backgroundColor: furnitureColor }]}>
+            {room.furniture === 'bookshelf' ? (
+              <><View style={r.shelfLine} /><View style={r.shelfLine} /><View style={r.shelfLine} /></>
+            ) : room.furniture === 'vanity' ? (
+              <><View style={r.mirror} /><View style={r.tableLine} /></>
             ) : (
-              wallItems.map((item, i) => (
-                <RoomItem key={i} emoji={item.emoji} size={24} delay={item.delay} />
-              ))
+              <><View style={r.sofaBack} /><View style={r.sofaSeat} /></>
             )}
           </View>
-        </View>
-
-        {/* Floor line */}
-        <View style={[r.floorLine, { backgroundColor: colors.floorLine }]} />
-
-        {/* ── FLOOR AREA ── */}
-        <View style={[r.floorArea, { backgroundColor: colors.floor }]}>
-          {floorItems.length === 0 ? (
-            <Text style={[r.emptyFloor, { color: colors.subtext }]}>3日続けると植物が育つよ 🌱</Text>
-          ) : (
-            <View style={r.floorItems}>
-              {floorItems.map((item, i) => (
-                item.emoji === '🟤'
-                  ? <View key={i} style={[r.rug, { backgroundColor: isDark ? '#3A2040' : '#D4956A' }]} />
-                  : <RoomItem key={i} emoji={item.emoji} size={28} delay={item.delay} />
-              ))}
-            </View>
-          )}
+          <View style={r.floorSparkles}>
+            <Text style={r.sparkle}>✦</Text><Text style={r.sparkle}>·</Text><Text style={r.sparkle}>✧</Text>
+          </View>
         </View>
       </View>
 
-      {/* Unlock hints */}
-      {!isRoomEmpty && (
-        <View style={r.progressRow}>
-          {!hasPlantBig   && totalDays >= 3 && <Text style={[r.hint, { color: colors.subtext }]}>📖 あと{14 - totalDays}日で本棚</Text>}
-          {!hasCat        && totalDays >= 14 && <Text style={[r.hint, { color: colors.subtext }]}>🐱 あと{21 - totalDays}日で猫</Text>}
-          {!hasBookshelf  && totalDays < 14  && totalDays >= 7 && <Text style={[r.hint, { color: colors.subtext }]}>📚 あと{14 - totalDays}日で本棚</Text>}
-          {!hasRug        && streak >= 3     && <Text style={[r.hint, { color: colors.subtext }]}>🪵 あと{7 - streak}日連続でラグ</Text>}
-          {!hasPicture    && level >= 1      && level < 2      && <Text style={[r.hint, { color: colors.subtext }]}>🖼️ Lv.2で絵画が飾られる</Text>}
-        </View>
-      )}
+      <View style={r.progressRow}>
+        <Text style={r.hint}>✿ {room.flower === 'pink' ? 'ピンクの花' : room.flower === 'violet' ? 'すみれの花' : 'にじいろの花'}</Text>
+        <Text style={r.hint}>✦ {room.furniture === 'sofa' ? 'ふわふわソファ' : room.furniture === 'vanity' ? 'きらめきドレッサー' : 'ミニ本棚'}</Text>
+      </View>
     </View>
   );
 }
 
 const r = StyleSheet.create({
   card: {
-    borderRadius: 22, borderWidth: 1,
-    overflow: 'hidden', gap: 0,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: roomPalette.floorLine,
+    overflow: 'hidden',
+    backgroundColor: roomPalette.wall,
+    ...elevation.raised,
   },
   titleRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
-  titleText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-  hintText:  { fontSize: 11, fontFamily: 'Inter_400Regular' },
-
-  room: { width: '100%' },
-
-  // Wall
+  titleCopy: { flex: 1 },
+  titleText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#FFFFFF' },
+  hintText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: '#FCE9FA', marginTop: 3 },
+  editButton: {
+    width: control.iconSm,
+    height: control.iconSm,
+    borderRadius: radius.pill,
+    backgroundColor: roomPalette.panel,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   wallArea: {
-    flexDirection: 'row', alignItems: 'flex-end',
-    paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, gap: 12,
-    minHeight: 90,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 12,
+    gap: 12,
+    minHeight: 126,
+    backgroundColor: roomPalette.wallLight,
   },
   window: {
-    width: 72, height: 72, borderRadius: 10, borderWidth: 2,
-    alignItems: 'center', justifyContent: 'center',
-    overflow: 'hidden', position: 'relative',
+    width: 80,
+    height: 86,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: roomPalette.floorLine,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
   },
   windowSky: { fontSize: 28 },
-  windowFlower: { position: 'absolute', bottom: 2, left: 4, fontSize: 14 },
-  windowSeasonal: { position: 'absolute', bottom: 2, right: 4, fontSize: 12 },
+  windowFlower: { position: 'absolute', bottom: 7, left: 9, fontSize: 15 },
+  windowSeasonal: { position: 'absolute', bottom: 4, right: 6, fontSize: 12 },
   wallDeco: {
-    flex: 1, flexDirection: 'row', flexWrap: 'wrap',
-    gap: 10, alignItems: 'center', paddingBottom: 4,
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    alignItems: 'center',
+    paddingBottom: 4,
+    paddingTop: 6,
   },
-  emptyWall: { fontSize: 13, letterSpacing: 4 },
-
-  // Floor line
-  floorLine: { height: 3, width: '100%' },
-
-  // Floor
+  wallCard: {
+    width: 118,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#F8C9EB',
+    backgroundColor: '#EAA6D7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  wallCardSpark: { color: '#FFFFFF', fontSize: 18 },
+  wallCardText: { color: '#FFFFFF', fontSize: 8, fontFamily: 'Inter_700Bold', letterSpacing: 0.8 },
+  floorLine: { height: 3, width: '100%', backgroundColor: roomPalette.floorLine },
   floorArea: {
-    paddingHorizontal: 16, paddingVertical: 12,
-    minHeight: 56, justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 76,
+    justifyContent: 'center',
+    backgroundColor: roomPalette.floor,
   },
-  floorItems: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 14,
-  },
-  rug: {
-    width: 48, height: 12, borderRadius: 6, opacity: 0.7,
-  },
-  emptyFloor: { fontSize: 12, fontFamily: 'Inter_400Regular' },
-
-  // Hints
-  progressRow: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
-    paddingHorizontal: 16, paddingBottom: 12,
-  },
-  hint: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+  floorItems: { flexDirection: 'row', alignItems: 'flex-end', gap: 14, minHeight: 52 },
+  rug: { width: 58, height: 14, borderRadius: 8, opacity: 0.9, backgroundColor: '#D965B2' },
+  plant: { width: 34, height: 56, alignItems: 'center', justifyContent: 'flex-end', position: 'relative' },
+  flower: { fontSize: 24, lineHeight: 26, zIndex: 2 },
+  stem: { width: 4, height: 22, borderRadius: 3 },
+  leaf: { position: 'absolute', bottom: 9, left: 3, width: 15, height: 8, borderRadius: 9, transform: [{ rotate: '-25deg' }] },
+  furniture: { width: 72, height: 48, borderRadius: 13, position: 'relative', padding: 7, justifyContent: 'flex-end' },
+  sofaBack: { height: 21, borderRadius: 9, backgroundColor: 'rgba(255,255,255,0.28)' },
+  sofaSeat: { height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.5)', marginTop: 4 },
+  mirror: { alignSelf: 'center', width: 27, height: 22, borderRadius: 14, backgroundColor: '#E7CFFF', borderWidth: 2, borderColor: '#FFFFFF' },
+  tableLine: { width: 50, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.45)' },
+  shelfLine: { height: 7, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)', marginBottom: 3 },
+  floorSparkles: { flexDirection: 'row', gap: 4, alignItems: 'center', marginLeft: 'auto', alignSelf: 'center' },
+  sparkle: { color: '#FCE9FA', fontSize: 15 },
+  progressRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16, paddingBottom: 12, paddingTop: 3 },
+  hint: { fontSize: 11, fontFamily: 'Inter_500Medium', color: '#FCE9FA' },
 });

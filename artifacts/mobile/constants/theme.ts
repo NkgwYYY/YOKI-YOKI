@@ -81,6 +81,23 @@ export const colors = {
   accentForeground: '#FFFFFF',
 } as const;
 
+export const roomPalette = {
+  wall: '#A66BC4',
+  wallLight: '#D98BCB',
+  floor: '#8A4E9F',
+  floorLine: '#F5B1D8',
+  window: '#8C86DE',
+  windowNight: '#55418C',
+  sofa: '#F05A9D',
+  vanity: '#9B6BD0',
+  shelf: '#6D4B9B',
+  flowerPink: '#FF77B7',
+  flowerViolet: '#C79BFF',
+  flowerRainbow: '#FFB5DF',
+  leaf: '#55D6B0',
+  panel: '#F7D8F0',
+} as const;
+
 /* ------------------------------------------------------------------ *
  * Spacing
  * ------------------------------------------------------------------ */

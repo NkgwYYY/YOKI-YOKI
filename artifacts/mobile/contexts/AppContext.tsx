@@ -137,6 +137,23 @@ export interface FeedState {
   satietyAtFeed: number;
 }
 
+export type RoomFurniture = 'sofa' | 'vanity' | 'bookshelf';
+export type RoomFlower = 'pink' | 'violet' | 'rainbow';
+export type RoomItemKind = 'furniture' | 'flower';
+
+export interface RoomCustomization {
+  furniture: RoomFurniture;
+  flower: RoomFlower;
+  ownedFurniture: RoomFurniture[];
+  ownedFlowers: RoomFlower[];
+}
+
+export interface CompanionState {
+  extraEggs: number;
+}
+
+export const EGG_COMPANION_COST = 1000;
+
 const KEYS = {
   PROGRESS: '@mentore/progress_v2',
   RECORDS: '@mentore/records_v2',
@@ -153,6 +170,8 @@ const KEYS = {
   LIGHT_ENERGY: '@mentore/light_energy_v1',
   POWER_PLANT: '@mentore/power_plant_v1',
   ENCOUNTERS: '@mentore/encounters_v1',
+  ROOM_CUSTOMIZATION: '@mentore/room_customization_v1',
+  COMPANIONS: '@mentore/companions_v1',
 };
 
 /** Compute current satiety based on elapsed time since last feed */
@@ -212,6 +231,14 @@ interface AppContextType {
   buildTownItem: () => Promise<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }>;
   /** ごほうびポイント(エコポイント)をごはんポイントに交換する(1:1) */
   exchangeEcoPoints: (amount: number) => Promise<{ exchanged: number }>;
+  roomCustomization: RoomCustomization;
+  /** 家具や花を選択する(購入済みアイテムのみ) */
+  selectRoomItem: (kind: RoomItemKind, id: RoomFurniture | RoomFlower) => Promise<boolean>;
+  /** 家具や花をポイントで購入する */
+  buyRoomItem: (kind: RoomItemKind, id: RoomFurniture | RoomFlower, cost: number) => Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' | 'invalid' }>;
+  companionState: CompanionState;
+  /** ごはんポイントで追加のたまごを仲間にする */
+  buyEggCompanion: () => Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' }>;
   /** 出会い記録(キャラクター図鑑)。出会ったキャラだけが入る */
   encounters: EncountersState;
   /** 「新しい仲間が生まれました!」演出の待ち行列(先頭から表示) */
@@ -239,6 +266,15 @@ const defaultFeedState: FeedState = {
   lastFeedTime: '',
   satietyAtFeed: 50,
 };
+
+const defaultRoomCustomization: RoomCustomization = {
+  furniture: 'sofa',
+  flower: 'pink',
+  ownedFurniture: ['sofa'],
+  ownedFlowers: ['pink'],
+};
+
+const defaultCompanionState: CompanionState = { extraEggs: 0 };
 
 const AppContext = createContext<AppContextType | null>(null);
 
@@ -280,6 +316,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { encountersRef.current = encounters; }, [encounters]);
   const [newEncounters, setNewEncounters] = useState<CharacterKey[]>([]);
   const encountersLoadedRef = useRef(false);
+  const [roomCustomization, setRoomCustomization] = useState<RoomCustomization>(defaultRoomCustomization);
+  const [companionState, setCompanionState] = useState<CompanionState>(defaultCompanionState);
 
   /** 時間経過ぶんの太陽光発電を精算する。読込・復帰・定期更新のすべてで共通利用する */
   const settleElapsedEnergy = useCallback(() => {
@@ -630,7 +668,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr] =
+      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
           AsyncStorage.getItem(KEYS.RECORDS),
@@ -647,6 +685,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.LIGHT_ENERGY),
           AsyncStorage.getItem(KEYS.POWER_PLANT),
           AsyncStorage.getItem(KEYS.ENCOUNTERS),
+          AsyncStorage.getItem(KEYS.ROOM_CUSTOMIZATION),
+          AsyncStorage.getItem(KEYS.COMPANIONS),
         ]);
 
       // ── サイズ成長: 保存値を読み、経過時間ぶんの成長を適用 ──
@@ -692,6 +732,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         encountersRef.current = resolved;
         setEncounters(resolved);
         encountersLoadedRef.current = true;
+      }
+
+      // ── 部屋のカスタム: 保存値を安全に読み込む ──
+      {
+        let parsed: Partial<RoomCustomization> = {};
+        try { parsed = roomStr ? JSON.parse(roomStr) : {}; } catch {}
+        const ownedFurniture = Array.isArray(parsed.ownedFurniture)
+          ? parsed.ownedFurniture.filter((v): v is RoomFurniture => ['sofa', 'vanity', 'bookshelf'].includes(v))
+          : [];
+        const ownedFlowers = Array.isArray(parsed.ownedFlowers)
+          ? parsed.ownedFlowers.filter((v): v is RoomFlower => ['pink', 'violet', 'rainbow'].includes(v))
+          : [];
+        const resolved: RoomCustomization = {
+          furniture: ownedFurniture.includes(parsed.furniture as RoomFurniture) ? parsed.furniture as RoomFurniture : 'sofa',
+          flower: ownedFlowers.includes(parsed.flower as RoomFlower) ? parsed.flower as RoomFlower : 'pink',
+          ownedFurniture: Array.from(new Set(['sofa', ...ownedFurniture])) as RoomFurniture[],
+          ownedFlowers: Array.from(new Set(['pink', ...ownedFlowers])) as RoomFlower[],
+        };
+        setRoomCustomization(resolved);
+        await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(resolved));
+      }
+
+      // ── 追加のたまご: 保存値を安全に読み込む ──
+      {
+        let parsed: Partial<CompanionState> = {};
+        try { parsed = companionStr ? JSON.parse(companionStr) : {}; } catch {}
+        const resolved: CompanionState = { extraEggs: Math.max(0, Math.min(1, Math.floor(parsed.extraEggs ?? 0))) };
+        setCompanionState(resolved);
+        await AsyncStorage.setItem(KEYS.COMPANIONS, JSON.stringify(resolved));
       }
 
       if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
@@ -1059,6 +1128,77 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     pushDataToCloud();
   }, [pushDataToCloud]);
 
+  const shopBusyRef = useRef(false);
+
+  const selectRoomItem = useCallback(async (kind: RoomItemKind, id: RoomFurniture | RoomFlower): Promise<boolean> => {
+    const current = roomCustomization;
+    if (kind === 'furniture') {
+      if (!['sofa', 'vanity', 'bookshelf'].includes(id) || !current.ownedFurniture.includes(id as RoomFurniture)) return false;
+      const next = { ...current, furniture: id as RoomFurniture };
+      setRoomCustomization(next);
+      await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
+      pushDataToCloud();
+      return true;
+    }
+    if (!['pink', 'violet', 'rainbow'].includes(id) || !current.ownedFlowers.includes(id as RoomFlower)) return false;
+    const next = { ...current, flower: id as RoomFlower };
+    setRoomCustomization(next);
+    await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
+    pushDataToCloud();
+    return true;
+  }, [roomCustomization, pushDataToCloud]);
+
+  const buyRoomItem = useCallback(async (
+    kind: RoomItemKind,
+    id: RoomFurniture | RoomFlower,
+    cost: number,
+  ): Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' | 'invalid' }> => {
+    if (shopBusyRef.current) return { success: false, reason: 'not_enough' };
+    const validFurniture = ['sofa', 'vanity', 'bookshelf'].includes(id);
+    const validFlower = ['pink', 'violet', 'rainbow'].includes(id);
+    if ((kind === 'furniture' && !validFurniture) || (kind === 'flower' && !validFlower)) {
+      return { success: false, reason: 'invalid' };
+    }
+    const current = roomCustomization;
+    const owned = kind === 'furniture' ? current.ownedFurniture.includes(id as RoomFurniture) : current.ownedFlowers.includes(id as RoomFlower);
+    if (owned) return { success: false, reason: 'already_owned' };
+    if (feedStateRef.current.points < cost) return { success: false, reason: 'not_enough' };
+
+    shopBusyRef.current = true;
+    try {
+      await mutateFeedPoints(-cost);
+      const next: RoomCustomization = kind === 'furniture'
+        ? { ...current, furniture: id as RoomFurniture, ownedFurniture: [...current.ownedFurniture, id as RoomFurniture] }
+        : { ...current, flower: id as RoomFlower, ownedFlowers: [...current.ownedFlowers, id as RoomFlower] };
+      setRoomCustomization(next);
+      await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      pushDataToCloud();
+      return { success: true };
+    } finally {
+      shopBusyRef.current = false;
+    }
+  }, [roomCustomization, pushDataToCloud]);
+
+  const buyEggCompanion = useCallback(async (): Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' }> => {
+    if (shopBusyRef.current) return { success: false, reason: 'not_enough' };
+    if (companionState.extraEggs >= 1) return { success: false, reason: 'already_owned' };
+    if (feedStateRef.current.points < EGG_COMPANION_COST) return { success: false, reason: 'not_enough' };
+
+    shopBusyRef.current = true;
+    try {
+      await mutateFeedPoints(-EGG_COMPANION_COST);
+      const next = { extraEggs: 1 };
+      setCompanionState(next);
+      await AsyncStorage.setItem(KEYS.COMPANIONS, JSON.stringify(next));
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      pushDataToCloud();
+      return { success: true };
+    } finally {
+      shopBusyRef.current = false;
+    }
+  }, [companionState, pushDataToCloud]);
+
   // completeMiniGame の同時多重呼び出し(再レンダー前の連打)でも二重付与しないための同期ガード
   const completingSlotsRef = useRef<Set<GameSlot>>(new Set());
 
@@ -1148,6 +1288,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         sellEnergy,
         buildTownItem,
         exchangeEcoPoints,
+        roomCustomization,
+        selectRoomItem,
+        buyRoomItem,
+        companionState,
+        buyEggCompanion,
         encounters,
         newEncounters,
         dismissNewEncounter,
