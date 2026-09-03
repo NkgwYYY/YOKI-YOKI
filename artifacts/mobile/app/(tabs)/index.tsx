@@ -246,7 +246,7 @@ export default function HomeScreen() {
                 icon="coffee"
                 tone="food"
                 label="ごはん"
-                style={{ transform: [{ translateY: 40 }] }}
+                style={{ position: 'absolute', left: '8%', top: 50, width: '20%' }}
                 onPress={() => setShowFeed(true)}
               />
               <OrbitAction
@@ -254,7 +254,7 @@ export default function HomeScreen() {
                 icon="edit-3"
                 tone="record"
                 label="記録"
-                style={{ transform: [{ translateY: 0 }] }}
+                style={{ position: 'absolute', left: '32%', top: 10, width: '20%' }}
                 onPress={() => router.push('/(tabs)/record')}
               />
               <OrbitAction
@@ -262,7 +262,7 @@ export default function HomeScreen() {
                 icon="message-circle"
                 tone="chat"
                 label="チャット"
-                style={{ transform: [{ translateY: 0 }] }}
+                style={{ position: 'absolute', left: '56%', top: 10, width: '20%' }}
                 onPress={() => router.push('/(tabs)/chat')}
               />
               <OrbitAction
@@ -272,7 +272,7 @@ export default function HomeScreen() {
                 illustration={<GameBoardIllustration size={42} tone="play" />}
                 label="あそぶ"
                 disabled={!canPlay}
-                style={{ transform: [{ translateY: 40 }] }}
+                style={{ position: 'absolute', left: '80%', top: 50, width: '20%' }}
                 onPress={() => setShowMiniGame(true)}
               />
             </View>
@@ -485,12 +485,10 @@ const styles = StyleSheet.create({
   },
   companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 11 },
   actionButtonsContainer: {
+    position: 'relative',
     zIndex: 10,
     width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    columnGap: space.sm,
+    height: 120,
     marginBottom: 0,
     transform: [{ translateY: 4 }],
   },
