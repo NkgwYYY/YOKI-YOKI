@@ -206,7 +206,7 @@ export default function PlantScreen() {
     try {
       const { exchanged } = await exchangeEcoPoints(powerPlant.ecoPoints);
       if (exchanged > 0) {
-        setExchangedMsg(`ごほうび ${exchanged} をごはんポイント +${exchanged} にかえたよ`);
+        setExchangedMsg(`ごほうび ${exchanged} をきらめきポイント +${exchanged} にかえたよ`);
         if (exTimerRef.current) clearTimeout(exTimerRef.current);
         exTimerRef.current = setTimeout(() => setExchangedMsg(null), 3600);
       }
@@ -316,7 +316,7 @@ export default function PlantScreen() {
           <View style={s.cardHeader}>
             <Text style={s.cardTitle}>キャラクターへのご褒美</Text>
           </View>
-          <Text style={s.hint}>ごほうびポイントをごはんポイントにかえて、キャラにごはんをあげよう</Text>
+          <Text style={s.hint}>ごほうびポイントをきらめきポイントにかえて、キャラにごはんをあげよう</Text>
           <View style={s.foodRow}>
             {FOOD_ITEMS.slice(0, 4).map((f) => (
               <View key={f.id} style={s.foodCell}>
@@ -335,7 +335,7 @@ export default function PlantScreen() {
             </Animated.View>
           )}
           <Button
-            label={powerPlant.ecoPoints > 0 ? `ごほうび ${powerPlant.ecoPoints} をごはんポイントにかえる` : '売電するとごほうびポイントがもらえるよ'}
+            label={powerPlant.ecoPoints > 0 ? `ごほうび ${powerPlant.ecoPoints} をきらめきポイントにかえる` : '売電するとごほうびポイントがもらえるよ'}
             icon="refresh-cw"
             variant="secondary"
             onPress={handleExchange}

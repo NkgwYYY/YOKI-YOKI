@@ -137,8 +137,8 @@ export interface FeedState {
   satietyAtFeed: number;
 }
 
-export type RoomFurniture = 'sofa' | 'vanity' | 'bookshelf';
-export type RoomFlower = 'pink' | 'violet' | 'rainbow';
+export type RoomFurniture = 'none' | 'sofa' | 'vanity' | 'bookshelf';
+export type RoomFlower = 'none' | 'pink' | 'violet' | 'rainbow';
 export type RoomItemKind = 'furniture' | 'flower';
 
 export interface RoomCustomization {
@@ -268,10 +268,10 @@ const defaultFeedState: FeedState = {
 };
 
 const defaultRoomCustomization: RoomCustomization = {
-  furniture: 'sofa',
-  flower: 'pink',
-  ownedFurniture: ['sofa'],
-  ownedFlowers: ['pink'],
+  furniture: 'none',
+  flower: 'none',
+  ownedFurniture: [],
+  ownedFlowers: [],
 };
 
 const defaultCompanionState: CompanionState = { extraEggs: 0 };
@@ -744,11 +744,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const ownedFlowers = Array.isArray(parsed.ownedFlowers)
           ? parsed.ownedFlowers.filter((v): v is RoomFlower => ['pink', 'violet', 'rainbow'].includes(v))
           : [];
+        // The first room version showed a sofa and flower before purchase.
+        // Treat those starter-only values as empty so the room follows the
+        // purchase rule introduced with the shared points wallet.
+        const migratedFurniture = ownedFurniture.filter((id) => id !== 'sofa' || ownedFurniture.length > 1);
+        const migratedFlowers = ownedFlowers.filter((id) => id !== 'pink' || ownedFlowers.length > 1);
         const resolved: RoomCustomization = {
-          furniture: ownedFurniture.includes(parsed.furniture as RoomFurniture) ? parsed.furniture as RoomFurniture : 'sofa',
-          flower: ownedFlowers.includes(parsed.flower as RoomFlower) ? parsed.flower as RoomFlower : 'pink',
-          ownedFurniture: Array.from(new Set(['sofa', ...ownedFurniture])) as RoomFurniture[],
-          ownedFlowers: Array.from(new Set(['pink', ...ownedFlowers])) as RoomFlower[],
+          furniture: migratedFurniture.includes(parsed.furniture as RoomFurniture) ? parsed.furniture as RoomFurniture : 'none',
+          flower: migratedFlowers.includes(parsed.flower as RoomFlower) ? parsed.flower as RoomFlower : 'none',
+          ownedFurniture: Array.from(new Set(migratedFurniture)) as RoomFurniture[],
+          ownedFlowers: Array.from(new Set(migratedFlowers)) as RoomFlower[],
         };
         setRoomCustomization(resolved);
         await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(resolved));
@@ -874,7 +879,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // 残高チェック・減算は常に最新の ref を正とする(交換・報酬付与との競合対策)
       const cur = feedStateRef.current;
       if (cur.points < food.cost) {
-        return { success: false, message: 'ごはんポイントが足りないよ！', newSatiety: currentSatiety };
+        return { success: false, message: 'きらめきポイントが足りないよ！', newSatiety: currentSatiety };
       }
 
       const baseSatiety = computeCurrentSatiety(cur);
@@ -1133,14 +1138,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const selectRoomItem = useCallback(async (kind: RoomItemKind, id: RoomFurniture | RoomFlower): Promise<boolean> => {
     const current = roomCustomization;
     if (kind === 'furniture') {
-      if (!['sofa', 'vanity', 'bookshelf'].includes(id) || !current.ownedFurniture.includes(id as RoomFurniture)) return false;
+      if (id !== 'none' && (!['sofa', 'vanity', 'bookshelf'].includes(id) || !current.ownedFurniture.includes(id as RoomFurniture))) return false;
       const next = { ...current, furniture: id as RoomFurniture };
       setRoomCustomization(next);
       await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
       pushDataToCloud();
       return true;
     }
-    if (!['pink', 'violet', 'rainbow'].includes(id) || !current.ownedFlowers.includes(id as RoomFlower)) return false;
+    if (id !== 'none' && (!['pink', 'violet', 'rainbow'].includes(id) || !current.ownedFlowers.includes(id as RoomFlower))) return false;
     const next = { ...current, flower: id as RoomFlower };
     setRoomCustomization(next);
     await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
@@ -1154,12 +1159,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     cost: number,
   ): Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' | 'invalid' }> => {
     if (shopBusyRef.current) return { success: false, reason: 'not_enough' };
-    const validFurniture = ['sofa', 'vanity', 'bookshelf'].includes(id);
-    const validFlower = ['pink', 'violet', 'rainbow'].includes(id);
+    const validFurniture = ['none', 'sofa', 'vanity', 'bookshelf'].includes(id);
+    const validFlower = ['none', 'pink', 'violet', 'rainbow'].includes(id);
     if ((kind === 'furniture' && !validFurniture) || (kind === 'flower' && !validFlower)) {
       return { success: false, reason: 'invalid' };
     }
     const current = roomCustomization;
+    if (id === 'none') return { success: false, reason: 'invalid' };
     const owned = kind === 'furniture' ? current.ownedFurniture.includes(id as RoomFurniture) : current.ownedFlowers.includes(id as RoomFlower);
     if (owned) return { success: false, reason: 'already_owned' };
     if (feedStateRef.current.points < cost) return { success: false, reason: 'not_enough' };

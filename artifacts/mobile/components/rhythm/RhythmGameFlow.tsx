@@ -283,7 +283,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
               <View style={st.energyChip}>
                 <Icon name="coffee" size={iconSize.xs} color={colors.foreground} />
                 <Text style={[st.energyChipTxt, { color: colors.foreground }]}>
-                  ごはんポイント +{fp}
+                  きらめきポイント +{fp}
                 </Text>
               </View>
             </View>
@@ -297,7 +297,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
         </View>
         {/* 循環の導線: ごはんポイント → ごはんをあげる(ホームへ) */}
         <Button
-          label="ごはんポイントでごはんをあげよう"
+          label="きらめきポイントでごはんをあげよう"
           icon="coffee"
           variant="secondary"
           fullWidth

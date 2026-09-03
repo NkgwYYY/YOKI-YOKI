@@ -73,7 +73,7 @@ function FoodCard({ food, canAfford, onFeed }: { food: FoodItem; canAfford: bool
         <Text style={cardStyles.satietyLabel}>満腹度 +{food.satietyGain}</Text>
 
         <View style={cardStyles.costRow}>
-          <Icon name="coffee" size={iconSize.xs} color={colors.primary} />
+          <Icon name="star" size={iconSize.xs} color={colors.primary} />
           <Text style={cardStyles.costText}>{food.cost}</Text>
         </View>
       </Pressable>
@@ -155,9 +155,9 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
   const hungerLabel = currentSatiety >= 80 ? 'お腹いっぱい' : currentSatiety >= 60 ? 'まあまあかな' : currentSatiety >= 40 ? 'すこし空腹だよ' : currentSatiety >= 20 ? 'お腹すいた〜！' : 'ぺこぺこだよ';
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="ごはんをあげる" subtitle="ポイントを使って元気回復" maxHeightRatio={0.88} contentStyle={modalStyles.content}>
+    <BottomSheet visible={visible} onClose={onClose} title="ごはんをあげる" subtitle="きらめきポイントで元気回復" maxHeightRatio={0.88} contentStyle={modalStyles.content}>
       <View style={modalStyles.pointsBadge}>
-        <Icon name="coffee" size={iconSize.sm} color={colors.primary} />
+        <Icon name="star" size={iconSize.sm} color={colors.primary} />
         <Text style={modalStyles.pointsText}>{feedState.points} pt</Text>
       </View>
 
@@ -185,7 +185,7 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
 
       <View style={modalStyles.hint}>
         <Icon name="info" size={iconSize.xs} color={colors.subtleForeground} />
-        <Text style={modalStyles.hintText}>ポイントは記録やミニゲームで貯まるよ</Text>
+        <Text style={modalStyles.hintText}>きらめきポイントは記録やミニゲームで貯まるよ</Text>
       </View>
 
       <FeedToast message={toast.message} visible={toast.visible} />

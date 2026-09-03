@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { border, colors, control, radius, space, typography, elevation } from '@/constants/theme';
+import { border, colors, control, radius, space, typography } from '@/constants/theme';
 import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
 import { Screen } from '@/components/ui/Screen';
 import { FeedModal } from '@/components/FeedModal';
 import { MiniGameModal } from '@/components/MiniGameModal';
-import { QuickAffirmationRecord } from '@/components/record/QuickAffirmationRecord';
 import { StageCharacter } from '@/components/StageCharacter';
 import {
   EGG_COMPANION_COST,
@@ -22,50 +20,47 @@ import {
 import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
 import { getCurrentSlot, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
 import { getMascotStage } from '@/utils/mascotUtils';
-import { CakeIllustration, ChatIllustration, GamepadIllustration } from '@/components/ui/Illustrations';
-import { RoomView } from '@/components/RoomView';
+import { RoomItemPreview, RoomView } from '@/components/RoomView';
 
-const FURNITURE_OPTIONS: { id: RoomFurniture; name: string; description: string; cost: number; color: string }[] = [
-  { id: 'sofa', name: 'ふわふわソファ', description: '最初からある、ピンクのくつろぎ場所', cost: 0, color: '#F05A9D' },
-  { id: 'vanity', name: 'きらめきドレッサー', description: '光を集めるラベンダーの鏡台', cost: 180, color: '#9B6BD0' },
-  { id: 'bookshelf', name: 'ミニ本棚', description: '思い出を少しずつ並べる紫の棚', cost: 260, color: '#6D4B9B' },
+const FURNITURE_OPTIONS: { id: RoomFurniture; name: string; cost: number }[] = [
+  { id: 'none', name: '置かない', cost: 0 },
+  { id: 'sofa', name: 'ソファ', cost: 120 },
+  { id: 'vanity', name: 'ドレッサー', cost: 180 },
+  { id: 'bookshelf', name: '本棚', cost: 260 },
 ];
 
-const FLOWER_OPTIONS: { id: RoomFlower; name: string; description: string; cost: number; color: string }[] = [
-  { id: 'pink', name: 'ピンクの花', description: 'やさしく明るい定番のお花', cost: 0, color: '#FF77B7' },
-  { id: 'violet', name: 'すみれの花', description: '少し大人っぽい紫のお花', cost: 70, color: '#C79BFF' },
-  { id: 'rainbow', name: 'にじいろの花', description: '長く続けた部屋に似合う特別なお花', cost: 140, color: '#FFB5DF' },
+const FLOWER_OPTIONS: { id: RoomFlower; name: string; cost: number }[] = [
+  { id: 'none', name: '置かない', cost: 0 },
+  { id: 'pink', name: 'ローズ', cost: 70 },
+  { id: 'violet', name: 'バイオレット', cost: 90 },
+  { id: 'rainbow', name: 'レインボー', cost: 140 },
 ];
 
-/** コンパクトで没入感のあるアクションモジュール。 */
-function HomeActionModule({
-  illustration,
+function OrbitAction({
+  icon,
   label,
-  sub,
   onPress,
   disabled,
   testID,
+  style,
 }: {
-  illustration: React.ReactNode;
+  icon: IconName;
   label: string;
-  sub: string;
   onPress: () => void;
   disabled?: boolean;
   testID: string;
+  style: object;
 }) {
   return (
     <PressScale
       testID={testID}
       onPress={onPress}
       disabled={disabled}
-      accessibilityLabel={`${label}・${sub}`}
-      style={[styles.actionModule, disabled && styles.actionModuleDisabled]}
+      accessibilityLabel={label}
+      style={[styles.orbitAction, style, disabled && styles.orbitActionDisabled]}
     >
-      <View style={styles.actionIlluWrap}>
-        {illustration}
-      </View>
-      <Text style={styles.actionLabel} numberOfLines={1}>{label}</Text>
-      <Text style={styles.actionSub} numberOfLines={1}>{sub}</Text>
+      <Icon name={icon} size={iconSize.md} color={colors.foreground} />
+      <Text style={styles.orbitActionLabel} numberOfLines={1}>{label}</Text>
     </PressScale>
   );
 }
@@ -94,17 +89,17 @@ function HomeSatietyGauge({ satiety }: { satiety: number }) {
 }
 
 function AtelierOption({
+  kind,
+  id,
   name,
-  description,
-  color,
   selected,
   owned,
   cost,
   onPress,
 }: {
+  kind: RoomItemKind;
+  id: RoomFurniture | RoomFlower;
   name: string;
-  description: string;
-  color: string;
   selected: boolean;
   owned: boolean;
   cost: number;
@@ -116,12 +111,9 @@ function AtelierOption({
       accessibilityLabel={`${name}・${selected ? '使用中' : owned ? '選ぶ' : `${cost}ポイント`}`}
       style={[styles.shopOption, selected && styles.shopOptionSelected]}
     >
-      <View style={[styles.shopSwatch, { backgroundColor: color }]}>
-        <Text style={styles.shopSwatchSpark}>✦</Text>
-      </View>
+      <RoomItemPreview kind={kind} id={id} />
       <View style={styles.shopOptionCopy}>
         <Text style={styles.shopOptionName}>{name}</Text>
-        <Text style={styles.shopOptionDescription}>{description}</Text>
       </View>
       <View style={[styles.shopPrice, selected && styles.shopPriceSelected]}>
         <Text style={[styles.shopPriceText, selected && styles.shopPriceTextSelected]}>
@@ -148,14 +140,12 @@ export default function HomeScreen() {
   const [showName, setShowName] = useState(false);
   const [showAtelier, setShowAtelier] = useState(false);
   const [nameInput, setNameInput] = useState('');
-  const [isCelebratingRecord, setIsCelebratingRecord] = useState(false);
   const [shopMessage, setShopMessage] = useState('');
 
   const currentSlot = getCurrentSlot();
   const slotPlays = currentSlot ? miniGameState[currentSlot] ?? 0 : MAX_PLAYS_PER_SLOT;
   const canPlay = !!currentSlot && slotPlays < MAX_PLAYS_PER_SLOT;
   const mascotMood = todayRecord ? 'happy' : 'normal';
-  const showQuickRecord = !todayRecord || isCelebratingRecord;
 
   const openName = () => {
     setShowMenu(false);
@@ -172,7 +162,7 @@ export default function HomeScreen() {
     setShopMessage('');
     if (owned) {
       await selectRoomItem(kind, id);
-      setShopMessage('アトリエの模様替えができたよ。');
+      setShopMessage('背景を変えたよ。');
       return;
     }
     const result = await buyRoomItem(kind, id, cost);
@@ -187,7 +177,7 @@ export default function HomeScreen() {
 
   return (
     <>
-      <Screen scroll={true}>
+      <Screen scroll={false} gap={space.sm} contentStyle={styles.homeContent}>
         <View style={styles.header}>
           <View>
             <Image source={require('@/assets/images/yoki_logo.png')} style={styles.logo} resizeMode="contain" />
@@ -204,13 +194,6 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.centerArea}>
-          <View style={styles.speechBubble}>
-            <Text style={styles.speechText}>
-              {todayRecord ? '今日も来てくれて、うれしい！' : '今日は、ひとつできたら十分。'}
-            </Text>
-            <View style={styles.speechTail} />
-          </View>
-
           <RoomView
             level={progress.level}
             streak={progress.streak}
@@ -220,70 +203,59 @@ export default function HomeScreen() {
             onOpenCustomize={() => { setShopMessage(''); setShowAtelier(true); }}
           >
             <View style={styles.characterGarden}>
-              <StageCharacter
-                stage={getMascotStage(progress.level)}
-                mood={mascotMood}
-                size={companionState.extraEggs > 0 ? 102 : 120}
-                growthSize={growth.growthSize}
-              />
+              <View style={styles.characterMain}>
+                <StageCharacter
+                  stage={getMascotStage(progress.level)}
+                  mood={mascotMood}
+                  size={companionState.extraEggs > 0 ? 92 : 104}
+                  growthSize={growth.growthSize}
+                />
+              </View>
               {companionState.extraEggs > 0 ? (
                 <View style={styles.companionEgg}>
-                  <StageCharacter stage="egg" mood="happy" size={76} growthSize={0.82} />
-                  <Text style={styles.companionLabel}>あたらしい仲間</Text>
+                  <StageCharacter stage="egg" mood="happy" size={58} growthSize={0.78} />
                 </View>
               ) : null}
+
+              <OrbitAction
+                testID="home-record"
+                icon="edit-3"
+                label={todayRecord ? '記録を見る' : '記録する'}
+                onPress={() => router.push('/(tabs)/record')}
+                style={styles.orbitTopLeft}
+              />
+              <OrbitAction
+                testID="home-chat"
+                icon="message-circle"
+                label="お話する"
+                onPress={() => router.push('/(tabs)/chat')}
+                style={styles.orbitTopRight}
+              />
+              <OrbitAction
+                testID="home-feed"
+                icon="coffee"
+                label="ごはん"
+                onPress={() => setShowFeed(true)}
+                style={styles.orbitBottomLeft}
+              />
+              <OrbitAction
+                testID="home-game"
+                icon="music"
+                label="あそぶ"
+                disabled={!canPlay}
+                onPress={() => setShowMiniGame(true)}
+                style={styles.orbitBottomRight}
+              />
             </View>
           </RoomView>
+        </View>
 
+        <View style={styles.statusRow}>
           <HomeSatietyGauge satiety={currentSatiety} />
-        </View>
-
-        <View style={styles.actionsGrid}>
-          <HomeActionModule
-            testID="home-feed"
-            illustration={<CakeIllustration size={44} />}
-            label="ごはん"
-            sub={`${feedState.points} pt`}
-            onPress={() => setShowFeed(true)}
-          />
-          <HomeActionModule
-            testID="home-chat"
-            illustration={<ChatIllustration size={44} />}
-            label="お話する"
-            sub="いつでも"
-            onPress={() => router.push('/(tabs)/chat')}
-          />
-          <HomeActionModule
-            testID="home-game"
-            illustration={<GamepadIllustration size={44} />}
-            label="あそぶ"
-            sub={canPlay ? 'ゲーム' : 'また明日'}
-            disabled={!canPlay}
-            onPress={() => setShowMiniGame(true)}
-          />
-        </View>
-
-        {todayRecord && !showQuickRecord ? (
-          <Card padding={space.lg} style={styles.completedCard}>
-            <View style={styles.completedRow}>
-              <IconBadge name="check" size="sm" background={colors.successSoft} tint={colors.success} />
-              <View style={styles.completedCopy}>
-                <Text style={styles.completedTitle}>今日の記録完了</Text>
-                <Text style={styles.completedMessage} numberOfLines={1}>
-                  {todayRecord.behaviors[0] ? `「${todayRecord.behaviors[0]}」を残せたね。` : '気分を残せたね。'}
-                </Text>
-              </View>
-              <Button label="見直す" variant="secondary" size="sm" onPress={() => router.push('/(tabs)/record')} />
-            </View>
-          </Card>
-        ) : null}
-
-        <View style={showQuickRecord ? undefined : styles.hidden}>
-          <QuickAffirmationRecord
-            onSaveStart={() => setIsCelebratingRecord(true)}
-            onSaveFailed={() => setIsCelebratingRecord(false)}
-            onComplete={() => setIsCelebratingRecord(false)}
-          />
+          <View style={styles.pointsBalance}>
+            <Icon name="star" size={14} color={colors.primary} />
+            <Text style={styles.pointsBalanceText}>{feedState.points} pt</Text>
+          </View>
         </View>
       </Screen>
 
@@ -298,43 +270,43 @@ export default function HomeScreen() {
         <MenuAction icon="coffee" label="ごはんをあげる" onPress={() => { setShowMenu(false); setShowFeed(true); }} />
         <MenuAction icon="music" label={canPlay ? 'リズムであそぶ' : 'リズムであそぶ（またあとで）'} onPress={() => { setShowMenu(false); if (canPlay) setShowMiniGame(true); }} />
         <MenuAction icon="trending-up" label="成長を見る" onPress={() => { setShowMenu(false); router.push('/(tabs)/growth'); }} />
-        <MenuAction icon="edit-3" label="アトリエをアレンジする" onPress={() => { setShowMenu(false); setShopMessage(''); setShowAtelier(true); }} />
+        <MenuAction icon="edit-3" label="背景をカスタムする" onPress={() => { setShowMenu(false); setShopMessage(''); setShowAtelier(true); }} />
         <MenuAction icon="edit-3" label={mascotName ? 'なかまの名前を変える' : 'なかまに名前をつける'} onPress={openName} />
       </BottomSheet>
 
       <BottomSheet
         visible={showAtelier}
         onClose={() => setShowAtelier(false)}
-        title="アトリエショップ"
-        subtitle={`持っているポイント ${feedState.points} pt`}
+        title="カスタム"
+        subtitle={`きらめきポイント ${feedState.points} pt`}
         maxHeightRatio={0.9}
       >
         {shopMessage ? <Text style={styles.shopMessage}>{shopMessage}</Text> : null}
 
         <View style={styles.shopSection}>
-          <Text style={styles.shopSectionTitle}>家具をえらぶ</Text>
-          <Text style={styles.shopSectionSub}>買った家具は、いつでも自由に置き替えられるよ。</Text>
+          <Text style={styles.shopSectionTitle}>家具</Text>
           {FURNITURE_OPTIONS.map((item) => (
             <AtelierOption
               key={item.id}
               {...item}
+              kind="furniture"
               selected={roomCustomization.furniture === item.id}
-              owned={roomCustomization.ownedFurniture.includes(item.id)}
-              onPress={() => handleRoomItem('furniture', item.id, item.cost, roomCustomization.ownedFurniture.includes(item.id))}
+              owned={item.id === 'none' || roomCustomization.ownedFurniture.includes(item.id)}
+              onPress={() => handleRoomItem('furniture', item.id, item.cost, item.id === 'none' || roomCustomization.ownedFurniture.includes(item.id))}
             />
           ))}
         </View>
 
         <View style={styles.shopSection}>
-          <Text style={styles.shopSectionTitle}>花を替える</Text>
-          <Text style={styles.shopSectionSub}>窓辺と床のお花が一緒に変わるよ。</Text>
+          <Text style={styles.shopSectionTitle}>花</Text>
           {FLOWER_OPTIONS.map((item) => (
             <AtelierOption
               key={item.id}
               {...item}
+              kind="flower"
               selected={roomCustomization.flower === item.id}
-              owned={roomCustomization.ownedFlowers.includes(item.id)}
-              onPress={() => handleRoomItem('flower', item.id, item.cost, roomCustomization.ownedFlowers.includes(item.id))}
+              owned={item.id === 'none' || roomCustomization.ownedFlowers.includes(item.id)}
+              onPress={() => handleRoomItem('flower', item.id, item.cost, item.id === 'none' || roomCustomization.ownedFlowers.includes(item.id))}
             />
           ))}
         </View>
@@ -343,9 +315,6 @@ export default function HomeScreen() {
           <View style={styles.eggShopGlow}><Text style={styles.eggShopIcon}>✦</Text></View>
           <View style={styles.eggShopCopy}>
             <Text style={styles.eggShopTitle}>もうひとつのたまご</Text>
-            <Text style={styles.eggShopDescription}>
-              長く過ごしてポイントがたまったら、新しい仲間をアトリエに迎えられるよ。
-            </Text>
           </View>
           <Button
             label={companionState.extraEggs > 0 ? '仲間になったよ' : `${EGG_COMPANION_COST} pt`}
@@ -391,9 +360,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  hidden: { display: 'none' },
-
-  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: space.lg },
+  homeContent: { justifyContent: 'space-between' },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   logo: { width: 120, height: 28, tintColor: colors.foreground },
   date: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
   moreButton: {
@@ -406,34 +374,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  centerArea: { alignItems: 'center', marginVertical: space.md, gap: space.md },
-  characterGarden: { minHeight: 230, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center' },
-  companionEgg: { alignItems: 'center', marginLeft: -28, marginBottom: 14 },
-  companionLabel: { ...typography.micro, color: colors.primaryOnSoft, backgroundColor: colors.primarySoft, borderRadius: radius.pill, paddingHorizontal: space.sm, paddingVertical: 3, marginTop: -24 },
-  speechBubble: {
-    backgroundColor: colors.card,
-    ...border.hairline,
-    borderRadius: radius.lg,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
-    position: 'relative',
-    marginBottom: space.sm,
-    ...elevation.raised,
-  },
-  speechTail: {
+  centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' },
+  characterGarden: { width: '100%', height: 310, position: 'relative' },
+  characterMain: { position: 'absolute', top: 18, left: '50%', marginLeft: -88, zIndex: 3 },
+  companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 4 },
+  orbitAction: {
     position: 'absolute',
-    bottom: -7,
-    left: '50%',
-    marginLeft: -6,
-    width: 12,
-    height: 12,
-    backgroundColor: colors.card,
-    borderBottomWidth: 1.5,
-    borderRightWidth: 1.5,
-    borderColor: colors.border,
-    transform: [{ rotate: '45deg' }],
+    zIndex: 12,
+    width: 82,
+    minHeight: 62,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.84)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
   },
-  speechText: { ...typography.bodyStrong, color: colors.foreground, textAlign: 'center' },
+  orbitActionDisabled: { opacity: 0.45 },
+  orbitActionLabel: { ...typography.micro, color: colors.foreground, fontFamily: 'Inter_600SemiBold' },
+  orbitTopLeft: { left: 0, top: 52 },
+  orbitTopRight: { right: 0, top: 72 },
+  orbitBottomLeft: { left: 0, bottom: 48 },
+  orbitBottomRight: { right: 0, bottom: 28 },
 
   satietyContainer: {
     flexDirection: 'row',
@@ -448,28 +411,18 @@ const styles = StyleSheet.create({
   satietyTrack: { width: 80, height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },
   satietyText: { ...typography.micro, color: colors.foreground, width: 28, textAlign: 'right' },
-
-  actionsGrid: { flexDirection: 'row', gap: space.sm, marginBottom: space.xl },
-  actionModule: {
-    flex: 1,
-    backgroundColor: colors.card,
-    ...border.hairline,
-    borderRadius: radius.xl,
-    paddingVertical: space.lg,
+  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm, paddingBottom: space.sm },
+  pointsBalance: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.84)',
+    borderRadius: radius.pill,
+    paddingHorizontal: space.md,
+    paddingVertical: 7,
     gap: space.xs,
-    ...elevation.raised,
+    ...border.hairline,
   },
-  actionModuleDisabled: { opacity: 0.6 },
-  actionIlluWrap: { height: 56, justifyContent: 'center' },
-  actionLabel: { ...typography.label, color: colors.foreground, marginTop: space.xs },
-  actionSub: { ...typography.micro, color: colors.primary },
-
-  completedCard: { marginBottom: space.xl },
-  completedRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  completedCopy: { flex: 1 },
-  completedTitle: { ...typography.bodyStrong, color: colors.foreground },
-  completedMessage: { ...typography.caption, color: colors.mutedForeground },
+  pointsBalanceText: { ...typography.micro, color: colors.foreground },
 
   shopMessage: {
     ...typography.calloutStrong,
@@ -481,7 +434,6 @@ const styles = StyleSheet.create({
   },
   shopSection: { gap: space.sm },
   shopSectionTitle: { ...typography.subhead, color: colors.foreground },
-  shopSectionSub: { ...typography.caption, color: colors.mutedForeground, marginBottom: space.xs },
   shopOption: {
     minHeight: 72,
     flexDirection: 'row',
@@ -493,11 +445,8 @@ const styles = StyleSheet.create({
     padding: space.md,
   },
   shopOptionSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  shopSwatch: { width: 46, height: 46, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  shopSwatchSpark: { color: colors.primaryForeground, fontSize: 19 },
   shopOptionCopy: { flex: 1 },
   shopOptionName: { ...typography.calloutStrong, color: colors.foreground },
-  shopOptionDescription: { ...typography.micro, color: colors.mutedForeground, marginTop: 2 },
   shopPrice: { borderRadius: radius.pill, backgroundColor: colors.muted, paddingHorizontal: space.sm, paddingVertical: 6 },
   shopPriceSelected: { backgroundColor: colors.primary },
   shopPriceText: { ...typography.micro, color: colors.secondaryForeground },
@@ -516,7 +465,6 @@ const styles = StyleSheet.create({
   eggShopIcon: { color: '#7D42AE', fontSize: 24 },
   eggShopCopy: { flex: 1 },
   eggShopTitle: { ...typography.calloutStrong, color: colors.foreground },
-  eggShopDescription: { ...typography.micro, color: colors.mutedForeground, marginTop: 3 },
   eggProgress: { ...typography.caption, color: colors.primaryOnSoft, textAlign: 'center', marginTop: -space.sm },
 
   menuAction: {

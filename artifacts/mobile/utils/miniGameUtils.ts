@@ -37,7 +37,7 @@ export function getSlotConfig(slot: GameSlot) {
       icon: 'sunrise' as IconName,
       color: activityPalette.study,
       time: '5:00〜11:59',
-      rewardLabel: 'ごはんポイント 1〜2pt 獲得',
+      rewardLabel: 'きらめきポイント 1〜2pt 獲得',
     },
     noon: {
       label: '昼のゲーム',
