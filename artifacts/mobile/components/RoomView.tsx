@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, roomPalette } from '@/constants/theme';
+import { colors, homePalette, roomPalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import type { RoomCustomization } from '@/contexts/AppContext';
 import type { RoomFlower, RoomFurniture, RoomItemKind } from '@/contexts/AppContext';
@@ -14,6 +14,7 @@ interface Props {
   totalDays?: number;
   mascotName?: string;
   sceneHeight?: number;
+  horizontalBleed?: number;
 }
 
 function FlowerIllustration({ color }: { color: string }) {
@@ -116,7 +117,7 @@ function GroundGradient() {
   return (
     <View style={r.groundWrap} pointerEvents="none">
       <LinearGradient
-        colors={[roomPalette.groundTop, roomPalette.groundMid, roomPalette.groundBottom]}
+        colors={[homePalette.groundTop, roomPalette.groundMid, homePalette.groundBottom]}
         locations={[0, 0.36, 1]}
         style={r.groundGradient}
       />
@@ -139,7 +140,7 @@ function GroundGradient() {
   );
 }
 
-export function RoomView({ customization, children, sceneHeight = 300 }: Props) {
+export function RoomView({ customization, children, sceneHeight = 300, horizontalBleed = 0 }: Props) {
   const flowerColor = customization.flower === 'violet'
     ? roomPalette.flowerViolet
     : customization.flower === 'rainbow'
@@ -147,8 +148,9 @@ export function RoomView({ customization, children, sceneHeight = 300 }: Props) 
       : roomPalette.flowerPink;
 
   return (
-    <View style={[r.scene, { height: sceneHeight }]}>
+    <View style={[r.scene, { height: sceneHeight, marginHorizontal: -horizontalBleed }]}>
       <GroundGradient />
+      <View style={r.landingShadow} pointerEvents="none" />
       {customization.flower !== 'none' ? (
         <View style={r.flowerPosition}><FlowerIllustration color={flowerColor} /></View>
       ) : null}
@@ -166,14 +168,25 @@ export function RoomView({ customization, children, sceneHeight = 300 }: Props) 
 
 const r = StyleSheet.create({
   scene: {
-    width: '100%',
+    alignSelf: 'stretch',
     position: 'relative',
     overflow: 'hidden',
   },
-  groundWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 124, zIndex: 0 },
+  groundWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 96, zIndex: 0 },
   groundGradient: { ...StyleSheet.absoluteFillObject },
-  grassEdge: { position: 'absolute', top: -3, left: 0, right: 0, height: 16, flexDirection: 'row', justifyContent: 'space-between' },
-  grassBlade: { position: 'absolute', width: 3, borderRadius: 3, backgroundColor: roomPalette.grassEdge, transformOrigin: 'bottom' },
+  grassEdge: { position: 'absolute', top: -4, left: 0, right: 0, height: 18, flexDirection: 'row', justifyContent: 'space-between' },
+  grassBlade: { position: 'absolute', width: 3, borderRadius: 3, backgroundColor: homePalette.groundEdge, transformOrigin: 'bottom' },
+  landingShadow: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 10,
+    width: 118,
+    height: 19,
+    borderRadius: 999,
+    backgroundColor: 'rgba(109, 65, 91, 0.18)',
+    opacity: 0.8,
+    zIndex: 2,
+  },
   characterLayer: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',

@@ -81,6 +81,41 @@ export const colors = {
   accentForeground: '#FFFFFF',
 } as const;
 
+export const homePalette = {
+  backgroundTop: '#E8E5F7',
+  backgroundMid: '#ECE7FB',
+  backgroundBottom: '#E4ECFB',
+  groundTop: '#FFB2C9',
+  groundBottom: '#FF8CAE',
+  groundEdge: '#F69CB9',
+  cloudYellow: '#FFE7BF',
+  cloudPink: '#F5CBE5',
+  cloudBlue: '#C8EAF4',
+  cloudHighlight: 'rgba(255, 255, 255, 0.46)',
+  auraWarm: 'rgba(255, 220, 232, 0.46)',
+  auraCool: 'rgba(211, 225, 249, 0.3)',
+  auraFacet: 'rgba(255, 255, 255, 0.38)',
+  auraClear: 'rgba(255, 255, 255, 0)',
+  foodIcon: '#E06A8B',
+  foodSurface: '#FFF0F4',
+  recordIcon: '#5B7BE2',
+  recordSurface: '#EEF2FF',
+  chatIcon: '#40A86A',
+  chatSurface: '#ECFAF2',
+  playIcon: '#C89D28',
+  playSurface: '#FFF7D7',
+  playCell: '#F1DB82',
+  playMarker: '#E7B944',
+  gaugeTrack: '#EDE8F5',
+  dateText: '#6D5F8A',
+  navActive: '#E06A8B',
+  navInactive: '#A095B5',
+  navBackground: 'rgba(255, 255, 255, 0.72)',
+  navBorder: 'rgba(160, 149, 181, 0.22)',
+  softShadow: 'rgba(180, 170, 210, 0.25)',
+  actionShadow: 'rgba(200, 180, 210, 0.35)',
+} as const;
+
 export const roomPalette = {
   wall: '#A66BC4',
   wallLight: '#D98BCB',
@@ -96,10 +131,10 @@ export const roomPalette = {
   flowerRainbow: '#FFB5DF',
   leaf: '#55D6B0',
   panel: '#F7D8F0',
-  groundTop: '#FFF5F8',
-  groundMid: '#F8D2E2',
-  groundBottom: '#EEA7C5',
-  grassEdge: '#E69ABB',
+  groundTop: homePalette.groundTop,
+  groundMid: '#FFA0BD',
+  groundBottom: homePalette.groundBottom,
+  grassEdge: homePalette.groundEdge,
 } as const;
 
 /* ------------------------------------------------------------------ *
@@ -122,6 +157,7 @@ export const screenPadding = space.xl;
 export const radius = {
   sm: 8,
   md: 16, // Softer curves for dream aesthetic
+  homeCard: 20,
   lg: 24,
   xl: 32,
   pill: 999,

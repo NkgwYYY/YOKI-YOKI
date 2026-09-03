@@ -5,7 +5,7 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { Icon as NativeTabIcon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
-import { border, colors, typography } from '@/constants/theme';
+import { homePalette, typography } from '@/constants/theme';
 import { NewFriendModal } from '@/components/dex/NewFriendModal';
 import { LightFlowHost } from '@/components/LightFlowHost';
 import { Icon, iconSize } from '@/components/ui/Icon';
@@ -44,8 +44,8 @@ function ClassicTabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.subtleForeground,
+        tabBarActiveTintColor: homePalette.navActive,
+        tabBarInactiveTintColor: homePalette.navInactive,
         headerShown: false,
         tabBarLabelStyle: typography.micro,
         tabBarStyle: {
@@ -54,17 +54,17 @@ function ClassicTabLayout() {
           left: 0,
           right: 0,
           // 面の区切りは上端の 1px だけ。影は敷かない。
-          backgroundColor: isIOS ? 'transparent' : colors.card,
-          borderTopWidth: border.width,
-          borderTopColor: colors.border,
+          backgroundColor: isIOS ? 'transparent' : homePalette.navBackground,
+          borderTopWidth: 1,
+          borderTopColor: homePalette.navBorder,
           elevation: 0,
-          ...(isWeb ? { height: 64 } : {}),
+          ...(isWeb ? { height: 84 } : {}),
         },
         tabBarBackground: () =>
           isIOS ? (
             <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
           ) : isWeb ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: homePalette.navBackground }]} />
           ) : null,
       }}
     >

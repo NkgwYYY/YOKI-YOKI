@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { colors } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, homePalette } from '@/constants/theme';
 import { Icon } from '@/components/ui/Icon';
 
 /**
@@ -65,17 +66,45 @@ export function GamepadIllustration({ size = 48 }: { size?: number }) {
   );
 }
 
-export function GameBoardIllustration({ size = 48 }: { size?: number }) {
+export function CharacterFacetAura({ width, height }: { width: number; height: number }) {
+  return (
+    <View pointerEvents="none" style={[styles.facetAura, { width, height, borderRadius: width * 0.48 }]}>
+      <LinearGradient
+        colors={[homePalette.auraWarm, homePalette.auraCool, homePalette.auraClear]}
+        start={{ x: 0.16, y: 0.06 }}
+        end={{ x: 0.88, y: 0.94 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={[styles.facet, styles.facetTop]} />
+      <View style={[styles.facet, styles.facetSide]} />
+      <View style={[styles.facet, styles.facetBottom]} />
+    </View>
+  );
+}
+
+export function GameBoardIllustration({
+  size = 48,
+  tone = 'default',
+}: {
+  size?: number;
+  tone?: 'default' | 'play';
+}) {
   const cell = size * 0.16;
+  const isPlay = tone === 'play';
+  const boardColor = isPlay ? homePalette.playSurface : colors.secondary;
+  const boardBorder = isPlay ? homePalette.playIcon : colors.primary;
+  const cellAccent = isPlay ? homePalette.playIcon : colors.primary;
+  const cellMuted = isPlay ? homePalette.playCell : colors.borderSubtle;
+  const markerColor = isPlay ? homePalette.playMarker : colors.success;
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{
         width: size * 0.78,
         height: size * 0.78,
         borderRadius: size * 0.15,
-        backgroundColor: colors.secondary,
+        backgroundColor: boardColor,
         borderWidth: 1.5,
-        borderColor: colors.primary,
+        borderColor: boardBorder,
         padding: size * 0.1,
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -91,7 +120,7 @@ export function GameBoardIllustration({ size = 48 }: { size?: number }) {
               width: cell,
               height: cell,
               borderRadius: cell * 0.3,
-              backgroundColor: index === 2 || index === 6 ? colors.primary : colors.borderSubtle,
+              backgroundColor: index === 2 || index === 6 ? cellAccent : cellMuted,
               borderWidth: 1,
               borderColor: colors.border,
             }}
@@ -104,7 +133,7 @@ export function GameBoardIllustration({ size = 48 }: { size?: number }) {
           width: size * 0.12,
           height: size * 0.12,
           borderRadius: size,
-          backgroundColor: colors.success,
+          backgroundColor: markerColor,
           borderWidth: 1,
            borderColor: colors.card,
         }} />
@@ -192,3 +221,20 @@ export function SpecialFoodIcon({ size = 40 }: { size?: number }) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  facetAura: {
+    position: 'absolute',
+    alignSelf: 'center',
+    overflow: 'hidden',
+    opacity: 0.85,
+  },
+  facet: {
+    position: 'absolute',
+    backgroundColor: homePalette.auraFacet,
+    transform: [{ rotate: '28deg' }],
+  },
+  facetTop: { width: '32%', height: '18%', top: '10%', left: '28%', borderRadius: 8 },
+  facetSide: { width: '22%', height: '28%', top: '34%', right: '10%', borderRadius: 8, transform: [{ rotate: '-24deg' }] },
+  facetBottom: { width: '38%', height: '14%', bottom: '12%', left: '20%', borderRadius: 8, opacity: 0.6 },
+});

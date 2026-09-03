@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Image, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
-import { border, colors, control, elevation, radius, space, typography } from '@/constants/theme';
+import { border, colors, control, elevation, homePalette, radius, space, typography } from '@/constants/theme';
 import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
@@ -21,7 +21,8 @@ import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
 import { getCurrentSlot, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { RoomItemPreview, RoomView } from '@/components/RoomView';
-import { GameBoardIllustration } from '@/components/ui/Illustrations';
+import { CharacterFacetAura, GameBoardIllustration } from '@/components/ui/Illustrations';
+import { HomeSkyBackdrop } from '@/components/SkyBackground';
 
 const FURNITURE_OPTIONS: { id: RoomFurniture; name: string; cost: number }[] = [
   { id: 'none', name: '置かない', cost: 0 },
@@ -37,10 +38,18 @@ const FLOWER_OPTIONS: { id: RoomFlower; name: string; cost: number }[] = [
   { id: 'rainbow', name: 'レインボー', cost: 140 },
 ];
 
+const ACTION_TONES = {
+  food: { icon: homePalette.foodIcon, surface: homePalette.foodSurface },
+  record: { icon: homePalette.recordIcon, surface: homePalette.recordSurface },
+  chat: { icon: homePalette.chatIcon, surface: homePalette.chatSurface },
+  play: { icon: homePalette.playIcon, surface: homePalette.playSurface },
+} as const;
+
 function OrbitAction({
   icon,
   illustration,
   label,
+  tone,
   onPress,
   disabled,
   testID,
@@ -49,11 +58,13 @@ function OrbitAction({
   icon: IconName;
   illustration?: React.ReactNode;
   label: string;
+  tone: keyof typeof ACTION_TONES;
   onPress: () => void;
   disabled?: boolean;
   testID: string;
   style?: object;
 }) {
+  const actionTone = ACTION_TONES[tone];
   return (
     <PressScale
       testID={testID}
@@ -62,7 +73,9 @@ function OrbitAction({
       accessibilityLabel={label}
       style={[styles.orbitAction, style, disabled && styles.orbitActionDisabled]}
     >
-      {illustration ?? <Icon name={icon} size={iconSize.md} color={colors.foreground} />}
+      <View style={[styles.actionIconBubble, { backgroundColor: actionTone.surface }]}>
+        {illustration ?? <Icon name={icon} size={iconSize.lg} color={actionTone.icon} />}
+      </View>
       <Text style={styles.orbitActionLabel} numberOfLines={1}>{label}</Text>
     </PressScale>
   );
@@ -82,9 +95,9 @@ function HomeSatietyGauge({ satiety }: { satiety: number }) {
   const isHungry = satiety < 40;
   return (
     <View style={styles.satietyContainer}>
-      <Icon name="coffee" size={14} color={isHungry ? colors.danger : colors.primary} />
+      <Icon name="coffee" size={14} color={isHungry ? colors.danger : homePalette.foodIcon} />
       <View style={styles.satietyTrack}>
-        <View style={[styles.satietyFill, { width: `${satiety}%`, backgroundColor: isHungry ? colors.danger : colors.primary }]} />
+        <View style={[styles.satietyFill, { width: `${satiety}%`, backgroundColor: isHungry ? colors.danger : homePalette.foodIcon }]} />
       </View>
       <Text style={styles.satietyText}>{satiety}%</Text>
     </View>
@@ -151,10 +164,10 @@ export default function HomeScreen() {
   const canPlay = !!currentSlot && slotPlays < MAX_PLAYS_PER_SLOT;
   const mascotMood = todayRecord ? 'happy' : 'normal';
   const compactHome = viewportHeight < 740;
-  const sceneHeight = compactHome ? 270 : 300;
+  const sceneHeight = compactHome ? 300 : 330;
   const characterSize = companionState.extraEggs > 0
-    ? compactHome ? 88 : 98
-    : compactHome ? 100 : 112;
+    ? compactHome ? 112 : 124
+    : compactHome ? 130 : 145;
   const characterFrame = characterSize * 1.7;
   const characterHeight = characterSize * 2.4;
 
@@ -189,6 +202,7 @@ export default function HomeScreen() {
   return (
     <>
       <Screen scroll={false} gap={space.xs} contentStyle={styles.homeContent}>
+        <HomeSkyBackdrop />
         <View style={styles.header}>
           <View>
             <Image source={require('@/assets/images/yoki_logo.png')} style={styles.logo} resizeMode="contain" />
@@ -210,7 +224,7 @@ export default function HomeScreen() {
           onPress={openName}
           style={styles.nameField}
         >
-          <Icon name="edit-3" size={iconSize.md} color={colors.subtleForeground} />
+          <Icon name="edit-3" size={iconSize.md} color={homePalette.foodIcon} />
           <Text style={[styles.nameFieldText, !mascotName && styles.nameFieldPlaceholder]} numberOfLines={1}>
             {mascotName || 'なまえをいれてね'}
           </Text>
@@ -219,73 +233,82 @@ export default function HomeScreen() {
         <View style={styles.topStatusRow}>
           <HomeSatietyGauge satiety={currentSatiety} />
           <View style={styles.pointsBalance}>
-            <Icon name="star" size={14} color={colors.primary} />
+            <Icon name="star" size={14} color={homePalette.navActive} />
             <Text style={styles.pointsBalanceText}>{feedState.points} pt</Text>
           </View>
         </View>
 
         <View style={styles.centerArea}>
-          <RoomView
-            level={progress.level}
-            streak={progress.streak}
-            totalDays={progress.totalDays}
-            mascotName={mascotName}
-            customization={roomCustomization}
-            sceneHeight={sceneHeight}
-          >
-            <View style={[styles.characterGarden, { height: sceneHeight }]}>
-              <View
-                style={[
-                  styles.characterMain,
-                  {
-                    width: characterFrame,
-                    height: characterHeight,
-                    marginLeft: -characterFrame / 2,
-                    marginTop: -characterHeight / 2,
-                  },
-                ]}
-              >
-                <StageCharacter
-                  stage={getMascotStage(progress.level)}
-                  mood={mascotMood}
-                  size={characterSize}
-                  growthSize={growth.growthSize}
-                />
-              </View>
-              {companionState.extraEggs > 0 ? (
-                <View style={styles.companionEgg}>
-                  <StageCharacter stage="egg" mood="happy" size={58} growthSize={0.78} />
+          <View style={styles.sceneStack}>
+            <View pointerEvents="none" style={[styles.actionGround, { top: sceneHeight - 96 }]} />
+            <RoomView
+              level={progress.level}
+              streak={progress.streak}
+              totalDays={progress.totalDays}
+              mascotName={mascotName}
+              customization={roomCustomization}
+              sceneHeight={sceneHeight}
+              horizontalBleed={space.xl}
+            >
+              <View style={[styles.characterGarden, { height: sceneHeight }]}>
+                <View
+                  style={[
+                    styles.characterMain,
+                    {
+                      width: characterFrame,
+                      height: characterHeight,
+                      marginLeft: -characterFrame / 2,
+                      marginTop: -characterHeight / 2,
+                    },
+                  ]}
+                >
+                  <CharacterFacetAura width={characterSize * 0.98} height={characterSize * 1.7} />
+                  <StageCharacter
+                    stage={getMascotStage(progress.level)}
+                    mood={mascotMood}
+                    size={characterSize}
+                    growthSize={growth.growthSize}
+                  />
                 </View>
-              ) : null}
+                {companionState.extraEggs > 0 ? (
+                  <View style={styles.companionEgg}>
+                    <StageCharacter stage="egg" mood="happy" size={58} growthSize={0.78} />
+                  </View>
+                ) : null}
+              </View>
+            </RoomView>
+            <View style={styles.actionRow}>
+              <OrbitAction
+                testID="home-feed"
+                icon="coffee"
+                tone="food"
+                label="ごはん"
+                onPress={() => setShowFeed(true)}
+              />
+              <OrbitAction
+                testID="home-record"
+                icon="edit-3"
+                tone="record"
+                label="記録"
+                onPress={() => router.push('/(tabs)/record')}
+              />
+              <OrbitAction
+                testID="home-chat"
+                icon="message-circle"
+                tone="chat"
+                label="チャット"
+                onPress={() => router.push('/(tabs)/chat')}
+              />
+              <OrbitAction
+                testID="home-game"
+                icon="star"
+                tone="play"
+                illustration={<GameBoardIllustration size={42} tone="play" />}
+                label="あそぶ"
+                disabled={!canPlay}
+                onPress={() => setShowMiniGame(true)}
+              />
             </View>
-          </RoomView>
-          <View style={styles.actionRow}>
-            <OrbitAction
-              testID="home-feed"
-              icon="coffee"
-              label="ごはん"
-              onPress={() => setShowFeed(true)}
-            />
-            <OrbitAction
-              testID="home-record"
-              icon="edit-3"
-              label="記録"
-              onPress={() => router.push('/(tabs)/record')}
-            />
-            <OrbitAction
-              testID="home-chat"
-              icon="message-circle"
-              label="チャット"
-              onPress={() => router.push('/(tabs)/chat')}
-            />
-            <OrbitAction
-              testID="home-game"
-              icon="star"
-              illustration={<GameBoardIllustration size={42} />}
-              label="あそぶ"
-              disabled={!canPlay}
-              onPress={() => setShowMiniGame(true)}
-            />
           </View>
         </View>
       </Screen>
@@ -391,10 +414,10 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  homeContent: { justifyContent: 'space-between', overflow: 'hidden' },
-  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  logo: { width: 120, height: 28, tintColor: colors.foreground },
-  date: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
+  homeContent: { justifyContent: 'space-between', overflow: 'hidden', position: 'relative' },
+  header: { zIndex: 2, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  logo: { width: 122, height: 29, tintColor: colors.foreground },
+  date: { ...typography.caption, color: homePalette.dateText, marginTop: 2 },
   moreButton: {
     width: control.icon,
     height: control.icon,
@@ -404,21 +427,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   nameField: {
+    zIndex: 2,
     minHeight: 48,
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
     paddingHorizontal: space.md,
-    borderRadius: radius.lg,
+    borderRadius: radius.homeCard,
     backgroundColor: colors.card,
-    ...border.hairline,
-    ...elevation.raised,
+    borderWidth: 1,
+    borderColor: homePalette.navBorder,
+    shadowColor: homePalette.softShadow,
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   nameFieldText: { ...typography.body, flex: 1, color: colors.foreground },
   nameFieldPlaceholder: { color: colors.mutedForeground },
 
-  centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' },
+  centerArea: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  sceneStack: { width: '100%', alignItems: 'center', position: 'relative' },
+  actionGround: {
+    position: 'absolute',
+    left: -space.xl,
+    right: -space.xl,
+    bottom: -300,
+    backgroundColor: homePalette.groundBottom,
+    zIndex: 0,
+  },
   characterGarden: { width: '100%', position: 'relative' },
   characterMain: {
     position: 'absolute',
@@ -430,6 +468,7 @@ const styles = StyleSheet.create({
   },
   companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 4 },
   actionRow: {
+    zIndex: 2,
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -440,19 +479,30 @@ const styles = StyleSheet.create({
   orbitAction: {
     flex: 1,
     minWidth: 0,
-    maxWidth: 92,
-    height: 88,
+    maxWidth: 96,
+    height: 94,
     borderRadius: radius.lg,
     backgroundColor: colors.card,
-    ...border.hairline,
-    ...elevation.raised,
+    borderWidth: 0,
+    shadowColor: homePalette.actionShadow,
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 4,
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.xs,
     paddingHorizontal: space.xs,
   },
+  actionIconBubble: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   orbitActionDisabled: { opacity: 0.45 },
-  orbitActionLabel: { ...typography.calloutStrong, color: colors.foreground, textAlign: 'center' },
+  orbitActionLabel: { ...typography.calloutStrong, fontSize: 13, lineHeight: 18, letterSpacing: 0, color: colors.foreground, textAlign: 'center' },
 
   satietyContainer: {
     flex: 1,
@@ -464,12 +514,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: space.sm,
     minHeight: 38,
-    ...border.hairline,
+    borderWidth: 1,
+    borderColor: homePalette.navBorder,
   },
-  satietyTrack: { flex: 1, minWidth: 80, height: 6, backgroundColor: colors.muted, borderRadius: 3, overflow: 'hidden' },
+  satietyTrack: { flex: 1, minWidth: 80, height: 7, backgroundColor: homePalette.gaugeTrack, borderRadius: 10, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },
   satietyText: { ...typography.micro, color: colors.foreground, width: 28, textAlign: 'right' },
-  topStatusRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  topStatusRow: { zIndex: 2, width: '100%', flexDirection: 'row', alignItems: 'center', gap: space.sm },
   pointsBalance: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -481,7 +532,8 @@ const styles = StyleSheet.create({
     minHeight: 38,
     minWidth: 74,
     justifyContent: 'center',
-    ...border.hairline,
+    borderWidth: 1,
+    borderColor: homePalette.navBorder,
   },
   pointsBalanceText: { ...typography.micro, color: colors.foreground },
 
