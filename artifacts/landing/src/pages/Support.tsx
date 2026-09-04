@@ -1,6 +1,7 @@
 import { ClipboardCheck, ExternalLink, HelpCircle, LifeBuoy, Mail, Send } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { PublicPageShell } from '@/components/public-page-shell';
+import { trackEvent } from '@/lib/analytics';
 import { siteUrl } from '@/lib/seo';
 
 const supportEmail = 'nkgw.y.0703@gmail.com';
@@ -49,6 +50,7 @@ export default function Support() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    trackEvent('support_contact_opened', { category });
     const subject = `[YOKI YOKI] ${category}`;
     const body = [
       'お問い合わせありがとうございます。',
@@ -83,7 +85,7 @@ export default function Support() {
           <div className="mt-7 space-y-3">
             {faqs.map((faq) => (
               <details key={faq.question} className="group rounded-2xl border border-white/10 bg-white/[.035] open:border-[#e2be72]/30 open:bg-[#e2be72]/[.045]">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 font-[Zen_Maru_Gothic] text-sm leading-7 text-[#eee5f5] [&::-webkit-details-marker]:hidden">
+                <summary onClick={(event) => { if (!(event.currentTarget.parentElement as HTMLDetailsElement).open) trackEvent('support_faq_opened'); }} className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 font-[Zen_Maru_Gothic] text-sm leading-7 text-[#eee5f5] [&::-webkit-details-marker]:hidden">
                   <span>{faq.question}</span>
                   <span className="text-xl font-light text-[#d9b96f] transition-transform group-open:rotate-45" aria-hidden="true">＋</span>
                 </summary>

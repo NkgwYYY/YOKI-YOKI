@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import type { Article } from '@/data/articles';
 import { ARTICLES } from '@/data/articles';
 import { updateArticleSeo } from '@/lib/seo';
+import { trackEvent } from '@/lib/analytics';
 import { JournalCta } from './Articles';
 
 const base = import.meta.env.BASE_URL;
@@ -16,7 +17,7 @@ function ArticleHeader() {
       </a>
       <nav className="flex items-center gap-5 text-sm text-[#cfc3df]" aria-label="記事メニュー">
         <a className="article-nav-link" href={`${base}articles/`}>読みもの一覧</a>
-        <a className="article-nav-link hidden sm:inline" href="https://yoki-yoki.replit.app/" rel="noopener noreferrer">アプリを開く</a>
+       <a className="article-nav-link hidden sm:inline" href="https://yoki-yoki.replit.app/" rel="noopener noreferrer" onClick={() => trackEvent('app_cta_clicked', { location: 'article_header' })}>アプリを開く</a>
       </nav>
     </header>
   );
@@ -28,7 +29,7 @@ function RelatedArticles({ current }: { current: Article }) {
     <section className="mx-auto max-w-3xl px-5 pb-20 sm:px-8" aria-labelledby="related-heading">
       <div className="mb-7 flex items-center gap-3"><span className="h-px flex-1 bg-white/10" /><h2 id="related-heading" className="whitespace-nowrap font-[Zen_Maru_Gothic] text-lg text-[#eee5f5]">こちらも読む</h2><span className="h-px flex-1 bg-white/10" /></div>
       <div className="grid gap-3 sm:grid-cols-3">
-        {related.map((article) => <a className="related-article group" key={article.slug} href={`${base}articles/${article.slug}/`}><span className="text-[11px] text-[#d6b46d]">{article.category}</span><h3 className="mt-2 font-[Zen_Maru_Gothic] text-sm leading-6 text-[#eee5f5] group-hover:text-[#edc778]">{article.title}</h3><ArrowRight className="mt-4 h-4 w-4 text-[#9d8bac] transition-transform group-hover:translate-x-1" /></a>)}
+         {related.map((article) => <a className="related-article group" key={article.slug} href={`${base}articles/${article.slug}/`} onClick={() => trackEvent('article_opened', { slug: article.slug, category: article.category })}><span className="text-[11px] text-[#d6b46d]">{article.category}</span><h3 className="mt-2 font-[Zen_Maru_Gothic] text-sm leading-6 text-[#eee5f5] group-hover:text-[#edc778]">{article.title}</h3><ArrowRight className="mt-4 h-4 w-4 text-[#9d8bac] transition-transform group-hover:translate-x-1" /></a>)}
       </div>
     </section>
   );

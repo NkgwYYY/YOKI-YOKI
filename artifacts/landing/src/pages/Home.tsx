@@ -1,6 +1,7 @@
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { ArrowDown, ArrowRight, BookHeart, Heart, MessageCircleHeart, Sparkles, Sprout, Sun, WandSparkles } from 'lucide-react';
 import { Starfield } from '@/components/starfield';
+import { trackEvent } from '@/lib/analytics';
 
 const base = import.meta.env.BASE_URL;
 const appHref = 'https://yoki-yoki.replit.app/';
@@ -17,7 +18,7 @@ function FadeIn({ children, delay = 0, className = '' }: { children: React.React
 }
 
 function Cta({ location, children = '✨ YOKI YOKIをはじめる' }: { location: string; children?: React.ReactNode }) {
-  return <a href={appHref} className="focus-ring group inline-flex items-center gap-3 rounded-full border border-[#e4ca91]/50 bg-[#dfb96b] px-6 py-3.5 text-sm font-bold text-[#241634] shadow-[0_12px_36px_rgba(221,183,102,.22)] transition-transform hover:-translate-y-1 hover:bg-[#f1d18f]" onClick={() => { if (typeof window !== 'undefined' && (window as any).gtag) (window as any).gtag('event', 'cta_click', { event_category: location, event_label: 'アプリを使ってみる' }); }}>{children}<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a>;
+  return <a href={appHref} className="focus-ring group inline-flex items-center gap-3 rounded-full border border-[#e4ca91]/50 bg-[#dfb96b] px-6 py-3.5 text-sm font-bold text-[#241634] shadow-[0_12px_36px_rgba(221,183,102,.22)] transition-transform hover:-translate-y-1 hover:bg-[#f1d18f]" onClick={() => trackEvent('app_cta_clicked', { location })}>{children}<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></a>;
 }
 
 export default function Home() {

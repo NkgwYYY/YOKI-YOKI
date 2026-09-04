@@ -2,6 +2,7 @@ import { ArrowRight, BookOpen, ChevronRight, Clock3, Sparkles } from 'lucide-rea
 import { useEffect, useMemo, useState } from 'react';
 import { ARTICLES, ARTICLE_CATEGORIES } from '@/data/articles';
 import { updateArticleSeo } from '@/lib/seo';
+import { trackEvent } from '@/lib/analytics';
 
 const base = import.meta.env.BASE_URL;
 
@@ -22,7 +23,7 @@ function ArticleHeader() {
 
 function ArticleCard({ slug, title, description, publishedAt, category, readingTime }: typeof ARTICLES[number]) {
   return (
-    <a href={`${base}articles/${slug}/`} className="article-card group">
+    <a href={`${base}articles/${slug}/`} className="article-card group" onClick={() => trackEvent('article_opened', { slug, category })}>
       <div className="flex items-center justify-between gap-3 text-xs text-[#a99cbb]">
         <span className="article-category">{category}</span>
         <time dateTime={publishedAt}>{publishedAt.replaceAll('-', '.')}</time>
@@ -65,7 +66,7 @@ export default function Articles() {
         <div className="flex flex-col gap-5 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div><p className="text-xs tracking-[.25em] text-[#8fc4df]">JOURNAL</p><h2 id="articles-heading" className="mt-2 font-[Zen_Maru_Gothic] text-2xl text-[#f5effa]">記事一覧</h2></div>
           <div className="flex flex-wrap gap-2" aria-label="カテゴリで絞り込み">
-            {ARTICLE_CATEGORIES.map((item) => <button key={item} type="button" aria-pressed={category === item} onClick={() => setCategory(item)} className={`focus-ring rounded-full border px-3.5 py-2 text-xs transition-colors ${category === item ? 'border-[#e2be72]/60 bg-[#e2be72] text-[#251732]' : 'border-white/15 bg-white/[.04] text-[#c3b6d2] hover:border-[#e2be72]/40 hover:text-[#f0cb82]'}`}>{item}</button>)}
+            {ARTICLE_CATEGORIES.map((item) => <button key={item} type="button" aria-pressed={category === item} onClick={() => { setCategory(item); trackEvent('article_category_selected', { category: item }); }} className={`focus-ring rounded-full border px-3.5 py-2 text-xs transition-colors ${category === item ? 'border-[#e2be72]/60 bg-[#e2be72] text-[#251732]' : 'border-white/15 bg-white/[.04] text-[#c3b6d2] hover:border-[#e2be72]/40 hover:text-[#f0cb82]'}`}>{item}</button>)}
           </div>
         </div>
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
@@ -92,7 +93,7 @@ export function JournalCta() {
           <p className="text-xs font-bold tracking-[.24em] text-[#e8c67d]">A LITTLE LIGHT, EVERY DAY</p>
           <h2 id="journal-cta-title" className="mt-4 font-[Zen_Maru_Gothic] text-2xl leading-9 text-[#fbf4ff] sm:text-3xl">毎日の小さな変化を、<br />記録してみませんか？</h2>
           <p className="mt-5 text-sm leading-7 text-[#c4b7d0]">YOKI YOKIは、毎日の小さな頑張りや気持ちを記録し、自分の変化を見える化するメンタルケアアプリです。</p>
-          <a href="https://yoki-yoki.replit.app/" rel="noopener noreferrer" className="focus-ring mt-7 inline-flex items-center gap-3 rounded-full border border-[#ead091]/60 bg-[#e2bd70] px-5 py-3.5 text-sm font-bold text-[#271a36] shadow-[0_12px_32px_rgba(226,189,112,.2)] transition-transform hover:-translate-y-1">YOKI YOKIを使ってみる <ChevronRight className="h-4 w-4" /></a>
+           <a href="https://yoki-yoki.replit.app/" rel="noopener noreferrer" onClick={() => trackEvent('app_cta_clicked', { location: 'journal' })} className="focus-ring mt-7 inline-flex items-center gap-3 rounded-full border border-[#ead091]/60 bg-[#e2bd70] px-5 py-3.5 text-sm font-bold text-[#271a36] shadow-[0_12px_32px_rgba(226,189,112,.2)] transition-transform hover:-translate-y-1">YOKI YOKIを使ってみる <ChevronRight className="h-4 w-4" /></a>
         </div>
       </div>
     </section>
