@@ -136,3 +136,73 @@ mtime_ms = 1788516081932
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/31126b74-6690-4e3d-8f15-94eeceb4b541/22d5c280-16cd-47bc-9733-f04f5f61776d"
 storage_version_token = "1788516134169024"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "hdk93xVU1HvaLQegB6Fd9"
+uri = "file://app-store-assets/YOKI-YOKI-Additional-Screenshots-1242x2688.zip"
+type = "unspecified"
+title = "YOKI YOKI 追加スクリーンショット4枚"
+description = "STARLIGHT RUN、詳しい気分記録、ごはん、新しい仲間をまとめた1242 × 2688pxのZIPです。"
+logical_id = "14d39b9a-3de0-4566-9676-f3f838f73ded"
+content_hash = "sha256:563b41de6ed1c7eb40720a25f076bfc0856d42a21a94f1a7148f77e284830cf2"
+size = 830659
+mtime_ms = 1788517725556
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/14d39b9a-3de0-4566-9676-f3f838f73ded/e0dae5ff-00f8-4b8d-ad2d-dec005e0dc2e"
+storage_version_token = "1788517765569571"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "eLqREEgNewcd-CKQSBJ-q"
+uri = "file://app-store-assets/additional-1242x2688/11-starlight-run.jpg"
+type = "image"
+title = "11 STARLIGHT RUN"
+description = "App Store提出用・1242 × 2688px"
+logical_id = "47856568-d562-478d-8a4d-f273dd143380"
+content_hash = "sha256:5fc9588a7a37d0f748e7020e3760b0988a3e89e3aeaffe4b29f5240d4f96df6a"
+size = 225315
+mtime_ms = 1788517724868
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/47856568-d562-478d-8a4d-f273dd143380/b444ad26-7d1e-4a1d-853a-3a3f589b7bac"
+storage_version_token = "1788517766898553"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "6iA_uuUqob6p1kABw0CAZ"
+uri = "file://app-store-assets/additional-1242x2688/12-record-detail.jpg"
+type = "image"
+title = "12 詳しい気分記録"
+description = "App Store提出用・1242 × 2688px"
+logical_id = "1cfcb059-363a-4210-9c0d-aa4e8f075056"
+content_hash = "sha256:1350c7d0c86b7d32eee7664b8a7d1d63c6fb58e947b73a96727d68145b13f0d0"
+size = 330295
+mtime_ms = 1788517725096
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/1cfcb059-363a-4210-9c0d-aa4e8f075056/45d17cf4-091d-49bd-be7b-729f234f7ca8"
+storage_version_token = "1788517768148350"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "AEa0Hr-ANXXCx3_1IjAWY"
+uri = "file://app-store-assets/additional-1242x2688/13-feed-care.jpg"
+type = "image"
+title = "13 ごはん・お世話"
+description = "App Store提出用・1242 × 2688px"
+logical_id = "db2c2786-af03-4a68-9c46-b81ab4029eb9"
+content_hash = "sha256:a8daea4443593d5e9c508c840f37d8bcdfc6ff31cfc8771d981a8bbb261980a9"
+size = 339123
+mtime_ms = 1788517725316
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/db2c2786-af03-4a68-9c46-b81ab4029eb9/5d467af0-0377-4845-94f2-f6e14c413893"
+storage_version_token = "1788517769426585"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "DlLdEcZiNekvcwtUm9dF3"
+uri = "file://app-store-assets/additional-1242x2688/14-new-friend.jpg"
+type = "image"
+title = "14 新しい仲間"
+description = "App Store提出用・1242 × 2688px"
+logical_id = "aa550cce-8007-40c4-85cd-c9431e0fbe0d"
+content_hash = "sha256:ae0892be0be1767b2b1d7c98a8c9234c7a89a2eab561f5b88c255cf96ffe4802"
+size = 210460
+mtime_ms = 1788517725516
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/aa550cce-8007-40c4-85cd-c9431e0fbe0d/62d5e96d-2d5b-49ed-a117-9d437d905f7a"
+storage_version_token = "1788517770851186"
+content_type = "image/jpeg"
