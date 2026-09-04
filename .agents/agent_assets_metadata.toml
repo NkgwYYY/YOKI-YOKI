@@ -43,28 +43,28 @@ logical_id = "17f4e497-947f-4e65-8c99-39342b88e042"
 id = "RfuKLm343ItCa7GtkW_OD"
 uri = "file://app-store-assets/YOKI-YOKI-App-Store-Screenshots-1242x2688.zip"
 type = "unspecified"
-title = "更新版 App Store スクリーンショット10枚"
-description = "06番の使い方ガイドを差し替え済みのZIPです。"
+title = "修正版 App Storeスクリーンショット10枚"
+description = "修正版ホーム画像を反映した提出用ZIPです。"
 logical_id = "ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0"
-content_hash = "sha256:f20e6f2f626c05f1916a6c76f7243ffc3c6f0c4448e81ed76ba51c02aada4de4"
-size = 2941782
-mtime_ms = 1788516081960
-storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0/5e055529-cc10-40e0-8734-b339cdc5db28"
-storage_version_token = "1788516135722750"
+content_hash = "sha256:89d45297add6ef694f44512e1996e44c79199ea7395aa29e636d8983acb1acfb"
+size = 2942460
+mtime_ms = 1788518907576
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0/52bc0477-50a3-4f24-8515-b1e7d575dc25"
+storage_version_token = "1788518947586048"
 content_type = "application/octet-stream"
 
 [[outputs]]
 id = "t3Sn3yXuS1NVS23-vYUPk"
 uri = "file://app-store-assets/final-1242x2688/01-home.jpg"
 type = "image"
-title = "01 ホーム"
-description = "App Store提出用・1242 × 2688px"
+title = "修正版 01 ホーム"
+description = "左下の花と右下の本棚を外した、1242 × 2688pxのホーム画像です。"
 logical_id = "bbb51afd-9131-4c8b-a665-8be130463f98"
-content_hash = "sha256:b43a2eba0ac5d083408206bedbb5c3d2005a59724111e83bb0b40dc216f5703f"
-size = 347772
-mtime_ms = 1788502068784
-storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/bbb51afd-9131-4c8b-a665-8be130463f98/71347d74-1f51-4c30-96be-ba866419c66f"
-storage_version_token = "1788502125840348"
+content_hash = "sha256:2d9159ba85e0593905c04d7401ad58ec85b46b365b50650863db6885364cecb6"
+size = 346853
+mtime_ms = 1788518907360
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/bbb51afd-9131-4c8b-a665-8be130463f98/5757693c-53f1-4c76-8eb3-c465b69341f0"
+storage_version_token = "1788518946233397"
 content_type = "image/jpeg"
 
 [[outputs]]
