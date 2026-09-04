@@ -43,14 +43,14 @@ logical_id = "17f4e497-947f-4e65-8c99-39342b88e042"
 id = "RfuKLm343ItCa7GtkW_OD"
 uri = "file://app-store-assets/YOKI-YOKI-App-Store-Screenshots-1242x2688.zip"
 type = "unspecified"
-title = "YOKI YOKI App Store スクリーンショット10枚"
-description = "1242 × 2688pxのJPEG 10枚をまとめたZIPです。解凍後、そのままApp Store Connectへドラッグできます。"
+title = "更新版 App Store スクリーンショット10枚"
+description = "06番の使い方ガイドを差し替え済みのZIPです。"
 logical_id = "ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0"
-content_hash = "sha256:b69b30788347ef5840a33635f432830c1a8315cabc4747fb94027c561619c95c"
-size = 2940340
-mtime_ms = 1788502071104
-storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0/fed0db7d-11a8-41ce-9d8a-c2b8a905920a"
-storage_version_token = "1788502124383900"
+content_hash = "sha256:f20e6f2f626c05f1916a6c76f7243ffc3c6f0c4448e81ed76ba51c02aada4de4"
+size = 2941782
+mtime_ms = 1788516081960
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0/5e055529-cc10-40e0-8734-b339cdc5db28"
+storage_version_token = "1788516135722750"
 content_type = "application/octet-stream"
 
 [[outputs]]
@@ -121,4 +121,18 @@ size = 650416
 mtime_ms = 1788502069804
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/e22f6354-a0e2-47f8-90a2-aac2547cd2d6/98fac387-b20f-4ef7-81f8-7c68fb96aa53"
 storage_version_token = "1788502131035003"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "l6oEgctvyB0Ws4rgaecFq"
+uri = "file://app-store-assets/final-1242x2688/06-guide.jpg"
+type = "image"
+title = "更新版 06 使い方ガイド"
+description = "YOKI YOKI表記に修正済み・1242 × 2688px"
+logical_id = "31126b74-6690-4e3d-8f15-94eeceb4b541"
+content_hash = "sha256:88be833504de44646721e574a4fbde8cbe7c3ec457c6c2ca8b678c1c3781eeb9"
+size = 449423
+mtime_ms = 1788516081932
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/31126b74-6690-4e3d-8f15-94eeceb4b541/22d5c280-16cd-47bc-9733-f04f5f61776d"
+storage_version_token = "1788516134169024"
 content_type = "image/jpeg"

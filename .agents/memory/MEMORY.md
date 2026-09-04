@@ -13,3 +13,4 @@
 - [YOKI YOKI home direction](home-direction.md) — keep the home as one seamless plain scene: no room card or labels, no decor before purchase, and primary actions around the character.
 - [Startup image preloading](startup-image-preloading.md) — preload core images into memory/disk before reveal; web bundled assets expose uri objects and lack Image.resolveAssetSource.
 - [Clerk Expo iOS prebuild](clerk-expo-ios-prebuild.md) — Clerk 4 native iOS builds require its Expo plugin so the iOS 17 target exists before CocoaPods adds ClerkKit SPM products.
+- [App Store screenshot capture](app-store-capture.md) — Expo seeded captures may need a known static filename plus workflow restart; remove seed pages and sync both web builds afterward.
