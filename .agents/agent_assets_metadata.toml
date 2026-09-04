@@ -6,12 +6,14 @@ id = "7w_yHqM0fZgDfEHKAJqGL"
 uri = "file://attached_assets/egg_awake_preview.jpg"
 type = "image"
 title = "起きてるバージョンの表情一覧"
+logical_id = "fbb21ca8-2f2b-438e-8135-d945fb06cae3"
 
 [[outputs]]
 id = "hI80Bt4CdXqUZZ8Fa_9lL"
 uri = "file://attached_assets/character_gallery.jpg"
 type = "image"
 title = "進化キャラクター一覧"
+logical_id = "5cf27918-750c-4287-abb6-163c3df229e4"
 
 [[outputs]]
 id = "1_ery1JYgIuhbPMrXoRXg"
@@ -19,6 +21,7 @@ uri = "file://attached_assets/generated_audio/taiko_ka.mp3"
 type = "audio"
 title = "taiko ka"
 description = "Generated sound effect: Japanese taiko drum rim click 'ka', bright wooden rimshot, very short, crisp, game sound effect"
+logical_id = "450da18d-35df-4f4c-a076-1c3a712ea008"
 
 [[outputs]]
 id = "zAa5TPLZm6MQwR3tnOMms"
@@ -26,6 +29,7 @@ uri = "file://attached_assets/generated_audio/taiko_don.mp3"
 type = "audio"
 title = "taiko don"
 description = "Generated sound effect: Japanese taiko drum single deep hit 'don', punchy, short, clean, no reverb tail, game sound effect"
+logical_id = "2e4c4b85-5728-435c-a06c-aabe74839d58"
 
 [[outputs]]
 id = "dWajlr1nKUO2XTcxB68H7"
@@ -33,3 +37,88 @@ uri = "file://attached_assets/generated_audio/cosmic_rhythm_bgm.mp3"
 type = "audio"
 title = "cosmic rhythm bgm 97bpm"
 description = "Generated music: Cheerful spacey chiptune-like rhythm game background loop at 97 BPM, steady 4/4 pulse, warm synths, light percussion, kawaii cosmic mood, seamless loop, instrumental"
+logical_id = "17f4e497-947f-4e65-8c99-39342b88e042"
+
+[[outputs]]
+id = "RfuKLm343ItCa7GtkW_OD"
+uri = "file://app-store-assets/YOKI-YOKI-App-Store-Screenshots-1242x2688.zip"
+type = "unspecified"
+title = "YOKI YOKI App Store スクリーンショット10枚"
+description = "1242 × 2688pxのJPEG 10枚をまとめたZIPです。解凍後、そのままApp Store Connectへドラッグできます。"
+logical_id = "ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0"
+content_hash = "sha256:b69b30788347ef5840a33635f432830c1a8315cabc4747fb94027c561619c95c"
+size = 2940340
+mtime_ms = 1788502071104
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0/fed0db7d-11a8-41ce-9d8a-c2b8a905920a"
+storage_version_token = "1788502124383900"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "t3Sn3yXuS1NVS23-vYUPk"
+uri = "file://app-store-assets/final-1242x2688/01-home.jpg"
+type = "image"
+title = "01 ホーム"
+description = "App Store提出用・1242 × 2688px"
+logical_id = "bbb51afd-9131-4c8b-a665-8be130463f98"
+content_hash = "sha256:b43a2eba0ac5d083408206bedbb5c3d2005a59724111e83bb0b40dc216f5703f"
+size = 347772
+mtime_ms = 1788502068784
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/bbb51afd-9131-4c8b-a665-8be130463f98/71347d74-1f51-4c30-96be-ba866419c66f"
+storage_version_token = "1788502125840348"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "vWZJUS3hX97QCZFP2wwpq"
+uri = "file://app-store-assets/final-1242x2688/02-mood-record.jpg"
+type = "image"
+title = "02 気分記録"
+description = "App Store提出用・1242 × 2688px"
+logical_id = "fb90dc9f-c570-47fe-a050-d9383c9487c3"
+content_hash = "sha256:3e3be7982e15fb56687547aef0e4d1582eba516c7cd3d16f9713dc26875886a2"
+size = 347618
+mtime_ms = 1788502069144
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/fb90dc9f-c570-47fe-a050-d9383c9487c3/a0df8c25-2ae2-454f-988e-1886cc0370b8"
+storage_version_token = "1788502127171738"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "KRB0DEk-sAi4xk5Zfnx_I"
+uri = "file://app-store-assets/final-1242x2688/03-ai-chat.jpg"
+type = "image"
+title = "03 AIチャット"
+description = "App Store提出用・1242 × 2688px"
+logical_id = "1e0e2201-289b-4fa2-9546-db2b24749ca4"
+content_hash = "sha256:d97757ba798f7ff560e902b34c7370401fa3914e50750ce6a9d4c4642320efa5"
+size = 233787
+mtime_ms = 1788502069348
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/1e0e2201-289b-4fa2-9546-db2b24749ca4/c3f6509b-2bf7-431f-92ef-6fc0716c23ba"
+storage_version_token = "1788502128450143"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "e3YPDxzfrbXDqZMYBV3wy"
+uri = "file://app-store-assets/final-1242x2688/04-growth.jpg"
+type = "image"
+title = "04 成長"
+description = "App Store提出用・1242 × 2688px"
+logical_id = "29198eab-ec2c-4a71-8468-d7041a0a0dfe"
+content_hash = "sha256:ba2868408846ca62f8dfcc7a3bfa4c217033c5bcd59aa0eb166e3ede70d01b01"
+size = 368815
+mtime_ms = 1788502069580
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/29198eab-ec2c-4a71-8468-d7041a0a0dfe/12152506-0853-4bf8-aac7-fb740d750fd7"
+storage_version_token = "1788502129761704"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "WGpff6XCHMGZ9aeQD8FgV"
+uri = "file://app-store-assets/final-1242x2688/05-solar-plant.jpg"
+type = "image"
+title = "05 ひかり発電所"
+description = "App Store提出用・1242 × 2688px"
+logical_id = "e22f6354-a0e2-47f8-90a2-aac2547cd2d6"
+content_hash = "sha256:e4b9f565a9be095836f20d6f8fa8c9fb9dc881cdc44b3c04e65179bbc6120132"
+size = 650416
+mtime_ms = 1788502069804
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/e22f6354-a0e2-47f8-90a2-aac2547cd2d6/98fac387-b20f-4ef7-81f8-7c68fb96aa53"
+storage_version_token = "1788502131035003"
+content_type = "image/jpeg"
