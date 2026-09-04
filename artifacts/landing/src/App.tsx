@@ -7,6 +7,8 @@ import ArticleDetail from '@/pages/ArticleDetail';
 import Articles from '@/pages/Articles';
 import Home from '@/pages/Home';
 import NotFound from '@/pages/not-found';
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
+import Support from '@/pages/Support';
 
 const queryClient = new QueryClient();
 
@@ -17,13 +19,25 @@ function getRoute() {
   if (normalized === '/articles/') return { type: 'index' as const };
   const match = normalized.match(/^\/articles\/([^/]+)\/$/);
   if (match) return { type: 'detail' as const, article: getArticleBySlug(match[1]) };
+  if (normalized === '/support/') return { type: 'support' as const };
+  if (normalized === '/privacy/') return { type: 'privacy' as const };
   if (normalized === '/') return { type: 'home' as const };
   return { type: 'not-found' as const };
 }
 
 function App() {
   const route = getRoute();
-  const content = route.type === 'home' ? <Home /> : route.type === 'index' ? <Articles /> : route.type === 'detail' && route.article ? <ArticleDetail article={route.article} /> : <NotFound />;
+  const content = route.type === 'home'
+    ? <Home />
+    : route.type === 'index'
+      ? <Articles />
+      : route.type === 'detail' && route.article
+        ? <ArticleDetail article={route.article} />
+        : route.type === 'support'
+          ? <Support />
+          : route.type === 'privacy'
+            ? <PrivacyPolicy />
+            : <NotFound />;
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

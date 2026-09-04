@@ -74,7 +74,11 @@ export default function Articles() {
       </section>
 
       <JournalCta />
-      <footer className="article-footer">© {new Date().getFullYear()} YOKI YOKI <span aria-hidden="true">·</span> <a href={base}>公式サイト</a></footer>
+       <footer className="article-footer">
+         © {new Date().getFullYear()} YOKI YOKI <span aria-hidden="true">·</span> <a href={base}>公式サイト</a>
+         <span aria-hidden="true">·</span> <a href={`${base}support/`}>サポート</a>
+         <span aria-hidden="true">·</span> <a href={`${base}privacy/`}>プライバシーポリシー</a>
+       </footer>
     </main>
   );
 }

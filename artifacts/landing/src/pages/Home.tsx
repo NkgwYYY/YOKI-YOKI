@@ -109,7 +109,11 @@ export default function Home() {
       </section>
 
       <section className="relative z-10 overflow-hidden px-6 py-36 text-center sm:px-10"><div className="absolute inset-0 aurora opacity-50" /><FadeIn className="relative mx-auto max-w-2xl"><img src={`${base}characters/egg.png`} alt="タマゴのキャラクター" className="mx-auto mb-10 w-28 drop-shadow-[0_15px_25px_rgba(0,0,0,.45)]" /><h2 className="font-[Zen_Maru_Gothic] text-4xl leading-tight md:text-6xl">今日の「よき」を、<br />ひとつ。</h2><p className="mx-auto mt-7 max-w-md font-[Zen_Maru_Gothic] leading-8 text-[#aaa0bc]">あなたの世界が少し明るくなるところから、はじめよう。</p><div className="mt-10"><Cta location="footer" /></div></FadeIn></section>
-      <footer className="relative z-10 border-t border-[#c6b2e7]/10 px-6 py-8 text-center text-xs tracking-[.12em] text-[#766b8a]">© {new Date().getFullYear()} YOKI YOKI</footer>
+       <footer className="relative z-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-[#c6b2e7]/10 px-6 py-8 text-center text-xs tracking-[.12em] text-[#766b8a]">
+         <span>© {new Date().getFullYear()} YOKI YOKI</span>
+         <a className="transition-colors hover:text-[#e8c77e]" href={`${base}support/`}>サポート</a>
+         <a className="transition-colors hover:text-[#e8c77e]" href={`${base}privacy/`}>プライバシーポリシー</a>
+       </footer>
     </main>
   );
 }
