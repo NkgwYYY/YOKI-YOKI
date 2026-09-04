@@ -141,14 +141,14 @@ content_type = "image/jpeg"
 id = "hdk93xVU1HvaLQegB6Fd9"
 uri = "file://app-store-assets/YOKI-YOKI-Additional-Screenshots-1242x2688.zip"
 type = "unspecified"
-title = "YOKI YOKI 追加スクリーンショット4枚"
-description = "STARLIGHT RUN、詳しい気分記録、ごはん、新しい仲間をまとめた1242 × 2688pxのZIPです。"
+title = "更新版 追加スクリーンショット5枚"
+description = "音ゲー画像を追加した1242 × 2688pxのZIPです。"
 logical_id = "14d39b9a-3de0-4566-9676-f3f838f73ded"
-content_hash = "sha256:563b41de6ed1c7eb40720a25f076bfc0856d42a21a94f1a7148f77e284830cf2"
-size = 830659
-mtime_ms = 1788517725556
-storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/14d39b9a-3de0-4566-9676-f3f838f73ded/e0dae5ff-00f8-4b8d-ad2d-dec005e0dc2e"
-storage_version_token = "1788517765569571"
+content_hash = "sha256:b865c2402c146306c8af87bfdab3b00b3ef8662d36b37f30f253408e5ec254cc"
+size = 945768
+mtime_ms = 1788518150047
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/14d39b9a-3de0-4566-9676-f3f838f73ded/0a6b2d98-4a57-49c8-ace0-66e94daf7f23"
+storage_version_token = "1788518177962593"
 content_type = "application/octet-stream"
 
 [[outputs]]
@@ -205,4 +205,18 @@ size = 210460
 mtime_ms = 1788517725516
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/aa550cce-8007-40c4-85cd-c9431e0fbe0d/62d5e96d-2d5b-49ed-a117-9d437d905f7a"
 storage_version_token = "1788517770851186"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "1xOofe22Ob6R7g1HnowNq"
+uri = "file://app-store-assets/additional-1242x2688/15-rhythm-game.jpg"
+type = "image"
+title = "15 音ゲー・TAP BEAT"
+description = "プレイ中のノーツ表示・App Store提出用・1242 × 2688px"
+logical_id = "61b752da-9faf-46f1-8566-c63f9c8f69ad"
+content_hash = "sha256:44e9caf19f3242de000c821af0325b590412b978e4af8aeda5aee7883ad9be43"
+size = 180531
+mtime_ms = 1788518149871
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/61b752da-9faf-46f1-8566-c63f9c8f69ad/fae99031-6d3c-40b3-b2ef-7ae077a5541f"
+storage_version_token = "1788518176663694"
 content_type = "image/jpeg"
