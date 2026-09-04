@@ -86,7 +86,7 @@ export default function GuideScreen() {
         {/* コンセプト */}
         <Section icon="feather" title="このアプリのコンセプト">
           <P>
-            YOKKY は「あなたの元気が世界を動かす」メンタルケアアプリです。
+            YOKI YOKI は「あなたの元気が世界を動かす」メンタルケアアプリです。
           </P>
           <P>
             毎日の気分や行動を記録すると、あなたとともに暮らすキャラクターが元気になります。

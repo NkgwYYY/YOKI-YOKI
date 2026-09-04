@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YOKI YOKI App Store Capture</title>
+  </head>
+  <body>
+    <script>
+      const put = (key, value) =>
+        localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
+      put("@mentore/profile_v1", {
+        nickname: "ゆき",
+        ageRange: "20代",
+        gender: "回答しない",
+        goal: "自分を大切にする",
+        concerns: ["仕事", "健康"],
+      });
+      put("@mentore/progress_v2", {
+        level: 16,
+        experience: 1580,
+        mentalMuscle: 82,
+        streak: 7,
+        totalDays: 24,
+        lastRecordDate: "2026-09-04",
+      });
+      location.replace("/guide");
+    </script>
+  </body>
+</html>
