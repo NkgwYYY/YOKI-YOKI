@@ -220,3 +220,10 @@ mtime_ms = 1788518149871
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/61b752da-9faf-46f1-8566-c63f9c8f69ad/fae99031-6d3c-40b3-b2ef-7ae077a5541f"
 storage_version_token = "1788518176663694"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "gMRKnM0ptwi4OT7X_YNf4"
+uri = "file://artifacts/app-preview-video/public/audio/bg_music.mp3"
+type = "audio"
+title = "app preview background music"
+description = "Generated music: Warm playful lo-fi pop instrumental background music scoring a gentle Japanese wellness app preview. Soft marimba, muted plucks, light hand percussion, airy pads, 92 BPM, comforting …"

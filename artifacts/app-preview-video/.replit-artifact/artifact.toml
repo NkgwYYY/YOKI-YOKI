@@ -1,0 +1,29 @@
+kind = "video"
+videoAspectRatio = "9:16"
+previewPath = "/app-preview-video/"
+title = "YOKI YOKI App Preview"
+description = "YOKI YOKIの主要機能とキャラクターの魅力を短時間で伝える、App Store向け縦型アプリプレビュー動画。"
+version = "1.0.0"
+id = "artifacts/app-preview-video"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/app-preview-video/" ]
+localPort = 24541
+
+[services.development]
+run = "pnpm --filter @workspace/app-preview-video run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/app-preview-video", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/app-preview-video/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24541"
+BASE_PATH = "/app-preview-video/"
