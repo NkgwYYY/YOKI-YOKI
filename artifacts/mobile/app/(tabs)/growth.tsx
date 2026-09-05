@@ -296,6 +296,20 @@ export default function GrowthScreen() {
           <InsightCard />
         </FadeIn>
 
+        <FadeIn delay={180}>
+          <PressScale onPress={() => router.push('/monthly-report')}>
+            <View style={styles.monthlyReportCard}>
+              <IconBadge name="calendar" size="lg" tint="#62418B" background="#E8DEF8" />
+              <View style={styles.monthlyReportCopy}>
+                <Text style={styles.monthlyReportEyebrow}>MONTHLY REPORT</Text>
+                <Text style={styles.monthlyReportTitle}>今月の心を、1枚のレポートに</Text>
+                <Text style={styles.monthlyReportDescription}>気分カレンダーと優しいレビューを画像で残せます</Text>
+              </View>
+              <Icon name="chevron-right" size={iconSize.md} color={colors.subtleForeground} />
+            </View>
+          </PressScale>
+        </FadeIn>
+
         {/* Mood Chart */}
         <FadeIn delay={200}>
           <View style={styles.card}>
@@ -600,6 +614,22 @@ const styles = StyleSheet.create({
   },
   summaryValue: { ...typography.heading, color: colors.foreground },
   summaryLabel: { ...typography.micro, color: colors.mutedForeground },
+
+  /* 月次レポート導線 */
+  monthlyReportCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: '#F3EBF6',
+    borderWidth: border.width,
+    borderColor: '#D8C7F2',
+  },
+  monthlyReportCopy: { flex: 1 },
+  monthlyReportEyebrow: { ...typography.micro, color: '#765E8E', letterSpacing: 1.4 },
+  monthlyReportTitle: { ...typography.subhead, color: colors.foreground, marginTop: 2 },
+  monthlyReportDescription: { ...typography.caption, color: colors.mutedForeground, marginTop: 2 },
 
   /* 月次バーチャート */
   barChart: { flexDirection: 'row', alignItems: 'flex-end', height: 72, gap: 2 },

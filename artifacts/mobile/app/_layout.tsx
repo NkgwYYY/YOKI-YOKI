@@ -71,6 +71,7 @@ function RootLayoutNav() {
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="guide" options={{ headerShown: false }} />
         <Stack.Screen name="shop" options={{ headerShown: false }} />
+        <Stack.Screen name="monthly-report" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </>
   );
