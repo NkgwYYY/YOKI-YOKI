@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/item-admin/"
+title = "YOKI YOKI アイテム管理"
+description = "YOKI YOKIの商品、背景、アクセサリー、ボイスをReplit内で管理する運営者専用ダッシュボード。"
+version = "1.0.0"
+id = "artifacts/item-admin"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/item-admin/" ]
+localPort = 21941
+
+[services.development]
+run = "pnpm --filter @workspace/item-admin run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/item-admin", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/item-admin/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21941"
+BASE_PATH = "/item-admin/"

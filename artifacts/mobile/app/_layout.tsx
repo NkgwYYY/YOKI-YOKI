@@ -70,7 +70,6 @@ function RootLayoutNav() {
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="guide" options={{ headerShown: false }} />
         <Stack.Screen name="shop" options={{ headerShown: false }} />
-        <Stack.Screen name="admin" options={{ headerShown: false }} />
       </Stack>
     </>
   );

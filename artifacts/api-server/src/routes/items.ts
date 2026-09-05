@@ -23,6 +23,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isAdmin(req: AuthRequest): boolean {
+  // The item-admin artifact is an internal Replit development tool. In
+  // published production environments, explicit admin claims remain required.
+  if (process.env.NODE_ENV === "development" && req.userId) return true;
+
   const configuredIds = (process.env.ADMIN_USER_IDS ?? "")
     .split(",")
     .map((id) => id.trim())

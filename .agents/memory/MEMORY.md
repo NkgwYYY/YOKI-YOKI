@@ -15,3 +15,4 @@
 - [Clerk Expo iOS prebuild](clerk-expo-ios-prebuild.md) — Clerk 4 native iOS builds require its Expo plugin so the iOS 17 target exists before CocoaPods adds ClerkKit SPM products.
 - [App Store screenshot capture](app-store-capture.md) — Expo seeded captures may need a known static filename plus workflow restart; remove seed pages and sync both web builds afterward.
 - [Shop wallet authority](shop-wallet-authority.md) — item purchases are server-atomic, but the confirmed balance must also replace local feed points before the next cloud sync.
+- [Internal item administration](internal-item-admin.md) — item management belongs in a separate Replit-only artifact, never in the consumer mobile navigation.

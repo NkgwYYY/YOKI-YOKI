@@ -284,10 +284,18 @@ export default function HomeScreen() {
 
         <View style={styles.topStatusRow}>
           <HomeSatietyGauge satiety={currentSatiety} />
-          <View style={styles.pointsBalance}>
+          <PressScale
+            accessibilityLabel={`YOKI SHOP・${feedState.points}ポイント`}
+            onPress={() => router.push('/shop')}
+            style={styles.pointsBalance}
+          >
             <Icon name="star" size={14} color={homePalette.navActive} />
-            <Text style={styles.pointsBalanceText}>{feedState.points} pt</Text>
-          </View>
+            <View>
+              <Text style={styles.shopShortcutLabel}>YOKI SHOP</Text>
+              <Text style={styles.pointsBalanceText}>{feedState.points} pt</Text>
+            </View>
+            <Icon name="chevron-right" size={14} color={homePalette.navActive} />
+          </PressScale>
         </View>
 
         <View style={styles.centerArea}>
@@ -386,8 +394,6 @@ export default function HomeScreen() {
         <MenuAction icon="trending-up" label="成長を見る" onPress={() => { setShowMenu(false); router.push('/(tabs)/growth'); }} />
         <MenuAction icon="book-open" label="使い方ガイド" onPress={() => { setShowMenu(false); router.push('/guide'); }} />
         <MenuAction icon="edit-3" label="背景をカスタムする" onPress={() => { setShowMenu(false); setShopMessage(''); setShowAtelier(true); }} />
-        <MenuAction icon="coffee" label="YOKI SHOP" onPress={() => { setShowMenu(false); router.push('/shop'); }} />
-        <MenuAction icon="edit-3" label="アイテム管理" onPress={() => { setShowMenu(false); router.push('/admin'); }} />
         <MenuAction icon="edit-3" label={mascotName ? 'なかまの名前を変える' : 'なかまに名前をつける'} onPress={openName} />
       </BottomSheet>
 
@@ -644,6 +650,7 @@ const styles = StyleSheet.create({
     borderColor: homePalette.navBorder,
   },
   pointsBalanceText: { ...typography.micro, color: colors.foreground },
+  shopShortcutLabel: { ...typography.micro, fontSize: 10, lineHeight: 12, color: homePalette.navActive },
 
   shopMessage: {
     ...typography.calloutStrong,
