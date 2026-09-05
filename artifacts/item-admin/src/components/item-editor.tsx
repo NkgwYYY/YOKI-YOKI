@@ -18,7 +18,10 @@ export const itemSchema = z.object({
   name: z.string().min(1, 'Name is required').max(160),
   category: z.enum(['food', 'accessory', 'background', 'voice']),
   cost: z.coerce.number().min(0, 'Cost cannot be negative'),
-  assetUrl: z.string().url('Must be a valid URL').max(2048),
+  assetUrl: z.string().max(2048).refine(
+    (value) => value.startsWith('/') || z.string().url().safeParse(value).success,
+    'Must be a valid URL or same-origin path',
+  ),
   posX: z.coerce.number(),
   posY: z.coerce.number(),
   scale: z.coerce.number().min(0.01),

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Animated, Image, Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -213,7 +213,22 @@ export default function HomeScreen() {
   const equippedBackground = items.find((item) => item.id === shopState.equipped.background);
   const equippedAccessory = items.find((item) => item.id === shopState.equipped.accessory);
   const equippedVoice = items.find((item) => item.id === shopState.equipped.voice);
+  const accessoryEffect = useRef(new Animated.Value(0)).current;
+  const isAuraEquipped = equippedAccessory?.id.startsWith('catalog-effect-') ?? false;
   const voiceSound = useRef<Audio.Sound | null>(null);
+  useEffect(() => {
+    if (!isAuraEquipped) {
+      accessoryEffect.stopAnimation();
+      accessoryEffect.setValue(0);
+      return;
+    }
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(accessoryEffect, { toValue: 1, duration: 1200, useNativeDriver: true }),
+      Animated.timing(accessoryEffect, { toValue: 0, duration: 1200, useNativeDriver: true }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [accessoryEffect, isAuraEquipped]);
   useEffect(() => () => { voiceSound.current?.unloadAsync().catch(() => {}); }, []);
   const playEquippedVoice = useCallback(() => {
     if (!equippedVoice?.assetUrl) return;
@@ -366,7 +381,7 @@ export default function HomeScreen() {
                       growthSize={growth.growthSize}
                       onPet={playEquippedVoice}
                     />
-                    {equippedAccessory?.assetUrl ? <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><Image source={{ uri: resolveItemAssetUrl(equippedAccessory.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: characterSize * equippedAccessory.scale, height: characterSize * equippedAccessory.scale, left: (characterFrame - characterSize * equippedAccessory.scale) / 2 + equippedAccessory.posX, top: (characterHeight - characterSize * equippedAccessory.scale) / 2 + equippedAccessory.posY }} /></View> : null}
+                    {equippedAccessory?.assetUrl ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, isAuraEquipped && { opacity: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }), transform: [{ scale: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.06] }) }] }]}><Image source={{ uri: resolveItemAssetUrl(equippedAccessory.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: characterSize * equippedAccessory.scale, height: characterSize * equippedAccessory.scale, left: (characterFrame - characterSize * equippedAccessory.scale) / 2 + equippedAccessory.posX, top: (characterHeight - characterSize * equippedAccessory.scale) / 2 + equippedAccessory.posY }} /></Animated.View> : null}
                   </View>
                   {companionState.extraEggs > 0 ? (
                     <View style={styles.companionEgg}>
