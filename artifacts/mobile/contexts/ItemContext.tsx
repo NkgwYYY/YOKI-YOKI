@@ -13,6 +13,11 @@ export interface ShopState {
   points: number;
 }
 
+export function resolveItemAssetUrl(assetUrl: string): string {
+  if (!assetUrl.startsWith('/')) return assetUrl;
+  return `${API_BASE.replace(/\/api$/, '')}${assetUrl}`;
+}
+
 const emptyState: ShopState = { items: [], inventory: [], equipped: { accessory: null, background: null, voice: null }, points: 0 };
 type ItemContextValue = {
   items: Item[]; shopState: ShopState; loading: boolean; error: string | null;

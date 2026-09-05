@@ -25,7 +25,7 @@ import { getMascotStage } from '@/utils/mascotUtils';
 import { GrassTexture, RoomItemPreview, RoomView } from '@/components/RoomView';
 import { GameBoardIllustration } from '@/components/ui/Illustrations';
 import { HomeSkyBackdrop } from '@/components/SkyBackground';
-import { useItems } from '@/contexts/ItemContext';
+import { resolveItemAssetUrl, useItems } from '@/contexts/ItemContext';
 import { Audio } from 'expo-av';
 
 const FURNITURE_OPTIONS: { id: RoomFurniture; name: string; cost: number }[] = [
@@ -218,7 +218,7 @@ export default function HomeScreen() {
   const playEquippedVoice = useCallback(() => {
     if (!equippedVoice?.assetUrl) return;
     voiceSound.current?.unloadAsync().catch(() => {});
-    Audio.Sound.createAsync({ uri: equippedVoice.assetUrl }, { shouldPlay: true })
+    Audio.Sound.createAsync({ uri: resolveItemAssetUrl(equippedVoice.assetUrl) }, { shouldPlay: true })
       .then(({ sound }) => { voiceSound.current = sound; })
       .catch(() => {});
   }, [equippedVoice?.assetUrl]);
@@ -347,7 +347,7 @@ export default function HomeScreen() {
                 horizontalBleed={space.xl}
               >
                 <View style={[styles.characterGarden, { height: sceneHeight }]}>
-                  {equippedBackground?.assetUrl ? <Image source={{ uri: equippedBackground.assetUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" /> : null}
+                  {equippedBackground?.assetUrl ? <Image source={{ uri: resolveItemAssetUrl(equippedBackground.assetUrl) }} style={StyleSheet.absoluteFillObject} resizeMode="cover" /> : null}
                   <View
                     style={[
                       styles.characterMain,
@@ -366,7 +366,7 @@ export default function HomeScreen() {
                       growthSize={growth.growthSize}
                       onPet={playEquippedVoice}
                     />
-                    {equippedAccessory?.assetUrl ? <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><Image source={{ uri: equippedAccessory.assetUrl }} resizeMode="contain" style={{ position: 'absolute', width: characterSize * equippedAccessory.scale, height: characterSize * equippedAccessory.scale, left: (characterFrame - characterSize * equippedAccessory.scale) / 2 + equippedAccessory.posX, top: (characterHeight - characterSize * equippedAccessory.scale) / 2 + equippedAccessory.posY }} /></View> : null}
+                    {equippedAccessory?.assetUrl ? <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><Image source={{ uri: resolveItemAssetUrl(equippedAccessory.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: characterSize * equippedAccessory.scale, height: characterSize * equippedAccessory.scale, left: (characterFrame - characterSize * equippedAccessory.scale) / 2 + equippedAccessory.posX, top: (characterHeight - characterSize * equippedAccessory.scale) / 2 + equippedAccessory.posY }} /></View> : null}
                   </View>
                   {companionState.extraEggs > 0 ? (
                     <View style={styles.companionEgg}>

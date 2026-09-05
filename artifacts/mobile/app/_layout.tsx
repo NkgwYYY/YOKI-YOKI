@@ -40,7 +40,8 @@ function AuthGate() {
     if (isLoading || appLoading) return;
     // Public routes that don't require authentication
     const isPublicRoute =
-      segments[0] === 'login' || segments[0] === 'gallery' || segments[0] === 'onboarding';
+      segments[0] === 'login' || segments[0] === 'gallery' ||
+      segments[0] === 'onboarding' || segments[0] === 'shop';
 
     if (!isSignedIn && !profile && !isPublicRoute) {
       // A new visitor starts locally. Login is an optional backup, not a gate.

@@ -1,4 +1,5 @@
 import { Router, type Response } from "express";
+import path from "node:path";
 import {
   db,
   items,
@@ -17,6 +18,17 @@ const itemCategories = ["food", "accessory", "background", "voice"] as const;
 const equipCategories = ["accessory", "background", "voice"] as const;
 type ItemCategory = (typeof itemCategories)[number];
 type EquipCategory = (typeof equipCategories)[number];
+
+const starterItems = [
+  { id: "starter-star-candy", name: "きらめきスターキャンディ", category: "food" as const, cost: 30, assetUrl: "/api/item-assets/star-candy.png", posX: 0, posY: 0, scale: 1, isActive: true },
+  { id: "starter-moon-ribbon", name: "ムーンリボン", category: "accessory" as const, cost: 80, assetUrl: "/api/item-assets/moon-ribbon.png", posX: 0, posY: -72, scale: 0.55, isActive: true },
+  { id: "starter-starlight-night", name: "スターライトの夜", category: "background" as const, cost: 120, assetUrl: "/api/item-assets/starlight-night.png", posX: 0, posY: 0, scale: 1, isActive: true },
+  { id: "starter-star-chime", name: "ほしのきらめきボイス", category: "voice" as const, cost: 100, assetUrl: "/api/item-assets/star-chime.mp3", posX: 0, posY: 0, scale: 1, isActive: true },
+];
+
+async function ensureStarterItems(): Promise<void> {
+  await db.insert(items).values(starterItems).onConflictDoNothing();
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -109,8 +121,24 @@ async function shopState(userId: string, catalog: Item[]) {
 }
 
 // Public catalog; signed-in callers also receive their current item state.
+itemRouter.get("/item-assets/:assetName", (req, res) => {
+  const allowedAssets = new Set([
+    "star-candy.png",
+    "moon-ribbon.png",
+    "starlight-night.png",
+    "star-chime.mp3",
+  ]);
+  const assetName = req.params.assetName;
+  if (typeof assetName !== "string" || !allowedAssets.has(assetName)) {
+    res.status(404).end();
+    return;
+  }
+  res.sendFile(path.resolve(__dirname, "item-assets", assetName));
+});
+
 itemRouter.get("/items", async (req: AuthRequest, res) => {
   try {
+    await ensureStarterItems();
     const catalog = await db.select().from(items).where(eq(items.isActive, true));
     const userId = getAuth(req)?.userId;
     res.json({ items: catalog.map(toItem), ...(userId ? { state: await shopState(userId, catalog) } : {}) });
@@ -191,7 +219,10 @@ itemRouter.post("/character/equip", requireAuth, async (req: AuthRequest, res) =
 });
 
 itemRouter.get("/admin/items", requireAdmin, async (req: AuthRequest, res) => {
-  try { res.json({ items: (await db.select().from(items)).map(toItem) }); }
+  try {
+    await ensureStarterItems();
+    res.json({ items: (await db.select().from(items)).map(toItem) });
+  }
   catch (error) { req.log.error({ err: error }, "Could not load admin items"); res.status(500).json({ error: "アイテムを読み込めませんでした" }); }
 });
 
