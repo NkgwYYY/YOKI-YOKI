@@ -1,8 +1,8 @@
 /**
  * 光エネルギー基盤システム
  *
- * 世界観: 「自分を整える → キャラが元気になる → 光が生まれる → 太陽を照らす →
- * 太陽光発電所に蓄えられる」の循環の土台となるデータ層。
+ * 世界観: 「自分を整える → キャラが元気になる → 光が生まれる → 庭園を照らす →
+ * エネルギーチャージのクリスタルに蓄えられる」の循環の土台となるデータ層。
  * 現実の電力とは一切関係のない、アプリ内の架空のシステム。
  *
  * 設計方針:
@@ -16,7 +16,7 @@ export const BASE_GENKI = 50;
 /** 元気・光の力の上限 */
 export const MAX_GENKI = 100;
 export const MAX_LIGHT_POWER = 100;
-/** 発電の最低出力。行動していない時間も、太陽の光が少しずつ蓄電される */
+/** 自然チャージの最低出力。行動していない時間も、キャラクターの光が少しずつ蓄えられる */
 export const PASSIVE_ENERGY_PER_HOUR = 1;
 /** 光の力が100のときに加わる、1時間あたりの追加出力 */
 export const MAX_LIGHT_POWER_BONUS_PER_HOUR = 1;
@@ -32,7 +32,7 @@ export interface LightEnergyState {
   lightPower: number;
   /** 今日生まれた光エネルギー */
   todayEnergy: number;
-  /** 蓄電量(発電所に貯まっているエネルギー。売電タスクで消費される) */
+  /** 蓄電量(魔法の庭園に貯まっているエネルギー。変換タスクで消費される) */
   storedEnergy: number;
   /** 累計光エネルギー */
   totalEnergy: number;
@@ -98,8 +98,8 @@ export function rolloverLightEnergy(state: LightEnergyState, today: string): Lig
 
 /**
  * 最終精算時刻から現在までの時間経過ぶんを蓄電する。
- * 光の力が高いほど少し発電量が上がるが、最低出力があるため毎日操作できない日も
- * 太陽光発電所にはゆっくりエネルギーが貯まる。
+ * 光の力が高いほど少しチャージ量が上がるが、最低出力があるため毎日操作できない日も
+ * 魔法の庭園にはゆっくりエネルギーが貯まる。
  */
 export function applyElapsedEnergy(
   state: LightEnergyState,

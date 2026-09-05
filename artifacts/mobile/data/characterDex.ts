@@ -44,9 +44,9 @@ export const DEX_PROFILES: Record<CharacterKey, DexProfile> = {
     stageLabel: 'だい3段階',
     personality: 'おだやかで、いつもマイペース',
     likes: 'そよ風、水やり、朝の光',
-    traits: '頭の葉っぱで光をキャッチして発電するのが得意',
-    quote: 'きょうの光、きもちいいね〜',
-    story: '光をたくさん浴びて芽が出た成長期。頭の葉っぱは君の積み重ねのぶんだけ、よく光をキャッチする。',
+    traits: '頭の葉っぱでエネルギーをキャッチしてチャージするのが得意',
+    quote: 'きょうのエネルギー、きもちいいね〜',
+    story: '光をたくさん浴びて芽が出た成長期。頭の葉っぱは君の積み重ねのぶんだけ、よくエネルギーをキャッチする。',
   },
   colorful_happa: {
     charKey: 'colorful_happa',
@@ -56,7 +56,7 @@ export const DEX_PROFILES: Record<CharacterKey, DexProfile> = {
     likes: '虹、にぎやかな街、みんなの笑顔',
     traits: '七色の葉っぱは、街をまるごと照らすほどの光を生む',
     quote: 'きみの光で、世界をカラフルにしよう!',
-    story: '君とすごした時間が花ひらいた姿。生まれた光は太陽へのぼり、発電所へ、そして街のあかりになる。',
+    story: '君とすごした時間が花ひらいた姿。生まれた光はエネルギーとなり、チャージされて街のあかりになる。',
   },
 };
 
@@ -64,6 +64,6 @@ export const DEX_PROFILES: Record<CharacterKey, DexProfile> = {
 export const WORLD_CARDS: { icon: IconName; title: string; text: string }[] = [
   { icon: 'heart',    title: '自分を整えると', text: 'お風呂・ごはん・すいみん。君が自分を大切にすると、この子は元気になるよ。' },
   { icon: 'feather',  title: '元気は光になる', text: '元気になったこの子は、からだから小さな光を生み出すんだ。' },
-  { icon: 'sun',      title: '光は太陽へ', text: '生まれた光は空にのぼって、太陽をすこしだけ明るくする。' },
-  { icon: 'zap',      title: '太陽は街を照らす', text: '太陽の光は発電所に蓄えられて、街のあかりや緑になる。君の毎日が、世界を明るくしてる。' },
+  { icon: 'star',     title: '光はエネルギーに', text: '生まれた光は空にのぼって、星空をすこしだけ明るくする。' },
+  { icon: 'zap',      title: 'エネルギーは街を照らす', text: '星空の光はクリスタルに蓄えられて、街のあかりや緑になる。君の毎日が、世界を明るくしてる。' },
 ];

@@ -7,76 +7,21 @@ import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat, withSequence,
   withTiming, withSpring, withDelay, FadeInUp, FadeOut, Easing,
 } from 'react-native-reanimated';
+import Svg, { Path, Defs, G, LinearGradient as SvgLinearGradient, Stop, Circle, Rect } from 'react-native-svg';
 import { border, colors, control, radius, screenPadding, space, typography, elevation } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
-import { Icon, iconSize, type IconName } from '@/components/ui/Icon';
+import { Icon, iconSize } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
 import { CosmicBackground } from '@/components/CosmicBackground';
 import { useApp } from '@/contexts/AppContext';
 import { Mascot } from '@/components/Mascot';
 import { getMascotStage } from '@/utils/mascotUtils';
-import { FOOD_ITEMS } from '@/data/foodItems';
 
 const easeInOutSine = Easing.inOut(Easing.sin);
-const SCENE_BG = require('@/assets/images/plant/plant-scene-v2.png');
-
-function sunshineTier(genki: number): { label: string; icon: IconName } {
-  if (genki >= 85) return { label: 'まぶしいくらい!', icon: 'sun' };
-  if (genki >= 60) return { label: 'つよい日差し', icon: 'sunrise' };
-  if (genki >= 30) return { label: 'ふつうの日差し', icon: 'cloud' };
-  return { label: 'よわい日差し', icon: 'cloud-rain' };
-}
-
-function SceneSun({ genki }: { genki: number }) {
-  const glow = useSharedValue(0.5);
-  useEffect(() => {
-    glow.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1700, easing: easeInOutSine }),
-        withTiming(0.5, { duration: 1700, easing: easeInOutSine }),
-      ), -1, false,
-    );
-  }, []);
-  const strength = 0.35 + (genki / 100) * 0.65;
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: strength * (0.45 + glow.value * 0.4),
-    transform: [{ scale: (0.8 + strength * 0.5) * (1 + glow.value * 0.12) }],
-  }));
-  const bodyStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 0.85 + strength * 0.35 }, { rotate: '22.5deg' }],
-    opacity: 0.8 + strength * 0.2,
-  }));
-  const raySpin = useSharedValue(0);
-  useEffect(() => {
-    raySpin.value = withRepeat(withTiming(1, { duration: 24000, easing: Easing.linear }), -1, false);
-  }, []);
-  const rayStyle = useAnimatedStyle(() => ({
-    opacity: 0.8 + strength * 0.2,
-    transform: [{ scale: 0.85 + strength * 0.35 }, { rotate: `${raySpin.value * 360}deg` }],
-  }));
-  return (
-    <View style={s.sunWrap} pointerEvents="none">
-      <Animated.View style={[s.sunGlow, glowStyle]} />
-      <Animated.View style={[s.sunRaysRing, rayStyle]}>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <View key={i} style={[s.sunRaySpike, { transform: [{ rotate: `${i * 45}deg` }, { translateY: -37 }] }]} />
-        ))}
-      </Animated.View>
-      <Animated.View style={[s.sunRaysRing, bodyStyle]}>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <View key={i} style={[s.sunRaySpikeSmall, { transform: [{ rotate: `${i * 45}deg` }, { translateY: -34 }] }]} />
-        ))}
-      </Animated.View>
-      <Animated.View style={bodyStyle}>
-        <LinearGradient colors={['#FFFBE0', '#FFE066', '#FFAE2E']} style={s.sunBody} start={{ x: 0.3, y: 0.15 }} end={{ x: 0.7, y: 0.95 }} />
-        <View style={s.sunHighlight} />
-      </Animated.View>
-    </View>
-  );
-}
+const SCENE_BG = require('@/assets/images/plant/energy-garden-night.png');
 
 function LightMotes({ genki }: { genki: number }) {
-  const count = 2 + Math.round((genki / 100) * 4);
+  const count = 3 + Math.round((genki / 100) * 5);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {Array.from({ length: count }).map((_, i) => <Mote key={i} index={i} />)}
@@ -87,51 +32,22 @@ function LightMotes({ genki }: { genki: number }) {
 function Mote({ index }: { index: number }) {
   const p = useSharedValue(0);
   useEffect(() => {
-    p.value = withDelay(index * 620, withRepeat(withTiming(1, { duration: 3400, easing: Easing.out(Easing.quad) }), -1, false));
+    p.value = withDelay(index * 620, withRepeat(withTiming(1, { duration: 3400 + (index * 200), easing: Easing.out(Easing.quad) }), -1, false));
   }, []);
   const st = useAnimatedStyle(() => {
     const t = p.value;
     return {
       opacity: t < 0.08 ? t / 0.08 : 1 - t * 0.85,
       transform: [
-        { translateX: -(t * 130) + Math.sin(t * Math.PI * 2 + index) * 12 },
-        { translateY: -(t * 300) },
+        { translateX: -(t * 100) + Math.sin(t * Math.PI * 2 + index) * 20 },
+        { translateY: -(t * 200) },
         { scale: 0.7 + (1 - t) * 0.5 },
       ],
     };
   });
   const dot = 5 + (index % 2) * 3;
-  return <Animated.View style={[{ position: 'absolute', bottom: 118, left: `${52 + (index % 3) * 7}%`, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: '#FFF0F5' }, st]} />;
-}
-
-function EnergyFlow({ genki }: { genki: number }) {
-  const count = 2 + Math.round((genki / 100) * 3);
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {Array.from({ length: count }).map((_, i) => <EnergyDot key={i} index={i} />)}
-    </View>
-  );
-}
-
-function EnergyDot({ index }: { index: number }) {
-  const p = useSharedValue(0);
-  useEffect(() => {
-    p.value = withDelay(index * 540, withRepeat(withTiming(1, { duration: 2600, easing: Easing.inOut(Easing.quad) }), -1, false));
-  }, []);
-  const st = useAnimatedStyle(() => {
-    const t = p.value;
-    return {
-      opacity: t < 0.1 ? t / 0.1 : 1 - t * 0.7,
-      transform: [
-        { translateX: t * 150 },
-        { translateY: t * 26 + Math.sin(t * Math.PI * 3 + index) * 5 },
-      ],
-    };
-  });
-  return (
-    <Animated.View style={[{ position: 'absolute', top: `${44 + (index % 3) * 5}%`, left: '28%' }, st]}>
-      <Icon name="zap" size={iconSize.xs + (index % 2) * 2} color="#FFF" />
-    </Animated.View>
+    <Animated.View style={[{ position: 'absolute', bottom: '30%', left: `${20 + (index % 5) * 15}%`, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: '#FFD1F2', shadowColor: '#FF9EEA', shadowOpacity: 0.8, shadowRadius: 4 }, st]} />
   );
 }
 
@@ -142,133 +58,174 @@ function CharacterAura({ genki }: { genki: number }) {
   }, []);
   const strength = 0.25 + (genki / 100) * 0.75;
   const st = useAnimatedStyle(() => ({
-    opacity: strength * (0.35 + o.value * 0.4),
+    opacity: strength * (0.4 + o.value * 0.4),
     transform: [{ scale: 0.9 + o.value * 0.15 * strength }],
   }));
   return <Animated.View style={[s.aura, st]} pointerEvents="none" />;
 }
 
 function PowerCable() {
-  const pulse = useSharedValue(0);
-  useEffect(() => {
-    pulse.value = withRepeat(withTiming(1, { duration: 1800, easing: Easing.linear }), -1, false);
-  }, []);
-  const pulseStyle = useAnimatedStyle(() => ({
-    opacity: 0.35 + Math.sin(pulse.value * Math.PI) * 0.65,
-    transform: [{ translateX: pulse.value * 62 }, { scale: 0.8 + pulse.value * 0.35 }],
-  }));
   return (
-    <View style={s.cableWrap} pointerEvents="none">
-      <View style={s.cableShadow} />
-      <LinearGradient colors={['#FFE985', '#BFFF9A', '#84F2BD']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.cable} />
-      <Animated.View style={[s.cablePulse, pulseStyle]} />
-      <View style={s.plug}>
-        <View style={s.plugPin} />
-        <View style={[s.plugPin, { marginLeft: 3 }]} />
-      </View>
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <Defs>
+          <SvgLinearGradient id="cableGrad" x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor="#4A3B69" stopOpacity="0.9" />
+            <Stop offset="1" stopColor="#31264A" stopOpacity="0.9" />
+          </SvgLinearGradient>
+        </Defs>
+        {/* Shadow */}
+        <Path d="M 38 78 C 48 92, 55 92, 65 78" stroke="rgba(0,0,0,0.4)" strokeWidth="4" fill="none" transform="translate(0, 2)" />
+        {/* Base Cable */}
+        <Path d="M 38 78 C 48 92, 55 92, 65 78" stroke="url(#cableGrad)" strokeWidth="2.5" fill="none" />
+
+        {/* Character-side plug and glowing socket */}
+        <G>
+          <Circle cx="38" cy="78" r="3.4" fill="rgba(255,158,234,0.22)" />
+          <Rect x="35.8" y="75.7" width="4.8" height="4.6" rx="1.5" fill="#70558F" stroke="#D7B7FF" strokeWidth="0.55" />
+          <Rect x="39.8" y="76.65" width="2.1" height="2.7" rx="0.65" fill="#E9D9FF" />
+          <Circle cx="37.5" cy="78" r="0.8" fill="#FFB4EA" />
+        </G>
+        {/* Tank-side inlet and locking collar */}
+        <G>
+          <Circle cx="65" cy="78" r="4.2" fill="rgba(210,155,255,0.2)" />
+          <Rect x="62.2" y="75.35" width="5.8" height="5.3" rx="1.7" fill="#49365F" stroke="#CDA8F4" strokeWidth="0.65" />
+          <Rect x="60.8" y="76.25" width="2.5" height="3.5" rx="0.8" fill="#8165A5" />
+          <Circle cx="65.2" cy="78" r="1.15" fill="#FF9EEA" />
+        </G>
+      </Svg>
+      <CableLights />
     </View>
   );
 }
 
-function StorageBattery({ energy, genki }: { energy: number; genki: number }) {
+function CableLights() {
+  // Simple dots moving along an approximation of the curve
+  // M 38 78 C 48 92, 55 92, 65 78
+  return (
+    <>
+      {Array.from({ length: 4 }).map((_, i) => <CableLight key={i} index={i} />)}
+    </>
+  );
+}
+
+function CableLight({ index }: { index: number }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withDelay(index * 400, withRepeat(withTiming(1, { duration: 1600, easing: Easing.linear }), -1, false));
+  }, []);
+
+  const st = useAnimatedStyle(() => {
+    const t = p.value;
+    // Bezier curve approximation
+    // P0 = 38, 78
+    // P1 = 48, 92
+    // P2 = 55, 92
+    // P3 = 65, 78
+    const mt = 1 - t;
+    const mt2 = mt * mt;
+    const mt3 = mt2 * mt;
+    const t2 = t * t;
+    const t3 = t2 * t;
+
+    const x = mt3 * 38 + 3 * mt2 * t * 48 + 3 * mt * t2 * 55 + t3 * 65;
+    const y = mt3 * 78 + 3 * mt2 * t * 92 + 3 * mt * t2 * 92 + t3 * 78;
+
+    return {
+      left: `${x}%`,
+      top: `${y}%`,
+      opacity: t < 0.1 ? t / 0.1 : t > 0.9 ? (1 - t) / 0.1 : 1,
+      transform: [{ translateX: -3 }, { translateY: -3 }],
+    };
+  });
+
+  return (
+    <Animated.View style={[{ position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF9EEA', shadowColor: '#D29BFF', shadowOpacity: 1, shadowRadius: 4 }, st]} />
+  );
+}
+
+function CrystalTank({ energy, genki }: { energy: number; genki: number }) {
   const float = useSharedValue(0);
   const liquid = useSharedValue(0);
   useEffect(() => {
     float.value = withRepeat(
       withSequence(
-        withTiming(-3, { duration: 1700, easing: easeInOutSine }),
-        withTiming(2, { duration: 1700, easing: easeInOutSine }),
+        withTiming(-2, { duration: 1900, easing: easeInOutSine }),
+        withTiming(2, { duration: 1900, easing: easeInOutSine }),
       ), -1, true,
     );
     liquid.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 2100, easing: easeInOutSine }),
-        withTiming(0, { duration: 2100, easing: easeInOutSine }),
+        withTiming(1, { duration: 2300, easing: easeInOutSine }),
+        withTiming(0, { duration: 2300, easing: easeInOutSine }),
       ), -1, true,
     );
   }, []);
+
   const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: float.value }] }));
   const liquidStyle = useAnimatedStyle(() => ({
-    opacity: 0.82 + liquid.value * 0.16,
-    transform: [{ translateY: liquid.value * -3 }, { scaleX: 1 + liquid.value * 0.025 }],
+    opacity: 0.62 + (genki / 100) * 0.23 + liquid.value * 0.15,
+    transform: [{ translateY: liquid.value * -2 }, { scaleX: 1 + liquid.value * 0.015 }],
   }));
+  const fillLevel = Math.min(92, 6 + Math.min(energy, 100) * 0.86);
+
   return (
-    <Animated.View style={[s.batteryWrap, floatStyle]} pointerEvents="none">
-      <View style={s.batteryStatus}>
-        <Text style={s.batteryStatusLabel}>蓄電中…</Text>
-        <Text style={s.batteryValue}>{energy}</Text>
-        <Text style={s.batteryUnit}>Energy</Text>
+    <Animated.View style={[s.tankWrap, floatStyle]} pointerEvents="none">
+      <View style={s.tankStatus}>
+        <Text style={s.tankStatusLabel}>チャージ</Text>
+        <Text style={s.tankValue}>{energy} ENERGY</Text>
       </View>
-      <View style={s.batteryCap} />
-      <View style={s.batteryHandle} />
-      <View style={s.batteryShell}>
-        <View style={s.batteryGlass}>
-          <Animated.View style={[s.batteryLiquid, liquidStyle, { height: `${32 + genki * 0.48}%` }]}>
-            <LinearGradient colors={['rgba(231,255,174,0.72)', '#9CF4A6', '#61D8A0']} style={StyleSheet.absoluteFill} />
-          </Animated.View>
-          <View style={s.batteryBolt}>
-            <Icon name="zap" size={32} color="#F7FFD0" />
-          </View>
-          <View style={s.batteryShine} />
+      <View style={s.tankGlass}>
+        <Animated.View style={[s.tankLiquid, liquidStyle, { height: `${fillLevel}%` }]}>
+          <LinearGradient colors={['rgba(255,158,234,0.8)', '#B388FF', '#7C4DFF']} style={StyleSheet.absoluteFill} />
+        </Animated.View>
+        <View style={s.tankSparkle}>
+          <Icon name="star" size={32} color="rgba(255,255,255,0.8)" />
         </View>
-        <View style={s.batteryFeet}>
-          <View style={s.batteryFoot} />
-          <View style={s.batteryFoot} />
-        </View>
+        <View style={s.tankShine} />
       </View>
+      <View style={s.tankBase} />
     </Animated.View>
   );
 }
 
-export default function PlantScreen() {
+export default function EnergyChargeScreen() {
   const insets = useSafeAreaInsets();
-  const { lightEnergy, powerPlant, sellEnergy, exchangeEcoPoints, progress } = useApp();
+  const { lightEnergy, powerPlant, convertStoredEnergy, exchangeEcoPoints, progress } = useApp();
 
-  const [selling, setSelling] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [exchanging, setExchanging] = useState(false);
-  const [soldMsg, setSoldMsg] = useState<string | null>(null);
+  const [convertedMsg, setConvertedMsg] = useState<string | null>(null);
   const [exchangedMsg, setExchangedMsg] = useState<string | null>(null);
-  const [sunBurstSeq, setSunBurstSeq] = useState(0);
 
-  const soldTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const convertedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const exTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
-    if (soldTimerRef.current) clearTimeout(soldTimerRef.current);
+    if (convertedTimerRef.current) clearTimeout(convertedTimerRef.current);
     if (exTimerRef.current) clearTimeout(exTimerRef.current);
   }, []);
 
   const genki = lightEnergy.genki;
-  const sellable = Math.floor(lightEnergy.storedEnergy);
-  const tier = sunshineTier(genki);
+  const exchangeableEnergy = Math.floor(lightEnergy.storedEnergy);
   const mascotStage = getMascotStage(progress.level);
 
-  // Soft pink/lavender veil over the illustration to integrate it into the bright theme
-  const darkness = 0.15 * (1 - genki / 100);
-
-  const mascotMsg =
-    genki >= 85 ? 'ボクの光、太陽まで\nとどいてるよ'
-      : genki >= 60 ? '今日もいっぱい\n光をつくれたよ'
-        : genki >= 30 ? 'すこしずつ光を\nあつめてるよ'
-          : 'キミが元気になると\nボクも光れるんだ…';
-
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
-  const sellScale = useSharedValue(1);
-  const sellStyle = useAnimatedStyle(() => ({ transform: [{ scale: sellScale.value }] }));
+  const convertScale = useSharedValue(1);
+  const convertStyle = useAnimatedStyle(() => ({ transform: [{ scale: convertScale.value }] }));
 
-  const handleSell = async () => {
-    if (selling || sellable <= 0) return;
-    setSelling(true);
-    sellScale.value = withSequence(withSpring(0.94, { damping: 8, stiffness: 400 }), withSpring(1, { damping: 10, stiffness: 200 }));
+  const handleConvert = async () => {
+    if (converting || exchangeableEnergy <= 0) return;
+    setConverting(true);
+    convertScale.value = withSequence(withSpring(0.94, { damping: 8, stiffness: 400 }), withSpring(1, { damping: 10, stiffness: 200 }));
     try {
-      const { sold, gained } = await sellEnergy();
-      if (sold > 0) {
-        setSunBurstSeq((n) => n + 1);
-        setSoldMsg(`${sold} エネルギーを売電。ごほうびポイント +${gained}`);
-        if (soldTimerRef.current) clearTimeout(soldTimerRef.current);
-        soldTimerRef.current = setTimeout(() => setSoldMsg(null), 3000);
+      const { converted } = await convertStoredEnergy();
+      if (converted > 0) {
+        setConvertedMsg(`${converted} エネルギーをポイントに交換しました`);
+        if (convertedTimerRef.current) clearTimeout(convertedTimerRef.current);
+        convertedTimerRef.current = setTimeout(() => setConvertedMsg(null), 3000);
       }
     } finally {
-      setSelling(false);
+      setConverting(false);
     }
   };
 
@@ -278,7 +235,7 @@ export default function PlantScreen() {
     try {
       const { exchanged } = await exchangeEcoPoints(powerPlant.ecoPoints);
       if (exchanged > 0) {
-        setExchangedMsg(`ごほうび ${exchanged} をきらめきポイント +${exchanged} にかえたよ`);
+        setExchangedMsg(`ポイントをごはんに変換したよ`);
         if (exTimerRef.current) clearTimeout(exTimerRef.current);
         exTimerRef.current = setTimeout(() => setExchangedMsg(null), 3600);
       }
@@ -296,107 +253,90 @@ export default function PlantScreen() {
       >
         <View style={s.heading}>
           <View style={s.titleRow}>
-            <View style={s.titleMark}><Icon name="zap" size={iconSize.sm} color="#7150B8" /></View>
-            <Text style={s.title}>ひかり発電所</Text>
+            <View style={s.titleMark}><Icon name="star" size={iconSize.sm} color="#FF9EEA" /></View>
+            <Text style={s.title}>エネルギーチャージ</Text>
           </View>
-          <Text style={s.subtitle}>あなたの元気が、キャラクターの光になり、エネルギーになります</Text>
+          <Text style={s.subtitle}>たまったエネルギーをポイントに交換できます</Text>
         </View>
 
-        <View style={[s.card, s.statsCard]}>
-          <View style={s.statsRow}>
-            <View style={s.statCell}>
-              <Text style={s.statHead}>今日の元気</Text>
-              <Text style={s.statValue}>+{lightEnergy.todayEnergy}</Text>
-              <Text style={s.statUnit}>Energy</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statHead}>蓄電量</Text>
-              <Text style={s.statValue}>{sellable}</Text>
-              <Text style={s.statUnit}>Energy</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statHead}>元気</Text>
-              <Text style={s.statValue}>{genki}%</Text>
-              <Text style={s.statUnit}>元気度</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statHead}>ごほうび</Text>
-              <Text style={s.statValue}>{powerPlant.ecoPoints}</Text>
-              {sellable > 0 ? (
-                <View style={s.sellReadyChip}><Text style={s.sellReadyChipText}>売電できるよ</Text></View>
-              ) : <Text style={s.statUnit}>Point</Text>}
-            </View>
-          </View>
-        </View>
-
-        {/* ジオラマ風のフレームに収めた発電所シーン */}
+        {/* 魔法の庭園シーン */}
         <View style={s.sceneFrame}>
           <View style={s.sceneInner}>
             <ImageBackground
               source={SCENE_BG}
               style={StyleSheet.absoluteFill as any}
               imageStyle={{ width: '100%', height: '100%' }}
-              resizeMode="stretch"
-            >
-              {/* 明るい世界観に合わせるためのピンク/ラベンダーヴェール */}
-              <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(230,216,248,${darkness + 0.1})`, mixBlendMode: 'overlay' as any }]} />
-              <SunBurst seq={sunBurstSeq} />
-            </ImageBackground>
+              resizeMode="cover"
+            />
 
-            <SceneSun genki={genki} />
             <LightMotes genki={genki} />
 
             <View style={s.mascotWrap} pointerEvents="none">
-              <View style={s.mascotBubble}>
-                <Text style={s.mascotBubbleText}>{mascotMsg}</Text>
-              </View>
               <View style={s.mascotStand}>
                 <CharacterAura genki={genki} />
-                <Mascot stage={mascotStage} mood={genki >= 60 ? 'excited' : 'happy'} size={108} idleBehavior="normal" />
+                <Mascot stage={mascotStage} mood={genki >= 60 ? 'excited' : 'happy'} size={120} idleBehavior="normal" />
               </View>
             </View>
             <PowerCable />
-            <EnergyFlow genki={genki} />
-            <StorageBattery energy={sellable} genki={genki} />
+            <CrystalTank energy={exchangeableEnergy} genki={genki} />
+          </View>
+        </View>
 
-            <View style={s.sunshineChip}>
-              <Icon name={tier.icon} size={iconSize.xs} color={colors.primary} />
-              <Text style={s.sunshineChipText}>元気 {genki}%{'\n'}{tier.label}</Text>
+        <View style={[s.card, s.statsCard]}>
+          <View style={s.statsRow}>
+            <View style={s.statCell}>
+              <Text style={s.statHead}>本日のエネルギー</Text>
+              <Text style={s.statValue}>+{lightEnergy.todayEnergy}</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.statCell}>
+              <Text style={s.statHead}>チャージ量</Text>
+              <Text style={s.statValue}>{exchangeableEnergy}</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.statCell}>
+              <Text style={s.statHead}>元気度</Text>
+              <Text style={s.statValue}>{genki}%</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.statCell}>
+              <Text style={s.statHead}>ポイント</Text>
+              <Text style={s.statValue}>{powerPlant.ecoPoints}</Text>
             </View>
           </View>
         </View>
 
-        <View style={[s.card, s.sellCard]}>
+        <View style={[s.card, s.actionCard]}>
           <View style={s.cardHeader}>
-            <Text style={s.cardTitle}>売電する</Text>
+            <Text style={s.cardTitle}>ポイント交換</Text>
           </View>
-          <Text style={s.hint}>蓄えたエネルギーを売電して、ごほうびに交換しよう</Text>
+          <Text style={s.hint}>蓄えたエネルギーをポイントに交換して、キャラクターにごはんをあげよう</Text>
+
           <View style={s.conversionRow}>
             <View style={s.conversionValue}>
               <View style={s.conversionIcon}><Icon name="zap" size={iconSize.sm} color="#7656BA" /></View>
-              <View><Text style={s.conversionNumber}>{sellable}</Text><Text style={s.conversionLabel}>Energy</Text></View>
+              <View><Text style={s.conversionNumber}>{exchangeableEnergy}</Text><Text style={s.conversionLabel}>ENERGY</Text></View>
             </View>
             <Icon name="chevrons-right" size={iconSize.md} color="#E8A2C4" />
             <View style={s.conversionValue}>
               <View style={[s.conversionIcon, s.giftIcon]}><Icon name="gift" size={iconSize.sm} color="#F05A91" /></View>
-              <View><Text style={s.conversionNumber}>{sellable}</Text><Text style={s.conversionLabel}>ごほうびポイント</Text></View>
+              <View><Text style={s.conversionNumber}>{exchangeableEnergy}</Text><Text style={s.conversionLabel}>ポイント</Text></View>
             </View>
           </View>
-          {soldMsg && (
+
+          {convertedMsg && (
             <Animated.View entering={FadeInUp.springify().damping(10)} exiting={FadeOut} style={s.banner}>
-              <Text style={s.bannerText}>{soldMsg}</Text>
+              <Text style={s.bannerText}>{convertedMsg}</Text>
             </Animated.View>
           )}
-          <Animated.View style={sellStyle}>
+
+          <Animated.View style={convertStyle}>
             <Button
-              label={sellable > 0 ? `${sellable} エネルギーを売電する` : '蓄電がたまったら売電できるよ'}
-              icon="zap"
-              onPress={handleSell}
-              disabled={selling || sellable <= 0}
-              loading={selling}
+              label={exchangeableEnergy > 0 ? `${exchangeableEnergy} エネルギーを交換する` : 'チャージがたまったら交換できるよ'}
+              icon="refresh-cw"
+              onPress={handleConvert}
+              disabled={converting || exchangeableEnergy <= 0}
+              loading={converting}
               fullWidth
             />
           </Animated.View>
@@ -404,35 +344,23 @@ export default function PlantScreen() {
 
         <View style={s.rewardSection}>
           <View style={s.cardHeader}>
-            <Text style={s.cardTitle}>ごほうびと交換する</Text>
+            <Text style={s.cardTitle}>ごはんポイントに受け取る</Text>
             <View style={s.ecoBadge}>
               <Icon name="gift" size={iconSize.xs} color={colors.success} />
-              <Text style={s.ecoBadgeText}>{powerPlant.ecoPoints}</Text>
+              <Text style={s.ecoBadgeText}>{powerPlant.ecoPoints} pt</Text>
             </View>
           </View>
-          <Text style={s.hint}>ごほうびポイントを、キャラクターのごはんに使えるよ</Text>
-          <View style={s.foodRow}>
-            {FOOD_ITEMS.slice(0, 4).map((f) => (
-              <View key={f.id} style={s.foodCell}>
-                <LinearGradient colors={['#FFF9FD', '#F4EBFF']} style={s.foodIcon}>
-                  <Icon name={f.icon} size={iconSize.lg} color={colors.primary} />
-                </LinearGradient>
-                <Text style={s.foodName}>{f.name}</Text>
-                <View style={s.foodCostRow}>
-                  <Icon name="zap" size={iconSize.xs} color="#7656BA" />
-                  <Text style={s.foodCost}>{f.cost}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+          <Text style={s.hint}>ポイントをごはんに変換してキャラクターにあげよう</Text>
+
           {exchangedMsg && (
             <Animated.View entering={FadeInUp.springify().damping(10)} exiting={FadeOut} style={s.banner}>
               <Text style={s.bannerText}>{exchangedMsg}</Text>
             </Animated.View>
           )}
+
           <Button
-            label={powerPlant.ecoPoints > 0 ? `ごほうび ${powerPlant.ecoPoints} をきらめきポイントにかえる` : '売電するとごほうびポイントがもらえるよ'}
-            icon="refresh-cw"
+            label={powerPlant.ecoPoints > 0 ? `${powerPlant.ecoPoints} pt をごはんポイントにする` : 'ポイントを使って交換できるよ'}
+            icon="coffee"
             variant="secondary"
             onPress={handleExchange}
             disabled={exchanging || powerPlant.ecoPoints <= 0}
@@ -449,27 +377,14 @@ export default function PlantScreen() {
   );
 }
 
-function SunBurst({ seq }: { seq: number }) {
-  const o = useSharedValue(0);
-  useEffect(() => {
-    if (seq === 0) return;
-    o.value = withSequence(
-      withTiming(0.5, { duration: 300, easing: Easing.out(Easing.quad) }),
-      withTiming(0, { duration: 1500, easing: easeInOutSine }),
-    );
-  }, [seq]);
-  const st = useAnimatedStyle(() => ({ opacity: o.value }));
-  return <Animated.View style={[StyleSheet.absoluteFill, s.sunBurst, st]} pointerEvents="none" />;
-}
-
 const s = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: screenPadding, gap: space.md },
   heading: { gap: space.xs, marginBottom: space.xs },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  titleMark: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.72)' },
-  title: { ...typography.display, color: '#3D246F' },
-  subtitle: { ...typography.caption, color: '#6F6385' },
+  titleMark: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)' },
+  title: { ...typography.display, color: '#331568' },
+  subtitle: { ...typography.caption, color: '#746986' },
 
   card: {
     backgroundColor: colors.card,
@@ -486,16 +401,13 @@ const s = StyleSheet.create({
   statDivider: { width: border.width, backgroundColor: colors.border },
   statHead: { ...typography.micro, color: '#746986', textAlign: 'center' },
   statValue: { ...typography.title, color: '#331568' },
-  statUnit: { ...typography.micro, color: colors.subtleForeground },
-  sellReadyChip: { paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: colors.primarySoft },
-  sellReadyChipText: { ...typography.micro, color: colors.primaryOnSoft },
 
   sceneFrame: {
     width: '100%',
-    aspectRatio: 0.94,
-    backgroundColor: colors.card,
+    aspectRatio: 0.85,
+    backgroundColor: '#1E1536',
     borderRadius: radius.xl,
-    padding: space.xs, // White border frame effect
+    padding: space.xs,
     ...elevation.raised,
     ...border.hairline,
   },
@@ -503,65 +415,41 @@ const s = StyleSheet.create({
     flex: 1,
     borderRadius: radius.xl - space.xs,
     overflow: 'hidden',
+    backgroundColor: '#0F0920',
   },
-  sunBurst: { backgroundColor: '#FFF0F5' },
-  sunWrap: { position: 'absolute', left: '5%', top: space.xl, width: 82, height: 82, alignItems: 'center', justifyContent: 'center' },
-  sunGlow: { position: 'absolute', width: 96, height: 96, borderRadius: radius.pill, backgroundColor: '#FFD86B' },
-  sunRaysRing: { position: 'absolute', width: 96, height: 96, alignItems: 'center', justifyContent: 'center' },
-  sunRaySpike: { position: 'absolute', width: 7, height: 18, borderRadius: 4, backgroundColor: '#FFD24D' },
-  sunRaySpikeSmall: { position: 'absolute', width: 5, height: 12, borderRadius: 3, backgroundColor: '#FFE58A' },
-  sunBody: { width: 50, height: 50, borderRadius: 25 },
-  sunHighlight: { position: 'absolute', top: space.sm, left: space.md, width: 16, height: 10, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.75)', transform: [{ rotate: '-20deg' }] },
-  mascotWrap: { position: 'absolute', left: '7%', bottom: space.xl, width: '43%', alignItems: 'center', gap: space.xs },
+
+  mascotWrap: { position: 'absolute', left: '5%', bottom: '18%', width: '45%', alignItems: 'center' },
   mascotStand: { alignItems: 'center', justifyContent: 'flex-end' },
-  aura: { position: 'absolute', bottom: -6, width: 110, height: 46, borderRadius: radius.pill, backgroundColor: '#FFF0F5' },
-  mascotBubble: { backgroundColor: colors.card, borderRadius: radius.md, paddingHorizontal: space.md, paddingVertical: space.sm, maxWidth: 176, ...elevation.raised },
-  mascotBubbleText: { ...typography.micro, color: colors.foreground, lineHeight: 16, textAlign: 'center' },
-  sunshineChip: { position: 'absolute', top: space.md, left: space.md, flexDirection: 'row', alignItems: 'center', gap: space.xs, backgroundColor: 'rgba(255,255,255,0.88)', borderRadius: radius.pill, paddingHorizontal: space.md, paddingVertical: space.sm, ...border.hairline, ...elevation.raised },
-  sunshineChipText: { ...typography.micro, color: colors.primary },
-  cableWrap: { position: 'absolute', left: '34%', bottom: '20%', width: '34%', height: 34, justifyContent: 'center', transform: [{ rotate: '9deg' }] },
-  cableShadow: { position: 'absolute', left: 0, right: 0, height: 12, borderRadius: 8, backgroundColor: 'rgba(70,54,107,0.22)', transform: [{ translateY: 4 }] },
-  cable: { height: 8, borderRadius: 6, borderWidth: 2, borderColor: 'rgba(255,255,255,0.72)' },
-  cablePulse: { position: 'absolute', left: 3, width: 15, height: 15, borderRadius: 8, backgroundColor: '#F8FFB6', shadowColor: '#DAFF85', shadowOpacity: 1, shadowRadius: 10 },
-  plug: { position: 'absolute', left: -9, width: 22, height: 18, borderRadius: 7, backgroundColor: '#8064BB', flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', paddingTop: 2 },
-  plugPin: { width: 3, height: 6, borderRadius: 2, backgroundColor: '#FFF6D2' },
-  batteryWrap: { position: 'absolute', right: '5%', bottom: '9%', width: '37%', height: '68%', alignItems: 'center', justifyContent: 'flex-end' },
-  batteryStatus: { position: 'absolute', top: 0, right: 0, minWidth: 112, paddingVertical: space.sm, paddingHorizontal: space.md, borderRadius: radius.lg, backgroundColor: 'rgba(66,42,113,0.86)', alignItems: 'center', zIndex: 5 },
-  batteryStatusLabel: { ...typography.micro, color: '#F1E9FF' },
-  batteryValue: { ...typography.display, color: '#FFFFFF', lineHeight: 34 },
-  batteryUnit: { ...typography.micro, color: '#DED2F2' },
-  batteryCap: { width: 42, height: 11, borderRadius: 6, backgroundColor: '#725CA0', marginBottom: -2, zIndex: 3 },
-  batteryHandle: { position: 'absolute', bottom: '62%', width: '86%', height: 42, borderWidth: 8, borderBottomWidth: 0, borderColor: '#695394', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  batteryShell: { width: '92%', height: '59%', borderRadius: radius.lg, backgroundColor: '#615080', padding: 9, borderWidth: 3, borderColor: '#A696C7', shadowColor: '#5C3F84', shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 5 } },
-  batteryGlass: { flex: 1, borderRadius: radius.md, overflow: 'hidden', backgroundColor: 'rgba(33,42,67,0.72)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.55)', justifyContent: 'flex-end', alignItems: 'center' },
-  batteryLiquid: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopLeftRadius: 18, borderTopRightRadius: 13, overflow: 'hidden' },
-  batteryBolt: { position: 'absolute', top: '39%', zIndex: 2 },
-  batteryShine: { position: 'absolute', left: 9, top: 10, bottom: 12, width: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.34)' },
-  batteryFeet: { position: 'absolute', bottom: -7, left: 8, right: 8, flexDirection: 'row', justifyContent: 'space-between' },
-  batteryFoot: { width: 22, height: 8, borderRadius: 4, backgroundColor: '#514169' },
+  aura: { position: 'absolute', bottom: -10, width: 140, height: 40, borderRadius: radius.pill, backgroundColor: 'rgba(255,158,234,0.2)' },
+
+  tankWrap: { position: 'absolute', right: '8%', bottom: '15%', width: '28%', height: '50%', alignItems: 'center', justifyContent: 'flex-end' },
+  tankStatus: { position: 'absolute', top: -24, right: -16, paddingVertical: 5, paddingHorizontal: 10, borderRadius: radius.lg, backgroundColor: 'rgba(40,20,60,0.88)', alignItems: 'center', zIndex: 5, ...border.hairline, borderColor: 'rgba(255,158,234,0.3)' },
+  tankStatusLabel: { ...typography.micro, color: '#F1E9FF' },
+  tankValue: { ...typography.label, color: '#FFF', lineHeight: 22 },
+  tankGlass: { width: '80%', flex: 1, borderRadius: 16, backgroundColor: 'rgba(20,10,40,0.6)', borderWidth: 2, borderColor: 'rgba(255,158,234,0.4)', justifyContent: 'flex-end', alignItems: 'center', overflow: 'hidden' },
+  tankLiquid: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopLeftRadius: 10, borderTopRightRadius: 10, overflow: 'hidden' },
+  tankSparkle: { position: 'absolute', top: '40%', zIndex: 2 },
+  tankShine: { position: 'absolute', left: 6, top: 10, bottom: 12, width: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' },
+  tankBase: { width: '90%', height: 16, borderRadius: 6, backgroundColor: '#3A2855', marginTop: -4, borderWidth: 1, borderColor: '#5C4182', shadowColor: '#B388FF', shadowOpacity: 0.4, shadowRadius: 10 },
 
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   cardTitle: { ...typography.subhead, color: colors.foreground, flex: 1 },
   ecoBadge: { flexDirection: 'row', alignItems: 'center', gap: space.xs, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.pill, backgroundColor: colors.successSoft },
   ecoBadgeText: { ...typography.label, color: colors.success },
   hint: { ...typography.caption, color: colors.mutedForeground },
-  banner: { padding: space.md, borderRadius: radius.md, backgroundColor: colors.primarySoft, ...border.hairline, borderColor: colors.primary, alignItems: 'center' },
-  bannerText: { ...typography.calloutStrong, color: colors.primaryOnSoft, textAlign: 'center' },
-  sellCard: { borderColor: 'rgba(224,204,242,0.9)' },
+
+  actionCard: { borderColor: 'rgba(224,204,242,0.9)' },
   conversionRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.sm },
   conversionValue: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   conversionIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0E9FB' },
   giftIcon: { backgroundColor: '#FFE8F1' },
   conversionNumber: { ...typography.title, color: '#331568' },
   conversionLabel: { ...typography.micro, color: colors.mutedForeground },
-  rewardSection: { gap: space.md, marginTop: space.xs },
 
-  foodRow: { flexDirection: 'row', gap: space.sm },
-  foodCell: { flex: 1, alignItems: 'center', gap: space.xs, padding: space.xs, paddingBottom: space.sm, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.86)', ...border.hairline },
-  foodIcon: { width: '100%', aspectRatio: 1, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
-  foodName: { ...typography.micro, color: colors.mutedForeground },
-  foodCostRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
-  foodCost: { ...typography.micro, color: colors.foreground },
+  banner: { padding: space.md, borderRadius: radius.md, backgroundColor: colors.primarySoft, ...border.hairline, borderColor: colors.primary, alignItems: 'center' },
+  bannerText: { ...typography.calloutStrong, color: colors.primaryOnSoft, textAlign: 'center' },
+
+  rewardSection: { gap: space.md, marginTop: space.xs },
   feedLinkBtn: { minHeight: control.minTouch, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
   feedLinkText: { ...typography.calloutStrong, color: colors.primary },
 });

@@ -30,8 +30,8 @@ function NativeTabLayout() {
         <Label>成長</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="plant">
-        <NativeTabIcon sf={{ default: 'bolt', selected: 'bolt.fill' }} />
-        <Label>発電所</Label>
+        <NativeTabIcon sf={{ default: 'sparkles', selected: 'sparkles' }} />
+        <Label>エネルギー</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -119,12 +119,12 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="plant"
         options={{
-          title: '発電所',
+          title: 'エネルギー',
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="bolt" tintColor={color} size={24} />
+              <SymbolView name="sparkles" tintColor={color} size={24} />
             ) : (
-              <Icon name="zap" size={iconSize.lg} color={color} />
+              <Icon name="star" size={iconSize.lg} color={color} />
             ),
         }}
       />

@@ -1,7 +1,7 @@
 /**
  * 「光が流れる」循環演出
  * 記録・ゲームなどで光エネルギーが増えた瞬間、キャラのあたりから光の粒が
- * 空(太陽)へのぼっていき、「発電所に届いたよ」のバナーを出す軽い演出。
+ * 庭園へのぼっていき、「エネルギーチャージされたよ」のバナーを出す軽い演出。
  * 重い描画はせず Reanimated の transform/opacity だけで構成する。
  */
 import React, { useEffect } from 'react';
@@ -45,7 +45,7 @@ interface Props {
   amount: number;
   /** 演出終了時(自動でも呼ばれる) */
   onDone: () => void;
-  /** バナータップで発電所へ(任意) */
+  /** バナータップでエネルギーチャージ画面へ(任意) */
   onGoPlant?: () => void;
 }
 
@@ -63,7 +63,7 @@ export function LightFlowEffect({ amount, onDone, onGoPlant }: Props) {
           <Particle key={i} delay={d} xOff={(i - 2.5) * 22} size={i % 2 === 0 ? 18 : 13} />
         ))}
       </View>
-      {/* バナー: 光→太陽→発電所 */}
+      {/* バナー: 光→庭園→チャージ */}
       <Animated.View
         entering={FadeInDown.delay(700).springify().damping(14)}
         exiting={FadeOut}
@@ -71,20 +71,20 @@ export function LightFlowEffect({ amount, onDone, onGoPlant }: Props) {
       >
         <PressScale
           onPress={() => { if (onGoPlant) { onDone(); onGoPlant(); } }}
-          accessibilityLabel={`光エネルギー +${amount}。発電所を見る`}
+          accessibilityLabel={`光エネルギー +${amount}。チャージを見る`}
           style={styles.banner}
         >
           <View style={styles.bannerFlow}>
             <Icon name="feather" size={iconSize.sm} color={colors.primaryOnSoft} />
             <Icon name="arrow-right" size={iconSize.xs} color={colors.subtleForeground} />
-            <Icon name="sun" size={iconSize.sm} color={colors.primaryOnSoft} />
+            <Icon name="star" size={iconSize.sm} color={colors.primaryOnSoft} />
             <Icon name="arrow-right" size={iconSize.xs} color={colors.subtleForeground} />
-            <Icon name="zap" size={iconSize.sm} color={colors.primaryOnSoft} />
+            <Icon name="gift" size={iconSize.sm} color={colors.primaryOnSoft} />
           </View>
-          <Text style={styles.bannerText}>キミの光が発電所に届いたよ　+{amount}</Text>
+          <Text style={styles.bannerText}>キミの光がエネルギーになったよ　+{amount}</Text>
           {onGoPlant && (
             <View style={styles.bannerLinkRow}>
-              <Text style={styles.bannerLink}>発電所を見る</Text>
+              <Text style={styles.bannerLink}>チャージを見る</Text>
               <Icon name="chevron-right" size={iconSize.xs} color={colors.mutedForeground} />
             </View>
           )}

@@ -221,16 +221,18 @@ interface AppContextType {
   setMascotName: (name: string) => Promise<void>;
   feedMascot: (foodId: string) => Promise<{ success: boolean; message: string; newSatiety: number }>;
   completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => Promise<void>;
-  /** 光エネルギー(元気・光の力・発電エネルギー)の現在の状態 */
+  /** キャラクターのエネルギー(元気・光の力・チャージ量)の現在の状態 */
   lightEnergy: LightEnergyState;
   /** 直近の「ユーザー操作による」光エネルギー獲得イベント(循環演出用)。
    *  クラウド同期・読込では発火しない。seq は毎回増える識別子 */
   lightGainEvent: { amount: number; seq: number } | null;
   /** モーダル表示中は循環演出を保留する(true=保留開始 / false=解除。解除時に保留分を再生) */
   holdLightFlow: (hold: boolean) => void;
-  /** 発電所(エコポイント・売電履歴・街の発展)の状態 */
+  /** エネルギー変換(ポイント・変換履歴・街の発展)の状態 */
   powerPlant: PowerPlantState;
-  /** 蓄電エネルギーを全て売電してエコポイントに変換する */
+  /** 蓄電エネルギーを全て変換してポイントにする */
+  convertStoredEnergy: () => Promise<{ converted: number; gained: number }>;
+  /** 後方互換用エイリアス */
   sellEnergy: () => Promise<{ sold: number; gained: number }>;
   /** エコポイントを使って次の街アイテムを建てる */
   buildTownItem: () => Promise<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }>;
@@ -324,7 +326,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [roomCustomization, setRoomCustomization] = useState<RoomCustomization>(defaultRoomCustomization);
   const [companionState, setCompanionState] = useState<CompanionState>(defaultCompanionState);
 
-  /** 時間経過ぶんの太陽光発電を精算する。読込・復帰・定期更新のすべてで共通利用する */
+  /** 時間経過ぶんの自然なエネルギーチャージを精算する。読込・復帰・定期更新のすべてで共通利用する */
   const settleElapsedEnergy = useCallback(() => {
     const next = applyElapsedEnergy(lightEnergyRef.current, getTodayDate());
     if (next === lightEnergyRef.current) return next;
@@ -335,7 +337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // アプリを開いたまま日付が変わっても日次値(元気・光の力・今日のエネルギー)が
-  // 前日のまま表示されないよう、1分ごとに日付ロールオーバーと発電を精算する
+  // 前日のまま表示されないよう、1分ごとに日付ロールオーバーとチャージを精算する
   useEffect(() => {
     const timer = setInterval(() => {
       settleElapsedEnergy();
@@ -343,7 +345,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, [settleElapsedEnergy]);
 
-  // バックグラウンドから戻った瞬間にも、閉じていた時間の発電分を反映する
+  // バックグラウンドから戻った瞬間にも、閉じていた時間のチャージ分を反映する
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') settleElapsedEnergy();
@@ -433,27 +435,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNewEncounters((prev) => prev.slice(1));
   }, []);
 
-  // 売電・街づくりの同時多重呼び出しを防ぐ同期ガード
+  // エネルギー変換・街づくりの同時多重呼び出しを防ぐ同期ガード
   const plantBusyRef = useRef(false);
 
-  /** 蓄電エネルギーを全て売電してエコポイントに変換する */
-  const sellEnergy = useCallback(async (): Promise<{ sold: number; gained: number }> => {
-    if (plantBusyRef.current) return { sold: 0, gained: 0 };
+  /** 蓄電エネルギーを全て変換してポイントにする */
+  const convertStoredEnergy = useCallback(async (): Promise<{ converted: number; gained: number }> => {
+    if (plantBusyRef.current) return { converted: 0, gained: 0 };
     plantBusyRef.current = true;
     try {
       const energy = lightEnergyRef.current;
-      const sold = Math.floor(energy.storedEnergy);
-      if (sold <= 0) return { sold: 0, gained: 0 };
-      const gained = sold * ECO_POINTS_PER_ENERGY;
+      const converted = Math.floor(energy.storedEnergy);
+      if (converted <= 0) return { converted: 0, gained: 0 };
+      const gained = converted * ECO_POINTS_PER_ENERGY;
 
-      const nextEnergy = { ...energy, storedEnergy: energy.storedEnergy - sold };
+      const nextEnergy = { ...energy, storedEnergy: energy.storedEnergy - converted };
       lightEnergyRef.current = nextEnergy;
       setLightEnergy(nextEnergy);
 
       const nextPlant: PowerPlantState = {
         ...powerPlantRef.current,
         ecoPoints: powerPlantRef.current.ecoPoints + gained,
-        totalSold: powerPlantRef.current.totalSold + sold,
+        totalSold: powerPlantRef.current.totalSold + converted,
         sellCount: powerPlantRef.current.sellCount + 1,
       };
       powerPlantRef.current = nextPlant;
@@ -465,11 +467,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ]);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       pushDataToCloud();
-      return { sold, gained };
+      return { converted, gained };
     } finally {
       plantBusyRef.current = false;
     }
   }, []);
+
+  const sellEnergy = useCallback(async (): Promise<{ sold: number; gained: number }> => {
+    const { converted, gained } = await convertStoredEnergy();
+    return { sold: converted, gained };
+  }, [convertStoredEnergy]);
 
   /** エコポイントを使って次の街アイテムを建てる */
   const buildTownItem = useCallback(async (): Promise<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }> => {
@@ -1322,6 +1329,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         lightGainEvent,
         holdLightFlow,
         powerPlant,
+        convertStoredEnergy,
         sellEnergy,
         buildTownItem,
         exchangeEcoPoints,

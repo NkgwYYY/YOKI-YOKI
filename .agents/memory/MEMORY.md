@@ -18,3 +18,4 @@
 - [Internal item administration](internal-item-admin.md) — item management belongs in a separate Replit-only artifact, never in the consumer mobile navigation.
 - [Curated shop catalog](curated-shop-catalog.md) — keep six shop genres to five polished items each; prioritize distinctive premium artwork over catalog volume.
 - [Wearable fit calibration](wearable-fit-calibration.md) — calibrate accessories against the real 247×348 character stage, never a centered placeholder; normalize transparent asset bounds first.
+- [Energy-charge world](energy-charge-world.md) — the character is the energy source; never reintroduce solar, power-plant, sunshine, or electricity-selling motifs.
