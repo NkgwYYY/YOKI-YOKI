@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#9b7cff"/>
-      <stop offset="1" stop-color="#ff73b8"/>
+      <stop stop-color="#ff5a62"/>
+      <stop offset="1" stop-color="#c91f3b"/>
     </linearGradient>
   </defs>
-  <path fill="url(#g)" stroke="#fff" stroke-width="14" stroke-linejoin="round" d="M256 201c-48-69-143-94-166-44-24 52 46 126 142 93-30 83-67 138-105 180 56-9 98-28 129-70 31 42 73 61 129 70-38-42-75-97-105-180 96 33 166-41 142-93-23-50-118-25-166 44z"/>
-  <circle cx="256" cy="235" r="52" fill="#ffe86b" stroke="#fff" stroke-width="14"/>
-  <path d="M260 191a46 46 0 1 0 34 76 54 54 0 1 1-34-76z" fill="#fff6b0"/>
+  <path fill="url(#g)" stroke="#fff" stroke-width="8" stroke-linejoin="round" d="M253 225c-27-38-79-50-96-20-17 31 23 71 78 52-13 35-26 59-43 80 29-5 49-16 64-36 15 20 35 31 64 36-17-21-30-45-43-80 55 19 95-21 78-52-17-30-69-18-96 20z"/>
+  <circle cx="256" cy="246" r="29" fill="#e6324d" stroke="#fff" stroke-width="8"/>
+  <ellipse cx="245" cy="236" rx="8" ry="5" fill="#ff9ca3" opacity=".75"/>
 </svg>
