@@ -37,61 +37,32 @@ function catalogGroup(
 }
 
 const starterItems = [
-  { id: "starter-star-candy", name: "きらめきスターキャンディ", category: "food" as const, cost: 30, assetUrl: "/api/item-assets/star-candy.png", posX: 0, posY: 0, scale: 1, isActive: true },
-  { id: "starter-moon-ribbon", name: "ムーンリボン", category: "accessory" as const, cost: 80, assetUrl: "/api/item-assets/moon-ribbon.png", posX: 58, posY: -76, scale: 0.36, isActive: true },
-  { id: "starter-starlight-night", name: "スターライトの夜", category: "background" as const, cost: 120, assetUrl: "/api/item-assets/starlight-night.png", posX: 0, posY: 0, scale: 1, isActive: true },
-  { id: "starter-star-chime", name: "ほしのきらめきボイス", category: "voice" as const, cost: 100, assetUrl: "/api/item-assets/star-chime.mp3", posX: 0, posY: 0, scale: 1, isActive: true },
+  { id: "starter-moon-ribbon", name: "赤いちいさなリボン", category: "accessory" as const, cost: 80, assetUrl: "/api/item-assets/moon-ribbon-premium.png", posX: 58, posY: -76, scale: 0.36, isActive: true },
   ...catalogGroup("accessory", 100, [
     ["effect-soft-aura", "ふわふわオーラ"],
     ["effect-rainbow-aura", "レインボーオーラ"],
-    ["effect-fire-aura", "ほのおオーラ"],
     ["effect-water-aura", "しずくオーラ"],
     ["effect-flower-aura", "お花オーラ"],
     ["effect-heart-aura", "ハートオーラ"],
-    ["effect-mochi-aura", "もちもちオーラ"],
-    ["effect-afterimage", "分身エフェクト"],
-  ], { posX: 0, posY: 0, scale: 1.35 }),
+  ], { posX: 0, posY: 0, scale: 1.25 }),
   ...catalogGroup("background", 100, [
     ["bg-rainbow-hill", "虹の丘"],
-    ["bg-after-rain", "雨上がりの空"],
     ["bg-sakura-park", "桜が舞う公園"],
     ["bg-sunset-beach", "海辺の夕暮れ"],
-    ["bg-cloud-top", "ふわふわ雲の上"],
     ["bg-candy-room", "お菓子のお部屋"],
-    ["bg-forest-house", "森の小さな家"],
-    ["bg-hot-spring", "温泉"],
-    ["bg-rainy-window", "雨の日の窓辺"],
-    ["bg-snow-town", "雪の町"],
-    ["bg-summer-festival", "夏祭り"],
-    ["bg-arcade", "ゲームセンター"],
-    ["bg-bakery", "パン屋さん"],
     ["bg-secret-base", "秘密基地"],
   ]),
   ...catalogGroup("accessory", 60, [
     ["wear-crown", "王冠"],
-    ["wear-beret", "ベレー帽"],
-    ["wear-straw-hat", "麦わら帽子"],
     ["wear-cat-ears", "ねこ耳"],
-    ["wear-rabbit-ears", "うさぎ耳"],
     ["wear-round-glasses", "丸メガネ"],
-    ["wear-sunglasses", "サングラス"],
-    ["wear-bandage", "ほっぺの絆創膏"],
     ["wear-headphones", "ヘッドホン"],
-    ["wear-leaf", "葉っぱ"],
-    ["wear-small-flower", "小さなお花"],
-    ["wear-rain-umbrella", "雨の日の傘"],
-    ["wear-hot-spring-towel", "温泉の手ぬぐい"],
   ], { posX: 35, posY: -70, scale: 0.45 }),
   ...catalogGroup("accessory", 70, [
     ["decor-plush", "小さなぬいぐるみ"],
     ["decor-cushion", "クッション"],
-    ["decor-mug", "マグカップ"],
     ["decor-plant", "観葉植物"],
-    ["decor-toy-car", "おもちゃの車"],
     ["decor-picture-book", "絵本"],
-    ["decor-game-console", "ゲーム機"],
-    ["decor-present", "プレゼント箱"],
-    ["decor-bubbles", "シャボン玉"],
     ["decor-small-pet", "小さなペット"],
   ], { posX: 75, posY: 105, scale: 0.48 }),
   ...catalogGroup("voice", 80, [
@@ -99,27 +70,20 @@ const starterItems = [
     ["voice-good-work", "「今日もおつかれさま」"],
     ["voice-all-right", "「だいじょうぶ」"],
     ["voice-rest-together", "「いっしょに休もう」"],
-    ["voice-laugh", "笑い声"],
-    ["voice-yawn", "あくび"],
-    ["voice-humming", "鼻歌"],
     ["sound-rain", "雨音"],
-    ["sound-waves", "波の音"],
-    ["sound-campfire", "焚き火の音"],
-    ["sound-cafe", "カフェの環境音"],
   ]),
   ...catalogGroup("food", 30, [
     ["food-onigiri", "おにぎり"],
     ["food-pudding", "プリン"],
     ["food-strawberry", "いちご"],
     ["food-pancakes", "パンケーキ"],
-    ["food-donut", "ドーナツ"],
-    ["food-curry", "カレー"],
-    ["food-ramen", "ラーメン"],
-    ["food-soft-serve", "ソフトクリーム"],
-    ["food-tea", "お茶"],
     ["food-hot-milk", "ホットミルク"],
   ]),
-];
+].map((item) => (
+  item.assetUrl.endsWith(".png") && !item.assetUrl.includes("moon-ribbon-premium")
+    ? { ...item, assetUrl: item.assetUrl.replace(".png", "-premium.png") }
+    : item
+));
 
 async function ensureStarterItems(): Promise<void> {
   await db.insert(items).values(starterItems).onConflictDoNothing();

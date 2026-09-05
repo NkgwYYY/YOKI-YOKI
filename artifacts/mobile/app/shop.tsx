@@ -4,15 +4,26 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { ItemCategory, resolveItemAssetUrl, useItems } from '@/contexts/ItemContext';
 
-const tabs: { id: ItemCategory; label: string }[] = [
-  { id: 'food', label: 'ごはん' }, { id: 'accessory', label: 'アクセサリー' },
-  { id: 'background', label: '背景' }, { id: 'voice', label: 'ボイス' },
+type ShopGenre = 'food' | 'wear' | 'effect' | 'decor' | 'background' | 'voice';
+const tabs: { id: ShopGenre; label: string }[] = [
+  { id: 'food', label: 'ごはん' },
+  { id: 'wear', label: '身につける' },
+  { id: 'effect', label: 'エフェクト' },
+  { id: 'decor', label: '置きもの' },
+  { id: 'background', label: '背景' },
+  { id: 'voice', label: 'ボイス' },
 ];
+const genreOf = (id: string, category: ItemCategory): ShopGenre => {
+  if (id.startsWith('catalog-effect-')) return 'effect';
+  if (id.startsWith('catalog-decor-')) return 'decor';
+  if (category === 'accessory') return 'wear';
+  return category;
+};
 export default function ShopScreen() {
   const router = useRouter(); const { isSignedIn } = useAuth();
   const { items, shopState, loading, error, buyItem, equipItem } = useItems();
-  const [tab, setTab] = useState<ItemCategory>('food'); const [busy, setBusy] = useState<string | null>(null);
-  const visibleItems = items.filter(x => x.category === tab && x.isActive);
+  const [tab, setTab] = useState<ShopGenre>('food'); const [busy, setBusy] = useState<string | null>(null);
+  const visibleItems = items.filter(x => genreOf(x.id, x.category) === tab && x.isActive);
   const act = async (id: string, category: ItemCategory) => {
     if (!isSignedIn) { Alert.alert('ログインしてください', 'ショップの購入と着せ替えはログイン後に使えます。', [{ text: 'ログイン', onPress: () => router.push('/login') }, { text: 'あとで' }]); return; }
     setBusy(id);
@@ -27,12 +38,12 @@ export default function ShopScreen() {
     {!isSignedIn && <Pressable style={s.signin} onPress={() => router.push('/login')}><Text style={s.signinText}>ログインしてアイテムを集めよう ›</Text></Pressable>}
     <View style={s.tabs}>{tabs.map(x => <Pressable key={x.id} onPress={() => setTab(x.id)} style={[s.tab, tab === x.id && s.tabOn]}><Text style={[s.tabText, tab === x.id && s.tabTextOn]}>{x.label}</Text></Pressable>)}</View>
     {loading ? <Text style={s.note}>アイテムを読み込み中…</Text> : error ? <Text style={s.error}>{error}</Text> : visibleItems.length === 0 ? <Text style={s.note}>このカテゴリのアイテムは、ただいま準備中です。</Text> : visibleItems.map(item => {
-      const owned = shopState.inventory.includes(item.id); const equipped = tab !== 'food' && shopState.equipped[tab] === item.id;
+      const owned = shopState.inventory.includes(item.id); const equipped = item.category !== 'food' && shopState.equipped[item.category] === item.id;
       const insufficient = isSignedIn && !owned && shopState.points < item.cost;
-      const label = !isSignedIn ? 'ログインして交換' : insufficient ? 'ポイントが足りません' : !owned ? `${item.cost} pt で交換` : tab === 'food' ? '持っています' : equipped ? 'はずす' : '着ける / 設定する';
-      const disabled = busy === item.id || insufficient || (owned && tab === 'food');
-      return <View key={item.id} style={s.card}><View style={s.preview}>{item.category === 'voice' ? <Text style={s.voicePreview}>♪</Text> : item.assetUrl ? <Image source={{ uri: resolveItemAssetUrl(item.assetUrl) }} style={s.image} /> : <Text>✦</Text>}</View><View style={s.info}><Text style={s.name}>{item.name}</Text><Text style={s.cost}>{owned ? '所持済み' : `${item.cost} ポイント`}</Text><Pressable disabled={disabled} onPress={() => act(item.id, tab)} style={[s.button, (disabled || equipped) && s.buttonOn]}><Text style={s.buttonText}>{busy === item.id ? '処理中…' : label}</Text></Pressable></View></View>;
+      const label = !isSignedIn ? 'ログインして交換' : insufficient ? 'ポイントが足りません' : !owned ? `${item.cost} pt で交換` : item.category === 'food' ? '持っています' : equipped ? 'はずす' : '着ける / 設定する';
+      const disabled = busy === item.id || insufficient || (owned && item.category === 'food');
+      return <View key={item.id} style={s.card}><View style={s.preview}>{item.category === 'voice' ? <Text style={s.voicePreview}>♪</Text> : item.assetUrl ? <Image source={{ uri: resolveItemAssetUrl(item.assetUrl) }} style={s.image} /> : <Text>✦</Text>}</View><View style={s.info}><Text style={s.name}>{item.name}</Text><Text style={s.cost}>{owned ? '所持済み' : `${item.cost} ポイント`}</Text><Pressable disabled={disabled} onPress={() => act(item.id, item.category)} style={[s.button, (disabled || equipped) && s.buttonOn]}><Text style={s.buttonText}>{busy === item.id ? '処理中…' : label}</Text></Pressable></View></View>;
     })}
   </ScrollView></SafeAreaView>;
 }
-const s = StyleSheet.create({ safe:{flex:1,backgroundColor:'#F5F4FF'},wrap:{padding:20,gap:14},head:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{fontSize:16,color:'#5B57A8'},title:{fontWeight:'800',fontSize:20,color:'#34306E'},points:{fontWeight:'700',color:'#7650B7'},signin:{backgroundColor:'#34306E',padding:14,borderRadius:14},signinText:{color:'white',fontWeight:'700',textAlign:'center'},tabs:{flexDirection:'row',backgroundColor:'#E8E6F5',borderRadius:12,padding:3},tab:{flex:1,paddingVertical:9,borderRadius:9},tabOn:{backgroundColor:'white'},tabText:{fontSize:12,textAlign:'center',color:'#69657C'},tabTextOn:{color:'#403A8A',fontWeight:'700'},card:{backgroundColor:'white',borderRadius:18,padding:12,flexDirection:'row',gap:14,shadowColor:'#59547D',shadowOpacity:.08,shadowRadius:8,elevation:2},preview:{width:92,height:92,borderRadius:13,backgroundColor:'#EFEDFA',alignItems:'center',justifyContent:'center',overflow:'hidden'},image:{width:'100%',height:'100%',resizeMode:'contain'},voicePreview:{fontSize:44,fontWeight:'700',color:'#6258B6'},info:{flex:1,justifyContent:'space-around'},name:{fontSize:16,fontWeight:'700',color:'#302D4F'},cost:{color:'#78738D',fontSize:13},button:{backgroundColor:'#6258B6',paddingVertical:9,borderRadius:10},buttonOn:{backgroundColor:'#A39DBF'},buttonText:{color:'white',fontWeight:'700',fontSize:13,textAlign:'center'},note:{textAlign:'center',color:'#777',padding:30},error:{color:'#B33',textAlign:'center',padding:20} });
+const s = StyleSheet.create({ safe:{flex:1,backgroundColor:'#F5F4FF'},wrap:{padding:20,gap:14},head:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{fontSize:16,color:'#5B57A8'},title:{fontWeight:'800',fontSize:20,color:'#34306E'},points:{fontWeight:'700',color:'#7650B7'},signin:{backgroundColor:'#34306E',padding:14,borderRadius:14},signinText:{color:'white',fontWeight:'700',textAlign:'center'},tabs:{flexDirection:'row',flexWrap:'wrap',gap:3,backgroundColor:'#E8E6F5',borderRadius:12,padding:3},tab:{width:'32.6%',paddingVertical:9,borderRadius:9},tabOn:{backgroundColor:'white'},tabText:{fontSize:11,textAlign:'center',color:'#69657C'},tabTextOn:{color:'#403A8A',fontWeight:'700'},card:{backgroundColor:'white',borderRadius:18,padding:12,flexDirection:'row',gap:14,shadowColor:'#59547D',shadowOpacity:.08,shadowRadius:8,elevation:2},preview:{width:92,height:92,borderRadius:13,backgroundColor:'#EFEDFA',alignItems:'center',justifyContent:'center',overflow:'hidden'},image:{width:'100%',height:'100%',resizeMode:'contain'},voicePreview:{fontSize:44,fontWeight:'700',color:'#6258B6'},info:{flex:1,justifyContent:'space-around'},name:{fontSize:16,fontWeight:'700',color:'#302D4F'},cost:{color:'#78738D',fontSize:13},button:{backgroundColor:'#6258B6',paddingVertical:9,borderRadius:10},buttonOn:{backgroundColor:'#A39DBF'},buttonText:{color:'white',fontWeight:'700',fontSize:13,textAlign:'center'},note:{textAlign:'center',color:'#777',padding:30},error:{color:'#B33',textAlign:'center',padding:20} });
