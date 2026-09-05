@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>よっきー ぽよんデモ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 20px;
+    background: linear-gradient(180deg, #6EC6F5 0%, #A8DFF7 55%, #A5D96E 55%, #8BC94F 100%);
+    font-family: -apple-system, "Hiragino Sans", sans-serif;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .egg-wrap {
+    width: min(70vw, 380px);
+    aspect-ratio: 1;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transform-origin: 50% 90%;   /* 底を支点にぽよん */
+    will-change: transform;
+  }
+  .egg-wrap video {
+    width: 100%; height: 100%;
+    display: block;
+    pointer-events: none;
+    /* グレー背景をふわっと丸くなじませる */
+    -webkit-mask-image: radial-gradient(circle at 50% 52%, #000 58%, transparent 74%);
+    mask-image: radial-gradient(circle at 50% 52%, #000 58%, transparent 74%);
+  }
+  /* ぽよん：底を支点にぐにゅっと潰れて伸びて戻る */
+  @keyframes poyon {
+    0%   { transform: scale(1, 1); }
+    15%  { transform: scale(1.18, 0.78); }
+    35%  { transform: scale(0.86, 1.16) translateY(-6%); }
+    55%  { transform: scale(1.10, 0.92); }
+    72%  { transform: scale(0.96, 1.05); }
+    86%  { transform: scale(1.03, 0.98); }
+    100% { transform: scale(1, 1); }
+  }
+  .egg-wrap.poyon { animation: poyon 0.7s cubic-bezier(.34,1.56,.64,1); }
+  .hint { color: rgba(255,255,255,0.95); font-size: 15px; text-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+</style>
+</head>
+<body>
+  <div class="egg-wrap" id="egg">
+    <video id="eggVideo" src="egg_loop.mp4?v=2" poster="egg_poster.jpg" autoplay muted loop playsinline></video>
+  </div>
+  <p class="hint">タップすると ぽよん♪</p>
+
+<script>
+  const wrap  = document.getElementById('egg');
+  const video = document.getElementById('eggVideo');
+
+  // iOS Safari 対策：確実に自動再生を開始
+  video.play().catch(() => {
+    document.addEventListener('touchstart', () => video.play(), { once: true });
+  });
+
+  wrap.addEventListener('pointerdown', () => {
+    // 動画を最初から再生し直す
+    video.currentTime = 0;
+    video.play();
+
+    // ぽよんアニメを（連打でも）最初から再生
+    wrap.classList.remove('poyon');
+    void wrap.offsetWidth;   // reflowでアニメをリセット
+    wrap.classList.add('poyon');
+  });
+</script>
+</body>
+</html>
