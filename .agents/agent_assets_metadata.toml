@@ -227,3 +227,18 @@ uri = "file://artifacts/app-preview-video/public/audio/bg_music.mp3"
 type = "audio"
 title = "app preview background music"
 description = "Generated music: Warm playful lo-fi pop instrumental background music scoring a gentle Japanese wellness app preview. Soft marimba, muted plucks, light hand percussion, airy pads, 92 BPM, comforting …"
+logical_id = "83a3bf79-63bb-43da-b4be-e8bfddf20dac"
+
+[[outputs]]
+id = "x0ILaB_I5EERAeVaFQO6Q"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "YOKI YOKI 新アプリアイコン"
+description = "笑顔のタマゴ、紫の宇宙、金色の光を組み合わせた1024×1024pxのアプリアイコンです。"
+logical_id = "6829d6ea-e8c3-4919-bdbc-df7cdf86c774"
+content_hash = "sha256:62b359220edf66bc4ac4930aebc9a723679179c782b27934f84d630dbf2ee908"
+size = 1368615
+mtime_ms = 1788583358937
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/6829d6ea-e8c3-4919-bdbc-df7cdf86c774/b238b366-6d9d-4882-872b-313bba5204e7"
+storage_version_token = "1788583464776089"
+content_type = "image/png"
