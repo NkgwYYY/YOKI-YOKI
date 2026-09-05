@@ -9,6 +9,7 @@ description: What works for fetching/generating photos and audio assets in this 
 - Character expression sets: user-provided AI videos (Kling) are a good frame source — extract frames with ffmpeg at fps=4, crop 86% to drop the watermark, then removeImageBackground → transparent PNGs per mood. Static mood images feel "frozen"; pair them with a breathing squish loop + random blink-frame swap.
 - Night (22–6時) forces sleepy mood; users testing at night think the character is broken — wake-on-tap override (90s) solved this.
 - **How to apply:** mobile app assets go in `artifacts/mobile/assets/`; after any change run `npx expo export --platform web --output-dir ../../static-build/web` then commit. Publish is manual by the user.
+- AI image edits that request a transparent background may return a checkerboard baked into opaque pixels. **Why:** the edit model can render transparency rather than encode alpha. **How to apply:** inspect `%[opaque]`, then run background removal before replacing a wearable asset.
 
 ## 笑顔アニメ（表情フレーム）は全キャラで却下済み（2026-08-11）
 スプライトシート方式（6キャラ）も動画切り出し方式（おだんご・はっぱ・カラフルはっぱ）も最終的に「笑顔がひどい／明るさが合わない／画像が化けてる」と却下され全ロールバック。SMILE_FRAMES は空にしてある。AI生成・動画由来のフレームは元画像と明るさ・画質が揃わず違和感が出る。今後キャラの表情アニメを頼まれたら、この経緯を伝えて元画像の変形（スケール・回転等のモーション）ベースを提案すること。
