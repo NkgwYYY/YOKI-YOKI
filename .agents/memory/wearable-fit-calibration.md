@@ -10,3 +10,5 @@ Normalize each transparent wearable so its visible bounds have an intentional si
 **How to apply:** Check ribbon, crown, ears, glasses, and headphones across egg, standard, leaf, and colorful-leaf stages. Apply stage-aware head-width compensation and verify a contact sheet of the real composites before shipping.
 
 Wearables must render inside the character rig's rigid body hierarchy rather than as a mobile-screen overlay. This keeps them attached through jumps, dragging, throws, landing squash, and horizontal motion while avoiding unwanted soft-body deformation.
+
+Any user-facing position or size adjustment must show the user's current character with the wearable attached and update that composite live. Controls without the real character preview are too difficult to use and must not be introduced.
