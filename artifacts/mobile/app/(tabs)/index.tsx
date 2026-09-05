@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
@@ -25,6 +25,8 @@ import { getMascotStage } from '@/utils/mascotUtils';
 import { GrassTexture, RoomItemPreview, RoomView } from '@/components/RoomView';
 import { GameBoardIllustration } from '@/components/ui/Illustrations';
 import { HomeSkyBackdrop } from '@/components/SkyBackground';
+import { useItems } from '@/contexts/ItemContext';
+import { Audio } from 'expo-av';
 
 const FURNITURE_OPTIONS: { id: RoomFurniture; name: string; cost: number }[] = [
   { id: 'none', name: '置かない', cost: 0 },
@@ -185,6 +187,7 @@ export default function HomeScreen() {
     roomCustomization, selectRoomItem, buyRoomItem,
     companionState, buyEggCompanion,
   } = useApp();
+  const { items, shopState } = useItems();
   const todayRecord = getTodayRecord();
   const { height: viewportHeight } = useWindowDimensions();
 
@@ -207,6 +210,18 @@ export default function HomeScreen() {
     : compactHome ? 130 : 145;
   const characterFrame = characterSize * 1.7;
   const characterHeight = characterSize * 2.4;
+  const equippedBackground = items.find((item) => item.id === shopState.equipped.background);
+  const equippedAccessory = items.find((item) => item.id === shopState.equipped.accessory);
+  const equippedVoice = items.find((item) => item.id === shopState.equipped.voice);
+  const voiceSound = useRef<Audio.Sound | null>(null);
+  useEffect(() => () => { voiceSound.current?.unloadAsync().catch(() => {}); }, []);
+  const playEquippedVoice = useCallback(() => {
+    if (!equippedVoice?.assetUrl) return;
+    voiceSound.current?.unloadAsync().catch(() => {});
+    Audio.Sound.createAsync({ uri: equippedVoice.assetUrl }, { shouldPlay: true })
+      .then(({ sound }) => { voiceSound.current = sound; })
+      .catch(() => {});
+  }, [equippedVoice?.assetUrl]);
 
   const openName = () => {
     setShowMenu(false);
@@ -324,6 +339,7 @@ export default function HomeScreen() {
                 horizontalBleed={space.xl}
               >
                 <View style={[styles.characterGarden, { height: sceneHeight }]}>
+                  {equippedBackground?.assetUrl ? <Image source={{ uri: equippedBackground.assetUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" /> : null}
                   <View
                     style={[
                       styles.characterMain,
@@ -340,7 +356,9 @@ export default function HomeScreen() {
                       mood={mascotMood}
                       size={characterSize}
                       growthSize={growth.growthSize}
+                      onPet={playEquippedVoice}
                     />
+                    {equippedAccessory?.assetUrl ? <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><Image source={{ uri: equippedAccessory.assetUrl }} resizeMode="contain" style={{ position: 'absolute', width: characterSize * equippedAccessory.scale, height: characterSize * equippedAccessory.scale, left: (characterFrame - characterSize * equippedAccessory.scale) / 2 + equippedAccessory.posX, top: (characterHeight - characterSize * equippedAccessory.scale) / 2 + equippedAccessory.posY }} /></View> : null}
                   </View>
                   {companionState.extraEggs > 0 ? (
                     <View style={styles.companionEgg}>
@@ -368,6 +386,8 @@ export default function HomeScreen() {
         <MenuAction icon="trending-up" label="成長を見る" onPress={() => { setShowMenu(false); router.push('/(tabs)/growth'); }} />
         <MenuAction icon="book-open" label="使い方ガイド" onPress={() => { setShowMenu(false); router.push('/guide'); }} />
         <MenuAction icon="edit-3" label="背景をカスタムする" onPress={() => { setShowMenu(false); setShopMessage(''); setShowAtelier(true); }} />
+        <MenuAction icon="coffee" label="YOKI SHOP" onPress={() => { setShowMenu(false); router.push('/shop'); }} />
+        <MenuAction icon="edit-3" label="アイテム管理" onPress={() => { setShowMenu(false); router.push('/admin'); }} />
         <MenuAction icon="edit-3" label={mascotName ? 'なかまの名前を変える' : 'なかまに名前をつける'} onPress={openName} />
       </BottomSheet>
 

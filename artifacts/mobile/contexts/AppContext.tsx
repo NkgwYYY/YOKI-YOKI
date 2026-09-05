@@ -197,6 +197,8 @@ interface AppContextType {
   newlyUnlockedBadge: string | null;
   mascotName: string;
   feedState: FeedState;
+  /** サーバーで確定したショップ購入後のポイント残高を端末側にも同期する */
+  syncFeedPoints: (points: number) => Promise<void>;
   currentSatiety: number;
   inactivityHours: number;
   miniGameState: MiniGameState;
@@ -864,6 +866,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(KEYS.FEED_STATE, JSON.stringify(next));
   };
 
+  const syncFeedPoints = useCallback(async (points: number) => {
+    if (!Number.isFinite(points) || points < 0) return;
+    const next = { ...feedStateRef.current, points };
+    await saveFeedState(next);
+  }, []);
+
   /** ポイント増減は必ずこの関数経由(ref ベースで直列に適用) */
   const mutateFeedPoints = async (delta: number): Promise<FeedState> => {
     const cur = feedStateRef.current;
@@ -1266,6 +1274,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         newlyUnlockedBadge,
         mascotName,
         feedState,
+        syncFeedPoints,
         currentSatiety,
         inactivityHours,
         miniGameState,

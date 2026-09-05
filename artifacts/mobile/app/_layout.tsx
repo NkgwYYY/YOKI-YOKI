@@ -18,6 +18,7 @@ import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ItemProvider } from '@/contexts/ItemContext';
 import { initAnalytics } from '@/utils/analytics';
 import { StartupLoadingOverlay } from '@/components/StartupLoadingOverlay';
 
@@ -68,6 +69,8 @@ function RootLayoutNav() {
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="guide" options={{ headerShown: false }} />
+        <Stack.Screen name="shop" options={{ headerShown: false }} />
+        <Stack.Screen name="admin" options={{ headerShown: false }} />
       </Stack>
     </>
   );
@@ -116,12 +119,14 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
               <AppProvider>
+                <ItemProvider>
                 <GestureHandlerRootView style={styles.root}>
                   <KeyboardProvider>
                     <RootLayoutNav />
                   </KeyboardProvider>
                   <StartupLoadingOverlay />
                 </GestureHandlerRootView>
+                </ItemProvider>
               </AppProvider>
             </AuthProvider>
           </QueryClientProvider>
