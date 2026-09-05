@@ -21,7 +21,7 @@ type EquipCategory = (typeof equipCategories)[number];
 
 const starterItems = [
   { id: "starter-star-candy", name: "きらめきスターキャンディ", category: "food" as const, cost: 30, assetUrl: "/api/item-assets/star-candy.png", posX: 0, posY: 0, scale: 1, isActive: true },
-  { id: "starter-moon-ribbon", name: "ムーンリボン", category: "accessory" as const, cost: 80, assetUrl: "/api/item-assets/moon-ribbon.png", posX: 0, posY: -72, scale: 0.55, isActive: true },
+  { id: "starter-moon-ribbon", name: "ムーンリボン", category: "accessory" as const, cost: 80, assetUrl: "/api/item-assets/moon-ribbon.png", posX: 58, posY: -76, scale: 0.36, isActive: true },
   { id: "starter-starlight-night", name: "スターライトの夜", category: "background" as const, cost: 120, assetUrl: "/api/item-assets/starlight-night.png", posX: 0, posY: 0, scale: 1, isActive: true },
   { id: "starter-star-chime", name: "ほしのきらめきボイス", category: "voice" as const, cost: 100, assetUrl: "/api/item-assets/star-chime.mp3", posX: 0, posY: 0, scale: 1, isActive: true },
 ];
