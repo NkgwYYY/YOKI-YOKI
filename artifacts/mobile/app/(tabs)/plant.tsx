@@ -19,6 +19,10 @@ import { getMascotStage } from '@/utils/mascotUtils';
 
 const easeInOutSine = Easing.inOut(Easing.sin);
 const SCENE_BG = require('@/assets/images/plant/energy-garden-night.png');
+const ENERGY_NEON = '#39FF14';
+const ENERGY_NEON_LIGHT = '#C8FF70';
+const ENERGY_NEON_DEEP = '#00B84A';
+const ENERGY_GLOW = 'rgba(57,255,20,0.34)';
 
 function LightMotes({ genki }: { genki: number }) {
   const count = 3 + Math.round((genki / 100) * 5);
@@ -47,7 +51,7 @@ function Mote({ index }: { index: number }) {
   });
   const dot = 5 + (index % 2) * 3;
   return (
-    <Animated.View style={[{ position: 'absolute', bottom: '30%', left: `${20 + (index % 5) * 15}%`, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: '#FFD1F2', shadowColor: '#FF9EEA', shadowOpacity: 0.8, shadowRadius: 4 }, st]} />
+    <Animated.View style={[{ position: 'absolute', bottom: '30%', left: `${20 + (index % 5) * 15}%`, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: ENERGY_NEON_LIGHT, shadowColor: ENERGY_NEON, shadowOpacity: 0.9, shadowRadius: 5 }, st]} />
   );
 }
 
@@ -70,8 +74,8 @@ function PowerCable() {
       <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
         <Defs>
           <SvgLinearGradient id="cableGrad" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor="#4A3B69" stopOpacity="0.9" />
-            <Stop offset="1" stopColor="#31264A" stopOpacity="0.9" />
+            <Stop offset="0" stopColor="#28643A" stopOpacity="0.95" />
+            <Stop offset="1" stopColor="#173B28" stopOpacity="0.95" />
           </SvgLinearGradient>
         </Defs>
         {/* Shadow */}
@@ -81,17 +85,17 @@ function PowerCable() {
 
         {/* Character-side plug and glowing socket */}
         <G>
-          <Circle cx="38" cy="78" r="3.4" fill="rgba(255,158,234,0.22)" />
-          <Rect x="35.8" y="75.7" width="4.8" height="4.6" rx="1.5" fill="#70558F" stroke="#D7B7FF" strokeWidth="0.55" />
-          <Rect x="39.8" y="76.65" width="2.1" height="2.7" rx="0.65" fill="#E9D9FF" />
-          <Circle cx="37.5" cy="78" r="0.8" fill="#FFB4EA" />
+          <Circle cx="38" cy="78" r="3.4" fill="rgba(57,255,20,0.26)" />
+          <Rect x="35.8" y="75.7" width="4.8" height="4.6" rx="1.5" fill="#315E3E" stroke="#9DFF80" strokeWidth="0.55" />
+          <Rect x="39.8" y="76.65" width="2.1" height="2.7" rx="0.65" fill="#D7FFC9" />
+          <Circle cx="37.5" cy="78" r="0.8" fill={ENERGY_NEON} />
         </G>
         {/* Tank-side inlet and locking collar */}
         <G>
-          <Circle cx="65" cy="78" r="4.2" fill="rgba(210,155,255,0.2)" />
-          <Rect x="62.2" y="75.35" width="5.8" height="5.3" rx="1.7" fill="#49365F" stroke="#CDA8F4" strokeWidth="0.65" />
-          <Rect x="60.8" y="76.25" width="2.5" height="3.5" rx="0.8" fill="#8165A5" />
-          <Circle cx="65.2" cy="78" r="1.15" fill="#FF9EEA" />
+          <Circle cx="65" cy="78" r="4.2" fill="rgba(57,255,20,0.23)" />
+          <Rect x="62.2" y="75.35" width="5.8" height="5.3" rx="1.7" fill="#244D32" stroke="#8DFF70" strokeWidth="0.65" />
+          <Rect x="60.8" y="76.25" width="2.5" height="3.5" rx="0.8" fill="#3F8153" />
+          <Circle cx="65.2" cy="78" r="1.15" fill={ENERGY_NEON} />
         </G>
       </Svg>
       <CableLights />
@@ -140,7 +144,7 @@ function CableLight({ index }: { index: number }) {
   });
 
   return (
-    <Animated.View style={[{ position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF9EEA', shadowColor: '#D29BFF', shadowOpacity: 1, shadowRadius: 4 }, st]} />
+    <Animated.View style={[{ position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: ENERGY_NEON_LIGHT, shadowColor: ENERGY_NEON, shadowOpacity: 1, shadowRadius: 5 }, st]} />
   );
 }
 
@@ -177,7 +181,7 @@ function CrystalTank({ energy, genki }: { energy: number; genki: number }) {
       </View>
       <View style={s.tankGlass}>
         <Animated.View style={[s.tankLiquid, liquidStyle, { height: `${fillLevel}%` }]}>
-          <LinearGradient colors={['rgba(255,158,234,0.8)', '#B388FF', '#7C4DFF']} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={['rgba(200,255,112,0.95)', ENERGY_NEON, ENERGY_NEON_DEEP]} style={StyleSheet.absoluteFill} />
         </Animated.View>
         <View style={s.tankSparkle}>
           <Icon name="star" size={32} color="rgba(255,255,255,0.8)" />
@@ -253,7 +257,7 @@ export default function EnergyChargeScreen() {
       >
         <View style={s.heading}>
           <View style={s.titleRow}>
-            <View style={s.titleMark}><Icon name="star" size={iconSize.sm} color="#FF9EEA" /></View>
+            <View style={s.titleMark}><Icon name="star" size={iconSize.sm} color={ENERGY_NEON_DEEP} /></View>
             <Text style={s.title}>エネルギーチャージ</Text>
           </View>
           <Text style={s.subtitle}>たまったエネルギーをYOKIポイントに交換できます</Text>
@@ -314,7 +318,7 @@ export default function EnergyChargeScreen() {
 
           <View style={s.conversionRow}>
             <View style={s.conversionValue}>
-              <View style={s.conversionIcon}><Icon name="zap" size={iconSize.sm} color="#7656BA" /></View>
+              <View style={s.conversionIcon}><Icon name="zap" size={iconSize.sm} color={ENERGY_NEON_DEEP} /></View>
               <View><Text style={s.conversionNumber}>{exchangeableEnergy}</Text><Text style={s.conversionLabel}>ENERGY</Text></View>
             </View>
             <Icon name="chevrons-right" size={iconSize.md} color="#E8A2C4" />
@@ -420,17 +424,17 @@ const s = StyleSheet.create({
 
   mascotWrap: { position: 'absolute', left: '5%', bottom: '18%', width: '45%', alignItems: 'center' },
   mascotStand: { alignItems: 'center', justifyContent: 'flex-end' },
-  aura: { position: 'absolute', bottom: -10, width: 140, height: 40, borderRadius: radius.pill, backgroundColor: 'rgba(255,158,234,0.2)' },
+  aura: { position: 'absolute', bottom: -10, width: 140, height: 40, borderRadius: radius.pill, backgroundColor: ENERGY_GLOW, shadowColor: ENERGY_NEON, shadowOpacity: 0.75, shadowRadius: 18 },
 
   tankWrap: { position: 'absolute', right: '8%', bottom: '15%', width: '28%', height: '50%', alignItems: 'center', justifyContent: 'flex-end' },
-  tankStatus: { position: 'absolute', top: -24, right: -16, paddingVertical: 5, paddingHorizontal: 10, borderRadius: radius.lg, backgroundColor: 'rgba(40,20,60,0.88)', alignItems: 'center', zIndex: 5, ...border.hairline, borderColor: 'rgba(255,158,234,0.3)' },
+  tankStatus: { position: 'absolute', top: -24, right: -16, paddingVertical: 5, paddingHorizontal: 10, borderRadius: radius.lg, backgroundColor: 'rgba(16,44,29,0.9)', alignItems: 'center', zIndex: 5, ...border.hairline, borderColor: 'rgba(141,255,112,0.5)' },
   tankStatusLabel: { ...typography.micro, color: '#F1E9FF' },
   tankValue: { ...typography.label, color: '#FFF', lineHeight: 22 },
-  tankGlass: { width: '80%', flex: 1, borderRadius: 16, backgroundColor: 'rgba(20,10,40,0.6)', borderWidth: 2, borderColor: 'rgba(255,158,234,0.4)', justifyContent: 'flex-end', alignItems: 'center', overflow: 'hidden' },
+  tankGlass: { width: '80%', flex: 1, borderRadius: 16, backgroundColor: 'rgba(8,28,18,0.68)', borderWidth: 2, borderColor: 'rgba(141,255,112,0.62)', justifyContent: 'flex-end', alignItems: 'center', overflow: 'hidden', shadowColor: ENERGY_NEON, shadowOpacity: 0.5, shadowRadius: 12 },
   tankLiquid: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopLeftRadius: 10, borderTopRightRadius: 10, overflow: 'hidden' },
   tankSparkle: { position: 'absolute', top: '40%', zIndex: 2 },
   tankShine: { position: 'absolute', left: 6, top: 10, bottom: 12, width: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' },
-  tankBase: { width: '90%', height: 16, borderRadius: 6, backgroundColor: '#3A2855', marginTop: -4, borderWidth: 1, borderColor: '#5C4182', shadowColor: '#B388FF', shadowOpacity: 0.4, shadowRadius: 10 },
+  tankBase: { width: '90%', height: 16, borderRadius: 6, backgroundColor: '#183C29', marginTop: -4, borderWidth: 1, borderColor: '#3A7B50', shadowColor: ENERGY_NEON, shadowOpacity: 0.55, shadowRadius: 12 },
 
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   cardTitle: { ...typography.subhead, color: colors.foreground, flex: 1 },
@@ -441,7 +445,7 @@ const s = StyleSheet.create({
   actionCard: { borderColor: 'rgba(224,204,242,0.9)' },
   conversionRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.sm },
   conversionValue: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  conversionIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0E9FB' },
+  conversionIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(57,255,20,0.13)' },
   giftIcon: { backgroundColor: '#FFE8F1' },
   conversionNumber: { ...typography.title, color: '#331568' },
   conversionLabel: { ...typography.micro, color: colors.mutedForeground },
