@@ -10,7 +10,7 @@
  */
 import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { CharacterRig, Emotion } from '@/lib/character';
+import { CharacterRig, Emotion, WearableConfig } from '@/lib/character';
 import { CHARACTERS, CharacterId } from '@/lib/character-config';
 
 /** YOKKYのmood → ラボのEmotion */
@@ -24,6 +24,29 @@ const MOOD_TO_EMOTION: Record<string, Emotion> = {
 };
 
 const VALID_CHARS = new Set(CHARACTERS.map(c => c.id));
+type WearableMessage = { id: string; url: string; offsetX?: number; offsetY?: number; scale?: number };
+const WEARABLE_Y: Record<string, Record<CharacterId, number>> = {
+  'starter-moon-ribbon': { egg: -112, odango: -171, happa: -156, colorful_happa: -156 },
+  'catalog-wear-crown': { egg: -243, odango: -283, happa: -253, colorful_happa: -253 },
+  'catalog-wear-cat-ears': { egg: -226, odango: -285, happa: -260, colorful_happa: -260 },
+  'catalog-wear-round-glasses': { egg: 38, odango: -13, happa: 22, colorful_happa: 22 },
+  'catalog-wear-headphones': { egg: -80, odango: -130, happa: -100, colorful_happa: -100 },
+};
+function getWearableConfig(char: CharacterId, wearable: WearableMessage | null): WearableConfig | null {
+  if (!wearable || WEARABLE_Y[wearable.id]?.[char] === undefined) return null;
+  const baseSize = char === 'egg' ? 430 : char === 'happa' || char === 'colorful_happa' ? 470 : 512;
+  const designFit = wearable.id === 'catalog-wear-headphones' ? 0.72
+    : wearable.id === 'catalog-wear-crown' ? 0.88
+    : wearable.id === 'catalog-wear-round-glasses' ? 0.9
+    : 1;
+  const size = baseSize * designFit * Math.max(0.55, Math.min(1.45, wearable.scale ?? 1));
+  return {
+    url: wearable.url,
+    x: (wearable.id === 'starter-moon-ribbon' ? 80 : 0) + (512 - size) / 2 + (wearable.offsetX ?? 0),
+    y: WEARABLE_Y[wearable.id][char] + (512 - size) / 2 + (wearable.offsetY ?? 0),
+    size,
+  };
+}
 
 function waitForStageImages(svg: SVGSVGElement): Promise<void> {
   const sources = Array.from(svg.querySelectorAll('image'))
@@ -62,15 +85,18 @@ function readParams() {
   const q = new URLSearchParams(window.location.search);
   const char = q.get('char') ?? 'egg';
   const scale = Number(q.get('scale'));
+  const wearableId = q.get('wearableId');
+  const wearableUrl = q.get('wearableUrl');
   return {
     char: (VALID_CHARS.has(char as CharacterId) ? char : 'egg') as CharacterId,
     emotion: MOOD_TO_EMOTION[q.get('mood') ?? 'normal'] ?? 'normal',
     scale: Number.isFinite(scale) && scale > 0.5 && scale < 2 ? scale : 1,
+    wearable: wearableId && wearableUrl ? { id: wearableId, url: wearableUrl } : null as WearableMessage | null,
   };
 }
 
 function Stage() {
-  const [{ char, emotion, scale }, setParams] = useState(readParams);
+  const [{ char, emotion, scale, wearable }, setParams] = useState(readParams);
   const svgRef = useRef<SVGSVGElement>(null);
   const rigRef = useRef<CharacterRig | null>(null);
 
@@ -82,6 +108,7 @@ function Stage() {
     rigRef.current = new CharacterRig(svgRef.current, config);
     rigRef.current.setEmotion(emotion);
     rigRef.current.setBreathing(true);
+    rigRef.current.setWearable(getWearableConfig(char, wearable));
     waitForStageImages(svgRef.current)
       .then(() => {
         if (!cancelled) notifyParent('yokky-stage-ready');
@@ -97,6 +124,7 @@ function Stage() {
   }, [char]);
 
   useEffect(() => { rigRef.current?.setEmotion(emotion); }, [emotion]);
+  useEffect(() => { rigRef.current?.setWearable(getWearableConfig(char, wearable)); }, [char, wearable]);
 
   /* 親からの更新(postMessage)。リスナー登録後にreadyを通知して初期状態を受け取る */
   useEffect(() => {
@@ -107,6 +135,7 @@ function Stage() {
         char: VALID_CHARS.has(d.char) ? d.char : prev.char,
         emotion: MOOD_TO_EMOTION[d.mood] ?? prev.emotion,
         scale: Number.isFinite(d.scale) && d.scale > 0.5 && d.scale < 2 ? d.scale : prev.scale,
+        wearable: d.wearable?.url ? d.wearable : null,
       }));
     };
     window.addEventListener('message', onMessage);

@@ -1,6 +1,7 @@
 import { CharacterConfig, PartBox } from './character-config';
 
 export type Emotion = 'normal' | 'happy' | 'angry' | 'sad' | 'fun' | 'surprised';
+export type WearableConfig = { url: string; x: number; y: number; size: number };
 
 /** 画像差し替え時にインクリメントしてブラウザキャッシュを回避する */
 const ASSET_VERSION = 3;
@@ -264,6 +265,7 @@ export class CharacterRig {
   private mouth: SVGImageElement;
   private leftCheek: SVGImageElement | null = null;
   private rightCheek: SVGImageElement | null = null;
+  private wearableLayer: SVGGElement;
 
   constructor(svgElement: SVGElement, config: CharacterConfig) {
     this.container = svgElement;
@@ -329,6 +331,11 @@ export class CharacterRig {
     if (p.leftCheek) this.leftCheek = this.createPart('leftCheek', p.leftCheek);
     if (p.rightCheek) this.rightCheek = this.createPart('rightCheek', p.rightCheek);
 
+    // Rigid wearable layer follows the body/root physics (jump, drag and landing)
+    // without being distorted by the soft-body squash.
+    this.wearableLayer = document.createElementNS(SVG_NS, 'g');
+    this.body.group.appendChild(this.wearableLayer);
+
     // ─── Grab / Lift / Drop: Pointer Events(マウス・タッチ共通) ───
     // 縦スクロールは通す(pan-y)。掴んでいる間だけ touchmove を止めてスクロールを防ぐ
     (this.container as unknown as HTMLElement).style.touchAction = 'pan-y';
@@ -343,6 +350,20 @@ export class CharacterRig {
     this.container.addEventListener('pointercancel', this.onPointerUp);
 
     this.startLoop();
+  }
+
+  setWearable(config: WearableConfig | null) {
+    this.wearableLayer.replaceChildren();
+    if (!config?.url) return;
+    const image = document.createElementNS(SVG_NS, 'image');
+    image.setAttribute('href', config.url);
+    image.setAttribute('x', String(config.x));
+    image.setAttribute('y', String(config.y));
+    image.setAttribute('width', String(config.size));
+    image.setAttribute('height', String(config.size));
+    image.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    image.style.pointerEvents = 'none';
+    this.wearableLayer.appendChild(image);
   }
 
   /** クライアント座標 → 512座標系(キャラ中心からのオフセット) */

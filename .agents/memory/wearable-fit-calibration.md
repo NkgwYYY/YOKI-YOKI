@@ -8,3 +8,5 @@ Normalize each transparent wearable so its visible bounds have an intentional si
 **Why:** Characters stand near the bottom of the tall stage frame. Center-based accessory coordinates placed headwear far above the character, and inconsistent transparent margins made nominally equal scales look unrelated.
 
 **How to apply:** Check ribbon, crown, ears, glasses, and headphones across egg, standard, leaf, and colorful-leaf stages. Apply stage-aware head-width compensation and verify a contact sheet of the real composites before shipping.
+
+Wearables must render inside the character rig's rigid body hierarchy rather than as a mobile-screen overlay. This keeps them attached through jumps, dragging, throws, landing squash, and horizontal motion while avoiding unwanted soft-body deformation.

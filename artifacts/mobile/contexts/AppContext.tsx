@@ -172,6 +172,7 @@ const KEYS = {
   ENCOUNTERS: '@mentore/encounters_v1',
   ROOM_CUSTOMIZATION: '@mentore/room_customization_v1',
   COMPANIONS: '@mentore/companions_v1',
+  SHOP_STATE: '@mentore/shop_state_v2',
 };
 
 /** Compute current satiety based on elapsed time since last feed */
@@ -199,6 +200,8 @@ interface AppContextType {
   feedState: FeedState;
   /** サーバーで確定したショップ購入後のポイント残高を端末側にも同期する */
   syncFeedPoints: (points: number) => Promise<void>;
+  /** 端末側ポイントを不足チェック付きで減算する */
+  spendFeedPoints: (points: number) => Promise<boolean>;
   currentSatiety: number;
   inactivityHours: number;
   miniGameState: MiniGameState;
@@ -606,6 +609,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         lastRecordDate: [cloud.lastRecordDate, local.lastRecordDate].filter(Boolean).sort().at(-1) ?? '',
       };
     }
+    if (cloudData[KEYS.SHOP_STATE] || localData[KEYS.SHOP_STATE]) {
+      const cloud = (cloudData[KEYS.SHOP_STATE] ?? {}) as any;
+      const local = (localData[KEYS.SHOP_STATE] ?? {}) as any;
+      merged[KEYS.SHOP_STATE] = {
+        ...local,
+        ...cloud,
+        inventory: [...new Set([...(cloud.inventory ?? []), ...(local.inventory ?? [])])],
+        equipped: { ...(local.equipped ?? {}), ...(cloud.equipped ?? {}) },
+        placements: { ...(cloud.placements ?? {}), ...(local.placements ?? {}) },
+      };
+    }
     await Promise.all(Object.entries(merged).map(([k, v]) =>
       AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
     ));
@@ -879,6 +893,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await saveFeedState(next);
     return next;
   };
+
+  const spendFeedPoints = useCallback(async (points: number): Promise<boolean> => {
+    if (!Number.isFinite(points) || points <= 0 || feedStateRef.current.points < points) return false;
+    await mutateFeedPoints(-points);
+    pushDataToCloud();
+    return true;
+  }, [pushDataToCloud]);
 
   const feedMascot = useCallback(
     async (foodId: string): Promise<{ success: boolean; message: string; newSatiety: number }> => {
@@ -1275,6 +1296,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         mascotName,
         feedState,
         syncFeedPoints,
+        spendFeedPoints,
         currentSatiety,
         inactivityHours,
         miniGameState,

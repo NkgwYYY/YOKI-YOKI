@@ -212,15 +212,15 @@ export default function HomeScreen() {
   const characterHeight = characterSize * 2.4;
   const currentMascotStage = getMascotStage(progress.level);
   const equippedBackground = items.find((item) => item.id === shopState.equipped.background);
-  const equippedAccessory = items.find((item) => item.id === shopState.equipped.accessory);
+  const equippedWear = items.find((item) => item.id === (shopState.equipped.wear ?? shopState.equipped.accessory));
+  const equippedEffect = items.find((item) => item.id === shopState.equipped.effect);
+  const equippedDecor = items.find((item) => item.id === shopState.equipped.decor);
   const equippedVoice = items.find((item) => item.id === shopState.equipped.voice);
-  const isHeadWear = equippedAccessory?.id === 'starter-moon-ribbon' || equippedAccessory?.id.startsWith('catalog-wear-');
-  const isLeafStage = currentMascotStage === 'stage3' || currentMascotStage === 'stage4';
-  const headFitScale = currentMascotStage === 'egg' ? 0.84 : isLeafStage ? 0.92 : 1;
-  const headFitY = currentMascotStage === 'egg' ? 7 : isLeafStage ? -4 : 0;
-  const equippedAccessoryScale = equippedAccessory ? equippedAccessory.scale * (isHeadWear ? headFitScale : 1) : 1;
   const accessoryEffect = useRef(new Animated.Value(0)).current;
-  const isAuraEquipped = equippedAccessory?.id.startsWith('catalog-effect-') ?? false;
+  const isAuraEquipped = !!equippedEffect;
+  const wearPlacement = equippedWear ? shopState.placements[equippedWear.id] : undefined;
+  const effectPlacement = equippedEffect ? shopState.placements[equippedEffect.id] : undefined;
+  const decorPlacement = equippedDecor ? shopState.placements[equippedDecor.id] : undefined;
   const voiceSound = useRef<Audio.Sound | null>(null);
   useEffect(() => {
     if (!isAuraEquipped) {
@@ -386,9 +386,17 @@ export default function HomeScreen() {
                       size={characterSize}
                       growthSize={growth.growthSize}
                       onPet={playEquippedVoice}
+                      wearable={equippedWear?.assetUrl ? {
+                        id: equippedWear.id,
+                        url: resolveItemAssetUrl(equippedWear.assetUrl),
+                        offsetX: wearPlacement?.x ?? 0,
+                        offsetY: wearPlacement?.y ?? 0,
+                        scale: wearPlacement?.scale ?? 1,
+                      } : null}
                     />
-                    {equippedAccessory?.assetUrl ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, isAuraEquipped && { opacity: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }), transform: [{ scale: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.06] }) }] }]}><Image source={{ uri: resolveItemAssetUrl(equippedAccessory.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: characterSize * equippedAccessoryScale, height: characterSize * equippedAccessoryScale, left: (characterFrame - characterSize * equippedAccessoryScale) / 2 + equippedAccessory.posX, top: (characterHeight - characterSize * equippedAccessoryScale) / 2 + equippedAccessory.posY + (isHeadWear ? headFitY : 0) }} /></Animated.View> : null}
+                    {equippedEffect?.assetUrl ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { opacity: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }), transform: [{ scale: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.06] }) }] }]}><Image source={{ uri: resolveItemAssetUrl(equippedEffect.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: characterSize * 1.55 * (effectPlacement?.scale ?? 1), height: characterSize * 1.55 * (effectPlacement?.scale ?? 1), left: (characterFrame - characterSize * 1.55 * (effectPlacement?.scale ?? 1)) / 2 + (effectPlacement?.x ?? 0), top: characterHeight * 0.48 + (effectPlacement?.y ?? 0) }} /></Animated.View> : null}
                   </View>
+                  {equippedDecor?.assetUrl ? <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><Image source={{ uri: resolveItemAssetUrl(equippedDecor.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: 64 * (decorPlacement?.scale ?? 1), height: 64 * (decorPlacement?.scale ?? 1), right: 18 - (decorPlacement?.x ?? 0), bottom: 8 - (decorPlacement?.y ?? 0) }} /></View> : null}
                   {companionState.extraEggs > 0 ? (
                     <View style={styles.companionEgg}>
                       <StageCharacter stage="egg" mood="happy" size={58} growthSize={0.78} />

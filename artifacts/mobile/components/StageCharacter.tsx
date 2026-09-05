@@ -37,6 +37,7 @@ interface Props {
   /** フォールバック表示用 */
   idleBehavior?: any;
   onPet?: () => void;
+  wearable?: { id: string; url: string; offsetX?: number; offsetY?: number; scale?: number } | null;
 }
 
 /** ネイティブから参照する本番のラボURL */
@@ -53,7 +54,7 @@ function stageOrigin(): string {
   return ''; // 本番・通常は同一オリジン相対
 }
 
-export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, onPet }: Props) {
+export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, onPet, wearable = null }: Props) {
   const char = getCharacter(stage).key; // egg | odango | happa | colorful_happa
   const iframeRef = useRef<any>(null);
   const webviewRef = useRef<any>(null);
@@ -71,8 +72,8 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
   }, []);
 
   /* 最新状態を保持し、変更時とステージ側のready通知時に送る(初回同期漏れ防止) */
-  const latest = useRef({ char, mood, scale: growthSize });
-  latest.current = { char, mood, scale: growthSize };
+  const latest = useRef({ char, mood, scale: growthSize, wearable });
+  latest.current = { char, mood, scale: growthSize, wearable };
 
   const sendState = () => {
     const msg = { type: 'yokky-stage', ...latest.current };
@@ -87,7 +88,7 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
 
   useEffect(() => {
     sendState();
-  }, [char, mood, growthSize]);
+  }, [char, mood, growthSize, wearable]);
 
   useEffect(() => {
     // フォールバックを表示したまま、埋め込みステージはすぐ裏側で準備する。
