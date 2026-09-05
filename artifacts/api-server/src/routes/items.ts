@@ -37,7 +37,7 @@ function catalogGroup(
 }
 
 const starterItems = [
-  { id: "starter-moon-ribbon", name: "赤いちいさなリボン", category: "accessory" as const, cost: 80, assetUrl: "/api/item-assets/moon-ribbon-premium.png", posX: 58, posY: -76, scale: 0.36, isActive: true },
+  { id: "starter-moon-ribbon", name: "赤いちいさなリボン", category: "accessory" as const, cost: 80, assetUrl: "/api/item-assets/moon-ribbon-premium.png", posX: 48, posY: 61, scale: 1, isActive: true },
   ...catalogGroup("accessory", 100, [
     ["effect-soft-aura", "ふわふわオーラ"],
     ["effect-rainbow-aura", "レインボーオーラ"],
@@ -79,11 +79,18 @@ const starterItems = [
     ["food-pancakes", "パンケーキ"],
     ["food-hot-milk", "ホットミルク"],
   ]),
-].map((item) => (
-  item.assetUrl.endsWith(".png") && !item.assetUrl.includes("moon-ribbon-premium")
-    ? { ...item, assetUrl: item.assetUrl.replace(".png", "-premium.png") }
-    : item
-));
+].map((item) => {
+  const wearablePlacement: Record<string, { posX: number; posY: number; scale: number }> = {
+    "catalog-wear-crown": { posX: 0, posY: 44, scale: 1 },
+    "catalog-wear-cat-ears": { posX: 0, posY: 51, scale: 1 },
+    "catalog-wear-round-glasses": { posX: 0, posY: 101, scale: 1 },
+    "catalog-wear-headphones": { posX: 0, posY: 101, scale: 1.05 },
+  };
+  const premiumAsset = item.assetUrl.endsWith(".png") && !item.assetUrl.includes("moon-ribbon-premium")
+    ? item.assetUrl.replace(".png", "-premium.png")
+    : item.assetUrl;
+  return { ...item, ...wearablePlacement[item.id], assetUrl: premiumAsset };
+});
 
 async function ensureStarterItems(): Promise<void> {
   await db.insert(items).values(starterItems).onConflictDoNothing();

@@ -17,3 +17,4 @@
 - [Shop wallet authority](shop-wallet-authority.md) — item purchases are server-atomic, but the confirmed balance must also replace local feed points before the next cloud sync.
 - [Internal item administration](internal-item-admin.md) — item management belongs in a separate Replit-only artifact, never in the consumer mobile navigation.
 - [Curated shop catalog](curated-shop-catalog.md) — keep six shop genres to five polished items each; prioritize distinctive premium artwork over catalog volume.
+- [Wearable fit calibration](wearable-fit-calibration.md) — calibrate accessories against the real 247×348 character stage, never a centered placeholder; normalize transparent asset bounds first.
