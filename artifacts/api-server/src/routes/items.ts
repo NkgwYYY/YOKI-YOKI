@@ -14,7 +14,7 @@ import { requireAuth, type AuthRequest } from "../lib/auth";
 
 const itemRouter = Router();
 const FEED_STATE_KEY = "@mentore/feed_state_v1";
-const itemCategories = ["food", "accessory", "background", "voice"] as const;
+const itemCategories = ["accessory", "background", "voice"] as const;
 const equipCategories = ["accessory", "background", "voice"] as const;
 type ItemCategory = (typeof itemCategories)[number];
 type EquipCategory = (typeof equipCategories)[number];
@@ -72,13 +72,6 @@ const starterItems = [
     ["voice-rest-together", "「いっしょに休もう」"],
     ["sound-rain", "雨音"],
   ]),
-  ...catalogGroup("food", 30, [
-    ["food-onigiri", "おにぎり"],
-    ["food-pudding", "プリン"],
-    ["food-strawberry", "いちご"],
-    ["food-pancakes", "パンケーキ"],
-    ["food-hot-milk", "ホットミルク"],
-  ]),
 ].map((item) => {
   const wearablePlacement: Record<string, { posX: number; posY: number; scale: number }> = {
     "catalog-wear-crown": { posX: 0, posY: 44, scale: 1 },
@@ -94,6 +87,8 @@ const starterItems = [
 
 async function ensureStarterItems(): Promise<void> {
   await db.insert(items).values(starterItems).onConflictDoNothing();
+  // Keep legacy ownership rows intact, but permanently remove shop food from sale.
+  await db.update(items).set({ isActive: false }).where(eq(items.category, "food"));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -200,7 +195,8 @@ itemRouter.get("/item-assets/:assetName", (req, res) => {
 itemRouter.get("/items", async (req: AuthRequest, res) => {
   try {
     await ensureStarterItems();
-    const catalog = await db.select().from(items).where(eq(items.isActive, true));
+    const catalog = (await db.select().from(items).where(eq(items.isActive, true)))
+      .filter((item) => item.category !== "food");
     const userId = getAuth(req)?.userId;
     res.json({ items: catalog.map(toItem), ...(userId ? { state: await shopState(userId, catalog) } : {}) });
   } catch (error) {
@@ -223,21 +219,23 @@ itemRouter.post("/shop/buy", requireAuth, async (req: AuthRequest, res) => {
       );
       const wallet = walletRows.rows[0];
       if (!wallet || !isRecord(wallet.value) || typeof wallet.value.points !== "number" ||
-          !Number.isFinite(wallet.value.points)) throw new ShopError(409, "ポイント残高が見つかりません");
+          !Number.isFinite(wallet.value.points)) throw new ShopError(409, "YOKIポイント残高が見つかりません");
       const item = (await tx.select().from(items)
         .where(and(eq(items.id, itemId.trim()), eq(items.isActive, true))).limit(1))[0];
       if (!item) throw new ShopError(404, "販売中のアイテムが見つかりません");
+      if (item.category === "food") throw new ShopError(404, "販売中のアイテムが見つかりません");
       const owned = await tx.select({ itemId: userItemInventory.itemId }).from(userItemInventory)
         .where(and(eq(userItemInventory.userId, userId), eq(userItemInventory.itemId, item.id))).limit(1);
       if (owned.length) throw new ShopError(409, "このアイテムはすでに所持しています");
-      if (wallet.value.points < item.cost) throw new ShopError(409, "ポイントが不足しています");
+      if (wallet.value.points < item.cost) throw new ShopError(409, "YOKIポイントが不足しています");
       await tx.insert(userItemInventory).values({ userId, itemId: item.id });
       await tx.update(userData).set({
         value: { ...wallet.value, points: wallet.value.points - item.cost },
         updatedAt: new Date(),
       }).where(eq(userData.id, wallet.id));
     });
-    const catalog = await db.select().from(items).where(eq(items.isActive, true));
+    const catalog = (await db.select().from(items).where(eq(items.isActive, true)))
+      .filter((item) => item.category !== "food");
     res.json({ state: await shopState(userId, catalog) });
   } catch (error) {
     if (error instanceof ShopError) { res.status(error.status).json({ error: error.message }); return; }
@@ -270,7 +268,8 @@ itemRouter.post("/character/equip", requireAuth, async (req: AuthRequest, res) =
           set: { itemId, updatedAt: new Date() },
         });
     });
-    const catalog = await db.select().from(items).where(eq(items.isActive, true));
+    const catalog = (await db.select().from(items).where(eq(items.isActive, true)))
+      .filter((item) => item.category !== "food");
     res.json({ state: await shopState(userId, catalog) });
   } catch (error) {
     if (error instanceof ShopError) { res.status(error.status).json({ error: error.message }); return; }
@@ -282,7 +281,8 @@ itemRouter.post("/character/equip", requireAuth, async (req: AuthRequest, res) =
 itemRouter.get("/admin/items", requireAdmin, async (req: AuthRequest, res) => {
   try {
     await ensureStarterItems();
-    res.json({ items: (await db.select().from(items)).map(toItem) });
+    const catalog = (await db.select().from(items)).filter((item) => item.category !== "food");
+    res.json({ items: catalog.map(toItem) });
   }
   catch (error) { req.log.error({ err: error }, "Could not load admin items"); res.status(500).json({ error: "アイテムを読み込めませんでした" }); }
 });

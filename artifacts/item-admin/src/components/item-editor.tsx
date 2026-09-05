@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 export const itemSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1, 'Name is required').max(160),
-  category: z.enum(['food', 'accessory', 'background', 'voice']),
+  category: z.enum(['accessory', 'background', 'voice']),
   cost: z.coerce.number().min(0, 'Cost cannot be negative'),
   assetUrl: z.string().max(2048).refine(
     (value) => value.startsWith('/') || z.string().url().safeParse(value).success,
@@ -100,7 +100,6 @@ export function ItemEditor({ item, onClose }: { item: Item | null, onClose: () =
             <div className="space-y-2 col-span-2 sm:col-span-1">
               <Label htmlFor="category">Category</Label>
               <SelectNative id="category" {...form.register('category')}>
-                <option value="food">Food</option>
                 <option value="accessory">Accessory</option>
                 <option value="background">Background</option>
                 <option value="voice">Voice</option>
@@ -248,18 +247,6 @@ function ItemPreview({ values }: { values: Partial<ItemFormValues> }) {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             onLoad={(e) => { (e.target as HTMLImageElement).style.display = 'block'; }}
           />
-        </div>
-      )}
-
-      {category === 'food' && assetUrl && (
-        <div className="absolute z-20 bottom-8 left-1/2 -translate-x-1/2">
-           <img 
-             src={assetUrl} 
-             alt={name || 'Preview'} 
-             className="w-24 h-24 object-contain drop-shadow-xl" 
-             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-             onLoad={(e) => { (e.target as HTMLImageElement).style.display = 'block'; }}
-           />
         </div>
       )}
 

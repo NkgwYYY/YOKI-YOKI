@@ -10,18 +10,32 @@ import {
 import { colors, homePalette, radius, space, typography } from '@/constants/theme';
 import { preloadStartupImages } from '@/utils/startupAssets';
 
+const MINIMUM_LOADING_TIME_MS = 2200;
+
 export function StartupLoadingOverlay() {
   const opacity = useRef(new Animated.Value(1)).current;
   const attempt = useRef(0);
+  const minimumTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visible, setVisible] = useState(true);
   const [error, setError] = useState(false);
 
   const load = useCallback(() => {
     const currentAttempt = ++attempt.current;
+    if (minimumTimer.current) clearTimeout(minimumTimer.current);
     setError(false);
     opacity.setValue(1);
 
-    preloadStartupImages()
+    const minimumWait = new Promise<void>((resolve) => {
+      minimumTimer.current = setTimeout(() => {
+        minimumTimer.current = null;
+        resolve();
+      }, MINIMUM_LOADING_TIME_MS);
+    });
+
+    Promise.all([
+      preloadStartupImages(),
+      minimumWait,
+    ])
       .then(() => {
         if (attempt.current !== currentAttempt) return;
         Animated.timing(opacity, {
@@ -35,7 +49,11 @@ export function StartupLoadingOverlay() {
         });
       })
       .catch(() => {
-        if (attempt.current === currentAttempt) setError(true);
+        if (attempt.current === currentAttempt) {
+          if (minimumTimer.current) clearTimeout(minimumTimer.current);
+          minimumTimer.current = null;
+          setError(true);
+        }
       });
   }, [opacity]);
 
@@ -43,6 +61,8 @@ export function StartupLoadingOverlay() {
     load();
     return () => {
       attempt.current += 1;
+      if (minimumTimer.current) clearTimeout(minimumTimer.current);
+      minimumTimer.current = null;
       opacity.stopAnimation();
     };
   }, [load, opacity]);

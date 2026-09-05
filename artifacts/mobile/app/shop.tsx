@@ -4,9 +4,8 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { EquipmentSlot, Item, ItemCategory, resolveItemAssetUrl, useItems } from '@/contexts/ItemContext';
 
-type ShopGenre = 'food' | 'wear' | 'effect' | 'decor' | 'background' | 'voice';
+type ShopGenre = 'wear' | 'effect' | 'decor' | 'background' | 'voice';
 const tabs: { id: ShopGenre; label: string }[] = [
-  { id: 'food', label: 'ごはん' },
   { id: 'wear', label: '身につける' },
   { id: 'effect', label: 'エフェクト' },
   { id: 'decor', label: '置きもの' },
@@ -17,20 +16,20 @@ const genreOf = (id: string, category: ItemCategory): ShopGenre => {
   if (id.startsWith('catalog-effect-')) return 'effect';
   if (id.startsWith('catalog-decor-')) return 'decor';
   if (category === 'accessory') return 'wear';
-  return category;
+  return category as ShopGenre;
 };
 export default function ShopScreen() {
   const router = useRouter(); const { isSignedIn } = useAuth();
   const { items, shopState, loading, error, buyItem, equipItem, updateItemPlacement } = useItems();
-  const [tab, setTab] = useState<ShopGenre>('food'); const [busy, setBusy] = useState<string | null>(null);
+  const [tab, setTab] = useState<ShopGenre>('wear'); const [busy, setBusy] = useState<string | null>(null);
   const [customizing, setCustomizing] = useState<Item | null>(null);
-  const visibleItems = items.filter(x => genreOf(x.id, x.category) === tab && x.isActive);
+  const visibleItems = items.filter(x => x.category !== 'food' && genreOf(x.id, x.category) === tab && x.isActive);
   const slot = (item: Item): EquipmentSlot => genreOf(item.id, item.category) as EquipmentSlot;
   const act = async (item: Item) => {
     setBusy(item.id);
     try {
       if (!shopState.inventory.includes(item.id)) await buyItem(item.id);
-      else if (item.category !== 'food') {
+      else {
         const itemSlot = slot(item);
         await equipItem(itemSlot, shopState.equipped[itemSlot] === item.id ? null : item.id);
       }
@@ -46,15 +45,15 @@ export default function ShopScreen() {
     });
   };
   return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.wrap}>
-    <View style={s.head}><Pressable onPress={() => router.back()}><Text style={s.back}>‹ 戻る</Text></Pressable><Text style={s.title}>YOKI SHOP</Text><Text style={s.points}>✦ {shopState.points} pt</Text></View>
+    <View style={s.head}><Pressable onPress={() => router.back()}><Text style={s.back}>‹ 戻る</Text></Pressable><Text style={s.title}>YOKI SHOP</Text><Text style={s.points}>✦ {shopState.points} YOKI pt</Text></View>
     {!isSignedIn && <Text style={s.guestNote}>ログインなしで購入できます。ログインすると端末データをバックアップできます。</Text>}
     <View style={s.tabs}>{tabs.map(x => <Pressable key={x.id} onPress={() => setTab(x.id)} style={[s.tab, tab === x.id && s.tabOn]}><Text style={[s.tabText, tab === x.id && s.tabTextOn]}>{x.label}</Text></Pressable>)}</View>
     {loading ? <Text style={s.note}>アイテムを読み込み中…</Text> : error ? <Text style={s.error}>{error}</Text> : visibleItems.length === 0 ? <Text style={s.note}>このカテゴリのアイテムは、ただいま準備中です。</Text> : visibleItems.map(item => {
-      const owned = shopState.inventory.includes(item.id); const itemSlot = item.category === 'food' ? null : slot(item); const equipped = !!itemSlot && shopState.equipped[itemSlot] === item.id;
+      const owned = shopState.inventory.includes(item.id); const itemSlot = slot(item); const equipped = shopState.equipped[itemSlot] === item.id;
       const insufficient = !owned && shopState.points < item.cost;
-      const label = insufficient ? 'ポイントが足りません' : !owned ? `${item.cost} pt で交換` : item.category === 'food' ? '持っています' : equipped ? 'はずす' : '着ける / 設定する';
-      const disabled = busy === item.id || insufficient || (owned && item.category === 'food');
-      return <View key={item.id} style={s.card}><View style={s.preview}>{item.category === 'voice' ? <Text style={s.voicePreview}>♪</Text> : item.assetUrl ? <Image source={{ uri: resolveItemAssetUrl(item.assetUrl) }} style={s.image} /> : <Text>✦</Text>}</View><View style={s.info}><Text style={s.name}>{item.name}</Text><Text style={s.cost}>{owned ? '所持済み' : `${item.cost} ポイント`}</Text><Pressable disabled={disabled} onPress={() => act(item)} style={[s.button, (disabled || equipped) && s.buttonOn]}><Text style={s.buttonText}>{busy === item.id ? '処理中…' : label}</Text></Pressable>{owned && itemSlot && <Pressable onPress={() => setCustomizing(item)} style={s.customButton}><Text style={s.customText}>位置・大きさを調整</Text></Pressable>}</View></View>;
+      const label = insufficient ? 'YOKIポイントが足りません' : !owned ? `${item.cost} pt で交換` : equipped ? 'はずす' : '着ける / 設定する';
+      const disabled = busy === item.id || insufficient;
+      return <View key={item.id} style={s.card}><View style={s.preview}>{item.category === 'voice' ? <Text style={s.voicePreview}>♪</Text> : item.assetUrl ? <Image source={{ uri: resolveItemAssetUrl(item.assetUrl) }} style={s.image} /> : <Text>✦</Text>}</View><View style={s.info}><Text style={s.name}>{item.name}</Text><Text style={s.cost}>{owned ? '所持済み' : `${item.cost} YOKIポイント`}</Text><Pressable disabled={disabled} onPress={() => act(item)} style={[s.button, (disabled || equipped) && s.buttonOn]}><Text style={s.buttonText}>{busy === item.id ? '処理中…' : label}</Text></Pressable>{owned && <Pressable onPress={() => setCustomizing(item)} style={s.customButton}><Text style={s.customText}>位置・大きさを調整</Text></Pressable>}</View></View>;
     })}
   </ScrollView>{customizing && <Modal transparent animationType="fade" onRequestClose={() => setCustomizing(null)}><View style={s.modalShade}><View style={s.modalCard}><Text style={s.modalTitle}>{customizing.name}</Text><Text style={s.modalHelp}>矢印で移動、− / ＋で大きさを調整できます</Text><View style={s.pad}><Pressable style={s.padButton} onPress={() => adjust(customizing, 0, -10)}><Text>↑</Text></Pressable><View style={s.padRow}><Pressable style={s.padButton} onPress={() => adjust(customizing, -10, 0)}><Text>←</Text></Pressable><Pressable style={s.padButton} onPress={() => adjust(customizing, 10, 0)}><Text>→</Text></Pressable></View><Pressable style={s.padButton} onPress={() => adjust(customizing, 0, 10)}><Text>↓</Text></Pressable></View><View style={s.sizeRow}><Pressable style={s.sizeButton} onPress={() => adjust(customizing, 0, 0, -0.1)}><Text>− 小さく</Text></Pressable><Pressable style={s.sizeButton} onPress={() => adjust(customizing, 0, 0, 0.1)}><Text>＋ 大きく</Text></Pressable></View><Pressable style={s.resetButton} onPress={() => updateItemPlacement(customizing.id, { x: 0, y: 0, scale: 1 })}><Text>初期位置に戻す</Text></Pressable><Pressable style={s.removeButton} onPress={async () => { await equipItem(slot(customizing), null); setCustomizing(null); }}><Text style={s.removeText}>取り外す</Text></Pressable><Pressable style={s.closeButton} onPress={() => setCustomizing(null)}><Text style={s.buttonText}>完了</Text></Pressable></View></View></Modal>}</SafeAreaView>;
 }

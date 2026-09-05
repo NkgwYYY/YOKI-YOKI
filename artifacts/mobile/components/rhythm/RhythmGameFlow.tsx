@@ -276,14 +276,14 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
         </View>
         <Text style={st.refreshTag}>今日のリフレッシュ +1</Text>
         {(() => {
-          // ごはんポイント(MiniGameModal.resultToReward と同じルール)
+          // YOKIポイント(MiniGameModal.resultToReward と同じルール)
           const fp = stars >= 4 ? 3 : stars === 3 ? 2 : 1;
           return (
             <View style={st.energyRow}>
               <View style={st.energyChip}>
                 <Icon name="coffee" size={iconSize.xs} color={colors.foreground} />
                 <Text style={[st.energyChipTxt, { color: colors.foreground }]}>
-                  きらめきポイント +{fp}
+                  YOKIポイント +{fp}
                 </Text>
               </View>
             </View>
@@ -295,9 +295,9 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
             <Text style={st.commentTxt}>{characterComment(result, mode)}</Text>
           </View>
         </View>
-        {/* 循環の導線: ごはんポイント → ごはんをあげる(ホームへ) */}
+        {/* 循環の導線: YOKIポイント → ごはんをあげる(ホームへ) */}
         <Button
-          label="きらめきポイントでごはんをあげよう"
+          label="YOKIポイントでごはんをあげよう"
           icon="coffee"
           variant="secondary"
           fullWidth

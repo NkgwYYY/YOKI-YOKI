@@ -4,13 +4,12 @@ import { Item } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Plus, Shirt, Image as ImageIcon, Music, Coffee, Package, Loader2 } from 'lucide-react';
+import { Search, Plus, Shirt, Image as ImageIcon, Music, Package, Loader2 } from 'lucide-react';
 import { ItemEditor } from '@/components/item-editor';
 import { cn } from '@/lib/utils';
 import { SignOutButton } from '@clerk/react';
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
-  food: Coffee,
   accessory: Shirt,
   background: ImageIcon,
   voice: Music,
@@ -74,7 +73,7 @@ export default function Dashboard() {
              />
            </div>
            <div className="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
-             {['all', 'food', 'accessory', 'background', 'voice'].map(cat => (
+             {['all', 'accessory', 'background', 'voice'].map(cat => (
                <button
                  key={cat}
                  onClick={() => setCategoryFilter(cat)}
@@ -125,7 +124,7 @@ export default function Dashboard() {
                      "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border overflow-hidden",
                      isSelected ? "bg-white border-indigo-100" : "bg-slate-50 border-slate-100"
                    )}>
-                     {item.category === 'accessory' || item.category === 'food' ? (
+                      {item.category === 'accessory' ? (
                        <img src={item.assetUrl} alt="" className="w-8 h-8 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                      ) : (
                        <Icon className={cn("w-5 h-5", isSelected ? "text-indigo-600" : "text-slate-400")} />

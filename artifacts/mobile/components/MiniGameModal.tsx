@@ -20,7 +20,7 @@ interface Props {
 }
 
 /** リズムゲームの結果 → 報酬 (既存の報酬水準を維持: ごはん 1〜3pt / XP 0〜10)
- *  ミニゲームの報酬はごはんポイント(fp)と経験値のみ。光エネルギーは日々の記録から生まれる */
+ *  ミニゲームの報酬はYOKIポイント(fp)と経験値のみ。光エネルギーは日々の記録から生まれる */
 function resultToReward(r: PlayResult): { fp: number; xp?: number; stars: number } {
   const stars = starRating(r);
   if (stars >= 4) return { fp: 3, xp: 10, stars };

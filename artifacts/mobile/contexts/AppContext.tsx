@@ -236,7 +236,7 @@ interface AppContextType {
   sellEnergy: () => Promise<{ sold: number; gained: number }>;
   /** エコポイントを使って次の街アイテムを建てる */
   buildTownItem: () => Promise<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }>;
-  /** ごほうびポイント(エコポイント)をごはんポイントに交換する(1:1) */
+  /** 交換待ちポイント(旧エコポイント)をYOKIポイントに受け取る(1:1) */
   exchangeEcoPoints: (amount: number) => Promise<{ exchanged: number }>;
   roomCustomization: RoomCustomization;
   /** 家具や花を選択する(購入済みアイテムのみ) */
@@ -244,7 +244,7 @@ interface AppContextType {
   /** 家具や花をポイントで購入する */
   buyRoomItem: (kind: RoomItemKind, id: RoomFurniture | RoomFlower, cost: number) => Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' | 'invalid' }>;
   companionState: CompanionState;
-  /** ごはんポイントで追加のたまごを仲間にする */
+  /** YOKIポイントで追加のたまごを仲間にする */
   buyEggCompanion: () => Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' }>;
   /** 出会い記録(キャラクター図鑑)。出会ったキャラだけが入る */
   encounters: EncountersState;
@@ -504,7 +504,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  /** ごほうびポイント(エコポイント)をごはんポイントに交換する(1:1) */
+  /** 交換待ちポイント(旧エコポイント)をYOKIポイントに受け取る(1:1) */
   const exchangeEcoPoints = useCallback(async (amount: number): Promise<{ exchanged: number }> => {
     if (plantBusyRef.current) return { exchanged: 0 };
     plantBusyRef.current = true;
@@ -877,7 +877,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // ごはんポイントの同時更新(交換・購入・報酬)で残高が上書きされないよう、
+  // YOKIポイントの同時更新(交換・購入・報酬)で残高が上書きされないよう、
   // 常に最新値を保持する ref を正とする
   const feedStateRef = useRef<FeedState>(defaultFeedState);
 
@@ -915,7 +915,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // 残高チェック・減算は常に最新の ref を正とする(交換・報酬付与との競合対策)
       const cur = feedStateRef.current;
       if (cur.points < food.cost) {
-        return { success: false, message: 'きらめきポイントが足りないよ！', newSatiety: currentSatiety };
+        return { success: false, message: 'YOKIポイントが足りないよ！', newSatiety: currentSatiety };
       }
 
       const baseSatiety = computeCurrentSatiety(cur);
@@ -1281,7 +1281,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return nextG;
     });
 
-    // ミニゲームは「ごはんポイント」だけを生む(光エネルギーは日々の記録から生まれる)
+    // ミニゲームはYOKIポイントだけを生む(光エネルギーは日々の記録から生まれる)
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     pushDataToCloud();

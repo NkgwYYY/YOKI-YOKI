@@ -220,7 +220,7 @@ export default function EnergyChargeScreen() {
     try {
       const { converted } = await convertStoredEnergy();
       if (converted > 0) {
-        setConvertedMsg(`${converted} エネルギーをポイントに交換しました`);
+        setConvertedMsg(`${converted} エネルギーを交換しました`);
         if (convertedTimerRef.current) clearTimeout(convertedTimerRef.current);
         convertedTimerRef.current = setTimeout(() => setConvertedMsg(null), 3000);
       }
@@ -235,7 +235,7 @@ export default function EnergyChargeScreen() {
     try {
       const { exchanged } = await exchangeEcoPoints(powerPlant.ecoPoints);
       if (exchanged > 0) {
-        setExchangedMsg(`ポイントをごはんに変換したよ`);
+        setExchangedMsg(`YOKIポイントを受け取りました`);
         if (exTimerRef.current) clearTimeout(exTimerRef.current);
         exTimerRef.current = setTimeout(() => setExchangedMsg(null), 3600);
       }
@@ -256,7 +256,7 @@ export default function EnergyChargeScreen() {
             <View style={s.titleMark}><Icon name="star" size={iconSize.sm} color="#FF9EEA" /></View>
             <Text style={s.title}>エネルギーチャージ</Text>
           </View>
-          <Text style={s.subtitle}>たまったエネルギーをポイントに交換できます</Text>
+          <Text style={s.subtitle}>たまったエネルギーをYOKIポイントに交換できます</Text>
         </View>
 
         {/* 魔法の庭園シーン */}
@@ -300,7 +300,7 @@ export default function EnergyChargeScreen() {
             </View>
             <View style={s.statDivider} />
             <View style={s.statCell}>
-              <Text style={s.statHead}>ポイント</Text>
+              <Text style={s.statHead}>受け取り可能</Text>
               <Text style={s.statValue}>{powerPlant.ecoPoints}</Text>
             </View>
           </View>
@@ -308,9 +308,9 @@ export default function EnergyChargeScreen() {
 
         <View style={[s.card, s.actionCard]}>
           <View style={s.cardHeader}>
-            <Text style={s.cardTitle}>ポイント交換</Text>
+            <Text style={s.cardTitle}>YOKIポイント交換</Text>
           </View>
-          <Text style={s.hint}>蓄えたエネルギーをポイントに交換して、キャラクターにごはんをあげよう</Text>
+          <Text style={s.hint}>蓄えたエネルギーを交換して、YOKIポイントとして受け取ろう</Text>
 
           <View style={s.conversionRow}>
             <View style={s.conversionValue}>
@@ -320,7 +320,7 @@ export default function EnergyChargeScreen() {
             <Icon name="chevrons-right" size={iconSize.md} color="#E8A2C4" />
             <View style={s.conversionValue}>
               <View style={[s.conversionIcon, s.giftIcon]}><Icon name="gift" size={iconSize.sm} color="#F05A91" /></View>
-              <View><Text style={s.conversionNumber}>{exchangeableEnergy}</Text><Text style={s.conversionLabel}>ポイント</Text></View>
+              <View><Text style={s.conversionNumber}>{exchangeableEnergy}</Text><Text style={s.conversionLabel}>交換待ち</Text></View>
             </View>
           </View>
 
@@ -344,13 +344,13 @@ export default function EnergyChargeScreen() {
 
         <View style={s.rewardSection}>
           <View style={s.cardHeader}>
-            <Text style={s.cardTitle}>ごはんポイントに受け取る</Text>
+            <Text style={s.cardTitle}>YOKIポイントに受け取る</Text>
             <View style={s.ecoBadge}>
               <Icon name="gift" size={iconSize.xs} color={colors.success} />
               <Text style={s.ecoBadgeText}>{powerPlant.ecoPoints} pt</Text>
             </View>
           </View>
-          <Text style={s.hint}>ポイントをごはんに変換してキャラクターにあげよう</Text>
+          <Text style={s.hint}>受け取ったYOKIポイントは、ごはんやショップのアイテムに使えます</Text>
 
           {exchangedMsg && (
             <Animated.View entering={FadeInUp.springify().damping(10)} exiting={FadeOut} style={s.banner}>
@@ -359,7 +359,7 @@ export default function EnergyChargeScreen() {
           )}
 
           <Button
-            label={powerPlant.ecoPoints > 0 ? `${powerPlant.ecoPoints} pt をごはんポイントにする` : 'ポイントを使って交換できるよ'}
+            label={powerPlant.ecoPoints > 0 ? `${powerPlant.ecoPoints} YOKIポイントを受け取る` : 'エネルギーを交換すると受け取れるよ'}
             icon="coffee"
             variant="secondary"
             onPress={handleExchange}

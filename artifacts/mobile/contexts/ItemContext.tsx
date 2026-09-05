@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE, useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 
+/** food is retained only to safely read legacy catalog/inventory records. */
 export type ItemCategory = 'food' | 'accessory' | 'background' | 'voice';
 export interface Item {
   id: string; name: string; category: ItemCategory; cost: number; assetUrl: string;
@@ -76,7 +77,7 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
     setLoading(true); setError(null);
     try {
       const data = await request('/items', {}, isSignedIn);
-      setItems(data.items || []);
+      setItems((data.items || []).filter((item: Item) => item.category !== 'food'));
       const local = await loadLocal();
       if (data.state) {
         const merged = {
@@ -99,10 +100,10 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { if (!isSignedIn) setShopState((prev) => ({ ...prev, points: feedState.points })); }, [feedState.points, isSignedIn]);
   const buyItem = useCallback(async (itemId: string) => {
     if (!isSignedIn) {
-      const item = items.find((candidate) => candidate.id === itemId && candidate.isActive);
+      const item = items.find((candidate) => candidate.id === itemId && candidate.isActive && candidate.category !== 'food');
       if (!item) throw new Error('このアイテムは購入できません');
       if (shopState.inventory.includes(itemId)) return shopState;
-      if (!(await spendFeedPoints(item.cost))) throw new Error('ポイントが足りません');
+      if (!(await spendFeedPoints(item.cost))) throw new Error('YOKIポイントが足りません');
       const next = { ...shopState, inventory: [...shopState.inventory, itemId], points: feedState.points - item.cost };
       setShopState(next);
       await persistLocal(next);

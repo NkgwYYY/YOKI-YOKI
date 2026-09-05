@@ -1,4 +1,4 @@
-export type ItemCategory = 'food' | 'accessory' | 'background' | 'voice';
+export type ItemCategory = 'accessory' | 'background' | 'voice';
 
 export interface Item {
   id: string;

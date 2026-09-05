@@ -163,7 +163,7 @@ function AtelierOption({
   return (
     <PressScale
       onPress={onPress}
-      accessibilityLabel={`${name}・${selected ? '使用中' : owned ? '選ぶ' : `${cost}ポイント`}`}
+      accessibilityLabel={`${name}・${selected ? '使用中' : owned ? '選ぶ' : `${cost}YOKIポイント`}`}
       style={[styles.shopOption, selected && styles.shopOptionSelected]}
     >
       <RoomItemPreview kind={kind} id={id} />
@@ -263,13 +263,13 @@ export default function HomeScreen() {
       return;
     }
     const result = await buyRoomItem(kind, id, cost);
-    setShopMessage(result.success ? '新しいアイテムを飾ったよ。' : 'ポイントがもう少し必要みたい。');
+    setShopMessage(result.success ? '新しいアイテムを飾ったよ。' : 'YOKIポイントがもう少し必要みたい。');
   };
 
   const handleBuyEgg = async () => {
     setShopMessage('');
     const result = await buyEggCompanion();
-    setShopMessage(result.success ? '新しいたまごが仲間になったよ！' : result.reason === 'already_owned' ? 'このたまごはもう仲間になっているよ。' : 'たまごを迎えるにはポイントがもう少し必要だよ。');
+    setShopMessage(result.success ? '新しいたまごが仲間になったよ！' : result.reason === 'already_owned' ? 'このたまごはもう仲間になっているよ。' : 'たまごを迎えるにはYOKIポイントがもう少し必要だよ。');
   };
 
   return (
@@ -306,7 +306,7 @@ export default function HomeScreen() {
         <View style={styles.topStatusRow}>
           <HomeSatietyGauge satiety={currentSatiety} />
           <PressScale
-            accessibilityLabel={`YOKI SHOP・${feedState.points}ポイント`}
+            accessibilityLabel={`YOKI SHOP・${feedState.points}YOKIポイント`}
             onPress={() => router.push('/shop')}
             style={styles.pointsBalance}
           >
@@ -430,7 +430,7 @@ export default function HomeScreen() {
         visible={showAtelier}
         onClose={() => setShowAtelier(false)}
         title="カスタム"
-        subtitle={`きらめきポイント ${feedState.points} pt`}
+        subtitle={`YOKIポイント ${feedState.points} pt`}
         maxHeightRatio={0.9}
       >
         {shopMessage ? <Text style={styles.shopMessage}>{shopMessage}</Text> : null}
