@@ -3,7 +3,37 @@ import type { DailyRecord } from '@/contexts/AppContext';
 
 const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
 const HOME_COMMENT_KEY = '@mentore/home_comment_v1';
+export const HOME_COMMENT_PREFERENCES_KEY = '@mentore/home_comment_preferences_v1';
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
+
+export type HomeCommentFrequency = 'daily' | 'after_record' | 'quiet' | 'off';
+
+export interface HomeCommentPreferences {
+  frequency: HomeCommentFrequency;
+  includeRecentChat: boolean;
+}
+
+export const DEFAULT_HOME_COMMENT_PREFERENCES: HomeCommentPreferences = {
+  frequency: 'daily',
+  includeRecentChat: true,
+};
+
+export function resolveHomeCommentPreferences(value: unknown): HomeCommentPreferences {
+  if (!value || typeof value !== 'object') return DEFAULT_HOME_COMMENT_PREFERENCES;
+  const raw = value as Partial<HomeCommentPreferences>;
+  const frequency: HomeCommentFrequency =
+    raw.frequency === 'after_record' || raw.frequency === 'quiet' || raw.frequency === 'off'
+      ? raw.frequency
+      : 'daily';
+  return {
+    frequency,
+    includeRecentChat: raw.includeRecentChat !== false,
+  };
+}
+
+export async function clearHomeCommentCache(): Promise<void> {
+  await AsyncStorage.removeItem(HOME_COMMENT_KEY);
+}
 
 interface StoredChatMessage {
   role?: unknown;
@@ -80,10 +110,22 @@ export async function getHomeComment(params: {
   record?: DailyRecord;
   completed: number;
   total: number;
+  preferences?: HomeCommentPreferences;
 }): Promise<string> {
+  const preferences = resolveHomeCommentPreferences(params.preferences);
+  if (preferences.frequency === 'off') return '';
+  if (preferences.frequency === 'after_record' && !params.record && params.completed === 0) return '';
+  if (preferences.frequency === 'quiet') {
+    const dayNumber = Math.floor(Date.parse(`${params.date}T00:00:00Z`) / 86_400_000);
+    if (!Number.isFinite(dayNumber) || dayNumber % 3 !== 0) return '';
+  }
+
   const context = buildRecordContext(params.record, params.completed, params.total);
-  const recentChat = await loadRecentChat();
-  const fingerprint = shortHash(`${params.date}\n${params.mascotName}\n${context}\n${recentChat}`);
+  const recentChat = preferences.includeRecentChat ? await loadRecentChat() : '';
+  const source = `${params.date}\n${params.mascotName}\n${preferences.frequency}\n${preferences.includeRecentChat}`;
+  const fingerprint = shortHash(
+    preferences.frequency === 'after_record' ? `${source}\n${context}\n${recentChat}` : source
+  );
 
   try {
     const raw = await AsyncStorage.getItem(HOME_COMMENT_KEY);

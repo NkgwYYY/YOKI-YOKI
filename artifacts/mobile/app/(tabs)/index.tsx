@@ -187,7 +187,7 @@ export default function HomeScreen() {
     completeMiniGame, feedState, growth, getTodayRecord, getCompletedCount, getTotalCheckCount, mascotName,
     miniGameState, progress, setMascotName, currentSatiety,
     roomCustomization, selectRoomItem, buyRoomItem,
-    companionState, buyEggCompanion,
+    companionState, buyEggCompanion, homeCommentPreferences,
   } = useApp();
   const { items, shopState } = useItems();
   const todayRecord = getTodayRecord();
@@ -212,11 +212,12 @@ export default function HomeScreen() {
       record: todayRecord,
       completed: completedCount,
       total: totalCheckCount,
+      preferences: homeCommentPreferences,
     }).then((comment) => {
       if (active) setHomeComment(comment);
     });
     return () => { active = false; };
-  }, [mascotName, todayRecord, completedCount, totalCheckCount]));
+  }, [mascotName, todayRecord, completedCount, totalCheckCount, homeCommentPreferences]));
 
   const currentSlot = getCurrentSlot();
   const slotPlays = currentSlot ? miniGameState[currentSlot] ?? 0 : MAX_PLAYS_PER_SLOT;
@@ -449,6 +450,7 @@ export default function HomeScreen() {
         <MenuAction icon="coffee" label="ごはんをあげる" onPress={() => { setShowMenu(false); setShowFeed(true); }} />
         <MenuAction icon="music" label={canPlay ? 'リズムであそぶ' : 'リズムであそぶ（またあとで）'} onPress={() => { setShowMenu(false); if (canPlay) setShowMiniGame(true); }} />
         <MenuAction icon="trending-up" label="成長を見る" onPress={() => { setShowMenu(false); router.push('/(tabs)/growth'); }} />
+        <MenuAction icon="user" label="プロフィール・話しかけ設定" onPress={() => { setShowMenu(false); router.push('/profile'); }} />
         <MenuAction icon="book-open" label="使い方ガイド" onPress={() => { setShowMenu(false); router.push('/guide'); }} />
         <MenuAction icon="edit-3" label="背景をカスタムする" onPress={() => { setShowMenu(false); setShopMessage(''); setShowAtelier(true); }} />
         <MenuAction icon="edit-3" label={mascotName ? 'なかまの名前を変える' : 'なかまに名前をつける'} onPress={openName} />

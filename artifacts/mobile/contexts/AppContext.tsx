@@ -63,6 +63,13 @@ import {
   syncEncounters,
 } from '@/utils/encounters';
 import type { CharacterKey } from '@/utils/mascotUtils';
+import {
+  clearHomeCommentCache,
+  DEFAULT_HOME_COMMENT_PREFERENCES,
+  HOME_COMMENT_PREFERENCES_KEY,
+  resolveHomeCommentPreferences,
+  type HomeCommentPreferences,
+} from '@/utils/homeComment';
 
 export type { EncountersState };
 
@@ -173,6 +180,7 @@ const KEYS = {
   ROOM_CUSTOMIZATION: '@mentore/room_customization_v1',
   COMPANIONS: '@mentore/companions_v1',
   SHOP_STATE: '@mentore/shop_state_v2',
+  HOME_COMMENT_PREFERENCES: HOME_COMMENT_PREFERENCES_KEY,
 };
 
 /** Compute current satiety based on elapsed time since last feed */
@@ -206,9 +214,11 @@ interface AppContextType {
   inactivityHours: number;
   miniGameState: MiniGameState;
   profile: UserProfile | null;
+  homeCommentPreferences: HomeCommentPreferences;
   /** True once the post-login cloud pull has finished (safe to decide onboarding) */
   cloudSynced: boolean;
   saveProfile: (profile: UserProfile) => Promise<void>;
+  saveHomeCommentPreferences: (preferences: HomeCommentPreferences) => Promise<void>;
   clearNewBadge: () => void;
   toggleCheckItem: (id: string) => Promise<void>;
   addChecklistItem: (text: string, category: ChecklistCategory) => Promise<void>;
@@ -304,6 +314,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [inactivityHours, setInactivityHours] = useState(0);
   const [miniGameState, setMiniGameState] = useState<MiniGameState>(DEFAULT_MINI_GAME_STATE);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [homeCommentPreferences, setHomeCommentPreferences] =
+    useState<HomeCommentPreferences>(DEFAULT_HOME_COMMENT_PREFERENCES);
   const [cloudSynced, setCloudSynced] = useState(false);
   // The first authenticated transition may be a guest upgrading to an account.
   // Keep this separate from Clerk state so local data can be merged before pull.
@@ -691,7 +703,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
-      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr] =
+      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr, homeCommentPreferencesStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
           AsyncStorage.getItem(KEYS.RECORDS),
@@ -710,6 +722,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.ENCOUNTERS),
           AsyncStorage.getItem(KEYS.ROOM_CUSTOMIZATION),
           AsyncStorage.getItem(KEYS.COMPANIONS),
+          AsyncStorage.getItem(KEYS.HOME_COMMENT_PREFERENCES),
         ]);
 
       // ── サイズ成長: 保存値を読み、経過時間ぶんの成長を適用 ──
@@ -821,6 +834,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try { setProfile(JSON.parse(profileStr)); } catch { setProfile(null); }
       } else {
         setProfile(null);
+      }
+      try {
+        setHomeCommentPreferences(resolveHomeCommentPreferences(
+          homeCommentPreferencesStr ? JSON.parse(homeCommentPreferencesStr) : null
+        ));
+      } catch {
+        setHomeCommentPreferences(DEFAULT_HOME_COMMENT_PREFERENCES);
       }
       setChecklistItems(loadedItems);
 
@@ -1163,6 +1183,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     pushDataToCloud();
   }, [pushDataToCloud]);
 
+  const saveHomeCommentPreferences = useCallback(async (preferences: HomeCommentPreferences) => {
+    const resolved = resolveHomeCommentPreferences(preferences);
+    setHomeCommentPreferences(resolved);
+    await AsyncStorage.setItem(KEYS.HOME_COMMENT_PREFERENCES, JSON.stringify(resolved));
+    await clearHomeCommentCache();
+    pushDataToCloud();
+  }, [pushDataToCloud]);
+
   const setMascotName = useCallback(async (name: string) => {
     setMascotNameState(name);
     await AsyncStorage.setItem(KEYS.MASCOT_NAME, name);
@@ -1308,8 +1336,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         inactivityHours,
         miniGameState,
         profile,
+        homeCommentPreferences,
         cloudSynced,
         saveProfile,
+        saveHomeCommentPreferences,
         clearNewBadge,
         toggleCheckItem,
         addChecklistItem,
