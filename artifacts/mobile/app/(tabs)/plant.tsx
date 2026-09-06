@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
+  type SharedValue,
   useSharedValue, useAnimatedStyle, withRepeat, withSequence,
   withTiming, withSpring, withDelay, FadeInUp, FadeOut, Easing,
 } from 'react-native-reanimated';
@@ -16,6 +17,7 @@ import { CosmicBackground } from '@/components/CosmicBackground';
 import { useApp } from '@/contexts/AppContext';
 import { Mascot } from '@/components/Mascot';
 import { getMascotStage } from '@/utils/mascotUtils';
+import { getChargeGlowStrength } from '@/utils/lightEnergy';
 
 const easeInOutSine = Easing.inOut(Easing.sin);
 const SCENE_BG = require('@/assets/images/plant/energy-garden-night.png');
@@ -24,16 +26,16 @@ const ENERGY_NEON_LIGHT = '#C8FF70';
 const ENERGY_NEON_DEEP = '#00B84A';
 const ENERGY_GLOW = 'rgba(57,255,20,0.34)';
 
-function LightMotes({ genki }: { genki: number }) {
-  const count = 3 + Math.round((genki / 100) * 5);
+function LightMotes({ chargeGlow, targetGlow }: { chargeGlow: SharedValue<number>; targetGlow: number }) {
+  const count = 3 + Math.round(targetGlow * 5);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {Array.from({ length: count }).map((_, i) => <Mote key={i} index={i} />)}
+      {Array.from({ length: count }).map((_, i) => <Mote key={i} index={i} chargeGlow={chargeGlow} />)}
     </View>
   );
 }
 
-function Mote({ index }: { index: number }) {
+function Mote({ index, chargeGlow }: { index: number; chargeGlow: SharedValue<number> }) {
   const p = useSharedValue(0);
   useEffect(() => {
     p.value = withDelay(index * 620, withRepeat(withTiming(1, { duration: 3400 + (index * 200), easing: Easing.out(Easing.quad) }), -1, false));
@@ -41,7 +43,9 @@ function Mote({ index }: { index: number }) {
   const st = useAnimatedStyle(() => {
     const t = p.value;
     return {
-      opacity: t < 0.08 ? t / 0.08 : 1 - t * 0.85,
+      opacity: (t < 0.08 ? t / 0.08 : 1 - t * 0.85) * (0.28 + chargeGlow.value * 0.62),
+      shadowOpacity: 0.28 + chargeGlow.value * 0.62,
+      shadowRadius: 3 + chargeGlow.value * 4,
       transform: [
         { translateX: -(t * 100) + Math.sin(t * Math.PI * 2 + index) * 20 },
         { translateY: -(t * 200) },
@@ -51,7 +55,7 @@ function Mote({ index }: { index: number }) {
   });
   const dot = 5 + (index % 2) * 3;
   return (
-    <Animated.View style={[{ position: 'absolute', bottom: '30%', left: `${20 + (index % 5) * 15}%`, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: ENERGY_NEON_LIGHT, shadowColor: ENERGY_NEON, shadowOpacity: 0.9, shadowRadius: 5 }, st]} />
+    <Animated.View style={[{ position: 'absolute', bottom: '30%', left: `${20 + (index % 5) * 15}%`, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: ENERGY_NEON_LIGHT, shadowColor: ENERGY_NEON }, st]} />
   );
 }
 
@@ -68,7 +72,7 @@ function CharacterAura({ genki }: { genki: number }) {
   return <Animated.View style={[s.aura, st]} pointerEvents="none" />;
 }
 
-function PowerCable() {
+function PowerCable({ chargeGlow }: { chargeGlow: SharedValue<number> }) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -85,35 +89,35 @@ function PowerCable() {
 
         {/* Character-side plug and glowing socket */}
         <G>
-          <Circle cx="38" cy="78" r="3.4" fill="rgba(57,255,20,0.26)" />
+          <Circle cx="38" cy="78" r="3.4" fill="rgba(57,255,20,0.16)" />
           <Rect x="35.8" y="75.7" width="4.8" height="4.6" rx="1.5" fill="#315E3E" stroke="#9DFF80" strokeWidth="0.55" />
           <Rect x="39.8" y="76.65" width="2.1" height="2.7" rx="0.65" fill="#D7FFC9" />
           <Circle cx="37.5" cy="78" r="0.8" fill={ENERGY_NEON} />
         </G>
         {/* Tank-side inlet and locking collar */}
         <G>
-          <Circle cx="65" cy="78" r="4.2" fill="rgba(57,255,20,0.23)" />
+          <Circle cx="65" cy="78" r="4.2" fill="rgba(57,255,20,0.16)" />
           <Rect x="62.2" y="75.35" width="5.8" height="5.3" rx="1.7" fill="#244D32" stroke="#8DFF70" strokeWidth="0.65" />
           <Rect x="60.8" y="76.25" width="2.5" height="3.5" rx="0.8" fill="#3F8153" />
           <Circle cx="65.2" cy="78" r="1.15" fill={ENERGY_NEON} />
         </G>
       </Svg>
-      <CableLights />
+      <CableLights chargeGlow={chargeGlow} />
     </View>
   );
 }
 
-function CableLights() {
+function CableLights({ chargeGlow }: { chargeGlow: SharedValue<number> }) {
   // Simple dots moving along an approximation of the curve
   // M 38 78 C 48 92, 55 92, 65 78
   return (
     <>
-      {Array.from({ length: 4 }).map((_, i) => <CableLight key={i} index={i} />)}
+      {Array.from({ length: 4 }).map((_, i) => <CableLight key={i} index={i} chargeGlow={chargeGlow} />)}
     </>
   );
 }
 
-function CableLight({ index }: { index: number }) {
+function CableLight({ index, chargeGlow }: { index: number; chargeGlow: SharedValue<number> }) {
   const p = useSharedValue(0);
   useEffect(() => {
     p.value = withDelay(index * 400, withRepeat(withTiming(1, { duration: 1600, easing: Easing.linear }), -1, false));
@@ -138,17 +142,19 @@ function CableLight({ index }: { index: number }) {
     return {
       left: `${x}%`,
       top: `${y}%`,
-      opacity: t < 0.1 ? t / 0.1 : t > 0.9 ? (1 - t) / 0.1 : 1,
+      opacity: (t < 0.1 ? t / 0.1 : t > 0.9 ? (1 - t) / 0.1 : 1) * (0.3 + chargeGlow.value * 0.65),
+      shadowOpacity: 0.3 + chargeGlow.value * 0.65,
+      shadowRadius: 3 + chargeGlow.value * 4,
       transform: [{ translateX: -3 }, { translateY: -3 }],
     };
   });
 
   return (
-    <Animated.View style={[{ position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: ENERGY_NEON_LIGHT, shadowColor: ENERGY_NEON, shadowOpacity: 1, shadowRadius: 5 }, st]} />
+    <Animated.View style={[{ position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: ENERGY_NEON_LIGHT, shadowColor: ENERGY_NEON }, st]} />
   );
 }
 
-function CrystalTank({ energy, genki }: { energy: number; genki: number }) {
+function CrystalTank({ energy, chargeGlow }: { energy: number; chargeGlow: SharedValue<number> }) {
   const float = useSharedValue(0);
   const liquid = useSharedValue(0);
   useEffect(() => {
@@ -168,8 +174,16 @@ function CrystalTank({ energy, genki }: { energy: number; genki: number }) {
 
   const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: float.value }] }));
   const liquidStyle = useAnimatedStyle(() => ({
-    opacity: 0.62 + (genki / 100) * 0.23 + liquid.value * 0.15,
+    opacity: 0.46 + chargeGlow.value * 0.34 + liquid.value * 0.1,
     transform: [{ translateY: liquid.value * -2 }, { scaleX: 1 + liquid.value * 0.015 }],
+  }));
+  const glassGlowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: 0.18 + chargeGlow.value * 0.42,
+    shadowRadius: 7 + chargeGlow.value * 8,
+  }));
+  const baseGlowStyle = useAnimatedStyle(() => ({
+    shadowOpacity: 0.16 + chargeGlow.value * 0.36,
+    shadowRadius: 6 + chargeGlow.value * 7,
   }));
   const fillLevel = Math.min(92, 6 + Math.min(energy, 100) * 0.86);
 
@@ -179,7 +193,7 @@ function CrystalTank({ energy, genki }: { energy: number; genki: number }) {
         <Text style={s.tankStatusLabel}>チャージ</Text>
         <Text style={s.tankValue}>{energy} ENERGY</Text>
       </View>
-      <View style={s.tankGlass}>
+      <Animated.View style={[s.tankGlass, glassGlowStyle]}>
         <Animated.View style={[s.tankLiquid, liquidStyle, { height: `${fillLevel}%` }]}>
           <LinearGradient colors={['rgba(200,255,112,0.95)', ENERGY_NEON, ENERGY_NEON_DEEP]} style={StyleSheet.absoluteFill} />
         </Animated.View>
@@ -187,8 +201,8 @@ function CrystalTank({ energy, genki }: { energy: number; genki: number }) {
           <Icon name="star" size={32} color="rgba(255,255,255,0.8)" />
         </View>
         <View style={s.tankShine} />
-      </View>
-      <View style={s.tankBase} />
+      </Animated.View>
+      <Animated.View style={[s.tankBase, baseGlowStyle]} />
     </Animated.View>
   );
 }
@@ -211,6 +225,11 @@ export default function EnergyChargeScreen() {
 
   const genki = lightEnergy.genki;
   const exchangeableEnergy = Math.floor(lightEnergy.storedEnergy);
+  const chargeGlowTarget = getChargeGlowStrength(exchangeableEnergy);
+  const chargeGlow = useSharedValue(chargeGlowTarget);
+  useEffect(() => {
+    chargeGlow.value = withTiming(chargeGlowTarget, { duration: 900, easing: easeInOutSine });
+  }, [chargeGlowTarget]);
   const mascotStage = getMascotStage(progress.level);
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
@@ -273,7 +292,7 @@ export default function EnergyChargeScreen() {
               resizeMode="cover"
             />
 
-            <LightMotes genki={genki} />
+            <LightMotes chargeGlow={chargeGlow} targetGlow={chargeGlowTarget} />
 
             <View style={s.mascotWrap} pointerEvents="none">
               <View style={s.mascotStand}>
@@ -281,8 +300,8 @@ export default function EnergyChargeScreen() {
                 <Mascot stage={mascotStage} mood={genki >= 60 ? 'excited' : 'happy'} size={120} idleBehavior="normal" />
               </View>
             </View>
-            <PowerCable />
-            <CrystalTank energy={exchangeableEnergy} genki={genki} />
+            <PowerCable chargeGlow={chargeGlow} />
+            <CrystalTank energy={exchangeableEnergy} chargeGlow={chargeGlow} />
           </View>
         </View>
 

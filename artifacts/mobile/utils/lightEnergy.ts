@@ -16,6 +16,8 @@ export const BASE_GENKI = 50;
 /** 元気・光の力の上限 */
 export const MAX_GENKI = 100;
 export const MAX_LIGHT_POWER = 100;
+/** チャージ発光が最大の明るさに達する蓄積量。これ以上は視認性を守るため頭打ちにする */
+export const MAX_CHARGE_GLOW_ENERGY = 100;
 /** 自然チャージの最低出力。行動していない時間も、キャラクターの光が少しずつ蓄えられる */
 export const PASSIVE_ENERGY_PER_HOUR = 1;
 /** 光の力が100のときに加わる、1時間あたりの追加出力 */
@@ -175,6 +177,12 @@ export function applyEnergyGain(
     totalEnergy: s.totalEnergy + gain.energy,
     flags: flag ? { ...s.flags, [flag]: true } : s.flags,
   };
+}
+
+/** 蓄積量を、急な点滅や明るさの跳ねがない0〜1の発光強度へ変換する */
+export function getChargeGlowStrength(storedEnergy: number): number {
+  const progress = clamp(num(storedEnergy, 0) / MAX_CHARGE_GLOW_ENERGY, 0, 1);
+  return progress * progress * (3 - 2 * progress);
 }
 
 function num(v: unknown, fallback: number): number {
