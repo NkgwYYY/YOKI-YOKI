@@ -2,6 +2,7 @@ import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
 const GA_ID = process.env.EXPO_PUBLIC_GA_MEASUREMENT_ID;
+const ADSENSE_CLIENT_ID = 'ca-pub-7462386033661667';
 
 export default function Root({ children }: PropsWithChildren) {
   return (
@@ -20,6 +21,13 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="description" content="こころを育てるメンタルケアアプリ" />
 
         <ScrollViewStyleReset />
+
+        {/* Google AdSense automatic ads */}
+        <script
+          async
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
+          crossOrigin="anonymous"
+        />
 
         {/* Google Analytics 4 */}
         {GA_ID && (

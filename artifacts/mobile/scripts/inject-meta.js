@@ -8,6 +8,7 @@ const file = process.argv[2] || path.join(__dirname, '../../../static-build/web/
 let html = fs.readFileSync(file, 'utf8');
 
 const GA_ID = 'G-VEK3NC9XFS';
+const ADSENSE_CLIENT_ID = 'ca-pub-7462386033661667';
 
 function findAssetHref(directory, filePattern) {
   if (!fs.existsSync(directory)) return null;
@@ -45,6 +46,7 @@ ${PRELOADS}
     <meta property="og:url" content="https://yoki-yoki.replit.app/" />
     <meta name="description" content="気分・感情を毎日記録して、AIとの会話でこころを育てるメンタルケアアプリ。日記・気分トラッカー・ストレス管理を楽しく続けられます。" />
     <meta name="keywords" content="メンタルケア,気分記録,日記アプリ,感情トラッカー,ストレス管理,AIチャット,こころの健康,YOKI YOKI" />
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}" crossorigin="anonymous"></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=${GA_ID}"></script>
     <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');</script>`;
 
