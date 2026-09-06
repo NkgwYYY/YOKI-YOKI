@@ -27,7 +27,7 @@ const VALID_CHARS = new Set(CHARACTERS.map(c => c.id));
 type WearableMessage = { id: string; url: string; offsetX?: number; offsetY?: number; scale?: number };
 const WEARABLE_Y: Record<string, Record<CharacterId, number>> = {
   'starter-moon-ribbon': { egg: -112, odango: -171, happa: -156, colorful_happa: -156 },
-  'catalog-wear-crown': { egg: -243, odango: -283, happa: -253, colorful_happa: -253 },
+  'catalog-wear-crown': { egg: -243, odango: -283, happa: -301, colorful_happa: -301 },
   'catalog-wear-cat-ears': { egg: -166, odango: -225, happa: -200, colorful_happa: -200 },
   'catalog-wear-round-glasses': { egg: 38, odango: -13, happa: 22, colorful_happa: 22 },
   'catalog-wear-headphones': { egg: -80, odango: -130, happa: -100, colorful_happa: -100 },
@@ -35,7 +35,7 @@ const WEARABLE_Y: Record<string, Record<CharacterId, number>> = {
 function getWearableConfig(char: CharacterId, wearable: WearableMessage | null): WearableConfig | null {
   if (!wearable || WEARABLE_Y[wearable.id]?.[char] === undefined) return null;
   const baseSize = char === 'egg' ? 430 : char === 'happa' || char === 'colorful_happa' ? 470 : 512;
-  const designFit = wearable.id === 'catalog-wear-headphones' ? 0.72
+  const designFit = wearable.id === 'catalog-wear-headphones' ? 0.82
     : wearable.id === 'catalog-wear-crown' ? 0.88
     : wearable.id === 'catalog-wear-round-glasses' ? 0.72
     : wearable.id === 'catalog-wear-cat-ears' ? 0.78
