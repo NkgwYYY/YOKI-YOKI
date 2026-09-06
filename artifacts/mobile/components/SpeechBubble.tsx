@@ -18,6 +18,7 @@ interface SpeechBubbleProps {
   hint?: string;
   showHint?: boolean;
   tailDirection?: 'up' | 'down';
+  sizeScale?: number;
 }
 
 export function SpeechBubble({
@@ -26,6 +27,7 @@ export function SpeechBubble({
   hint = 'タップで変更',
   showHint,
   tailDirection = 'down',
+  sizeScale = 1,
 }: SpeechBubbleProps) {
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.8);
@@ -61,9 +63,20 @@ export function SpeechBubble({
           <View style={styles.tailUpInner} />
         </View>
       ) : null}
-      <View style={styles.bubble}>
-        <Text style={styles.text}>{message}</Text>
-        {(showHint ?? !!onPress) && hint ? <Text style={styles.tap}>{hint}</Text> : null}
+      <View style={[
+        styles.bubble,
+        {
+          maxWidth: 280 * sizeScale,
+          paddingHorizontal: space.lg * sizeScale,
+          paddingVertical: space.md * sizeScale,
+          borderRadius: radius.lg * sizeScale,
+          gap: space.xs * sizeScale,
+        },
+      ]}>
+        <Text style={[styles.text, { fontSize: 15 * sizeScale, lineHeight: 21 * sizeScale }]}>{message}</Text>
+        {(showHint ?? !!onPress) && hint ? (
+          <Text style={[styles.tap, { fontSize: 10 * sizeScale, lineHeight: 14 * sizeScale }]}>{hint}</Text>
+        ) : null}
       </View>
       {/* しっぽ。面と同じ 1px の輪郭を三角形で継ぐ */}
       {tailDirection === 'down' ? (
@@ -91,10 +104,6 @@ export function SpeechBubble({
 const styles = StyleSheet.create({
   // 影は付けない。面は白 + 1px のボーダーだけで背景から浮かせる。
   bubble: {
-    maxWidth: 280,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
-    borderRadius: radius.lg,
     backgroundColor: colors.card,
     ...border.hairline,
     alignItems: 'center',

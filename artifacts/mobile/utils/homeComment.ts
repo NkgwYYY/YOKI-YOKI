@@ -17,13 +17,25 @@ export interface HomeCommentPreferences {
   frequency: HomeCommentFrequency;
   includeRecentChat: boolean;
   placement: HomeCommentPlacement;
+  positionX: number;
+  positionY: number;
+  sizeScale: number;
 }
 
 export const DEFAULT_HOME_COMMENT_PREFERENCES: HomeCommentPreferences = {
   frequency: 'daily',
   includeRecentChat: true,
   placement: 'bottom_center',
+  positionX: 0.5,
+  positionY: 0,
+  sizeScale: 1,
 };
+
+function clamp(value: unknown, min: number, max: number, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(min, Math.min(max, value))
+    : fallback;
+}
 
 export function resolveHomeCommentPreferences(value: unknown): HomeCommentPreferences {
   if (!value || typeof value !== 'object') return DEFAULT_HOME_COMMENT_PREFERENCES;
@@ -32,13 +44,18 @@ export function resolveHomeCommentPreferences(value: unknown): HomeCommentPrefer
     raw.frequency === 'after_record' || raw.frequency === 'quiet' || raw.frequency === 'off'
       ? raw.frequency
       : 'daily';
+  const placement: HomeCommentPlacement =
+    raw.placement === 'bottom_left' || raw.placement === 'bottom_right'
+      ? raw.placement
+      : 'bottom_center';
+  const legacyPositionX = placement === 'bottom_left' ? 0 : placement === 'bottom_right' ? 1 : 0.5;
   return {
     frequency,
     includeRecentChat: raw.includeRecentChat !== false,
-    placement:
-      raw.placement === 'bottom_left' || raw.placement === 'bottom_right'
-        ? raw.placement
-        : 'bottom_center',
+    placement,
+    positionX: clamp(raw.positionX, 0, 1, legacyPositionX),
+    positionY: clamp(raw.positionY, -0.18, 0.22, 0),
+    sizeScale: clamp(raw.sizeScale, 0.72, 1.28, 1),
   };
 }
 

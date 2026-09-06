@@ -204,21 +204,33 @@ export default function HomeScreen() {
   const [nameInput, setNameInput] = useState('');
   const [shopMessage, setShopMessage] = useState('');
   const [homeComment, setHomeComment] = useState('');
+  const [isEditingComment, setIsEditingComment] = useState(false);
   const [isDraggingComment, setIsDraggingComment] = useState(false);
+  const [commentScale, setCommentScale] = useState(homeCommentPreferences.sizeScale);
+  const [commentBubbleMeasuredWidth, setCommentBubbleMeasuredWidth] = useState(0);
+  const [commentBubbleMeasuredHeight, setCommentBubbleMeasuredHeight] = useState(0);
+  const [commentAreaMeasuredWidth, setCommentAreaMeasuredWidth] = useState(0);
   const commentDragX = useRef(new Animated.Value(0)).current;
+  const commentDragY = useRef(new Animated.Value(0)).current;
   const commentLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const commentDragActive = useRef(false);
   const commentAreaWidth = useRef(0);
   const commentBubbleWidth = useRef(0);
+  const commentResizeStart = useRef(1);
+  const commentScaleRef = useRef(homeCommentPreferences.sizeScale);
+  const viewportHeightRef = useRef(viewportHeight);
   const commentPreferencesRef = useRef(homeCommentPreferences);
   const saveCommentPreferencesRef = useRef(saveHomeCommentPreferences);
   const openChatRef = useRef(() => router.push('/(tabs)/chat'));
 
   useEffect(() => {
     commentPreferencesRef.current = homeCommentPreferences;
+    setCommentScale(homeCommentPreferences.sizeScale);
+    commentScaleRef.current = homeCommentPreferences.sizeScale;
     saveCommentPreferencesRef.current = saveHomeCommentPreferences;
     openChatRef.current = () => router.push('/(tabs)/chat');
-  }, [homeCommentPreferences, router, saveHomeCommentPreferences]);
+    viewportHeightRef.current = viewportHeight;
+  }, [homeCommentPreferences, router, saveHomeCommentPreferences, viewportHeight]);
 
   useEffect(() => () => {
     if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
@@ -230,10 +242,13 @@ export default function HomeScreen() {
     onPanResponderGrant: () => {
       commentDragActive.current = false;
       commentDragX.stopAnimation();
+      commentDragY.stopAnimation();
       commentDragX.setValue(0);
+      commentDragY.setValue(0);
       if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
       commentLongPressTimer.current = setTimeout(() => {
         commentDragActive.current = true;
+        setIsEditingComment(true);
         setIsDraggingComment(true);
         Haptics.selectionAsync().catch(() => {});
       }, 420);
@@ -246,16 +261,13 @@ export default function HomeScreen() {
         }
         return;
       }
-      const placementIndex =
-        commentPreferencesRef.current.placement === 'bottom_left'
-          ? 0
-          : commentPreferencesRef.current.placement === 'bottom_right'
-            ? 2
-            : 1;
-      const step = Math.max(24, (commentAreaWidth.current - commentBubbleWidth.current) / 2);
-      const minX = -placementIndex * step;
-      const maxX = (2 - placementIndex) * step;
-      commentDragX.setValue(Math.max(minX, Math.min(maxX, gesture.dx)));
+      const travelX = Math.max(1, commentAreaWidth.current - commentBubbleWidth.current);
+      const currentX = commentPreferencesRef.current.positionX * travelX;
+      commentDragX.setValue(Math.max(-currentX, Math.min(travelX - currentX, gesture.dx)));
+      const currentY = commentPreferencesRef.current.positionY * viewportHeightRef.current;
+      const minY = -0.18 * viewportHeightRef.current - currentY;
+      const maxY = 0.22 * viewportHeightRef.current - currentY;
+      commentDragY.setValue(Math.max(minY, Math.min(maxY, gesture.dy)));
     },
     onPanResponderRelease: (_, gesture) => {
       if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
@@ -265,38 +277,57 @@ export default function HomeScreen() {
         return;
       }
 
-      const currentPlacement = commentPreferencesRef.current.placement;
-      const currentIndex = currentPlacement === 'bottom_left' ? 0 : currentPlacement === 'bottom_right' ? 2 : 1;
-      const step = Math.max(24, (commentAreaWidth.current - commentBubbleWidth.current) / 2);
-      const nextIndex = Math.max(0, Math.min(2, Math.round(currentIndex + gesture.dx / step)));
-      const nextPlacement = (['bottom_left', 'bottom_center', 'bottom_right'] as const)[nextIndex];
+      const current = commentPreferencesRef.current;
+      const travelX = Math.max(1, commentAreaWidth.current - commentBubbleWidth.current);
+      const nextX = Math.max(0, Math.min(1, current.positionX + gesture.dx / travelX));
+      const nextY = Math.max(-0.18, Math.min(0.22, current.positionY + gesture.dy / viewportHeightRef.current));
 
       commentDragActive.current = false;
       setIsDraggingComment(false);
-      Animated.spring(commentDragX, {
-        toValue: (nextIndex - currentIndex) * step,
-        useNativeDriver: true,
-        stiffness: 360,
-        damping: 30,
-        mass: 0.8,
-      }).start(() => {
-        if (nextPlacement !== currentPlacement) {
-          saveCommentPreferencesRef.current({
-            ...commentPreferencesRef.current,
-            placement: nextPlacement,
-          });
-          setTimeout(() => commentDragX.setValue(0), 0);
-        } else {
-          commentDragX.setValue(0);
-        }
+      saveCommentPreferencesRef.current({
+        ...current,
+        placement: nextX < 0.34 ? 'bottom_left' : nextX > 0.66 ? 'bottom_right' : 'bottom_center',
+        positionX: nextX,
+        positionY: nextY,
       });
+      commentDragX.setValue(0);
+      commentDragY.setValue(0);
     },
     onPanResponderTerminate: () => {
       if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
       commentLongPressTimer.current = null;
       commentDragActive.current = false;
       setIsDraggingComment(false);
-      Animated.spring(commentDragX, { toValue: 0, useNativeDriver: true }).start();
+      Animated.parallel([
+        Animated.spring(commentDragX, { toValue: 0, useNativeDriver: true }),
+        Animated.spring(commentDragY, { toValue: 0, useNativeDriver: true }),
+      ]).start();
+    },
+  })).current;
+
+  const commentResizeResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      commentResizeStart.current = commentPreferencesRef.current.sizeScale;
+      setIsEditingComment(true);
+    },
+    onPanResponderMove: (_, gesture) => {
+      const next = Math.max(0.72, Math.min(1.28, commentResizeStart.current + (gesture.dx + gesture.dy) / 260));
+      commentScaleRef.current = next;
+      setCommentScale(next);
+    },
+    onPanResponderRelease: () => {
+      const next = commentScaleRef.current;
+      setCommentScale(next);
+      saveCommentPreferencesRef.current({ ...commentPreferencesRef.current, sizeScale: next });
+      Haptics.selectionAsync().catch(() => {});
+    },
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderTerminate: () => {
+      const next = commentScaleRef.current;
+      setCommentScale(next);
+      saveCommentPreferencesRef.current({ ...commentPreferencesRef.current, sizeScale: next });
     },
   })).current;
 
@@ -438,39 +469,79 @@ export default function HomeScreen() {
         {homeComment ? (
           <View
             style={styles.homeCommentArea}
-            onLayout={(event) => { commentAreaWidth.current = event.nativeEvent.layout.width; }}
+            onLayout={(event) => {
+              commentAreaWidth.current = event.nativeEvent.layout.width;
+              setCommentAreaMeasuredWidth(event.nativeEvent.layout.width);
+            }}
           >
-            <View
-              style={[
-                styles.homeComment,
-                homeCommentPreferences.placement === 'bottom_left'
-                  ? styles.homeCommentLeft
-                  : homeCommentPreferences.placement === 'bottom_right'
-                    ? styles.homeCommentRight
-                    : styles.homeCommentCenter,
-              ]}
-            >
+            <View style={styles.homeComment}>
               <Animated.View
                 testID="home-comment-draggable"
                 accessible
                 accessibilityRole="button"
                 accessibilityLabel={homeComment}
-                accessibilityHint="タップでお話し、長押ししたまま左右へ動かすと位置を変更できます"
+                accessibilityHint="タップでお話し、長押ししたまま上下左右へ動かすと位置を変更できます"
                 onAccessibilityTap={() => router.push('/(tabs)/chat')}
-                onLayout={(event) => { commentBubbleWidth.current = event.nativeEvent.layout.width; }}
+                onLayout={(event) => {
+                  commentBubbleWidth.current = event.nativeEvent.layout.width;
+                  setCommentBubbleMeasuredWidth(event.nativeEvent.layout.width);
+                  setCommentBubbleMeasuredHeight(event.nativeEvent.layout.height);
+                }}
                 style={[
                   styles.homeCommentDraggable,
                   isDraggingComment && styles.homeCommentDragging,
-                  { transform: [{ translateX: commentDragX }] },
+                  {
+                    left: 0,
+                    transform: [
+                      {
+                        translateX:
+                          homeCommentPreferences.positionX *
+                          Math.max(0, commentAreaMeasuredWidth - commentBubbleMeasuredWidth),
+                      },
+                      { translateX: commentDragX },
+                      { translateY: homeCommentPreferences.positionY * viewportHeight },
+                      { translateY: commentDragY },
+                    ],
+                  },
                 ]}
                 {...commentPanResponder.panHandlers}
               >
                 <SpeechBubble
                   message={homeComment}
-                  hint={isDraggingComment ? 'そのまま左右へ動かしてね' : 'タップでお話し・長押しで移動'}
+                  hint={isDraggingComment ? 'そのまま上下左右へ動かしてね' : isEditingComment ? '角を動かすとサイズ変更' : 'タップでお話し・長押しで移動'}
                   showHint
+                  sizeScale={commentScale}
                 />
               </Animated.View>
+              {isEditingComment ? (
+                <Animated.View
+                  testID="home-comment-resize-handle"
+                  accessibilityRole="adjustable"
+                  accessibilityLabel="ひとことのサイズを変える"
+                  style={[
+                    styles.commentResizeHandle,
+                    {
+                      left: Math.max(
+                        0,
+                        Math.min(
+                          commentAreaMeasuredWidth - 34,
+                          homeCommentPreferences.positionX *
+                            Math.max(0, commentAreaMeasuredWidth - commentBubbleMeasuredWidth) +
+                            commentBubbleMeasuredWidth -
+                            18,
+                        ),
+                      ),
+                      top: Math.max(0, commentBubbleMeasuredHeight - 28),
+                      transform: [
+                        { translateY: homeCommentPreferences.positionY * viewportHeight },
+                      ],
+                    },
+                  ]}
+                  {...commentResizeResponder.panHandlers}
+                >
+                  <Icon name="maximize-2" size={14} color={colors.primaryForeground} />
+                </Animated.View>
+              ) : null}
             </View>
           </View>
         ) : null}
@@ -821,28 +892,33 @@ const styles = StyleSheet.create({
     zIndex: 35,
     width: '100%',
     minHeight: 78,
-    justifyContent: 'center',
+    position: 'relative',
   },
   homeCommentArea: {
     zIndex: 35,
     width: '100%',
   },
-  homeCommentLeft: {
-    alignItems: 'flex-start',
-  },
-  homeCommentCenter: {
-    alignItems: 'center',
-  },
-  homeCommentRight: {
-    alignItems: 'flex-end',
-  },
   homeCommentDraggable: {
+    position: 'absolute',
+    top: 0,
     cursor: Platform.OS === 'web' ? 'grab' : undefined,
   } as any,
   homeCommentDragging: {
     opacity: 0.9,
     cursor: Platform.OS === 'web' ? 'grabbing' : undefined,
   },
+  commentResizeHandle: {
+    position: 'absolute',
+    width: 34,
+    height: 34,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    borderWidth: 2,
+    borderColor: colors.card,
+    cursor: Platform.OS === 'web' ? 'nwse-resize' : undefined,
+  } as any,
   satietyTrack: { flex: 1, minWidth: 80, height: 7, backgroundColor: homePalette.gaugeTrack, borderRadius: 10, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },
   satietyText: { ...typography.micro, color: colors.foreground, width: 28, textAlign: 'right' },
