@@ -1185,11 +1185,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const saveHomeCommentPreferences = useCallback(async (preferences: HomeCommentPreferences) => {
     const resolved = resolveHomeCommentPreferences(preferences);
+    const commentInputsChanged =
+      resolved.frequency !== homeCommentPreferences.frequency ||
+      resolved.includeRecentChat !== homeCommentPreferences.includeRecentChat;
     setHomeCommentPreferences(resolved);
     await AsyncStorage.setItem(KEYS.HOME_COMMENT_PREFERENCES, JSON.stringify(resolved));
-    await clearHomeCommentCache();
+    if (commentInputsChanged) await clearHomeCommentCache();
     pushDataToCloud();
-  }, [pushDataToCloud]);
+  }, [homeCommentPreferences, pushDataToCloud]);
 
   const setMascotName = useCallback(async (name: string) => {
     setMascotNameState(name);

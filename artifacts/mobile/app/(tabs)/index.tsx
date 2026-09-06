@@ -187,7 +187,7 @@ export default function HomeScreen() {
     completeMiniGame, feedState, growth, getTodayRecord, getCompletedCount, getTotalCheckCount, mascotName,
     miniGameState, progress, setMascotName, currentSatiety,
     roomCustomization, selectRoomItem, buyRoomItem,
-    companionState, buyEggCompanion, homeCommentPreferences,
+    companionState, buyEggCompanion, homeCommentPreferences, saveHomeCommentPreferences,
   } = useApp();
   const { items, shopState } = useItems();
   const todayRecord = getTodayRecord();
@@ -340,21 +340,52 @@ export default function HomeScreen() {
         </View>
 
         {homeComment ? (
-          <View
-            style={[
-              styles.homeComment,
-              homeCommentPreferences.placement === 'bottom_left'
-                ? styles.homeCommentLeft
-                : homeCommentPreferences.placement === 'bottom_right'
-                  ? styles.homeCommentRight
-                  : styles.homeCommentCenter,
-            ]}
-          >
-            <SpeechBubble
-              message={homeComment}
-              hint="タップでお話し"
-              onPress={() => router.push('/(tabs)/chat')}
-            />
+          <View style={styles.homeCommentArea}>
+            <View
+              style={[
+                styles.homeComment,
+                homeCommentPreferences.placement === 'bottom_left'
+                  ? styles.homeCommentLeft
+                  : homeCommentPreferences.placement === 'bottom_right'
+                    ? styles.homeCommentRight
+                    : styles.homeCommentCenter,
+              ]}
+            >
+              <SpeechBubble
+                message={homeComment}
+                hint="タップでお話し"
+                onPress={() => router.push('/(tabs)/chat')}
+              />
+            </View>
+            <View style={styles.homeCommentPlacementControls} accessibilityLabel="ひとことの位置">
+              {([
+                ['bottom_left', '左'],
+                ['bottom_center', '中央'],
+                ['bottom_right', '右'],
+              ] as const).map(([placement, label]) => {
+                const selected = homeCommentPreferences.placement === placement;
+                return (
+                  <PressScale
+                    key={placement}
+                    testID={`home-comment-placement-${placement}`}
+                    accessibilityLabel={`ひとことを${label}に表示`}
+                    accessibilityState={{ selected }}
+                    onPress={() => saveHomeCommentPreferences({
+                      ...homeCommentPreferences,
+                      placement,
+                    })}
+                    style={[styles.homeCommentPlacementButton, selected && styles.homeCommentPlacementButtonSelected]}
+                  >
+                    <Text style={[
+                      styles.homeCommentPlacementText,
+                      selected && styles.homeCommentPlacementTextSelected,
+                    ]}>
+                      {label}
+                    </Text>
+                  </PressScale>
+                );
+              })}
+            </View>
           </View>
         ) : null}
 
@@ -706,6 +737,10 @@ const styles = StyleSheet.create({
     minHeight: 78,
     justifyContent: 'center',
   },
+  homeCommentArea: {
+    zIndex: 35,
+    width: '100%',
+  },
   homeCommentLeft: {
     alignItems: 'flex-start',
   },
@@ -714,6 +749,35 @@ const styles = StyleSheet.create({
   },
   homeCommentRight: {
     alignItems: 'flex-end',
+  },
+  homeCommentPlacementControls: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 3,
+    gap: 2,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.82)',
+    borderWidth: 1,
+    borderColor: homePalette.navBorder,
+  },
+  homeCommentPlacementButton: {
+    minWidth: 44,
+    minHeight: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: space.sm,
+    borderRadius: radius.pill,
+  },
+  homeCommentPlacementButtonSelected: {
+    backgroundColor: homePalette.navActive,
+  },
+  homeCommentPlacementText: {
+    ...typography.micro,
+    color: colors.mutedForeground,
+  },
+  homeCommentPlacementTextSelected: {
+    color: colors.card,
   },
   satietyTrack: { flex: 1, minWidth: 80, height: 7, backgroundColor: homePalette.gaugeTrack, borderRadius: 10, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },
