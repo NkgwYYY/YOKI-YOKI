@@ -17,7 +17,6 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { useApp } from '@/contexts/AppContext';
 import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
-import { ACTIVITY_DEFS } from '@/utils/activities';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
 
@@ -139,16 +138,6 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
     }
   }, [visible]);
 
-  const bumpActivity = (key: string) =>
-    setActivities((prev) => ({ ...prev, [key]: Math.min(99, (prev[key] || 0) + 1) }));
-  const decActivity = (key: string) =>
-    setActivities((prev) => {
-      const n = (prev[key] || 0) - 1;
-      const next = { ...prev };
-      if (n <= 0) delete next[key]; else next[key] = n;
-      return next;
-    });
-
   const scaleValues = { exercise, meal, social };
   const scaleSetters = { exercise: setExercise, meal: setMeal, social: setSocial };
 
@@ -206,39 +195,6 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
           <Text style={styles.editBadgeText}>本日の記録を編集中</Text>
         </View>
       )}
-
-      {/* やったことカウント */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>やったことを教えてね</Text>
-        <Text style={styles.cardHint}>タップで +1（長押しで -1）</Text>
-        <View style={styles.activityGrid}>
-          {ACTIVITY_DEFS.map((a) => {
-            const count = activities[a.key] || 0;
-            const active = count > 0;
-            return (
-              <PressScale
-                key={a.key}
-                onPress={() => bumpActivity(a.key)}
-                onLongPress={() => decActivity(a.key)}
-                accessibilityState={{ selected: active }}
-                style={[styles.activityCell, active && { borderColor: a.color }]}
-              >
-                <Icon
-                  name={a.icon}
-                  size={22}
-                  color={active ? a.color : colors.subtleForeground}
-                />
-                <Text style={styles.activityLabel}>{a.label}</Text>
-                {active && (
-                  <View style={[styles.activityBadge, { backgroundColor: a.color }]}>
-                    <Text style={styles.activityBadgeText}>+{count}</Text>
-                  </View>
-                )}
-              </PressScale>
-            );
-          })}
-        </View>
-      </View>
 
       {/* 気分 */}
       <View style={styles.card}>
@@ -426,7 +382,6 @@ const styles = StyleSheet.create({
     gap: space.md,
   },
   cardTitle: { ...typography.subhead, color: colors.foreground },
-  cardHint: { ...typography.caption, color: colors.mutedForeground, marginTop: -space.sm },
   cardHintCenter: { ...typography.caption, color: colors.mutedForeground, textAlign: 'center' },
 
   /* 選択肢の共通の見せ方。枠の太さは常に 1 なので選んでも行が動かない。 */
@@ -457,31 +412,6 @@ const styles = StyleSheet.create({
   },
   moodResultDot: { width: 8, height: 8, borderRadius: radius.pill },
   moodResultText: { ...typography.calloutStrong },
-
-  /* やったこと */
-  activityGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  activityCell: {
-    flexGrow: 1,
-    flexBasis: '30%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 72,
-    paddingVertical: space.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.muted,
-    ...border.hairline,
-    gap: space.xs,
-  },
-  activityLabel: { ...typography.micro, color: colors.foreground, textAlign: 'center' },
-  activityBadge: {
-    position: 'absolute',
-    top: space.xs,
-    right: space.xs,
-    borderRadius: radius.pill,
-    paddingHorizontal: space.sm,
-    paddingVertical: 1,
-  },
-  activityBadgeText: { ...typography.micro, color: colors.primaryForeground },
 
   /* 睡眠 */
   sleepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
