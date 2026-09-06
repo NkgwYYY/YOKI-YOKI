@@ -339,6 +339,25 @@ export default function HomeScreen() {
           </PressScale>
         </View>
 
+        {homeComment ? (
+          <View
+            style={[
+              styles.homeComment,
+              homeCommentPreferences.placement === 'bottom_left'
+                ? styles.homeCommentLeft
+                : homeCommentPreferences.placement === 'bottom_right'
+                  ? styles.homeCommentRight
+                  : styles.homeCommentCenter,
+            ]}
+          >
+            <SpeechBubble
+              message={homeComment}
+              hint="タップでお話し"
+              onPress={() => router.push('/(tabs)/chat')}
+            />
+          </View>
+        ) : null}
+
         <View style={styles.centerArea}>
           <View style={styles.sceneStack}>
             <View style={styles.actionButtonsContainer}>
@@ -417,15 +436,6 @@ export default function HomeScreen() {
                     {equippedEffect?.assetUrl ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { opacity: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }), transform: [{ scale: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.06] }) }] }]}><Image source={{ uri: resolveItemAssetUrl(equippedEffect.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: characterSize * 1.55 * (effectPlacement?.scale ?? 1), height: characterSize * 1.55 * (effectPlacement?.scale ?? 1), left: (characterFrame - characterSize * 1.55 * (effectPlacement?.scale ?? 1)) / 2 + (effectPlacement?.x ?? 0), top: characterHeight * 0.48 + (effectPlacement?.y ?? 0) }} /></Animated.View> : null}
                   </View>
                   {equippedDecor?.assetUrl ? <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><Image source={{ uri: resolveItemAssetUrl(equippedDecor.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: 64 * (decorPlacement?.scale ?? 1), height: 64 * (decorPlacement?.scale ?? 1), right: 18 - (decorPlacement?.x ?? 0), bottom: 8 - (decorPlacement?.y ?? 0) }} /></View> : null}
-                   {homeComment ? (
-                     <View style={styles.homeComment}>
-                       <SpeechBubble
-                         message={homeComment}
-                         hint="タップでお話し"
-                         onPress={() => router.push('/(tabs)/chat')}
-                       />
-                     </View>
-                   ) : null}
                   {companionState.extraEggs > 0 ? (
                     <View style={styles.companionEgg}>
                       <StageCharacter stage="egg" mood="happy" size={58} growthSize={0.78} />
@@ -691,12 +701,19 @@ const styles = StyleSheet.create({
     borderColor: homePalette.navBorder,
   },
   homeComment: {
-    position: 'absolute',
-    top: 112,
-    left: 24,
-    right: 24,
     zIndex: 35,
+    width: '100%',
+    minHeight: 78,
+    justifyContent: 'center',
+  },
+  homeCommentLeft: {
+    alignItems: 'flex-start',
+  },
+  homeCommentCenter: {
     alignItems: 'center',
+  },
+  homeCommentRight: {
+    alignItems: 'flex-end',
   },
   satietyTrack: { flex: 1, minWidth: 80, height: 7, backgroundColor: homePalette.gaugeTrack, borderRadius: 10, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },

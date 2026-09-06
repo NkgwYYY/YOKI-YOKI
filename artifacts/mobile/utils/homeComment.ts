@@ -12,14 +12,17 @@ export const HOME_COMMENT_PREFERENCES_KEY = '@mentore/home_comment_preferences_v
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
 export type HomeCommentFrequency = 'daily' | 'after_record' | 'quiet' | 'off';
+export type HomeCommentPlacement = 'bottom_left' | 'bottom_center' | 'bottom_right';
 export interface HomeCommentPreferences {
   frequency: HomeCommentFrequency;
   includeRecentChat: boolean;
+  placement: HomeCommentPlacement;
 }
 
 export const DEFAULT_HOME_COMMENT_PREFERENCES: HomeCommentPreferences = {
   frequency: 'daily',
   includeRecentChat: true,
+  placement: 'bottom_center',
 };
 
 export function resolveHomeCommentPreferences(value: unknown): HomeCommentPreferences {
@@ -32,6 +35,10 @@ export function resolveHomeCommentPreferences(value: unknown): HomeCommentPrefer
   return {
     frequency,
     includeRecentChat: raw.includeRecentChat !== false,
+    placement:
+      raw.placement === 'bottom_left' || raw.placement === 'bottom_right'
+        ? raw.placement
+        : 'bottom_center',
   };
 }
 

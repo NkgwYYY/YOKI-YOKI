@@ -16,9 +16,15 @@ interface SpeechBubbleProps {
   message: string;
   onPress?: () => void;
   hint?: string;
+  tailDirection?: 'up' | 'down';
 }
 
-export function SpeechBubble({ message, onPress, hint = 'タップで変更' }: SpeechBubbleProps) {
+export function SpeechBubble({
+  message,
+  onPress,
+  hint = 'タップで変更',
+  tailDirection = 'down',
+}: SpeechBubbleProps) {
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.8);
   const wiggle = useSharedValue(0);
@@ -48,15 +54,23 @@ export function SpeechBubble({ message, onPress, hint = 'タップで変更' }: 
   return (
     <Animated.View style={bubbleStyle}>
       <PressScale onPress={onPress} accessibilityLabel={message}>
+        {tailDirection === 'up' ? (
+          <View style={styles.tailUpWrap}>
+            <View style={styles.tailUpOuter} />
+            <View style={styles.tailUpInner} />
+          </View>
+        ) : null}
         <View style={styles.bubble}>
           <Text style={styles.text}>{message}</Text>
           {onPress && hint ? <Text style={styles.tap}>{hint}</Text> : null}
         </View>
         {/* しっぽ。面と同じ 1px の輪郭を三角形で継ぐ */}
-        <View style={styles.tailWrap}>
-          <View style={styles.tailOuter} />
-          <View style={styles.tailInner} />
-        </View>
+        {tailDirection === 'down' ? (
+          <View style={styles.tailWrap}>
+            <View style={styles.tailOuter} />
+            <View style={styles.tailInner} />
+          </View>
+        ) : null}
       </PressScale>
     </Animated.View>
   );
@@ -65,6 +79,7 @@ export function SpeechBubble({ message, onPress, hint = 'タップで変更' }: 
 const styles = StyleSheet.create({
   // 影は付けない。面は白 + 1px のボーダーだけで背景から浮かせる。
   bubble: {
+    maxWidth: 280,
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
     borderRadius: radius.lg,
@@ -96,5 +111,27 @@ const styles = StyleSheet.create({
     borderRightColor: 'transparent',
     borderTopColor: colors.card,
     marginTop: -9,
+  },
+  tailUpWrap: { alignItems: 'center', marginBottom: -1, zIndex: 1 },
+  tailUpOuter: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 9,
+    borderRightWidth: 9,
+    borderBottomWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: colors.border,
+  },
+  tailUpInner: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderBottomWidth: 8,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: colors.card,
+    marginTop: -8,
   },
 });
