@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Image, Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Animated, Image, PanResponder, Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { border, colors, control, elevation, homePalette, radius, space, typography } from '@/constants/theme';
 import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
@@ -203,6 +204,101 @@ export default function HomeScreen() {
   const [nameInput, setNameInput] = useState('');
   const [shopMessage, setShopMessage] = useState('');
   const [homeComment, setHomeComment] = useState('');
+  const [isDraggingComment, setIsDraggingComment] = useState(false);
+  const commentDragX = useRef(new Animated.Value(0)).current;
+  const commentLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const commentDragActive = useRef(false);
+  const commentAreaWidth = useRef(0);
+  const commentBubbleWidth = useRef(0);
+  const commentPreferencesRef = useRef(homeCommentPreferences);
+  const saveCommentPreferencesRef = useRef(saveHomeCommentPreferences);
+  const openChatRef = useRef(() => router.push('/(tabs)/chat'));
+
+  useEffect(() => {
+    commentPreferencesRef.current = homeCommentPreferences;
+    saveCommentPreferencesRef.current = saveHomeCommentPreferences;
+    openChatRef.current = () => router.push('/(tabs)/chat');
+  }, [homeCommentPreferences, router, saveHomeCommentPreferences]);
+
+  useEffect(() => () => {
+    if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
+  }, []);
+
+  const commentPanResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      commentDragActive.current = false;
+      commentDragX.stopAnimation();
+      commentDragX.setValue(0);
+      if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
+      commentLongPressTimer.current = setTimeout(() => {
+        commentDragActive.current = true;
+        setIsDraggingComment(true);
+        Haptics.selectionAsync().catch(() => {});
+      }, 420);
+    },
+    onPanResponderMove: (_, gesture) => {
+      if (!commentDragActive.current) {
+        if (Math.abs(gesture.dx) > 10 || Math.abs(gesture.dy) > 10) {
+          if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
+          commentLongPressTimer.current = null;
+        }
+        return;
+      }
+      const placementIndex =
+        commentPreferencesRef.current.placement === 'bottom_left'
+          ? 0
+          : commentPreferencesRef.current.placement === 'bottom_right'
+            ? 2
+            : 1;
+      const step = Math.max(24, (commentAreaWidth.current - commentBubbleWidth.current) / 2);
+      const minX = -placementIndex * step;
+      const maxX = (2 - placementIndex) * step;
+      commentDragX.setValue(Math.max(minX, Math.min(maxX, gesture.dx)));
+    },
+    onPanResponderRelease: (_, gesture) => {
+      if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
+      commentLongPressTimer.current = null;
+      if (!commentDragActive.current) {
+        if (Math.abs(gesture.dx) < 10 && Math.abs(gesture.dy) < 10) openChatRef.current();
+        return;
+      }
+
+      const currentPlacement = commentPreferencesRef.current.placement;
+      const currentIndex = currentPlacement === 'bottom_left' ? 0 : currentPlacement === 'bottom_right' ? 2 : 1;
+      const step = Math.max(24, (commentAreaWidth.current - commentBubbleWidth.current) / 2);
+      const nextIndex = Math.max(0, Math.min(2, Math.round(currentIndex + gesture.dx / step)));
+      const nextPlacement = (['bottom_left', 'bottom_center', 'bottom_right'] as const)[nextIndex];
+
+      commentDragActive.current = false;
+      setIsDraggingComment(false);
+      Animated.spring(commentDragX, {
+        toValue: (nextIndex - currentIndex) * step,
+        useNativeDriver: true,
+        stiffness: 360,
+        damping: 30,
+        mass: 0.8,
+      }).start(() => {
+        if (nextPlacement !== currentPlacement) {
+          saveCommentPreferencesRef.current({
+            ...commentPreferencesRef.current,
+            placement: nextPlacement,
+          });
+          setTimeout(() => commentDragX.setValue(0), 0);
+        } else {
+          commentDragX.setValue(0);
+        }
+      });
+    },
+    onPanResponderTerminate: () => {
+      if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
+      commentLongPressTimer.current = null;
+      commentDragActive.current = false;
+      setIsDraggingComment(false);
+      Animated.spring(commentDragX, { toValue: 0, useNativeDriver: true }).start();
+    },
+  })).current;
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -340,7 +436,10 @@ export default function HomeScreen() {
         </View>
 
         {homeComment ? (
-          <View style={styles.homeCommentArea}>
+          <View
+            style={styles.homeCommentArea}
+            onLayout={(event) => { commentAreaWidth.current = event.nativeEvent.layout.width; }}
+          >
             <View
               style={[
                 styles.homeComment,
@@ -351,40 +450,27 @@ export default function HomeScreen() {
                     : styles.homeCommentCenter,
               ]}
             >
-              <SpeechBubble
-                message={homeComment}
-                hint="タップでお話し"
-                onPress={() => router.push('/(tabs)/chat')}
-              />
-            </View>
-            <View style={styles.homeCommentPlacementControls} accessibilityLabel="ひとことの位置">
-              {([
-                ['bottom_left', '左'],
-                ['bottom_center', '中央'],
-                ['bottom_right', '右'],
-              ] as const).map(([placement, label]) => {
-                const selected = homeCommentPreferences.placement === placement;
-                return (
-                  <PressScale
-                    key={placement}
-                    testID={`home-comment-placement-${placement}`}
-                    accessibilityLabel={`ひとことを${label}に表示`}
-                    accessibilityState={{ selected }}
-                    onPress={() => saveHomeCommentPreferences({
-                      ...homeCommentPreferences,
-                      placement,
-                    })}
-                    style={[styles.homeCommentPlacementButton, selected && styles.homeCommentPlacementButtonSelected]}
-                  >
-                    <Text style={[
-                      styles.homeCommentPlacementText,
-                      selected && styles.homeCommentPlacementTextSelected,
-                    ]}>
-                      {label}
-                    </Text>
-                  </PressScale>
-                );
-              })}
+              <Animated.View
+                testID="home-comment-draggable"
+                accessible
+                accessibilityRole="button"
+                accessibilityLabel={homeComment}
+                accessibilityHint="タップでお話し、長押ししたまま左右へ動かすと位置を変更できます"
+                onAccessibilityTap={() => router.push('/(tabs)/chat')}
+                onLayout={(event) => { commentBubbleWidth.current = event.nativeEvent.layout.width; }}
+                style={[
+                  styles.homeCommentDraggable,
+                  isDraggingComment && styles.homeCommentDragging,
+                  { transform: [{ translateX: commentDragX }] },
+                ]}
+                {...commentPanResponder.panHandlers}
+              >
+                <SpeechBubble
+                  message={homeComment}
+                  hint={isDraggingComment ? 'そのまま左右へ動かしてね' : 'タップでお話し・長押しで移動'}
+                  showHint
+                />
+              </Animated.View>
             </View>
           </View>
         ) : null}
@@ -750,34 +836,12 @@ const styles = StyleSheet.create({
   homeCommentRight: {
     alignItems: 'flex-end',
   },
-  homeCommentPlacementControls: {
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 3,
-    gap: 2,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.82)',
-    borderWidth: 1,
-    borderColor: homePalette.navBorder,
-  },
-  homeCommentPlacementButton: {
-    minWidth: 44,
-    minHeight: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: space.sm,
-    borderRadius: radius.pill,
-  },
-  homeCommentPlacementButtonSelected: {
-    backgroundColor: homePalette.navActive,
-  },
-  homeCommentPlacementText: {
-    ...typography.micro,
-    color: colors.mutedForeground,
-  },
-  homeCommentPlacementTextSelected: {
-    color: colors.card,
+  homeCommentDraggable: {
+    cursor: Platform.OS === 'web' ? 'grab' : undefined,
+  } as any,
+  homeCommentDragging: {
+    opacity: 0.9,
+    cursor: Platform.OS === 'web' ? 'grabbing' : undefined,
   },
   satietyTrack: { flex: 1, minWidth: 80, height: 7, backgroundColor: homePalette.gaugeTrack, borderRadius: 10, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },

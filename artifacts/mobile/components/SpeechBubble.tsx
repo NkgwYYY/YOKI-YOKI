@@ -16,6 +16,7 @@ interface SpeechBubbleProps {
   message: string;
   onPress?: () => void;
   hint?: string;
+  showHint?: boolean;
   tailDirection?: 'up' | 'down';
 }
 
@@ -23,6 +24,7 @@ export function SpeechBubble({
   message,
   onPress,
   hint = 'タップで変更',
+  showHint,
   tailDirection = 'down',
 }: SpeechBubbleProps) {
   const opacity = useSharedValue(0);
@@ -62,7 +64,7 @@ export function SpeechBubble({
         ) : null}
         <View style={styles.bubble}>
           <Text style={styles.text}>{message}</Text>
-          {onPress && hint ? <Text style={styles.tap}>{hint}</Text> : null}
+          {(showHint ?? !!onPress) && hint ? <Text style={styles.tap}>{hint}</Text> : null}
         </View>
         {/* しっぽ。面と同じ 1px の輪郭を三角形で継ぐ */}
         {tailDirection === 'down' ? (
