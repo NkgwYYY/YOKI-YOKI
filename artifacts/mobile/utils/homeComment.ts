@@ -1,5 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { DailyRecord } from '@/contexts/AppContext';
+import {
+  buildHomeCommentCacheSource,
+  getHomeCommentTimeOfDay,
+  type HomeCommentTimeOfDay,
+} from '@/utils/homeCommentTiming';
 
 const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
 const HOME_COMMENT_KEY = '@mentore/home_comment_v1';
@@ -7,7 +12,6 @@ export const HOME_COMMENT_PREFERENCES_KEY = '@mentore/home_comment_preferences_v
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
 export type HomeCommentFrequency = 'daily' | 'after_record' | 'quiet' | 'off';
-
 export interface HomeCommentPreferences {
   frequency: HomeCommentFrequency;
   includeRecentChat: boolean;
@@ -96,12 +100,33 @@ async function loadRecentChat(): Promise<string> {
   }
 }
 
-function fallbackComment(record: DailyRecord | undefined, completed: number): string {
-  if (record?.win?.trim()) return `きょうもおつかれさま！「${record.win.trim().slice(0, 24)}」、いい感じだね`;
-  if (completed > 0) return `きょうもおつかれさま！${completed}こ進められたね`;
-  if (record && record.mood <= 2) return 'きょうもおつかれさま。今夜はのんびりしよ';
-  if (record && record.sleep < 6) return 'きょうもおつかれさま。今日は早めにひと休みしよ';
-  return 'きょうもおつかれさま！今日はどんな一日だった？';
+function fallbackComment(
+  record: DailyRecord | undefined,
+  completed: number,
+  timeOfDay: HomeCommentTimeOfDay
+): string {
+  if (record?.win?.trim()) {
+    const lead = timeOfDay === 'morning' ? '朝からいい感じ！' : 'きょうもおつかれさま！';
+    return `${lead}「${record.win.trim().slice(0, 24)}」、いいね`;
+  }
+  if (completed > 0) {
+    const lead = timeOfDay === 'morning' ? '朝から' : 'きょうも';
+    return `${lead}${completed}こ進められたね`;
+  }
+  if (record && record.mood <= 2) {
+    return timeOfDay === 'night'
+      ? 'きょうもおつかれさま。今夜はのんびりしよ'
+      : '今日はゆっくりペースでいこ';
+  }
+  if (record && record.sleep < 6) {
+    return timeOfDay === 'night'
+      ? '眠い日は早めにひと休みしよ'
+      : '眠い日は、ひと息つきながらいこ';
+  }
+  if (timeOfDay === 'morning') return 'おはよう！ゆっくり始めていこ';
+  if (timeOfDay === 'daytime') return 'ひと息ついて、午後も自分のペースでいこ';
+  if (timeOfDay === 'evening') return '夕方までおつかれさま。ちょっとひと息つこ';
+  return 'きょうもおつかれさま。今夜はのんびりしよ';
 }
 
 export async function getHomeComment(params: {
@@ -122,9 +147,18 @@ export async function getHomeComment(params: {
 
   const context = buildRecordContext(params.record, params.completed, params.total);
   const recentChat = preferences.includeRecentChat ? await loadRecentChat() : '';
-  const source = `${params.date}\n${params.mascotName}\n${preferences.frequency}\n${preferences.includeRecentChat}`;
+  const timeOfDay = getHomeCommentTimeOfDay();
+  const source = buildHomeCommentCacheSource({
+    date: params.date,
+    mascotName: params.mascotName,
+    frequency: preferences.frequency,
+    includeRecentChat: preferences.includeRecentChat,
+    timeOfDay,
+    context,
+    recentChat,
+  });
   const fingerprint = shortHash(
-    preferences.frequency === 'after_record' ? `${source}\n${context}\n${recentChat}` : source
+    source
   );
 
   try {
@@ -148,6 +182,7 @@ export async function getHomeComment(params: {
         mascotName: params.mascotName || 'こころん',
         context: context || undefined,
         recentChat: recentChat || undefined,
+        timeOfDay,
       }),
     });
     if (response.ok) {
@@ -158,7 +193,7 @@ export async function getHomeComment(params: {
     // The local fallback below keeps the character conversational offline.
   }
 
-  if (!comment) comment = fallbackComment(params.record, params.completed);
+  if (!comment) comment = fallbackComment(params.record, params.completed, timeOfDay);
   await AsyncStorage.setItem(HOME_COMMENT_KEY, JSON.stringify({
     date: params.date,
     fingerprint,
