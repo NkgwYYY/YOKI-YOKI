@@ -43,14 +43,14 @@ logical_id = "17f4e497-947f-4e65-8c99-39342b88e042"
 id = "RfuKLm343ItCa7GtkW_OD"
 uri = "file://app-store-assets/YOKI-YOKI-App-Store-Screenshots-1242x2688.zip"
 type = "unspecified"
-title = "修正版 App Storeスクリーンショット10枚"
-description = "修正版ホーム画像を反映した提出用ZIPです。"
+title = "YOKI YOKI App Storeスクリーンショット"
+description = "App Store提出用のメインスクリーンショット10枚（1242×2688px、ZIP）"
 logical_id = "ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0"
 content_hash = "sha256:89d45297add6ef694f44512e1996e44c79199ea7395aa29e636d8983acb1acfb"
 size = 2942460
 mtime_ms = 1788518907576
-storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0/52bc0477-50a3-4f24-8515-b1e7d575dc25"
-storage_version_token = "1788518947586048"
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/ce1c928d-0a5f-456a-a4ff-29e2ebac1ac0/49c7021b-37bd-4c30-afb7-1edb8a8a007b"
+storage_version_token = "1788672545751175"
 content_type = "application/octet-stream"
 
 [[outputs]]
@@ -141,14 +141,14 @@ content_type = "image/jpeg"
 id = "hdk93xVU1HvaLQegB6Fd9"
 uri = "file://app-store-assets/YOKI-YOKI-Additional-Screenshots-1242x2688.zip"
 type = "unspecified"
-title = "更新版 追加スクリーンショット5枚"
-description = "音ゲー画像を追加した1242 × 2688pxのZIPです。"
+title = "YOKI YOKI 追加スクリーンショット"
+description = "ゲームやお世話画面を含む追加スクリーンショット5枚（1242×2688px、ZIP）"
 logical_id = "14d39b9a-3de0-4566-9676-f3f838f73ded"
 content_hash = "sha256:b865c2402c146306c8af87bfdab3b00b3ef8662d36b37f30f253408e5ec254cc"
 size = 945768
 mtime_ms = 1788518150047
-storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/14d39b9a-3de0-4566-9676-f3f838f73ded/0a6b2d98-4a57-49c8-ace0-66e94daf7f23"
-storage_version_token = "1788518177962593"
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/14d39b9a-3de0-4566-9676-f3f838f73ded/989906ce-e381-4cfe-9ece-935922f7d2b3"
+storage_version_token = "1788672547050756"
 content_type = "application/octet-stream"
 
 [[outputs]]
