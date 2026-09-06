@@ -32,16 +32,16 @@ import { getHomeComment } from '@/utils/homeComment';
 
 const FURNITURE_OPTIONS: { id: RoomFurniture; name: string; cost: number }[] = [
   { id: 'none', name: '置かない', cost: 0 },
-  { id: 'sofa', name: 'ソファ', cost: 120 },
-  { id: 'vanity', name: 'ドレッサー', cost: 180 },
-  { id: 'bookshelf', name: '本棚', cost: 260 },
+  { id: 'sofa', name: 'ソファ', cost: 450 },
+  { id: 'vanity', name: 'ドレッサー', cost: 650 },
+  { id: 'bookshelf', name: '本棚', cost: 900 },
 ];
 
 const FLOWER_OPTIONS: { id: RoomFlower; name: string; cost: number }[] = [
   { id: 'none', name: '置かない', cost: 0 },
-  { id: 'pink', name: 'ローズ', cost: 70 },
-  { id: 'violet', name: 'バイオレット', cost: 90 },
-  { id: 'rainbow', name: 'レインボー', cost: 140 },
+  { id: 'pink', name: 'ローズ', cost: 250 },
+  { id: 'violet', name: 'バイオレット', cost: 350 },
+  { id: 'rainbow', name: 'レインボー', cost: 550 },
 ];
 
 const ACTION_TONES = {

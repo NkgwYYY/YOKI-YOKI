@@ -22,6 +22,7 @@ type EquipCategory = (typeof equipCategories)[number];
 function catalogGroup(
   category: ItemCategory,
   baseCost: number,
+  costStep: number,
   entries: ReadonlyArray<readonly [string, string]>,
   placement = { posX: 0, posY: 0, scale: 1 },
 ) {
@@ -29,7 +30,7 @@ function catalogGroup(
     id: `catalog-${slug}`,
     name,
     category,
-    cost: baseCost + (index % 4) * 20,
+    cost: baseCost + index * costStep,
     assetUrl: `/api/item-assets/${slug}.${category === "voice" ? "mp3" : "png"}`,
     ...placement,
     isActive: true,
@@ -37,35 +38,35 @@ function catalogGroup(
 }
 
 const starterItems = [
-  { id: "starter-moon-ribbon", name: "赤いちいさなリボン", category: "accessory" as const, cost: 80, assetUrl: "/api/item-assets/moon-ribbon-premium.png", posX: 48, posY: 61, scale: 1, isActive: true },
-  ...catalogGroup("accessory", 100, [
+  { id: "starter-moon-ribbon", name: "赤いちいさなリボン", category: "accessory" as const, cost: 250, assetUrl: "/api/item-assets/moon-ribbon-premium.png", posX: 48, posY: 61, scale: 1, isActive: true },
+  ...catalogGroup("accessory", 500, 75, [
     ["effect-soft-aura", "ふわふわオーラ"],
     ["effect-rainbow-aura", "レインボーオーラ"],
     ["effect-water-aura", "しずくオーラ"],
     ["effect-flower-aura", "お花オーラ"],
     ["effect-heart-aura", "ハートオーラ"],
   ], { posX: 0, posY: 0, scale: 1.25 }),
-  ...catalogGroup("background", 100, [
+  ...catalogGroup("background", 600, 100, [
     ["bg-rainbow-hill", "虹の丘"],
     ["bg-sakura-park", "桜が舞う公園"],
     ["bg-sunset-beach", "海辺の夕暮れ"],
     ["bg-candy-room", "お菓子のお部屋"],
     ["bg-secret-base", "秘密基地"],
   ]),
-  ...catalogGroup("accessory", 60, [
+  ...catalogGroup("accessory", 300, 60, [
     ["wear-crown", "王冠"],
     ["wear-cat-ears", "ねこ耳"],
     ["wear-round-glasses", "丸メガネ"],
     ["wear-headphones", "ヘッドホン"],
   ], { posX: 35, posY: -70, scale: 0.45 }),
-  ...catalogGroup("accessory", 70, [
+  ...catalogGroup("accessory", 350, 75, [
     ["decor-plush", "小さなぬいぐるみ"],
     ["decor-cushion", "クッション"],
     ["decor-plant", "観葉植物"],
     ["decor-picture-book", "絵本"],
     ["decor-small-pet", "小さなペット"],
   ], { posX: 75, posY: 105, scale: 0.48 }),
-  ...catalogGroup("voice", 80, [
+  ...catalogGroup("voice", 280, 60, [
     ["voice-welcome-home", "「おかえり」"],
     ["voice-good-work", "「今日もおつかれさま」"],
     ["voice-all-right", "「だいじょうぶ」"],
@@ -85,10 +86,27 @@ const starterItems = [
   return { ...item, ...wearablePlacement[item.id], assetUrl: premiumAsset };
 });
 
-async function ensureStarterItems(): Promise<void> {
-  await db.insert(items).values(starterItems).onConflictDoNothing();
-  // Keep legacy ownership rows intact, but permanently remove shop food from sale.
-  await db.update(items).set({ isActive: false }).where(eq(items.category, "food"));
+let starterItemsReady: Promise<void> | null = null;
+
+function ensureStarterItems(): Promise<void> {
+  if (!starterItemsReady) {
+    starterItemsReady = (async () => {
+      await db.insert(items).values(starterItems).onConflictDoNothing();
+      // Migrate only the original low starter prices. Prices later adjusted in the
+      // admin tool stay untouched because they no longer match this legacy range.
+      for (const item of starterItems) {
+        await db.update(items)
+          .set({ cost: item.cost })
+          .where(and(eq(items.id, item.id), sql`${items.cost} <= 160`));
+      }
+      // Keep legacy ownership rows intact, but permanently remove shop food from sale.
+      await db.update(items).set({ isActive: false }).where(eq(items.category, "food"));
+    })().catch((error) => {
+      starterItemsReady = null;
+      throw error;
+    });
+  }
+  return starterItemsReady;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
