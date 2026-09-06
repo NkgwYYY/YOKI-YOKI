@@ -53,27 +53,37 @@ export function SpeechBubble({
     ],
   }));
 
+  const content = (
+    <>
+      {tailDirection === 'up' ? (
+        <View style={styles.tailUpWrap}>
+          <View style={styles.tailUpOuter} />
+          <View style={styles.tailUpInner} />
+        </View>
+      ) : null}
+      <View style={styles.bubble}>
+        <Text style={styles.text}>{message}</Text>
+        {(showHint ?? !!onPress) && hint ? <Text style={styles.tap}>{hint}</Text> : null}
+      </View>
+      {/* しっぽ。面と同じ 1px の輪郭を三角形で継ぐ */}
+      {tailDirection === 'down' ? (
+        <View style={styles.tailWrap}>
+          <View style={styles.tailOuter} />
+          <View style={styles.tailInner} />
+        </View>
+      ) : null}
+    </>
+  );
+
   return (
     <Animated.View style={bubbleStyle}>
-      <PressScale onPress={onPress} accessibilityLabel={message}>
-        {tailDirection === 'up' ? (
-          <View style={styles.tailUpWrap}>
-            <View style={styles.tailUpOuter} />
-            <View style={styles.tailUpInner} />
-          </View>
-        ) : null}
-        <View style={styles.bubble}>
-          <Text style={styles.text}>{message}</Text>
-          {(showHint ?? !!onPress) && hint ? <Text style={styles.tap}>{hint}</Text> : null}
-        </View>
-        {/* しっぽ。面と同じ 1px の輪郭を三角形で継ぐ */}
-        {tailDirection === 'down' ? (
-          <View style={styles.tailWrap}>
-            <View style={styles.tailOuter} />
-            <View style={styles.tailInner} />
-          </View>
-        ) : null}
-      </PressScale>
+      {onPress ? (
+        <PressScale onPress={onPress} accessibilityLabel={message}>
+          {content}
+        </PressScale>
+      ) : (
+        <View pointerEvents="none">{content}</View>
+      )}
     </Animated.View>
   );
 }
