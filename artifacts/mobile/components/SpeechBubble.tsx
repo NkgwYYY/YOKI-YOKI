@@ -15,9 +15,10 @@ import { PressScale } from '@/components/ui/PressScale';
 interface SpeechBubbleProps {
   message: string;
   onPress?: () => void;
+  hint?: string;
 }
 
-export function SpeechBubble({ message, onPress }: SpeechBubbleProps) {
+export function SpeechBubble({ message, onPress, hint = 'タップで変更' }: SpeechBubbleProps) {
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.8);
   const wiggle = useSharedValue(0);
@@ -49,7 +50,7 @@ export function SpeechBubble({ message, onPress }: SpeechBubbleProps) {
       <PressScale onPress={onPress} accessibilityLabel={message}>
         <View style={styles.bubble}>
           <Text style={styles.text}>{message}</Text>
-          <Text style={styles.tap}>タップで変更</Text>
+          {onPress && hint ? <Text style={styles.tap}>{hint}</Text> : null}
         </View>
         {/* しっぽ。面と同じ 1px の輪郭を三角形で継ぐ */}
         <View style={styles.tailWrap}>

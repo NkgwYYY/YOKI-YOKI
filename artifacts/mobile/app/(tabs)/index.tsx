@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Image, Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { border, colors, control, elevation, homePalette, radius, space, typography } from '@/constants/theme';
@@ -12,6 +12,7 @@ import { Screen } from '@/components/ui/Screen';
 import { FeedModal } from '@/components/FeedModal';
 import { MiniGameModal } from '@/components/MiniGameModal';
 import { StageCharacter } from '@/components/StageCharacter';
+import { SpeechBubble } from '@/components/SpeechBubble';
 import {
   EGG_COMPANION_COST,
   useApp,
@@ -27,6 +28,7 @@ import { GameBoardIllustration } from '@/components/ui/Illustrations';
 import { HomeSkyBackdrop } from '@/components/SkyBackground';
 import { resolveItemAssetUrl, useItems } from '@/contexts/ItemContext';
 import { Audio } from 'expo-av';
+import { getHomeComment } from '@/utils/homeComment';
 
 const FURNITURE_OPTIONS: { id: RoomFurniture; name: string; cost: number }[] = [
   { id: 'none', name: '置かない', cost: 0 },
@@ -182,13 +184,15 @@ function AtelierOption({
 export default function HomeScreen() {
   const router = useRouter();
   const {
-    completeMiniGame, feedState, growth, getTodayRecord, mascotName,
+    completeMiniGame, feedState, growth, getTodayRecord, getCompletedCount, getTotalCheckCount, mascotName,
     miniGameState, progress, setMascotName, currentSatiety,
     roomCustomization, selectRoomItem, buyRoomItem,
     companionState, buyEggCompanion,
   } = useApp();
   const { items, shopState } = useItems();
   const todayRecord = getTodayRecord();
+  const completedCount = getCompletedCount();
+  const totalCheckCount = getTotalCheckCount();
   const { height: viewportHeight } = useWindowDimensions();
 
   const [showMenu, setShowMenu] = useState(false);
@@ -198,6 +202,21 @@ export default function HomeScreen() {
   const [showAtelier, setShowAtelier] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [shopMessage, setShopMessage] = useState('');
+  const [homeComment, setHomeComment] = useState('');
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getHomeComment({
+      date: getTodayDate(),
+      mascotName: mascotName || 'こころん',
+      record: todayRecord,
+      completed: completedCount,
+      total: totalCheckCount,
+    }).then((comment) => {
+      if (active) setHomeComment(comment);
+    });
+    return () => { active = false; };
+  }, [mascotName, todayRecord, completedCount, totalCheckCount]));
 
   const currentSlot = getCurrentSlot();
   const slotPlays = currentSlot ? miniGameState[currentSlot] ?? 0 : MAX_PLAYS_PER_SLOT;
@@ -397,6 +416,15 @@ export default function HomeScreen() {
                     {equippedEffect?.assetUrl ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { opacity: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }), transform: [{ scale: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.06] }) }] }]}><Image source={{ uri: resolveItemAssetUrl(equippedEffect.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: characterSize * 1.55 * (effectPlacement?.scale ?? 1), height: characterSize * 1.55 * (effectPlacement?.scale ?? 1), left: (characterFrame - characterSize * 1.55 * (effectPlacement?.scale ?? 1)) / 2 + (effectPlacement?.x ?? 0), top: characterHeight * 0.48 + (effectPlacement?.y ?? 0) }} /></Animated.View> : null}
                   </View>
                   {equippedDecor?.assetUrl ? <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><Image source={{ uri: resolveItemAssetUrl(equippedDecor.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: 64 * (decorPlacement?.scale ?? 1), height: 64 * (decorPlacement?.scale ?? 1), right: 18 - (decorPlacement?.x ?? 0), bottom: 8 - (decorPlacement?.y ?? 0) }} /></View> : null}
+                   {homeComment ? (
+                     <View style={styles.homeComment}>
+                       <SpeechBubble
+                         message={homeComment}
+                         hint="タップでお話し"
+                         onPress={() => router.push('/(tabs)/chat')}
+                       />
+                     </View>
+                   ) : null}
                   {companionState.extraEggs > 0 ? (
                     <View style={styles.companionEgg}>
                       <StageCharacter stage="egg" mood="happy" size={58} growthSize={0.78} />
@@ -659,6 +687,14 @@ const styles = StyleSheet.create({
     minHeight: 38,
     borderWidth: 1,
     borderColor: homePalette.navBorder,
+  },
+  homeComment: {
+    position: 'absolute',
+    top: 112,
+    left: 24,
+    right: 24,
+    zIndex: 35,
+    alignItems: 'center',
   },
   satietyTrack: { flex: 1, minWidth: 80, height: 7, backgroundColor: homePalette.gaugeTrack, borderRadius: 10, overflow: 'hidden' },
   satietyFill: { height: '100%', borderRadius: 3 },
