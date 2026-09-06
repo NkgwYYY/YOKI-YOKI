@@ -221,16 +221,14 @@ export default function HomeScreen() {
   const viewportHeightRef = useRef(viewportHeight);
   const commentPreferencesRef = useRef(homeCommentPreferences);
   const saveCommentPreferencesRef = useRef(saveHomeCommentPreferences);
-  const openChatRef = useRef(() => router.push('/(tabs)/chat'));
 
   useEffect(() => {
     commentPreferencesRef.current = homeCommentPreferences;
     setCommentScale(homeCommentPreferences.sizeScale);
     commentScaleRef.current = homeCommentPreferences.sizeScale;
     saveCommentPreferencesRef.current = saveHomeCommentPreferences;
-    openChatRef.current = () => router.push('/(tabs)/chat');
     viewportHeightRef.current = viewportHeight;
-  }, [homeCommentPreferences, router, saveHomeCommentPreferences, viewportHeight]);
+  }, [homeCommentPreferences, saveHomeCommentPreferences, viewportHeight]);
 
   useEffect(() => () => {
     if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
@@ -255,11 +253,15 @@ export default function HomeScreen() {
     },
     onPanResponderMove: (_, gesture) => {
       if (!commentDragActive.current) {
-        if (Math.abs(gesture.dx) > 10 || Math.abs(gesture.dy) > 10) {
+        if (Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4) {
           if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
           commentLongPressTimer.current = null;
+          commentDragActive.current = true;
+          setIsEditingComment(true);
+          setIsDraggingComment(true);
+        } else {
+          return;
         }
-        return;
       }
       const travelX = Math.max(1, commentAreaWidth.current - commentBubbleWidth.current);
       const currentX = commentPreferencesRef.current.positionX * travelX;
@@ -273,7 +275,7 @@ export default function HomeScreen() {
       if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
       commentLongPressTimer.current = null;
       if (!commentDragActive.current) {
-        if (Math.abs(gesture.dx) < 10 && Math.abs(gesture.dy) < 10) openChatRef.current();
+        setIsEditingComment(true);
         return;
       }
 
@@ -478,10 +480,10 @@ export default function HomeScreen() {
               <Animated.View
                 testID="home-comment-draggable"
                 accessible
-                accessibilityRole="button"
+                accessibilityRole="adjustable"
                 accessibilityLabel={homeComment}
-                accessibilityHint="タップでお話し、長押ししたまま上下左右へ動かすと位置を変更できます"
-                onAccessibilityTap={() => router.push('/(tabs)/chat')}
+                accessibilityHint="タップして調整を表示し、そのまま上下左右へドラッグすると位置を変更できます"
+                onAccessibilityTap={() => setIsEditingComment(true)}
                 onLayout={(event) => {
                   commentBubbleWidth.current = event.nativeEvent.layout.width;
                   setCommentBubbleMeasuredWidth(event.nativeEvent.layout.width);
@@ -508,7 +510,7 @@ export default function HomeScreen() {
               >
                 <SpeechBubble
                   message={homeComment}
-                  hint={isDraggingComment ? 'そのまま上下左右へ動かしてね' : isEditingComment ? '角を動かすとサイズ変更' : 'タップでお話し・長押しで移動'}
+                  hint={isDraggingComment ? 'そのまま上下左右へ動かしてね' : isEditingComment ? 'ドラッグで移動・角でサイズ変更' : 'タップして位置とサイズを調整'}
                   showHint
                   sizeScale={commentScale}
                 />
