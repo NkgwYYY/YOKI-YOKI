@@ -21,3 +21,4 @@
 - [Energy-charge world](energy-charge-world.md) — the character is the energy source; never reintroduce solar, power-plant, sunshine, or electricity-selling motifs.
 - [YOKI points and food](yoki-points-food-policy.md) — call the shared balance YOKIポイント; shop food is retired, while hunger-feeding food remains.
 - [RN-web movable overlays](rn-web-movable-overlays.md) — translate from a fixed layout origin; isolate resize handles from parent responders and persist both release and termination.
+- [RN-web destructive confirmations](rn-web-destructive-confirmations.md) — do not depend on Alert.alert button callbacks on web; use an in-app dialog for destructive actions.

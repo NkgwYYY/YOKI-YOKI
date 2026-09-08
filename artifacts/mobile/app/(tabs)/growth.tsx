@@ -94,6 +94,7 @@ export default function GrowthScreen() {
   const { user, isSignedIn, logout, deleteAccount } = useAuth();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleLogout = async () => {
@@ -103,32 +104,24 @@ export default function GrowthScreen() {
   };
 
   const confirmDeleteAccount = () => {
-    Alert.alert(
-      'アカウントを削除',
-      '記録、進捗、所持アイテムを含むすべてのデータが完全に削除され、元に戻せません。',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: '完全に削除する',
-          style: 'destructive',
-          onPress: async () => {
-            setDeletingAccount(true);
-            try {
-              await deleteAccount();
-              setShowLogout(false);
-              await reloadAppAsync();
-            } catch (error) {
-              Alert.alert(
-                '削除できませんでした',
-                error instanceof Error ? error.message : '時間をおいてもう一度お試しください',
-              );
-            } finally {
-              setDeletingAccount(false);
-            }
-          },
-        },
-      ],
-    );
+    setShowLogout(false);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      await deleteAccount();
+      setShowDeleteConfirm(false);
+      await reloadAppAsync();
+    } catch (error) {
+      Alert.alert(
+        '削除できませんでした',
+        error instanceof Error ? error.message : '時間をおいてもう一度お試しください',
+      );
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
@@ -281,6 +274,39 @@ export default function GrowthScreen() {
             </>
           )}
           <Button label="キャンセル" variant="ghost" onPress={() => setShowLogout(false)} />
+        </CenterDialog>
+
+        <CenterDialog
+          visible={showDeleteConfirm}
+          onClose={() => {
+            if (!deletingAccount) setShowDeleteConfirm(false);
+          }}
+        >
+          <View style={styles.dialogHead}>
+            <Icon name="trash-2" size={32} color={colors.danger} />
+            <Text style={styles.dialogTitle}>アカウントを削除</Text>
+          </View>
+          <Text style={styles.dialogBody}>
+            記録、進捗、所持アイテム、ログイン情報を含むすべてのデータを完全に削除します。
+          </Text>
+          <Text style={styles.deleteConfirmWarning}>
+            この操作は取り消せません。
+          </Text>
+          <Button
+            label={deletingAccount ? '削除しています…' : '完全に削除する'}
+            onPress={handleDeleteAccount}
+            loading={deletingAccount}
+            disabled={deletingAccount}
+            icon="trash-2"
+            testID="confirm-delete-account-button"
+            style={styles.deleteConfirmButton}
+          />
+          <Button
+            label="キャンセル"
+            variant="ghost"
+            disabled={deletingAccount}
+            onPress={() => setShowDeleteConfirm(false)}
+          />
         </CenterDialog>
 
         {/* Level Card */}
@@ -773,5 +799,14 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.danger,
     textDecorationLine: 'underline',
+  },
+  deleteConfirmWarning: {
+    ...typography.bodyStrong,
+    color: colors.danger,
+    textAlign: 'center',
+  },
+  deleteConfirmButton: {
+    backgroundColor: colors.danger,
+    borderColor: colors.danger,
   },
 });
