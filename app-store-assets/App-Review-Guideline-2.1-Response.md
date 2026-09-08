@@ -46,9 +46,13 @@ The deletion flow includes a destructive confirmation and permanently removes th
 
 ### 1. Physical-device screen recording
 
-Screen recording URL: https://youtube.com/shorts/j0v60OzOEIk?si=P2aNPIIvTP_w-tOO
+Main app walkthrough:
+https://youtube.com/shorts/j0v60OzOEIk?si=P2aNPIIvTP_w-tOO
 
-The recording was captured on [IPHONE MODEL] running [IOS VERSION]. It begins with launching the app and demonstrates the typical user flow, including onboarding, mood and sleep recording, AI chat, growth/history, the YOKI Points shop, account registration/login, and in-app account deletion.
+Account deletion demonstration:
+https://youtube.com/shorts/xu5axJt2tJ8?si=-_eUjo7yjLtRx75d
+
+The recordings were captured on [IPHONE MODEL] running [IOS VERSION]. The main walkthrough demonstrates the typical user flow, including launching the app, onboarding, mood and sleep recording, AI chat, growth/history, and the YOKI Points shop. The separate account deletion recording demonstrates the complete in-app deletion flow, including the destructive confirmation and return to the initial state after deletion.
 
 ### 2. App purpose and target audience
 
@@ -113,4 +117,8 @@ External services: Clerk (authentication), OpenAI via Replit AI Integrations (AI
 
 Features are consistent across all regions; the UI and AI responses are in Japanese. The app is for general wellness and self-reflection and is not a medical diagnosis or treatment service.
 
-Physical-device recording: https://youtube.com/shorts/j0v60OzOEIk?si=P2aNPIIvTP_w-tOO
+Main physical-device walkthrough:
+https://youtube.com/shorts/j0v60OzOEIk?si=P2aNPIIvTP_w-tOO
+
+Account deletion demonstration:
+https://youtube.com/shorts/xu5axJt2tJ8?si=-_eUjo7yjLtRx75d
