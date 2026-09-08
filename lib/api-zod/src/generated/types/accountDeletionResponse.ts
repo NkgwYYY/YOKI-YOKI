@@ -6,6 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export * from './accountDeletionResponse';
-export * from './apiError';
-export * from './healthStatus';
+export interface AccountDeletionResponse {
+  ok: boolean;
+}

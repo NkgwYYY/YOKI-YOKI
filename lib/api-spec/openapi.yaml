@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: account
+    description: Account and user data operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /account:
+    delete:
+      operationId: deleteAccount
+      tags: [account]
+      summary: Delete the authenticated user's account data
+      description: Permanently removes the authenticated user's app data. The client then removes the Clerk identity.
+      responses:
+        "200":
+          description: Account data deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountDeletionResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "500":
+          description: Account data deletion failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +60,18 @@ components:
           type: string
       required:
         - status
+    AccountDeletionResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
 

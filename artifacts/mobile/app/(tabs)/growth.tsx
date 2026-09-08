@@ -269,6 +269,7 @@ export default function GrowthScreen() {
               <PressScale
                 onPress={confirmDeleteAccount}
                 disabled={deletingAccount}
+                testID="delete-account-button"
                 accessibilityLabel="アカウントを完全に削除"
                 style={styles.deleteAccountBtn}
               >
