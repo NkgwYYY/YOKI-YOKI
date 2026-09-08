@@ -242,3 +242,17 @@ mtime_ms = 1788585320118
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/6829d6ea-e8c3-4919-bdbc-df7cdf86c774/49445b35-0742-49a1-b660-a1449a35381f"
 storage_version_token = "1788585378702128"
 content_type = "image/png"
+
+[[outputs]]
+id = "k8Oy5gdkqGSdGrPmdenrs"
+uri = "file://app-store-assets/App-Review-Guideline-2.1-Response.md"
+type = "text"
+title = "App Review Guideline 2.1 対応資料"
+description = "実機画面収録の台本、App Reviewへの英語返信文、App Review InformationのNotes用短縮文をまとめています。"
+logical_id = "e12c6baf-2abb-4a9c-b594-78181427b7eb"
+content_hash = "sha256:7c66be3f63da4166b4face730aa0b17b0863ae8b4d1926cd5b9de10da38c0459"
+size = 7608
+mtime_ms = 1788838261003
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:8b4577e3-38af-444f-b14f-422f2a925e4e/e12c6baf-2abb-4a9c-b594-78181427b7eb/0808c493-d71d-48f9-aa85-0091eb2c1f32"
+storage_version_token = "1788838356393953"
+content_type = "text/markdown"

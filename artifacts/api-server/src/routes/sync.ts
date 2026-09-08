@@ -1,5 +1,10 @@
 import { Router } from "express";
-import { db, userData } from "@workspace/db";
+import {
+  db,
+  userData,
+  userItemEquipment,
+  userItemInventory,
+} from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../lib/auth";
 
@@ -56,6 +61,23 @@ syncRouter.put("/sync", requireAuth, async (req: AuthRequest, res) => {
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "同期に失敗しました" });
+  }
+});
+
+// DELETE /api/account — remove all app-owned data before the client deletes
+// the Clerk identity. Keeping this authenticated makes deletion self-service
+// while preventing one user from deleting another user's records.
+syncRouter.delete("/account", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.userId!;
+    await db.transaction(async (tx) => {
+      await tx.delete(userItemEquipment).where(eq(userItemEquipment.userId, userId));
+      await tx.delete(userItemInventory).where(eq(userItemInventory.userId, userId));
+      await tx.delete(userData).where(eq(userData.userId, userId));
+    });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: "アカウントデータの削除に失敗しました" });
   }
 });
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { reloadAppAsync } from 'expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -90,14 +91,44 @@ export default function GrowthScreen() {
     const t = setTimeout(() => { markGrowthSeen(); }, 3000);
     return () => clearTimeout(t);
   }, [growth.growthSize]);
-  const { user, isSignedIn, logout } = useAuth();
+  const { user, isSignedIn, logout, deleteAccount } = useAuth();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleLogout = async () => {
     setShowLogout(false);
     await logout();
     router.replace('/login');
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'アカウントを削除',
+      '記録、進捗、所持アイテムを含むすべてのデータが完全に削除され、元に戻せません。',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '完全に削除する',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingAccount(true);
+            try {
+              await deleteAccount();
+              setShowLogout(false);
+              await reloadAppAsync();
+            } catch (error) {
+              Alert.alert(
+                '削除できませんでした',
+                error instanceof Error ? error.message : '時間をおいてもう一度お試しください',
+              );
+            } finally {
+              setDeletingAccount(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
@@ -230,10 +261,23 @@ export default function GrowthScreen() {
             icon="book-open"
           />
           {isSignedIn && (
-            <PressScale onPress={handleLogout} style={styles.logoutBtn}>
-              <Icon name="log-out" size={16} color={colors.danger} />
-              <Text style={styles.logoutBtnText}>ログアウト</Text>
-            </PressScale>
+            <>
+              <PressScale onPress={handleLogout} style={styles.logoutBtn}>
+                <Icon name="log-out" size={16} color={colors.danger} />
+                <Text style={styles.logoutBtnText}>ログアウト</Text>
+              </PressScale>
+              <PressScale
+                onPress={confirmDeleteAccount}
+                disabled={deletingAccount}
+                accessibilityLabel="アカウントを完全に削除"
+                style={styles.deleteAccountBtn}
+              >
+                <Icon name="trash-2" size={16} color={colors.danger} />
+                <Text style={styles.deleteAccountBtnText}>
+                  {deletingAccount ? '削除しています…' : 'アカウントを削除'}
+                </Text>
+              </PressScale>
+            </>
           )}
           <Button label="キャンセル" variant="ghost" onPress={() => setShowLogout(false)} />
         </CenterDialog>
@@ -719,4 +763,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.dangerSoft,
   },
   logoutBtnText: { ...typography.bodyStrong, color: colors.danger },
+  deleteAccountBtn: {
+    minHeight: control.height,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteAccountBtnText: {
+    ...typography.caption,
+    color: colors.danger,
+    textDecorationLine: 'underline',
+  },
 });

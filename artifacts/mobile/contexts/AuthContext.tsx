@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useCallback } from 'react';
 import { useAuth as useClerkAuth, useUser } from '@clerk/expo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -16,6 +17,7 @@ interface AuthContextType {
   /** Returns a fresh Clerk session token for Authorization: Bearer */
   getToken: () => Promise<string | null>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -40,6 +42,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [signOut]);
 
+  const deleteAccount = useCallback(async () => {
+    if (!clerkUser) {
+      throw new Error('削除するアカウントが見つかりません');
+    }
+
+    const token = await clerkGetToken();
+    if (!token) {
+      throw new Error('認証を確認できませんでした。もう一度ログインしてください');
+    }
+
+    const response = await fetch(`${API_BASE}/account`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null) as { error?: string } | null;
+      throw new Error(body?.error || '保存データを削除できませんでした');
+    }
+
+    await clerkUser.delete();
+
+    const localKeys = await AsyncStorage.getAllKeys();
+    const appKeys = localKeys.filter((key) => key.startsWith('@mentore/'));
+    if (appKeys.length > 0) {
+      await AsyncStorage.multiRemove(appKeys);
+    }
+  }, [clerkGetToken, clerkUser]);
+
   const user: AuthUser | null = clerkUser
     ? {
         id: clerkUser.id,
@@ -55,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: !isLoaded,
         getToken,
         logout,
+        deleteAccount,
       }}
     >
       {children}
