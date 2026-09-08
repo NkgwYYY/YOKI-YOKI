@@ -52,7 +52,7 @@ https://youtube.com/shorts/j0v60OzOEIk?si=P2aNPIIvTP_w-tOO
 Account deletion demonstration:
 https://youtube.com/shorts/xu5axJt2tJ8?si=-_eUjo7yjLtRx75d
 
-The recordings were captured on [IPHONE MODEL] running [IOS VERSION]. The main walkthrough demonstrates the typical user flow, including launching the app, onboarding, mood and sleep recording, AI chat, growth/history, and the YOKI Points shop. The separate account deletion recording demonstrates the complete in-app deletion flow, including the destructive confirmation and return to the initial state after deletion.
+The recordings were captured on an iPhone 11 Pro running iOS 26.6.1. The main walkthrough demonstrates the typical user flow, including launching the app, onboarding, mood and sleep recording, AI chat, growth/history, and the YOKI Points shop. The separate account deletion recording demonstrates the complete in-app deletion flow, including the destructive confirmation and return to the initial state after deletion.
 
 ### 2. App purpose and target audience
 
