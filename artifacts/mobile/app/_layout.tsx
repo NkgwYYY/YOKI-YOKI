@@ -23,11 +23,15 @@ import { initAnalytics } from '@/utils/analytics';
 import { StartupLoadingOverlay } from '@/components/StartupLoadingOverlay';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+// A native splash failure must not become an unhandled rejection during launch.
+void SplashScreen.preventAutoHideAsync().catch((error) => {
+  console.error('Failed to keep the splash screen visible:', error);
+});
 
 const queryClient = new QueryClient();
 
-const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
+const clerkPublishableKey =
+  process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ?? '';
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 function AuthGate() {
@@ -110,13 +114,17 @@ export default function RootLayout() {
   if (!splashReady) return null;
 
   return (
-    <ClerkProvider
-      publishableKey={clerkPublishableKey}
-      tokenCache={tokenCache}
-      proxyUrl={clerkProxyUrl}
-    >
-      <SafeAreaProvider>
-        <ErrorBoundary>
+    <SafeAreaProvider>
+      <ErrorBoundary
+        onError={(error, stackTrace) => {
+          console.error('Root application error:', error, stackTrace);
+        }}
+      >
+        <ClerkProvider
+          publishableKey={clerkPublishableKey}
+          tokenCache={tokenCache}
+          proxyUrl={clerkProxyUrl}
+        >
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
               <AppProvider>
@@ -131,9 +139,9 @@ export default function RootLayout() {
               </AppProvider>
             </AuthProvider>
           </QueryClientProvider>
-        </ErrorBoundary>
-      </SafeAreaProvider>
-    </ClerkProvider>
+        </ClerkProvider>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }
 

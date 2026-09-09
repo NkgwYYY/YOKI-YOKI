@@ -1,10 +1,12 @@
 const fs = require('fs');
+const net = require('net');
 const path = require('path');
 const { spawn } = require('child_process');
 const { Readable } = require('stream');
 const { pipeline } = require('stream/promises');
 
 let metroProcess = null;
+let metroPort = null;
 
 const projectRoot = path.resolve(__dirname, '..');
 
@@ -57,12 +59,12 @@ function stripProtocol(domain) {
 }
 
 function getDeploymentDomain() {
-  if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
-    return stripProtocol(process.env.REPLIT_INTERNAL_APP_DOMAIN);
+  if (process.env.NATIVE_BUNDLE_PUBLIC_DOMAIN) {
+    return stripProtocol(process.env.NATIVE_BUNDLE_PUBLIC_DOMAIN);
   }
 
-  if (process.env.REPLIT_DEV_DOMAIN) {
-    return stripProtocol(process.env.REPLIT_DEV_DOMAIN);
+  if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
+    return stripProtocol(process.env.REPLIT_INTERNAL_APP_DOMAIN);
   }
 
   if (process.env.EXPO_PUBLIC_DOMAIN) {
@@ -70,7 +72,7 @@ function getDeploymentDomain() {
   }
 
   console.error(
-    'ERROR: No deployment domain found. Set REPLIT_INTERNAL_APP_DOMAIN, REPLIT_DEV_DOMAIN, or EXPO_PUBLIC_DOMAIN',
+    'ERROR: No public deployment domain found. Set NATIVE_BUNDLE_PUBLIC_DOMAIN, REPLIT_INTERNAL_APP_DOMAIN, or EXPO_PUBLIC_DOMAIN. Development domains must not be used by App Store builds.',
   );
   process.exit(1);
 }
@@ -114,9 +116,37 @@ function clearMetroCache() {
   console.log('Cache cleared');
 }
 
+function reserveAvailableMetroPort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        server.close();
+        reject(new Error('Could not reserve a Metro port'));
+        return;
+      }
+      const port = address.port;
+      server.close((error) => {
+        if (error) reject(error);
+        else resolve(port);
+      });
+    });
+  });
+}
+
+function getMetroOrigin() {
+  if (!metroPort) {
+    throw new Error('Metro port has not been initialized');
+  }
+  return `http://127.0.0.1:${metroPort}`;
+}
+
 async function checkMetroHealth() {
   try {
-    const response = await fetch('http://localhost:8081/status', {
+    const response = await fetch(`${getMetroOrigin()}/status`, {
       signal: AbortSignal.timeout(5000),
     });
     return response.ok;
@@ -129,20 +159,27 @@ function getExpoPublicReplId() {
   return process.env.REPL_ID || process.env.EXPO_PUBLIC_REPL_ID;
 }
 
-async function startMetro(expoPublicDomain, expoPublicReplId) {
-  const isRunning = await checkMetroHealth();
-  if (isRunning) {
-    console.log('Metro already running');
-    return;
+function getClerkPublishableKey() {
+  const publishableKey = process.env.CLERK_PUBLISHABLE_KEY?.trim();
+  if (!publishableKey) {
+    exitWithError(
+      'ERROR: CLERK_PUBLISHABLE_KEY is required for native production builds. Refusing to create a build that would crash during authentication startup.',
+    );
   }
+  return publishableKey;
+}
 
-  console.log('Starting Metro...');
+async function startMetro(expoPublicDomain, expoPublicReplId) {
+  metroPort = await reserveAvailableMetroPort();
+
+  console.log(`Starting Metro on port ${metroPort}...`);
   console.log(`Setting EXPO_PUBLIC_DOMAIN=${expoPublicDomain}`);
+  const clerkPublishableKey = getClerkPublishableKey();
   const env = {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
-    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.CLERK_PUBLISHABLE_KEY || '',
+    EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: clerkPublishableKey,
     EXPO_PUBLIC_CLERK_PROXY_URL: process.env.CLERK_PROXY_URL
       ? `https://${expoPublicDomain}${process.env.CLERK_PROXY_URL}`
       : '',
@@ -154,7 +191,16 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
 
   metroProcess = spawn(
     'pnpm',
-    ['exec', 'expo', 'start', '--no-dev', '--minify', '--localhost'],
+    [
+      'exec',
+      'expo',
+      'start',
+      '--no-dev',
+      '--minify',
+      '--localhost',
+      '--port',
+      String(metroPort),
+    ],
     {
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: false,
@@ -234,7 +280,7 @@ async function downloadBundle(platform, timestamp) {
     'entry',
   );
   const bundlePath = path.relative(workspaceRoot, entryPath);
-  const url = new URL(`http://localhost:8081/${bundlePath}.bundle`);
+  const url = new URL(`${getMetroOrigin()}/${bundlePath}.bundle`);
   url.searchParams.set('platform', platform);
   url.searchParams.set('dev', 'false');
   url.searchParams.set('hot', 'false');
@@ -262,7 +308,7 @@ async function downloadManifest(platform) {
 
   try {
     console.log(`Fetching ${platform} manifest...`);
-    const response = await fetch('http://localhost:8081/manifest', {
+    const response = await fetch(`${getMetroOrigin()}/manifest`, {
       headers: { 'expo-platform': platform },
       signal: controller.signal,
     });
@@ -346,7 +392,7 @@ function extractAssets(timestamp) {
       const originalPath = match[1];
       const filename = match[3] + '.' + match[4];
 
-      const tempUrl = new URL(`http://localhost:8081${originalPath}`);
+      const tempUrl = new URL(`${getMetroOrigin()}${originalPath}`);
       const unstablePath = tempUrl.searchParams.get('unstable_path');
 
       if (!unstablePath) {
@@ -388,7 +434,7 @@ async function downloadAssets(assets, timestamp) {
   const failures = [];
 
   const downloadPromises = assets.map(async (asset) => {
-    const tempUrl = new URL(`http://localhost:8081${asset.originalPath}`);
+    const tempUrl = new URL(`${getMetroOrigin()}${asset.originalPath}`);
     const unstablePath = tempUrl.searchParams.get('unstable_path');
 
     if (!unstablePath) {
@@ -461,7 +507,7 @@ function updateBundleUrls(timestamp, baseUrl) {
     bundle = bundle.replace(
       /httpServerLocation:"(\/[^"]+)"/g,
       (_match, capturedPath) => {
-        const tempUrl = new URL(`http://localhost:8081${capturedPath}`);
+        const tempUrl = new URL(`${getMetroOrigin()}${capturedPath}`);
         const unstablePath = tempUrl.searchParams.get('unstable_path');
 
         if (!unstablePath) {
@@ -628,7 +674,7 @@ async function main() {
   prepareDirectories(timestamp);
   clearMetroCache();
 
-  // Build web version first (before Metro occupies port 8081)
+  // Build web version before starting the dedicated native Metro process.
   await buildWeb(domain);
 
   await startMetro(domain, expoPublicReplId);
