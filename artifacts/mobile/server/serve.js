@@ -221,18 +221,17 @@ function serveStaticFile(req, urlPath, res) {
   if (!filePath.startsWith(STATIC_ROOT)) {
     res.writeHead(403);
     res.end('Forbidden');
-    return;
+    return true;
   }
 
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    res.writeHead(404);
-    res.end('Not Found');
-    return;
+    return false;
   }
 
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
   sendFile(req, res, filePath, contentType, 'no-cache');
+  return true;
 }
 
 const landingPageTemplate = fs.readFileSync(TEMPLATE_PATH, 'utf-8');
@@ -300,6 +299,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Native bundle and asset URLs live at the static-build root. Serve an
+  // existing file before the web SPA fallback, otherwise requests such as
+  // /<build-id>/_expo/static/js/ios/bundle.js receive index.html and Hermes
+  // aborts while trying to evaluate HTML as JavaScript.
+  if (pathname !== '/' && serveStaticFile(req, pathname, res)) {
+    return;
+  }
+
   // Browser → web build (SPA) if available
   if (hasWebBuild()) {
     return serveWebApp(req, pathname, res);
@@ -310,7 +317,10 @@ const server = http.createServer((req, res) => {
     return serveLandingPage(req, res, landingPageTemplate, appName);
   }
 
-  serveStaticFile(req, pathname, res);
+  if (!serveStaticFile(req, pathname, res)) {
+    res.writeHead(404);
+    res.end('Not Found');
+  }
 });
 
 const port = parseInt(process.env.PORT || '3000', 10);
