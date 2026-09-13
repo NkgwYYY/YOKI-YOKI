@@ -12,3 +12,5 @@ Keep the Expo Router root navigator mounted from its first render, but gate the 
 Hidden modal contents count as mounted startup UI even when their native modal or bottom sheet reports `visible={false}`. Conditionally mount any modal tree containing frame worklets only when it is actually opened, and provide a worklet-free iOS path for flows reachable from home.
 
 The Worklets abort is not limited to startup: opening a tab that starts Reanimated frame callbacks can trigger the same Hermes/AnimationFrameBatchinator crash. Until the dependency/runtime combination is proven safe on physical release devices, App Store iOS paths should use plain views, static source images, or core React Native Animated.
+
+Physical iOS release testing confirmed that the worklet-free growth/chat paths operate without the reported crash.

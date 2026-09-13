@@ -8,3 +8,5 @@ Native action-game controls must be managed by one parent responder that tracks 
 **Why:** React Native sibling Pressables compete for the JS responder; a second finger could cancel or fail to acquire a sibling, clearing horizontal movement during jump even though the physics supported both inputs.
 
 **How to apply:** Use one native touch surface, recompute held controls from all active touches, and release only controls no remaining touch owns. Keep web pointer and keyboard handling on their existing separate path.
+
+This parent-responder approach was confirmed working in physical iOS testing.
