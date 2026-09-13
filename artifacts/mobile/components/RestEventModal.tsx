@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Modal,
-  Dimensions, Animated as RNAnimated, PanResponder,
+  Dimensions, Animated as RNAnimated, PanResponder, Platform,
 } from 'react-native';
 import Svg, {
   G, Path, Circle, Ellipse, Line, Defs,
@@ -11,7 +11,7 @@ import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 import { border, colors, control, elevation, radius, space, typography } from '@/constants/theme';
 import { Button, ButtonRow } from '@/components/ui/Button';
-import { Mascot } from '@/components/Mascot';
+import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { Analytics } from '@/utils/analytics';
 import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
@@ -763,7 +763,11 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
         {phase === 'choose' && (
           <View style={m.sheet}>
             <View style={m.chooseHeader}>
-              <Mascot stage={mascotStage} mood="sleepy" size={64} />
+              {Platform.OS === 'ios' ? (
+                <StaticMascot stage={mascotStage} mood="sleepy" size={64} />
+              ) : (
+                <Mascot stage={mascotStage} mood="sleepy" size={64} />
+              )}
               <Text style={m.chooseTitle}>今日は一緒に休もう。</Text>
               <Text style={m.chooseSub}>どれがいい？</Text>
             </View>
@@ -799,7 +803,11 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
           <View style={[m.fullScreen, { backgroundColor: cfg.bg }]}>
             <SceneView />
             <View style={m.outroCard}>
-              <Mascot stage={mascotStage} mood="happy" size={64} />
+              {Platform.OS === 'ios' ? (
+                <StaticMascot stage={mascotStage} mood="happy" size={64} />
+              ) : (
+                <Mascot stage={mascotStage} mood="happy" size={64} />
+              )}
               <Text style={m.outroQuestion}>少し楽になった？</Text>
               <ButtonRow>
                 <Button

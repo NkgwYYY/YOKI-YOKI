@@ -6,11 +6,8 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Modal, ScrollView, Platform,
+  View, Text, StyleSheet, Modal, ScrollView, Platform, Animated as RNAnimated,
 } from 'react-native';
-import Animated, {
-  useSharedValue, useAnimatedStyle, withSequence, withTiming, withSpring, FadeIn,
-} from 'react-native-reanimated';
 import {
   border,
   colors,
@@ -78,24 +75,26 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
     moodTimer.current = setTimeout(() => setMood('normal'), ms);
   };
 
-  /* キャラのラッパーを動かすインタラクション(ステージ/フォールバック共通で効く) */
-  const jumpY = useSharedValue(0);
-  const shakeX = useSharedValue(0);
-  const walkX = useSharedValue(0);
-  const squish = useSharedValue(0); // なでる・話しかける時のぷにっとした反応
-  const wrapStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: jumpY.value },
-      { translateX: shakeX.value + walkX.value },
-      { scaleY: 1 - squish.value * 0.06 },
-      { scaleX: 1 + squish.value * 0.06 },
-    ],
-  }));
+  const jumpY = useRef(new RNAnimated.Value(0)).current;
+  const shakeX = useRef(new RNAnimated.Value(0)).current;
+  const walkX = useRef(new RNAnimated.Value(0)).current;
+  const squish = useRef(new RNAnimated.Value(0)).current;
+  const translateX = RNAnimated.add(shakeX, walkX);
+  const squishY = squish.interpolate({ inputRange: [0, 1], outputRange: [1, 0.94] });
+  const squishX = squish.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
+
   const doSquish = () => {
-    squish.value = withSequence(
-      withTiming(1, { duration: 120 }),
-      withSpring(0, { damping: 5, stiffness: 180 }),
-    );
+    squish.stopAnimation();
+    squish.setValue(0);
+    RNAnimated.sequence([
+      RNAnimated.timing(squish, { toValue: 1, duration: 120, useNativeDriver: true }),
+      RNAnimated.spring(squish, {
+        toValue: 0,
+        damping: 5,
+        stiffness: 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const handleAction = (key: ActionKey) => {
@@ -114,28 +113,50 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
         break;
       case 'jump':
         feel('excited');
-        jumpY.value = withSequence(
-          withTiming(-46, { duration: 240 }),
-          withSpring(0, { damping: 6, stiffness: 220 }),
-          withTiming(-26, { duration: 200 }),
-          withSpring(0, { damping: 7, stiffness: 220 }),
-        );
+        say('ぴょん！', 1600);
+        jumpY.stopAnimation();
+        jumpY.setValue(0);
+        RNAnimated.sequence([
+          RNAnimated.timing(jumpY, { toValue: -46, duration: 240, useNativeDriver: true }),
+          RNAnimated.spring(jumpY, {
+            toValue: 0,
+            damping: 6,
+            stiffness: 220,
+            useNativeDriver: true,
+          }),
+          RNAnimated.timing(jumpY, { toValue: -26, duration: 200, useNativeDriver: true }),
+          RNAnimated.spring(jumpY, {
+            toValue: 0,
+            damping: 7,
+            stiffness: 220,
+            useNativeDriver: true,
+          }),
+        ]).start();
         break;
       case 'shake':
         feel('excited', 2000);
-        shakeX.value = withSequence(
-          ...Array.from({ length: 6 }, (_, i) =>
-            withTiming(i % 2 === 0 ? 8 : -8, { duration: 70 })),
-          withTiming(0, { duration: 80 }),
-        );
+        say('ぶるぶる〜！', 1600);
+        shakeX.stopAnimation();
+        shakeX.setValue(0);
+        RNAnimated.sequence([
+          ...Array.from({ length: 6 }, (_, i) => RNAnimated.timing(shakeX, {
+            toValue: i % 2 === 0 ? 8 : -8,
+            duration: 70,
+            useNativeDriver: true,
+          })),
+          RNAnimated.timing(shakeX, { toValue: 0, duration: 80, useNativeDriver: true }),
+        ]).start();
         break;
       case 'walk':
         feel('happy', 3600);
-        walkX.value = withSequence(
-          withTiming(50, { duration: 900 }),
-          withTiming(-50, { duration: 1600 }),
-          withTiming(0, { duration: 900 }),
-        );
+        say('いっしょに歩こう！', 2200);
+        walkX.stopAnimation();
+        walkX.setValue(0);
+        RNAnimated.sequence([
+          RNAnimated.timing(walkX, { toValue: 50, duration: 900, useNativeDriver: true }),
+          RNAnimated.timing(walkX, { toValue: -50, duration: 1600, useNativeDriver: true }),
+          RNAnimated.timing(walkX, { toValue: 0, duration: 900, useNativeDriver: true }),
+        ]).start();
         break;
     }
   };
@@ -143,7 +164,7 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Animated.View entering={FadeIn.duration(200)} style={styles.sheet}>
+        <View style={styles.sheet}>
           <PressScale
             style={styles.closeBtn}
             onPress={onClose}
@@ -156,11 +177,20 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
             {/* ビジュアル */}
             <View style={styles.stageArea}>
               {speech && (
-                <Animated.View entering={FadeIn.duration(150)} style={styles.bubble}>
+                <View style={styles.bubble}>
                   <Text style={styles.bubbleText}>{speech}</Text>
-                </Animated.View>
+                </View>
               )}
-              <Animated.View style={wrapStyle}>
+              <RNAnimated.View
+                style={{
+                  transform: [
+                    { translateY: jumpY },
+                    { translateX },
+                    { scaleY: squishY },
+                    { scaleX: squishX },
+                  ],
+                }}
+              >
                 <StageCharacter
                   stage={stage}
                   mood={mood}
@@ -168,7 +198,7 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
                   growthSize={isCurrent ? growth.growthSize : 1}
                   onPet={() => handleAction('pet')}
                 />
-              </Animated.View>
+              </RNAnimated.View>
             </View>
 
             <Text style={styles.name}>{profile.name}</Text>
@@ -236,7 +266,7 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
               <Text style={styles.storyText}>{profile.story}</Text>
             </View>
           </ScrollView>
-        </Animated.View>
+        </View>
       </View>
     </Modal>
   );

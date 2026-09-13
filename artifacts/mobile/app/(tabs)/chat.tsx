@@ -1,21 +1,17 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
-  FlatList, Platform,
+  FlatList, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue, useAnimatedStyle,
-  withRepeat, withSequence, withTiming, withSpring, withDelay,
-} from 'react-native-reanimated';
 import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
 import { profileToContext } from '@/utils/profileContext';
-import { Mascot } from '@/components/Mascot';
+import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
 import { formatDateJP, getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
 import { Icon, iconSize } from '@/components/ui/Icon';
@@ -23,7 +19,7 @@ import { PressScale } from '@/components/ui/PressScale';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
-const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 64 : 0;
+const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 64 : Platform.OS === 'ios' ? 50 : 58;
 
 interface Message {
   id: string;
@@ -79,33 +75,11 @@ function messageDateLabel(dateKey: string): string {
 }
 
 function TypingDots() {
-  const d0 = useSharedValue(0);
-  const d1 = useSharedValue(0);
-  const d2 = useSharedValue(0);
-
-  useEffect(() => {
-    const anim = (v: typeof d0, delay: number) => {
-      v.value = withDelay(delay,
-        withRepeat(withSequence(
-          withTiming(-5, { duration: 300 }),
-          withTiming(0, { duration: 300 }),
-        ), -1, false)
-      );
-    };
-    anim(d0, 0);
-    anim(d1, 160);
-    anim(d2, 320);
-  }, []);
-
-  const s0 = useAnimatedStyle(() => ({ transform: [{ translateY: d0.value }] }));
-  const s1 = useAnimatedStyle(() => ({ transform: [{ translateY: d1.value }] }));
-  const s2 = useAnimatedStyle(() => ({ transform: [{ translateY: d2.value }] }));
-
   return (
     <View style={dotStyles.row}>
-      <Animated.View style={[dotStyles.dot, s0]} />
-      <Animated.View style={[dotStyles.dot, s1]} />
-      <Animated.View style={[dotStyles.dot, s2]} />
+      <View style={dotStyles.dot} />
+      <View style={dotStyles.dot} />
+      <View style={dotStyles.dot} />
     </View>
   );
 }
@@ -120,35 +94,29 @@ function MessageBubble({ msg, mascotStage, mascotMood }: {
   mascotMood: ReturnType<typeof getMascotMood>;
 }) {
   const isUser = msg.role === 'user';
-  const opacity = useSharedValue(0);
-  const ty = useSharedValue(10);
-  useEffect(() => {
-    opacity.value = withTiming(1, { duration: 260 });
-    ty.value = withSpring(0, { damping: 20, stiffness: 220 });
-  }, []);
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: ty.value }],
-  }));
 
   if (isUser) {
     return (
-      <Animated.View style={[bubbleStyles.rowUser, style]}>
+      <View style={bubbleStyles.rowUser}>
         <View style={bubbleStyles.bubbleUser}>
           <Text style={bubbleStyles.userText}>{msg.content}</Text>
         </View>
-      </Animated.View>
+      </View>
     );
   }
   return (
-    <Animated.View style={[bubbleStyles.rowMascot, style]}>
+    <View style={bubbleStyles.rowMascot}>
       <View style={bubbleStyles.avatar}>
-        <Mascot stage={mascotStage} mood={mascotMood} size={42} />
+        {Platform.OS === 'ios' ? (
+          <StaticMascot stage={mascotStage} mood={mascotMood} size={42} />
+        ) : (
+          <Mascot stage={mascotStage} mood={mascotMood} size={42} />
+        )}
       </View>
       <View style={bubbleStyles.bubbleMascot}>
         <Text style={bubbleStyles.mascotText}>{msg.content}</Text>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -241,7 +209,6 @@ export default function ChatScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showRestEvent, setShowRestEvent] = useState(false);
   const listRef = useRef<FlatList>(null);
-  const sendScale = useSharedValue(1);
 
   useEffect(() => {
     (async () => {
@@ -286,11 +253,6 @@ export default function ChatScreen() {
     setMessages(next);
     scrollToBottom();
     setIsLoading(true);
-
-    sendScale.value = withSequence(
-      withTiming(0.88, { duration: 80 }),
-      withSpring(1, { damping: 8, stiffness: 300 })
-    );
 
     try {
       const history = next
@@ -349,8 +311,6 @@ export default function ChatScreen() {
     }
   }, [input, isLoading, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom]);
 
-  const sendBtnStyle = useAnimatedStyle(() => ({ transform: [{ scale: sendScale.value }] }));
-
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
 
   const canSend = !!input.trim() && !isLoading;
@@ -358,11 +318,19 @@ export default function ChatScreen() {
   const CHIPS = ['今日あったこと話したい', '少し落ち込んでる', 'がんばった！聞いて', '雑談しよう'];
 
   return (
-    <View style={styles.root}>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
       <SkyBackground />
 
       <View style={[styles.header, { paddingTop: topPad + space.md }]}>
-        <Mascot stage={mascotStage} mood={mascotMood} size={40} />
+        {Platform.OS === 'ios' ? (
+          <StaticMascot stage={mascotStage} mood={mascotMood} size={40} />
+        ) : (
+          <Mascot stage={mascotStage} mood={mascotMood} size={40} />
+        )}
         <View style={styles.headerCopy}>
           <Text style={styles.headerName}>{displayName}</Text>
           <View style={styles.onlineRow}>
@@ -404,7 +372,11 @@ export default function ChatScreen() {
         ListFooterComponent={isLoading ? (
           <View style={bubbleStyles.rowMascot}>
             <View style={bubbleStyles.avatar}>
-              <Mascot stage={mascotStage} mood="happy" size={40} />
+              {Platform.OS === 'ios' ? (
+                <StaticMascot stage={mascotStage} mood="happy" size={40} />
+              ) : (
+                <Mascot stage={mascotStage} mood="happy" size={40} />
+              )}
             </View>
             <View style={bubbleStyles.bubbleMascot}>
               <TypingDots />
@@ -437,7 +409,7 @@ export default function ChatScreen() {
             maxLength={400}
             onSubmitEditing={() => sendMessage()}
           />
-          <Animated.View style={sendBtnStyle}>
+          <View>
             <PressScale
               style={[styles.sendBtn, !canSend && styles.sendBtnDisabled]}
               onPress={() => sendMessage()}
@@ -451,17 +423,19 @@ export default function ChatScreen() {
                 color={canSend ? colors.primaryForeground : colors.disabledForeground}
               />
             </PressScale>
-          </Animated.View>
+          </View>
         </View>
       </View>
 
-      <RestEventModal
-        visible={showRestEvent}
-        level={progress.level}
-        mascotName={displayName}
-        onClose={() => setShowRestEvent(false)}
-      />
-    </View>
+      {showRestEvent ? (
+        <RestEventModal
+          visible
+          level={progress.level}
+          mascotName={displayName}
+          onClose={() => setShowRestEvent(false)}
+        />
+      ) : null}
+    </KeyboardAvoidingView>
   );
 }
 

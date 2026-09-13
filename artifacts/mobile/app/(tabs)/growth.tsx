@@ -2,15 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { reloadAppAsync } from 'expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withDelay,
-  withTiming,
-  withSpring,
-} from 'react-native-reanimated';
-
-const easeOut = (t: number) => t * (2 - t);
 import {
   activityPalette,
   border,
@@ -54,29 +45,15 @@ const STAGE_IMAGES: Record<string, ImageSourcePropType> = {
   colorful_happa: require('../../assets/images/characters/colorful_happa.png'),
 };
 
-function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(18);
-  useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(1, { duration: 440 }));
-    translateY.value = withDelay(delay, withSpring(0, { damping: 22, stiffness: 160 }));
-  }, []);
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-  return <Animated.View style={style}>{children}</Animated.View>;
+function FadeIn({ children }: { children: React.ReactNode; delay?: number }) {
+  return <View>{children}</View>;
 }
 
 function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
-  const w = useSharedValue(0);
-  useEffect(() => {
-    w.value = withDelay(400, withTiming(pct, { duration: 1100, easing: easeOut }));
-  }, [pct]);
-  const style = useAnimatedStyle(() => ({ width: `${w.value}%` as any }));
+  const width = `${Math.max(0, Math.min(100, pct))}%` as any;
   return (
-    <Animated.View
-      style={[StyleSheet.absoluteFill, { backgroundColor: color, borderRadius: 5 }, style]}
+    <View
+      style={[StyleSheet.absoluteFill, { width, backgroundColor: color, borderRadius: 5 }]}
     />
   );
 }

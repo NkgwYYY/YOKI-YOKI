@@ -17,7 +17,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mascot } from '@/components/Mascot';
+import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { useApp } from '@/contexts/AppContext';
 import { useColors } from '@/constants/theme';
@@ -455,6 +455,12 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
   const [phase, setPhase] = useState<Phase>('intro');
   const [world, setWorld] = useState<WorldState>(() => createWorld());
   const [sceneSize, setSceneSize] = useState({ width: INITIAL_WIDTH, height: 430 });
+  const [nativeHeld, setNativeHeld] = useState<Record<ControlKey, boolean>>({
+    left: false,
+    right: false,
+    jump: false,
+    crouch: false,
+  });
   const [lastEffectIds, setLastEffectIds] = useState<number[]>([]);
   const phaseRef = useRef<Phase>('intro');
   const worldRef = useRef<WorldState>(createWorld());
@@ -548,15 +554,62 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
     if (Platform.OS === 'web') releaseControl(key);
   }, [releaseControl]);
 
-  const touchPress = useCallback((key: ControlKey) => {
-    if (Platform.OS !== 'web') pressControl(key);
-  }, [pressControl]);
+  const nativeTouchControlsRef = useRef<Map<number, ControlKey>>(new Map());
 
-  const touchRelease = useCallback((key: ControlKey) => {
-    if (Platform.OS !== 'web') releaseControl(key);
-  }, [releaseControl]);
+  const syncNativeTouches = useCallback((touches: readonly any[]) => {
+    if (Platform.OS === 'web') return;
+
+    const keyAtPoint = (x: number, y: number): ControlKey | null => {
+      const bottom = sceneSize.height - 12;
+      const jumpLeft = sceneSize.width - 12 - 98;
+      const jumpTop = bottom - 98;
+      if (x >= jumpLeft - 8 && y >= jumpTop - 8) return 'jump';
+
+      const crouchLeft = jumpLeft - 9 - 72;
+      const crouchTop = bottom - 48;
+      if (x >= crouchLeft - 8 && x <= crouchLeft + 80 && y >= crouchTop - 8) return 'crouch';
+
+      const movementTop = bottom - CONTROL_SIZE;
+      if (y >= movementTop - 8 && x >= 4 && x <= 12 + CONTROL_SIZE + 8) return 'left';
+      const rightLeft = 12 + CONTROL_SIZE + 9;
+      if (y >= movementTop - 8 && x >= rightLeft - 8 && x <= rightLeft + CONTROL_SIZE + 8) return 'right';
+      return null;
+    };
+
+    const previous = nativeTouchControlsRef.current;
+    const next = new Map<number, ControlKey>();
+    for (const touch of touches) {
+      const key = keyAtPoint(touch.locationX, touch.locationY);
+      if (key) next.set(touch.identifier, key);
+    }
+
+    const keys: ControlKey[] = ['left', 'right', 'crouch', 'jump'];
+    for (const key of keys) {
+      const wasHeld = Array.from(previous.values()).includes(key);
+      const isHeld = Array.from(next.values()).includes(key);
+      if (!wasHeld && isHeld) pressControl(key);
+      if (wasHeld && !isHeld) releaseControl(key);
+    }
+    setNativeHeld({
+      left: Array.from(next.values()).includes('left'),
+      right: Array.from(next.values()).includes('right'),
+      jump: Array.from(next.values()).includes('jump'),
+      crouch: Array.from(next.values()).includes('crouch'),
+    });
+    nativeTouchControlsRef.current = next;
+  }, [pressControl, releaseControl, sceneSize.height, sceneSize.width]);
+
+  const runAccessibilityControl = useCallback((key: ControlKey) => {
+    pressControl(key);
+    setNativeHeld((current) => ({ ...current, [key]: true }));
+    setTimeout(() => {
+      releaseControl(key);
+      setNativeHeld((current) => ({ ...current, [key]: false }));
+    }, 220);
+  }, [pressControl, releaseControl]);
 
   useEffect(() => () => {
+    nativeTouchControlsRef.current.clear();
     controlsRef.current.left = false;
     controlsRef.current.right = false;
     controlsRef.current.jump = false;
@@ -930,7 +983,20 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
             },
           ]}
         >
-          <Mascot stage={stage} mood={world.player.hp === 1 ? 'tired' : 'happy'} size={world.player.crouching ? 45 : 56} preferStatic />
+          {Platform.OS === 'ios' ? (
+            <StaticMascot
+              stage={stage}
+              mood={world.player.hp === 1 ? 'tired' : 'happy'}
+              size={world.player.crouching ? 45 : 56}
+            />
+          ) : (
+            <Mascot
+              stage={stage}
+              mood={world.player.hp === 1 ? 'tired' : 'happy'}
+              size={world.player.crouching ? 45 : 56}
+              preferStatic
+            />
+          )}
           {world.player.grounded && <View style={styles.playerShadow} />}
         </View>
 
@@ -939,17 +1005,40 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
         </View>
 
         {phase === 'playing' && (
-          <View pointerEvents="box-none" style={styles.controlsLayer}>
+          <View
+            pointerEvents={Platform.OS === 'web' ? 'box-none' : 'box-only'}
+            style={styles.controlsLayer}
+            accessible={Platform.OS !== 'web'}
+            accessibilityRole={Platform.OS !== 'web' ? 'adjustable' : undefined}
+            accessibilityLabel={Platform.OS !== 'web' ? 'STARLIGHT RUN 操作' : undefined}
+            accessibilityHint={Platform.OS !== 'web' ? '上下スワイプで操作を選び、ダブルタップで実行します' : undefined}
+            accessibilityActions={Platform.OS !== 'web' ? [
+              { name: 'moveLeft', label: '左に移動' },
+              { name: 'moveRight', label: '右に移動' },
+              { name: 'jump', label: 'ジャンプ' },
+              { name: 'crouch', label: 'しゃがむ' },
+            ] : undefined}
+            onAccessibilityAction={(event) => {
+              const action = event.nativeEvent.actionName;
+              if (action === 'moveLeft') runAccessibilityControl('left');
+              if (action === 'moveRight') runAccessibilityControl('right');
+              if (action === 'jump') runAccessibilityControl('jump');
+              if (action === 'crouch') runAccessibilityControl('crouch');
+            }}
+            onStartShouldSetResponder={() => Platform.OS !== 'web'}
+            onMoveShouldSetResponder={() => Platform.OS !== 'web'}
+            onResponderStart={(event) => syncNativeTouches(event.nativeEvent.touches)}
+            onResponderMove={(event) => syncNativeTouches(event.nativeEvent.touches)}
+            onResponderEnd={(event) => syncNativeTouches(event.nativeEvent.touches)}
+            onResponderRelease={() => syncNativeTouches([])}
+            onResponderTerminate={() => syncNativeTouches([])}
+          >
             <View style={styles.movementControls}>
               <Pressable
+                pointerEvents={Platform.OS === 'web' ? 'auto' : 'none'}
                 testID="skyline-run-left"
                 accessibilityLabel="左に移動"
-                style={({ pressed }) => [styles.controlButton, pressed && styles.controlPressed]}
-                onPressIn={() => touchPress('left')}
-                onPressOut={() => touchRelease('left')}
-                onTouchStart={() => touchPress('left')}
-                onTouchEnd={() => touchRelease('left')}
-                onTouchCancel={() => touchRelease('left')}
+                style={({ pressed }) => [styles.controlButton, (pressed || nativeHeld.left) && styles.controlPressed]}
                 onPointerDown={() => directPress('left')}
                 onPointerUp={() => directRelease('left')}
                 onPointerCancel={() => directRelease('left')}
@@ -959,14 +1048,10 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
                 <Text style={styles.controlLabel}>左</Text>
               </Pressable>
               <Pressable
+                pointerEvents={Platform.OS === 'web' ? 'auto' : 'none'}
                 testID="skyline-run-right"
                 accessibilityLabel="右に移動"
-                style={({ pressed }) => [styles.controlButton, pressed && styles.controlPressed]}
-                onPressIn={() => touchPress('right')}
-                onPressOut={() => touchRelease('right')}
-                onTouchStart={() => touchPress('right')}
-                onTouchEnd={() => touchRelease('right')}
-                onTouchCancel={() => touchRelease('right')}
+                style={({ pressed }) => [styles.controlButton, (pressed || nativeHeld.right) && styles.controlPressed]}
                 onPointerDown={() => directPress('right')}
                 onPointerUp={() => directRelease('right')}
                 onPointerCancel={() => directRelease('right')}
@@ -978,14 +1063,10 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
             </View>
             <View style={styles.actionControls}>
               <Pressable
+                pointerEvents={Platform.OS === 'web' ? 'auto' : 'none'}
                 testID="skyline-run-crouch"
                 accessibilityLabel="しゃがむ"
-                style={({ pressed }) => [styles.smallControlButton, pressed && styles.controlPressed]}
-                onPressIn={() => touchPress('crouch')}
-                onPressOut={() => touchRelease('crouch')}
-                onTouchStart={() => touchPress('crouch')}
-                onTouchEnd={() => touchRelease('crouch')}
-                onTouchCancel={() => touchRelease('crouch')}
+                style={({ pressed }) => [styles.smallControlButton, (pressed || nativeHeld.crouch) && styles.controlPressed]}
                 onPointerDown={() => directPress('crouch')}
                 onPointerUp={() => directRelease('crouch')}
                 onPointerCancel={() => directRelease('crouch')}
@@ -995,14 +1076,10 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
                 <Text style={styles.smallControlLabel}>しゃがむ</Text>
               </Pressable>
               <Pressable
+                pointerEvents={Platform.OS === 'web' ? 'auto' : 'none'}
                 testID="skyline-run-jump"
                 accessibilityLabel="ジャンプ"
-                style={({ pressed }) => [styles.jumpButton, pressed && styles.jumpPressed]}
-                onPressIn={() => touchPress('jump')}
-                onPressOut={() => touchRelease('jump')}
-                onTouchStart={() => touchPress('jump')}
-                onTouchEnd={() => touchRelease('jump')}
-                onTouchCancel={() => touchRelease('jump')}
+                style={({ pressed }) => [styles.jumpButton, (pressed || nativeHeld.jump) && styles.jumpPressed]}
                 onPointerDown={() => directPress('jump')}
                 onPointerUp={() => directRelease('jump')}
                 onPointerCancel={() => directRelease('jump')}
