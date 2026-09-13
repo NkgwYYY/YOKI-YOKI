@@ -3,7 +3,7 @@
  * スコアは控えめ、呼吸をするような体験。判定窓もいちばん優しい。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   Song, Chart, Note, PlayResult, Judgment, SCORE_PER,
@@ -11,8 +11,7 @@ import {
 import { useSongClock } from '@/utils/rhythm/useSongClock';
 import { RhythmMascot, RhythmMascotHandle } from './RhythmMascot';
 import { colors, gameSurface, judgePalette } from '@/constants/theme';
-
-const { width: SW, height: SH } = Dimensions.get('window');
+import { clamp, measuredOr, useMeasuredSize } from '@/utils/rhythm/geometry';
 
 /* いちばん優しい判定窓 */
 const RELAX_PERFECT_MS = 180;
@@ -54,9 +53,22 @@ export function RelaxRhythmGame({ song, chart, onFinish, onQuit }: Props) {
   const rafRef = useRef<number | null>(null);
   const startAtRef = useRef(0);
   const wordKeyRef = useRef(0);
+  const [rootSize, onRootLayout] = useMeasuredSize();
+  const [areaSize, onAreaLayout] = useMeasuredSize();
 
-  const areaW = SW - 32;
-  const areaH = Math.min(SH * 0.5, 440);
+  const rootH = measuredOr(rootSize.height, 440);
+  const areaW = measuredOr(areaSize.width, 288);
+  // The area owns this explicit height; never read its measured height back
+  // into the same style, which otherwise creates a stale-layout feedback loop.
+  const compact = rootH < 500;
+  const verticalGap = compact ? 6 : 10;
+  const topRowH = compact ? 20 : 24;
+  const mascotSize = compact ? 52 : 64;
+  const areaH = clamp(
+    rootH - (compact ? 6 : 8) - (compact ? 8 : 14) - topRowH - mascotSize - 18 - verticalGap * 3,
+    180,
+    440,
+  );
   /* レーン → 円の位置 (ゆったり4隅+中央寄り) */
   const posFor = (lane: number, id: number) => {
     const spots = [
@@ -172,12 +184,19 @@ export function RelaxRhythmGame({ song, chart, onFinish, onQuit }: Props) {
   );
 
   return (
-    <View style={st.root}>
-      <View style={st.topRow}>
+    <View
+      style={[st.root, {
+        paddingTop: compact ? 6 : 8,
+        paddingBottom: compact ? 8 : 14,
+        gap: verticalGap,
+      }]}
+      onLayout={onRootLayout}
+    >
+      <View style={[st.topRow, { minHeight: topRowH }]}>
         <Text style={st.hint}>ふ〜っと息をして、円がかさなったら そっとタップ</Text>
       </View>
 
-      <Pressable style={[st.area, { height: areaH }]} onPressIn={tap}>
+      <Pressable style={[st.area, { height: areaH }]} onLayout={onAreaLayout} onPressIn={tap}>
         {visible.map(n => {
           const p = posFor(n.lane, n.id);
           const prog = Math.max(0, Math.min(1, (n.time - now) / APPEAR_S)); // 1→0
@@ -210,7 +229,7 @@ export function RelaxRhythmGame({ song, chart, onFinish, onQuit }: Props) {
 
       {/* キャラは静かに寄り添う */}
       <View style={st.mascotRow}>
-        <RhythmMascot ref={mascotRef} song={song} size={64} />
+        <RhythmMascot ref={mascotRef} song={song} size={mascotSize} />
       </View>
 
       <Pressable onPress={onQuit} hitSlop={8}>
@@ -221,7 +240,7 @@ export function RelaxRhythmGame({ song, chart, onFinish, onQuit }: Props) {
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 10, alignItems: 'stretch' },
+  root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 10, alignItems: 'stretch', minHeight: 0 },
   topRow: { paddingHorizontal: 20, minHeight: 24, alignItems: 'center' },
   hint: { fontSize: 12.5, fontFamily: 'Inter_600SemiBold', color: colors.mutedForeground, textAlign: 'center' },
   area: {
@@ -247,5 +266,5 @@ const st = StyleSheet.create({
   },
   tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
   mascotRow: { alignItems: 'center' },
-  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.subtleForeground, fontFamily: 'Inter_400Regular', paddingTop: 2 },
+  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold', paddingTop: 2 },
 });

@@ -4,7 +4,7 @@
  * MISSしても落ち込み演出はなし (優しい世界)。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   Song, Chart, Note, PlayResult, Judgment,
@@ -13,8 +13,8 @@ import {
 import { useSongClock } from '@/utils/rhythm/useSongClock';
 import { RhythmMascot, RhythmMascotHandle } from './RhythmMascot';
 import { border, colors, gameSurface, judgePalette } from '@/constants/theme';
+import { clamp, measuredOr, useMeasuredSize } from '@/utils/rhythm/geometry';
 
-const { width: SW } = Dimensions.get('window');
 const TRAVEL_S = 1.9; // ノーツが右→判定リングまで流れる秒数
 const RENDER_FRAME_MS = 1000 / 30;
 
@@ -55,6 +55,8 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
   const startAtRef = useRef(0);
   const judgeKeyRef = useRef(0);
   const lastRenderAtRef = useRef(0);
+  const [rootSize, onRootLayout] = useMeasuredSize();
+  const [stageSize, onStageLayout] = useMeasuredSize();
 
   useEffect(() => {
     notesRef.current = chart.notes.map((n, i) => ({ ...n, id: i, judged: false }));
@@ -167,27 +169,46 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
     }
   }, [started, clock]);
 
-  /* 右から左へ流れるビート円。判定リングはキャラの足元 */
-  const ringX = 74;
-  const areaW = SW - 32;
+  /* 右から左へ流れるビート円。リングとキャラは実測ステージ内で揃える。 */
+  const rootH = measuredOr(rootSize.height, 440);
+  const stageW = measuredOr(stageSize.width, 288);
+  const compact = rootH < 500;
+  const verticalGap = compact ? 6 : 10;
+  const topRowH = compact ? 28 : 32;
+  const jumpButtonH = compact ? 56 : 68;
+  const stageH = clamp(
+    rootH - (compact ? 6 : 8) - (compact ? 8 : 14) - topRowH - jumpButtonH - 18 - verticalGap * 3,
+    190,
+    360,
+  );
+  const mascotSize = Math.min(96, stageW * 0.34, stageH * 0.36);
+  const ringX = clamp(stageW * 0.23, mascotSize / 2 + 12, stageW - mascotSize / 2 - 12);
+  const areaW = stageW;
   const visible = notesRef.current.filter(
     n => !n.judged && n.time - now < TRAVEL_S && n.time - now > -0.35,
   );
 
   return (
-    <View style={st.root}>
-      <View style={st.topRow}>
+    <View
+      style={[st.root, {
+        paddingTop: compact ? 6 : 8,
+        paddingBottom: compact ? 8 : 14,
+        gap: verticalGap,
+      }]}
+      onLayout={onRootLayout}
+    >
+      <View style={[st.topRow, { minHeight: topRowH }]}>
         <Text style={st.score}>SCORE {score}</Text>
         <Text style={st.combo}>{combo > 1 ? `${combo} COMBO` : ' '}</Text>
       </View>
 
       {/* ステージ: キャラ + 流れるビート */}
-      <View style={st.stage}>
-        <View style={st.mascotArea}>
-          <RhythmMascot ref={mascotRef} song={song} size={96} />
-          <View style={st.ground} />
+      <View style={[st.stage, { height: stageH }]} onLayout={onStageLayout}>
+        <View style={[st.mascotArea, { paddingLeft: Math.max(12, ringX - mascotSize / 2) }]}>
+          <RhythmMascot ref={mascotRef} song={song} size={mascotSize} />
+          <View style={[st.ground, { width: mascotSize }]} />
         </View>
-        <View style={st.beatTrack}>
+        <View style={[st.beatTrack, { width: stageW, height: 54 }]}>
           {/* 判定リング */}
           <View style={[st.hitRing, { left: ringX - 27 }]} />
           {visible.map(n => {
@@ -206,7 +227,11 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
       </View>
 
       <Pressable
-        style={({ pressed }) => [st.jumpBtn, pressed && st.jumpBtnPressed]}
+        style={({ pressed }) => [
+          st.jumpBtn,
+          { height: jumpButtonH },
+          pressed && st.jumpBtnPressed,
+        ]}
         onPressIn={tap}
       >
         <Text style={st.jumpBtnTxt}>ジャンプ！</Text>
@@ -220,22 +245,22 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 10, alignItems: 'stretch' },
+  root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 10, alignItems: 'stretch', minHeight: 0 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, minHeight: 32 },
   score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: colors.foreground },
   combo: { fontSize: 15, fontFamily: 'Inter_700Bold', color: judgePalette.perfect },
   stage: {
-    marginHorizontal: 16, borderRadius: 18, overflow: 'hidden', minHeight: 330,
+    marginHorizontal: 16, borderRadius: 18, overflow: 'hidden',
     backgroundColor: gameSurface.background,
     borderWidth: 1, borderColor: colors.border,
     justifyContent: 'flex-end', paddingTop: 28, paddingBottom: 16,
   },
-  mascotArea: { alignItems: 'flex-start', paddingLeft: 26, marginBottom: 6 },
+  mascotArea: { alignItems: 'flex-start', marginBottom: 6 },
   ground: {
     width: 96, height: 6, borderRadius: 3, marginTop: 2,
     backgroundColor: colors.borderStrong,
   },
-  beatTrack: { height: 54, justifyContent: 'center' },
+  beatTrack: { justifyContent: 'center' },
   hitRing: {
     position: 'absolute', width: 54, height: 54, borderRadius: 27,
     borderWidth: 3, borderColor: colors.borderStrong,
@@ -254,11 +279,11 @@ const st = StyleSheet.create({
   },
   tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
   jumpBtn: {
-    marginHorizontal: 16, height: 68, borderRadius: 20,
+    marginHorizontal: 16, borderRadius: 20,
     backgroundColor: colors.primarySoft, borderWidth: border.width, borderColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   jumpBtnPressed: { backgroundColor: colors.primary },
   jumpBtnTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
-  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.subtleForeground, fontFamily: 'Inter_400Regular', paddingTop: 2 },
+  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold', paddingTop: 2 },
 });

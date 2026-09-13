@@ -12,6 +12,7 @@
 - [Gentle runner accessibility](gentle-runner-accessibility.md) — Starlight Run must guide first-time players past early hazards; validate the course physics before browser polish.
 - [Web action-game input](web-action-game-input.md) — blur focused start/retry buttons and queue jump presses so Space is not swallowed between animation frames.
 - [Native game multitouch](native-game-multitouch.md) — use one parent responder with per-touch control ownership so direction and jump can be held together.
+- [Rhythm game geometry](rhythm-game-geometry.md) — calculate visuals and input judgments from one measured local play area, not full-window snapshots.
 - [Runner world coordinates](runner-world-coordinates.md) — bottom-origin world Y must use one shared transform so sprites, effects, and collision geometry stay aligned.
 - [YOKI YOKI home direction](home-direction.md) — keep the home as one seamless plain scene: no room card or labels, no decor before purchase, and primary actions around the character.
 - [Startup image preloading](startup-image-preloading.md) — preload core images into memory/disk before reveal; web bundled assets expose uri objects and lack Image.resolveAssetSource.

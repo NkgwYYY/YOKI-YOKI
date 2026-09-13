@@ -11,6 +11,7 @@ import { getCopyPhrases } from '@/utils/rhythm/charts';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
 import { RhythmMascot, RhythmMascotHandle } from './RhythmMascot';
 import { border, colors, gameSurface, judgePalette } from '@/constants/theme';
+import { clamp, measuredOr, useMeasuredSize } from '@/utils/rhythm/geometry';
 
 /* COPYは記憶+再現なので判定窓をさらに優しく */
 const COPY_PERFECT_MS = 160;
@@ -60,6 +61,8 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
   const startAtRef = useRef(0);
   const judgeKeyRef = useRef(0);
   const phaseRef = useRef<'watch' | 'copy' | 'wait'>('wait');
+  const [rootSize, onRootLayout] = useMeasuredSize();
+  const [stageSize, onStageLayout] = useMeasuredSize();
 
   /* フレーズ定義 → 絶対時刻に展開 */
   useEffect(() => {
@@ -234,16 +237,35 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
 
   const phaseLabel = phase === 'watch' ? 'よくきいてね…' : phase === 'copy' ? 'まねしてタップ！' : '…';
   const totalPhrases = runsRef.current.length;
+  const rootH = measuredOr(rootSize.height, 440);
+  const stageW = measuredOr(stageSize.width, 288);
+  const compact = rootH < 500;
+  const verticalGap = compact ? 6 : 10;
+  const topRowH = compact ? 28 : 32;
+  const tapButtonH = compact ? 58 : 74;
+  const stageH = clamp(
+    rootH - (compact ? 6 : 8) - (compact ? 8 : 14) - topRowH - tapButtonH - 18 - verticalGap * 3,
+    180,
+    300,
+  );
+  const mascotSize = Math.min(110, stageW * 0.42, stageH * 0.46);
 
   return (
-    <View style={st.root}>
-      <View style={st.topRow}>
+    <View
+      style={[st.root, {
+        paddingTop: compact ? 6 : 8,
+        paddingBottom: compact ? 8 : 14,
+        gap: verticalGap,
+      }]}
+      onLayout={onRootLayout}
+    >
+      <View style={[st.topRow, { minHeight: topRowH }]}>
         <Text style={st.score}>SCORE {score}</Text>
         <Text style={st.phraseCount}>{Math.min(phraseIdx + 1, totalPhrases)}/{totalPhrases}</Text>
       </View>
 
-      <View style={st.stage}>
-        <RhythmMascot ref={mascotRef} song={song} size={110} />
+      <View style={[st.stage, { height: stageH }]} onLayout={onStageLayout}>
+        <RhythmMascot ref={mascotRef} song={song} size={mascotSize} />
         <Text style={[st.phaseTxt, phase === 'copy' && st.phaseTxtActive]}>{phaseLabel}</Text>
         {judge && (
           <Text key={judge.key} style={[st.judgeTxt, { color: judge.color }]}>{judge.text}</Text>
@@ -258,6 +280,7 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
       <Pressable
         style={({ pressed }) => [
           st.tapBtn,
+          { height: tapButtonH },
           phase === 'copy' && st.tapBtnActive,
           pressed && phase === 'copy' && st.tapBtnPressed,
         ]}
@@ -274,12 +297,12 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 10, alignItems: 'stretch' },
+  root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 10, alignItems: 'stretch', minHeight: 0 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, minHeight: 32 },
   score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: colors.foreground },
   phraseCount: { fontSize: 15, fontFamily: 'Inter_700Bold', color: judgePalette.perfect },
   stage: {
-    marginHorizontal: 16, borderRadius: 18, minHeight: 280,
+    marginHorizontal: 16, borderRadius: 18,
     backgroundColor: gameSurface.background,
     borderWidth: 1, borderColor: colors.border,
     alignItems: 'center', justifyContent: 'center', gap: 14, overflow: 'hidden',
@@ -293,12 +316,12 @@ const st = StyleSheet.create({
   },
   tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
   tapBtn: {
-    marginHorizontal: 16, height: 74, borderRadius: 20,
+    marginHorizontal: 16, borderRadius: 20,
     backgroundColor: colors.muted, borderWidth: border.width, borderColor: colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
   tapBtnActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   tapBtnPressed: { backgroundColor: 'rgba(124,92,255,0.85)' },
-  tapBtnTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
-  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.subtleForeground, fontFamily: 'Inter_400Regular', paddingTop: 2 },
+  tapBtnTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primary },
+  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold', paddingTop: 2 },
 });

@@ -3,7 +3,7 @@
  * 成功するとキャラクターが同じ方向に楽しそうに揺れる。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, Pressable, PanResponder } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
   Song, Chart, Note, PlayResult, Judgment,
@@ -12,8 +12,8 @@ import {
 import { useSongClock } from '@/utils/rhythm/useSongClock';
 import { RhythmMascot, RhythmMascotHandle, SwipeDirection } from './RhythmMascot';
 import { border, colors, gameSurface, judgePalette, lanePalette } from '@/constants/theme';
+import { clamp, measuredOr, useMeasuredSize } from '@/utils/rhythm/geometry';
 
-const { width: SW, height: SH } = Dimensions.get('window');
 const TRAVEL_S = 2.0;
 
 const ARROWS: Record<SwipeDirection, string> = { left: '←', up: '↑', down: '↓', right: '→' };
@@ -58,8 +58,9 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
   const startAtRef = useRef(0);
   const judgeKeyRef = useRef(0);
   const startedRef = useRef(false);
-
-  const areaH = Math.min(SH * 0.42, 380);
+  const [rootSize, onRootLayout] = useMeasuredSize();
+  const rootH = measuredOr(rootSize.height, 440);
+  const areaH = clamp(rootH - 185, 210, 380);
   const hitY = areaH - 70;
 
   useEffect(() => {
@@ -197,7 +198,7 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
   );
 
   return (
-    <View style={st.root}>
+    <View style={st.root} onLayout={onRootLayout}>
       <View style={st.topRow}>
         <Text style={st.score}>SCORE {score}</Text>
         <View style={st.mascotWrap}>
@@ -207,10 +208,13 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
       </View>
 
       {/* 矢印レーン */}
-      <View style={[st.noteArea, { height: areaH }]}>
+      {/* The gesture surface is the note surface itself, so the area the user
+          sees is exactly the area that receives a swipe. */}
+      <View style={[st.noteArea, { height: areaH }]} {...pan.panHandlers}>
         <View style={[st.hitZone, { top: hitY - 30 }]} />
         {visible.map(n => {
-          const y = hitY - ((n.time - now) / TRAVEL_S) * hitY;
+          const spawnY = 60;
+          const y = hitY - ((n.time - now) / TRAVEL_S) * (hitY - spawnY);
           const dir = (n.direction ?? 'up') as SwipeDirection;
           return (
             <View
@@ -231,10 +235,6 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
             <Text style={st.tapToStartTxt}>タップしてスタート ▶</Text>
           </Pressable>
         )}
-      </View>
-
-      {/* スワイプエリア */}
-      <View style={st.swipeArea} {...pan.panHandlers}>
         <Text style={st.swipeHint}>ここで やじるしの方向に スワイプ！</Text>
       </View>
 
@@ -246,7 +246,7 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 8, alignItems: 'stretch' },
+  root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 8, alignItems: 'stretch', minHeight: 0 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, minHeight: 56 },
   mascotWrap: { alignItems: 'center', justifyContent: 'center' },
   score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: colors.foreground },
@@ -271,12 +271,9 @@ const st = StyleSheet.create({
     backgroundColor: gameSurface.scrim,
   },
   tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
-  swipeArea: {
-    marginHorizontal: 16, height: 110, borderRadius: 18,
-    backgroundColor: gameSurface.background,
-    borderWidth: border.width, borderColor: colors.border,
-    alignItems: 'center', justifyContent: 'center',
+  swipeHint: {
+    position: 'absolute', left: 0, right: 0, top: 10,
+    fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.mutedForeground, textAlign: 'center',
   },
-  swipeHint: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: colors.mutedForeground },
-  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.subtleForeground, fontFamily: 'Inter_400Regular', paddingTop: 2 },
+  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold', paddingTop: 2 },
 });

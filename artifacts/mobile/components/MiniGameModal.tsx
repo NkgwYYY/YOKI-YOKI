@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { border, colors, control, radius, space, typography } from '@/constants/theme';
 import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
@@ -9,8 +10,6 @@ import { Analytics } from '@/utils/analytics';
 import { PlayResult, starRating } from '@/utils/rhythm/types';
 import { RhythmGameFlow } from '@/components/rhythm/RhythmGameFlow';
 import { SkylineRunGame, SkylineRunResult } from '@/components/SkylineRunGame';
-
-const { height: SH } = Dimensions.get('window');
 
 interface Props {
   visible: boolean;
@@ -40,8 +39,10 @@ type GameChoice = 'menu' | 'rhythm' | 'runner';
 export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
   const cfg = getSlotConfig(slot);
   const { holdLightFlow } = useApp();
+  const insets = useSafeAreaInsets();
   const [playing, setPlaying] = useState(false);
   const [choice, setChoice] = useState<GameChoice>('menu');
+  const [viewportHeight, setViewportHeight] = useState(0);
 
   // モーダル表示中は光の循環演出を保留(閉じた瞬間にタブ画面上で再生される)
   useEffect(() => {
@@ -86,10 +87,27 @@ export function MiniGameModal({ visible, slot, onClose, onReward }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={canClose ? onClose : () => {}}>
-      <View style={s.overlay}>
+      <View
+        style={s.overlay}
+        onLayout={event => setViewportHeight(event.nativeEvent.layout.height)}
+      >
         <Pressable style={s.backdrop} onPress={canClose ? onClose : undefined} accessibilityLabel="閉じる" />
 
-        <View style={[s.sheet, choice === 'runner' && s.runnerSheet]}>
+        <View
+          style={[
+            s.sheet,
+            {
+              // Keep the sheet below the notch and reserve the home-indicator area.
+              height: viewportHeight
+                ? Math.min(
+                    viewportHeight - insets.top,
+                    viewportHeight * (choice === 'menu' ? 0.62 : choice === 'runner' ? 0.96 : 0.92),
+                  )
+                : undefined,
+              paddingBottom: insets.bottom,
+            },
+          ]}
+        >
           <View style={s.header}>
             <Icon name={header.icon} size={iconSize.lg} color={colors.primaryOnSoft} />
             <Text style={s.headerTitle}>{header.title}</Text>
@@ -166,10 +184,9 @@ const s = StyleSheet.create({
     borderTopWidth: border.width,
     borderTopColor: colors.border,
     overflow: 'hidden',
-    minHeight: SH * 0.62,
-    maxHeight: SH * 0.92,
+    minHeight: 0,
+    flexShrink: 1,
   },
-  runnerSheet: { minHeight: SH * 0.9, maxHeight: SH * 0.96 },
   // ヘッダーは下端の 1px だけで本文と区切る。塗りは他の面と同じ白。
   header: {
     flexDirection: 'row',

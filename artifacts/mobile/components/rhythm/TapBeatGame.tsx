@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Mascot } from '@/components/Mascot';
 import { useApp } from '@/contexts/AppContext';
@@ -11,8 +11,7 @@ import {
 import { useSongClock } from '@/utils/rhythm/useSongClock';
 import { border, colors, gameSurface, judgePalette, lanePalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
-
-const { width: SW, height: SH } = Dimensions.get('window');
+import { clamp, measuredOr, useMeasuredSize } from '@/utils/rhythm/geometry';
 
 const LANES = 4;
 const TRAVEL_S = 1.9;            // ノーツ出現→判定ラインまでの秒数
@@ -70,9 +69,27 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
   const rafRef = useRef<number | null>(null);
   const startAtRef = useRef(0);
   const judgeKeyRef = useRef(0);
+  const [rootSize, onRootLayout] = useMeasuredSize();
 
-  const laneAreaH = Math.min(SH * 0.52, 460);
+  // All horizontal coordinates are local to the lane area. The button row has
+  // the same inset and four equal columns, so the visible lanes and hit areas
+  // cannot drift apart on narrow devices.
+  const rootW = measuredOr(rootSize.width, 320);
+  // Use a conservative first-frame fallback so compact phones never flash
+  // an oversized stage before onLayout reports the real parent height.
+  const rootH = measuredOr(rootSize.height, 440);
+  const compact = rootH < 500;
+  const verticalGap = compact ? 6 : 8;
+  const topRowH = compact ? 48 : 56;
+  const laneButtonH = compact ? 54 : 62;
+  const laneAreaH = clamp(
+    rootH - (compact ? 4 : 8) - (compact ? 8 : 14) - topRowH - laneButtonH - 18 - verticalGap * 3,
+    180,
+    460,
+  );
   const hitLineY = laneAreaH - 64;
+  const laneContentW = Math.max(1, rootW - 32);
+  const laneW = laneContentW / LANES;
 
   useEffect(() => {
     notesRef.current = chart.notes.map((n, i) => ({ ...n, id: i, judged: false }));
@@ -201,15 +218,20 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
   const visible = notesRef.current.filter(
     n => !n.judged && n.time - now < TRAVEL_S && n.time - now > -0.35,
   );
-  const laneW = (SW - 32) / LANES;
-
   return (
-    <View style={st.root}>
+    <View
+      style={[st.root, {
+        paddingTop: compact ? 4 : 8,
+        paddingBottom: compact ? 8 : 14,
+        gap: verticalGap,
+      }]}
+      onLayout={onRootLayout}
+    >
       {/* トップ: スコア/キャラ/コンボ — キャラが判定に合わせてリアクション */}
-      <View style={st.topRow}>
+      <View style={[st.topRow, { minHeight: topRowH }]}>
         <Text style={st.score}>SCORE {score}</Text>
         <View style={st.mascotWrap}>
-          <Mascot stage={mascotStage} mood={mascotMood} size={54} />
+          <Mascot stage={mascotStage} mood={mascotMood} size={compact ? 46 : 54} />
         </View>
         <Text style={st.combo}>{combo > 1 ? `${combo} COMBO` : ' '}</Text>
       </View>
@@ -256,6 +278,7 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
             key={i}
             style={({ pressed }) => [
               st.laneBtn,
+              { height: laneButtonH },
               { backgroundColor: LANE_COLORS[i] + (pressed ? 'FF' : '55'), borderColor: LANE_COLORS[i] },
             ]}
             onPressIn={() => tapLane(i)}
@@ -273,7 +296,7 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 8, alignItems: 'stretch' },
+  root: { flex: 1, paddingTop: 8, paddingBottom: 14, gap: 8, alignItems: 'stretch', minHeight: 0 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, minHeight: 56 },
   mascotWrap: { alignItems: 'center', justifyContent: 'center' },
   score: { fontSize: 15, fontFamily: 'Inter_700Bold', color: colors.foreground },
@@ -303,10 +326,10 @@ const st = StyleSheet.create({
     backgroundColor: gameSurface.scrim,
   },
   tapToStartTxt: { fontSize: 18, fontFamily: 'Inter_700Bold', color: colors.primaryForeground },
-  btnRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
+  btnRow: { flexDirection: 'row', paddingHorizontal: 16 },
   laneBtn: {
     flex: 1, height: 62, borderRadius: 16, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.subtleForeground, fontFamily: 'Inter_400Regular', paddingTop: 2 },
+  quitTxt: { textAlign: 'center', fontSize: 12, color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold', paddingTop: 2 },
 });

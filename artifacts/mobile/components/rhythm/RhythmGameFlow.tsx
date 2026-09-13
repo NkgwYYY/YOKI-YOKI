@@ -117,7 +117,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
   /* ── 曲選択 ── */
   if (step === 'song') {
     return (
-      <ScrollView contentContainerStyle={st.body}>
+      <ScrollView style={st.scroll} contentContainerStyle={st.body}>
         {onBackToList && (
           <PressScale onPress={onBackToList} hitSlop={8} style={st.listBack}>
             <Icon name="chevron-left" size={iconSize.sm} color={colors.mutedForeground} />
@@ -157,7 +157,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
   /* ── モード選択 ── */
   if (step === 'mode') {
     return (
-      <ScrollView contentContainerStyle={st.body}>
+      <ScrollView style={st.scroll} contentContainerStyle={st.body}>
         <Text style={st.stepTitle}>あそびかたをえらぼう</Text>
         {MODES.map(m => (
           <PressScale
@@ -188,7 +188,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
   /* ── 難易度選択 ── */
   if (step === 'difficulty') {
     return (
-      <ScrollView contentContainerStyle={st.body}>
+      <ScrollView style={st.scroll} contentContainerStyle={st.body}>
         <Text style={st.stepTitle}>むずかしさをえらぼう</Text>
         <Text style={st.subTitle}>{song?.title} / {MODES.find(m => m.id === mode)?.title}</Text>
         {DIFFS.map(d => {
@@ -238,7 +238,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
     const stars = starRating(result);
     const isRelax = mode === 'relax';
     return (
-      <ScrollView contentContainerStyle={st.body}>
+      <ScrollView style={st.scroll} contentContainerStyle={st.body}>
         {isRelax ? (
           <>
             <Text style={st.resultScoreLabel}>おつかれさま</Text>
@@ -312,6 +312,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
 }
 
 const st = StyleSheet.create({
+  scroll: { flex: 1 },
   body: { padding: space.xl, gap: space.sm, alignItems: 'stretch' },
   stepTitle: { ...typography.heading, color: colors.foreground, textAlign: 'center' },
   grow: { flex: 1 },
