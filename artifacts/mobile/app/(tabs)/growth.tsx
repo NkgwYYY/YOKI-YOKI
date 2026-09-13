@@ -320,7 +320,7 @@ export default function GrowthScreen() {
                 { icon: 'zap', value: progress.experience, label: '総XP' },
                 {
                   icon: 'maximize-2',
-                  value: `${(growth.growthSize * 100).toFixed(1)}%`,
+                  value: `${Math.round(growth.growthSize * 100)}%`,
                   label: '成長',
                 },
               ] as { icon: IconName; value: string | number; label: string }[]).map((stat, i) => (
