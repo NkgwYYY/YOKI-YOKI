@@ -57,6 +57,37 @@ const CHAR_IMAGES: Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof requir
   colorful_happa: require('../assets/images/characters/colorful_happa.png'),
 };
 
+/**
+ * Reanimatedを一切マウントしない静止フォールバック。
+ * ネイティブの埋め込みステージ読込中・失敗時に、UIスレッドworkletを
+ * 起動せず元画像をそのまま表示する。
+ */
+export function StaticMascot({
+  stage,
+  mood,
+  size,
+}: {
+  stage: MascotStage;
+  mood: MascotMood;
+  size: number;
+}) {
+  const character = getCharacter(stage);
+  const source = character.key === 'egg'
+    ? EGG_IMAGES[mood]
+    : CHAR_IMAGES[character.key];
+
+  return (
+    <View style={{ width: size, height: size }}>
+      <Image
+        source={source as any}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+        fadeDuration={0}
+      />
+    </View>
+  );
+}
+
 /* ── 笑顔アニメ（アップロード動画から切り出した実フレーム: しかめ顔→まばたき→にっこり） ── */
 const SMILE_FRAMES: Partial<Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof require>[]>> = {};
 

@@ -1,14 +1,5 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withDelay,
-  withRepeat,
-  withSequence,
-} from 'react-native-reanimated';
 import { border, colors, radius, space, typography } from '@/constants/theme';
 import { PressScale } from '@/components/ui/PressScale';
 
@@ -29,32 +20,6 @@ export function SpeechBubble({
   tailDirection = 'down',
   sizeScale = 1,
 }: SpeechBubbleProps) {
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.8);
-  const wiggle = useSharedValue(0);
-
-  useEffect(() => {
-    opacity.value = withDelay(300, withTiming(1, { duration: 400 }));
-    scale.value = withDelay(300, withSpring(1, { damping: 14, stiffness: 200 }));
-    // gentle float
-    wiggle.value = withRepeat(
-      withSequence(
-        withTiming(-2, { duration: 1800 }),
-        withTiming(2, { duration: 1800 })
-      ),
-      -1,
-      true
-    );
-  }, [message]);
-
-  const bubbleStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [
-      { scale: scale.value },
-      { translateY: wiggle.value },
-    ],
-  }));
-
   const content = (
     <>
       {tailDirection === 'up' ? (
@@ -89,7 +54,7 @@ export function SpeechBubble({
   );
 
   return (
-    <Animated.View style={bubbleStyle}>
+    <View>
       {onPress ? (
         <PressScale onPress={onPress} accessibilityLabel={message}>
           {content}
@@ -97,7 +62,7 @@ export function SpeechBubble({
       ) : (
         <View pointerEvents="none">{content}</View>
       )}
-    </Animated.View>
+    </View>
   );
 }
 

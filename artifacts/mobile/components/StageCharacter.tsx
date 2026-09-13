@@ -9,7 +9,7 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
-import { Mascot } from '@/components/Mascot';
+import { StaticMascot } from '@/components/Mascot';
 import type { MascotStage, MascotMood } from '@/utils/mascotUtils';
 import { getCharacter } from '@/utils/mascotUtils';
 
@@ -112,13 +112,10 @@ export function StageCharacter({ stage, mood, size, growthSize, idleBehavior, on
   const fallback = (
     <View style={{ width: size * STAGE_LAYOUT_WIDTH_RATIO, height: size * STAGE_LAYOUT_HEIGHT_RATIO, alignItems: 'center', justifyContent: 'center', ...STAGE_NO_CLIP }}>
       <View style={{ transform: [{ scale: growthSize }] }}>
-        <Mascot
+        <StaticMascot
           stage={stage}
           mood={mood}
           size={size}
-          idleBehavior={idleBehavior}
-          onPet={onPet}
-          preferStatic
         />
       </View>
     </View>
