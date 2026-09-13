@@ -169,10 +169,14 @@ export default function TabLayout() {
   return (
     <>
       <ClassicTabLayout />
-      {/* 新キャラ初登場・進化時の「新しい仲間が生まれました!」演出(どのタブでも表示) */}
-      <NewFriendModal />
-      {/* 記録・チェック・ゲームで光を獲得した瞬間の循環演出(どのタブでも表示) */}
-      <LightFlowHost />
+      {Platform.OS !== 'ios' ? (
+        <>
+          {/* 新キャラ初登場・進化時の「新しい仲間が生まれました!」演出(どのタブでも表示) */}
+          <NewFriendModal />
+          {/* 記録・チェック・ゲームで光を獲得した瞬間の循環演出(どのタブでも表示) */}
+          <LightFlowHost />
+        </>
+      ) : null}
     </>
   );
 }

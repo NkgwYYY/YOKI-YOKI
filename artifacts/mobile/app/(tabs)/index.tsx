@@ -728,7 +728,7 @@ export default function HomeScreen() {
         }} />
       </CenterDialog>
 
-      <FeedModal visible={showFeed} onClose={() => setShowFeed(false)} />
+      {showFeed ? <FeedModal visible onClose={() => setShowFeed(false)} /> : null}
       {currentSlot && (
         <MiniGameModal
           visible={showMiniGame}

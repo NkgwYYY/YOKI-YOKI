@@ -1,15 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, {
-  useSharedValue, useAnimatedStyle,
-  withSpring, withSequence, withTiming, withDelay,
-} from 'react-native-reanimated';
+import React, { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { border, colors, control, radius, space, typography } from '@/constants/theme';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
-import { Mascot } from '@/components/Mascot';
+import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
 import { FOOD_ITEMS, FoodItem, RARITY_COLORS, FoodRarity } from '@/data/foodItems';
 import { BerryIcon, AppleIcon, CandyIcon, CakeFoodIcon, RamenIcon, SpecialFoodIcon } from '@/components/ui/Illustrations';
@@ -32,27 +28,26 @@ function getFoodIllustration(id: string) {
 }
 
 function FoodCard({ food, canAfford, onFeed }: { food: FoodItem; canAfford: boolean; onFeed: (id: string) => void; }) {
-  const scale = useSharedValue(1);
   const rarityColor = RARITY_COLORS[food.rarity as FoodRarity];
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   const handlePress = () => {
     if (!canAfford) {
-      scale.value = withSequence(withTiming(0.95, { duration: 60 }), withTiming(1, { duration: 60 }));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return;
     }
-    scale.value = withSequence(withSpring(0.9, { damping: 8, stiffness: 400 }), withSpring(1, { damping: 8, stiffness: 300 }));
     onFeed(food.id);
   };
 
   return (
-    <Animated.View style={style}>
+    <View>
       <Pressable
-        style={[cardStyles.card, { borderColor: rarityColor.border }, !canAfford && cardStyles.cardLocked]}
+        style={({ pressed }) => [
+          cardStyles.card,
+          { borderColor: rarityColor.border },
+          !canAfford && cardStyles.cardLocked,
+          pressed && cardStyles.cardPressed,
+        ]}
         onPress={handlePress}
-        onPressIn={() => scale.value = withSpring(control.pressScale, { damping: 28, stiffness: 420 })}
-        onPressOut={() => scale.value = withSpring(1, { damping: 28, stiffness: 420 })}
       >
         <View style={[cardStyles.rarityBadge, { backgroundColor: rarityColor.bg }]}>
           <Text style={[cardStyles.rarityText, { color: rarityColor.text }]}>
@@ -77,7 +72,7 @@ function FoodCard({ food, canAfford, onFeed }: { food: FoodItem; canAfford: bool
           <Text style={cardStyles.costText}>{food.cost}</Text>
         </View>
       </Pressable>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -92,6 +87,7 @@ const cardStyles = StyleSheet.create({
     gap: space.xs,
   },
   cardLocked: { opacity: 0.5 },
+  cardPressed: { opacity: 0.86, transform: [{ scale: control.pressScale }] },
   rarityBadge: { paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.pill, alignSelf: 'flex-end' },
   rarityText: { ...typography.micro, fontSize: 10 },
   iconWrap: { height: 44, alignItems: 'center', justifyContent: 'center', marginBottom: space.xs },
@@ -105,22 +101,11 @@ const cardStyles = StyleSheet.create({
 });
 
 function FeedToast({ message, visible }: { message: string; visible: boolean }) {
-  const opacity = useSharedValue(0);
-  const ty = useSharedValue(10);
-  useEffect(() => {
-    if (visible) {
-      opacity.value = withTiming(1, { duration: 200 });
-      ty.value = withSpring(0, { damping: 18, stiffness: 300 });
-    } else {
-      opacity.value = withDelay(1800, withTiming(0, { duration: 300 }));
-      ty.value = withDelay(1800, withTiming(-10, { duration: 300 }));
-    }
-  }, [visible]);
-  const style = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: ty.value }] }));
+  if (!visible) return null;
   return (
-    <Animated.View style={[toastStyles.toast, style]}>
+    <View style={toastStyles.toast}>
       <Text style={toastStyles.text}>{message}</Text>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -162,7 +147,11 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
       </View>
 
       <View style={modalStyles.mascotRow}>
-        <Mascot stage={mascotStage} mood={isEating ? 'excited' : mascotMood} size={80} isEating={isEating} />
+        {Platform.OS === 'ios' ? (
+          <StaticMascot stage={mascotStage} mood={isEating ? 'excited' : mascotMood} size={80} />
+        ) : (
+          <Mascot stage={mascotStage} mood={isEating ? 'excited' : mascotMood} size={80} isEating={isEating} />
+        )}
         <View style={modalStyles.satietyWrap}>
           <View style={modalStyles.satietyLabelRow}>
             <Text style={modalStyles.satietyTitle}>満腹度</Text>
