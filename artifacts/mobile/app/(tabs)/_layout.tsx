@@ -1,41 +1,14 @@
-import React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Tabs } from 'expo-router';
-import { Icon as NativeTabIcon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Redirect, Tabs } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { homePalette, typography } from '@/constants/theme';
 import { NewFriendModal } from '@/components/dex/NewFriendModal';
 import { LightFlowHost } from '@/components/LightFlowHost';
 import { Icon, iconSize } from '@/components/ui/Icon';
-
-function NativeTabLayout() {
-  return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <NativeTabIcon sf={{ default: 'house', selected: 'house.fill' }} />
-        <Label>ホーム</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="record">
-        <NativeTabIcon sf={{ default: 'pencil.and.scribble', selected: 'pencil.and.scribble' }} />
-        <Label>記録</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="chat">
-        <NativeTabIcon sf={{ default: 'bubble.left.and.bubble.right', selected: 'bubble.left.and.bubble.right.fill' }} />
-        <Label>チャット</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="growth">
-        <NativeTabIcon sf={{ default: 'chart.line.uptrend.xyaxis', selected: 'chart.line.uptrend.xyaxis.circle.fill' }} />
-        <Label>成長</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="plant">
-        <NativeTabIcon sf={{ default: 'sparkles', selected: 'sparkles' }} />
-        <Label>エネルギー</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
-  );
-}
+import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 function ClassicTabLayout() {
   const isIOS = Platform.OS === 'ios';
@@ -133,9 +106,69 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
+  const { isSignedIn, isLoading: authLoading } = useAuth();
+  const {
+    profile,
+    cloudSynced,
+    isCloudSyncing,
+    retryCloudSync,
+    isLoading: appLoading,
+  } = useApp();
+  const [cloudWaitExpired, setCloudWaitExpired] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!isSignedIn || profile || cloudSynced) {
+      setCloudWaitExpired(false);
+      return;
+    }
+    const timer = setTimeout(() => setCloudWaitExpired(true), 5000);
+    return () => clearTimeout(timer);
+  }, [isSignedIn, profile, cloudSynced, retryAttempt]);
+
+  const handleRetry = () => {
+    setCloudWaitExpired(false);
+    setRetryAttempt((attempt) => attempt + 1);
+    retryCloudSync();
+  };
+
+  // The root navigator stays mounted, but the tabs and their frame-driven home
+  // animations must not mount until startup state determines they are allowed.
+  if (authLoading || appLoading) return null;
+  if (!isSignedIn && !profile) return <Redirect href="/onboarding" />;
+  if (isSignedIn && !profile && !cloudSynced && !cloudWaitExpired) return null;
+  if (isSignedIn && !profile && !cloudSynced) {
+    return (
+      <View style={styles.syncGate}>
+        {isCloudSyncing ? (
+          <>
+            <ActivityIndicator color={homePalette.navActive} />
+            <Text style={styles.syncTitle}>アカウントデータを確認しています</Text>
+            <Text style={styles.syncMessage}>通信が完了するまで、そのままお待ちください。</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.syncTitle}>データを確認できませんでした</Text>
+            <Text style={styles.syncMessage}>
+              通信環境を確認して、もう一度お試しください。端末やクラウドのデータは変更されません。
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={handleRetry}
+              style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}
+            >
+              <Text style={styles.retryButtonText}>もう一度試す</Text>
+            </Pressable>
+          </>
+        )}
+      </View>
+    );
+  }
+  if (isSignedIn && !profile && cloudSynced) return <Redirect href="/onboarding" />;
+
   return (
     <>
-      {isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />}
+      <ClassicTabLayout />
       {/* 新キャラ初登場・進化時の「新しい仲間が生まれました!」演出(どのタブでも表示) */}
       <NewFriendModal />
       {/* 記録・チェック・ゲームで光を獲得した瞬間の循環演出(どのタブでも表示) */}
@@ -143,3 +176,45 @@ export default function TabLayout() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  syncGate: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    backgroundColor: '#F4F1FF',
+  },
+  syncTitle: {
+    marginTop: 16,
+    color: '#2C2440',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  syncMessage: {
+    marginTop: 10,
+    color: '#625A73',
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 24,
+    minHeight: 48,
+    minWidth: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    backgroundColor: homePalette.navActive,
+    paddingHorizontal: 24,
+  },
+  retryButtonPressed: {
+    opacity: 0.8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+});

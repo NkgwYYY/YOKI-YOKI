@@ -217,6 +217,10 @@ interface AppContextType {
   homeCommentPreferences: HomeCommentPreferences;
   /** True once the post-login cloud pull has finished (safe to decide onboarding) */
   cloudSynced: boolean;
+  /** True while signed-in account data is being pulled from the cloud */
+  isCloudSyncing: boolean;
+  /** Retry a failed post-login cloud pull without authorizing onboarding */
+  retryCloudSync: () => void;
   saveProfile: (profile: UserProfile) => Promise<void>;
   saveHomeCommentPreferences: (preferences: HomeCommentPreferences) => Promise<void>;
   clearNewBadge: () => void;
@@ -317,6 +321,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [homeCommentPreferences, setHomeCommentPreferences] =
     useState<HomeCommentPreferences>(DEFAULT_HOME_COMMENT_PREFERENCES);
   const [cloudSynced, setCloudSynced] = useState(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [cloudSyncAttempt, setCloudSyncAttempt] = useState(0);
   // The first authenticated transition may be a guest upgrading to an account.
   // Keep this separate from Clerk state so local data can be merged before pull.
   const wasGuestRef = useRef(false);
@@ -651,11 +657,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // When the user logs in, pull cloud data and reload
   const prevSignedIn = useRef(false);
+  const handledCloudSyncAttempt = useRef(0);
+  const retryCloudSync = useCallback(() => {
+    setCloudSyncAttempt((attempt) => attempt + 1);
+  }, []);
+
   useEffect(() => {
-    if (isSignedIn && !prevSignedIn.current) {
+    const shouldPull =
+      isSignedIn &&
+      (!prevSignedIn.current || handledCloudSyncAttempt.current !== cloudSyncAttempt);
+    if (shouldPull) {
       prevSignedIn.current = true;
+      handledCloudSyncAttempt.current = cloudSyncAttempt;
       (async () => {
         pullingRef.current = true;
+        setIsCloudSyncing(true);
         let ok = false;
         let mergedGuestData = false;
         try {
@@ -675,6 +691,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await loadAll();
         } finally {
           pullingRef.current = false;
+          setIsCloudSyncing(false);
           // Only mark synced when the pull actually succeeded, so a failed
           // pull can't send an existing user (with a cloud profile) to onboarding
           if (ok) setCloudSynced(true);
@@ -687,10 +704,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (!isSignedIn) {
       prevSignedIn.current = false;
+      handledCloudSyncAttempt.current = cloudSyncAttempt;
       setCloudSynced(false);
+      setIsCloudSyncing(false);
       if (!isLoading) wasGuestRef.current = true;
     }
-  }, [isSignedIn, isLoading, pullDataFromCloud, mergeGuestWithCloud]);
+  }, [isSignedIn, isLoading, pullDataFromCloud, mergeGuestWithCloud, cloudSyncAttempt]);
 
   const buildFreshCheckedState = (items: ChecklistItemDef[]): CheckedState => {
     const today = getTodayDate();
@@ -1341,6 +1360,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         profile,
         homeCommentPreferences,
         cloudSynced,
+        isCloudSyncing,
+        retryCloudSync,
         saveProfile,
         saveHomeCommentPreferences,
         clearNewBadge,

@@ -41,24 +41,20 @@ function AuthGate() {
 
   useEffect(() => {
     if (isLoading || appLoading) return;
-    // Public routes that don't require authentication
     const isPublicRoute =
       segments[0] === 'login' || segments[0] === 'gallery' ||
       segments[0] === 'onboarding' || segments[0] === 'shop';
 
     if (!isSignedIn && !profile && !isPublicRoute) {
-      // A new visitor starts locally. Login is an optional backup, not a gate.
       router.replace('/onboarding');
     } else if (isSignedIn && segments[0] === 'login') {
       router.replace('/(tabs)');
     } else if (isSignedIn && cloudSynced && !profile && segments[0] !== 'onboarding') {
-      // First time after sign-up: collect profile (only after cloud pull, so
-      // existing users with a saved profile don't get flashed the onboarding)
       router.replace('/onboarding');
     } else if (isSignedIn && profile && segments[0] === 'onboarding') {
       router.replace('/(tabs)');
     }
-  }, [isSignedIn, isLoading, appLoading, cloudSynced, profile, segments]);
+  }, [isSignedIn, isLoading, appLoading, cloudSynced, profile, router, segments]);
 
   return null;
 }
