@@ -16,8 +16,9 @@ import { Icon, iconSize } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
 
 function clerkErrorMessage(error: unknown): string {
-  const e = error as { errors?: { code?: string; longMessage?: string; message?: string }[] } | null;
-  const first = e?.errors?.[0];
+  type ClerkErrorItem = { code?: string; longMessage?: string; message?: string };
+  const e = error as ({ errors?: ClerkErrorItem[] } & ClerkErrorItem) | null;
+  const first = e?.errors?.[0] ?? e;
   const code = first?.code ?? '';
   const map: Record<string, string> = {
     form_identifier_not_found: 'このメールアドレスは登録されていません',
@@ -25,9 +26,13 @@ function clerkErrorMessage(error: unknown): string {
     form_identifier_exists: 'このメールアドレスはすでに登録されています',
     form_password_pwned: 'このパスワードは流出リストに含まれています。別のパスワードにしてください',
     form_password_length_too_short: 'パスワードが短すぎます（8文字以上にしてください）',
+    form_password_not_strong_enough: 'パスワードが簡単すぎます。8文字以上で、英字と数字を組み合わせてください',
+    password_not_strong_enough: 'パスワードが簡単すぎます。8文字以上で、英字と数字を組み合わせてください',
+    form_password_validation_failed: 'このパスワードは使用できません。8文字以上で、英字と数字を組み合わせてください',
     form_code_incorrect: 'コードが違います',
     verification_expired: 'コードの有効期限が切れました。再送してください',
     session_exists: 'すでにログインしています',
+    too_many_requests: '試行回数が多すぎます。しばらく待ってからお試しください',
   };
   if (code && map[code]) return map[code];
   const raw = first?.longMessage || first?.message || '';
@@ -35,8 +40,10 @@ function clerkErrorMessage(error: unknown): string {
     ["couldn't find your account", 'このメールアドレスは登録されていません。「新規登録」からアカウントを作成してください'],
     ['data breach', 'このパスワードは過去に流出したものと一致します。安全のため、別のパスワードにしてください'],
     ['password is incorrect', 'パスワードが違います'],
+    ['not strong enough', 'パスワードが簡単すぎます。8文字以上で、英字と数字を組み合わせてください'],
     ['is taken', 'このメールアドレスはすでに登録されています'],
     ['too many requests', '試行回数が多すぎます。しばらく待ってからお試しください'],
+    ['network', '通信できませんでした。接続を確認して、もう一度お試しください'],
     ['is invalid', '入力内容に誤りがあります。確認してください'],
   ];
   const lower = raw.toLowerCase();
@@ -201,8 +208,8 @@ function ForgotPasswordModal({
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signIn, errors: signInErrors, fetchStatus: signInFetch } = useSignIn();
-  const { signUp, fetchStatus: signUpFetch } = useSignUp();
+  const { signIn } = useSignIn();
+  const { signUp } = useSignUp();
 
   const [tab, setTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -210,8 +217,9 @@ export default function LoginScreen() {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [showForgot, setShowForgot] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const loading = signInFetch === 'fetching' || signUpFetch === 'fetching';
+  const loading = submitting;
 
   const goHome = useCallback(() => {
     router.replace('/(tabs)');
@@ -236,35 +244,55 @@ export default function LoginScreen() {
       setError('メールとパスワードを入力してください');
       return;
     }
+    if (tab === 'register' && password.length < 8) {
+      setError('パスワードは8文字以上で、英字と数字を組み合わせてください');
+      return;
+    }
     const emailAddress = email.trim().toLowerCase();
 
-    if (tab === 'login') {
-      const { error: err } = await signIn.password({ emailAddress, password });
-      if (err) { setError(clerkErrorMessage({ errors: [err] })); return; }
-      if (signIn.status === 'complete') {
-        Analytics.login();
-        await signIn.finalize({ navigate: finalizeNavigate });
+    setSubmitting(true);
+    try {
+      if (tab === 'login') {
+        const { error: err } = await signIn.password({ emailAddress, password });
+        if (err) { setError(clerkErrorMessage(err)); return; }
+        if (signIn.status === 'complete') {
+          Analytics.login();
+          await signIn.finalize({ navigate: finalizeNavigate });
+        } else if (signIn.status === 'needs_second_factor' || signIn.status === 'needs_client_trust') {
+          setError('追加の本人確認が必要です。確認を完了できない場合は、ゲストで始めることもできます');
+        } else {
+          setError('ログインを完了できませんでした。入力内容を確認するか、ゲストで始めてください');
+        }
       } else {
-        setError('ログインを完了できませんでした。もう一度お試しください');
+        const { error: err } = await signUp.password({ emailAddress, password });
+        if (err) { setError(clerkErrorMessage(err)); return; }
+        const { error: sendErr } = await signUp.verifications.sendEmailCode();
+        if (sendErr) { setError(clerkErrorMessage(sendErr)); return; }
       }
-    } else {
-      const { error: err } = await signUp.password({ emailAddress, password });
-      if (err) { setError(clerkErrorMessage({ errors: [err] })); return; }
-      const { error: sendErr } = await signUp.verifications.sendEmailCode();
-      if (sendErr) { setError(clerkErrorMessage({ errors: [sendErr] })); return; }
+    } catch (e) {
+      setError(clerkErrorMessage(e));
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleVerify = async () => {
     setError('');
     if (code.trim().length !== 6) { setError('6桁のコードを入力してください'); return; }
-    const { error: err } = await signUp.verifications.verifyEmailCode({ code: code.trim() });
-    if (err) { setError(clerkErrorMessage({ errors: [err] })); return; }
-    if (signUp.status === 'complete') {
-      Analytics.signUp();
-      await signUp.finalize({ navigate: finalizeNavigate });
-    } else {
-      setError('確認を完了できませんでした。もう一度お試しください');
+    setSubmitting(true);
+    try {
+      const { error: err } = await signUp.verifications.verifyEmailCode({ code: code.trim() });
+      if (err) { setError(clerkErrorMessage(err)); return; }
+      if (signUp.status === 'complete') {
+        Analytics.signUp();
+        await signUp.finalize({ navigate: finalizeNavigate });
+      } else {
+        setError('確認を完了できませんでした。もう一度お試しください');
+      }
+    } catch (e) {
+      setError(clerkErrorMessage(e));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -294,6 +322,25 @@ export default function LoginScreen() {
             />
             <Text style={styles.subtitle}>小さな夢の、あなたの居場所</Text>
           </View>
+
+          {!needsVerification && (
+            <View style={styles.quickStart}>
+              <PressScale
+                accessibilityRole="button"
+                accessibilityLabel="ゲストで今すぐ始める"
+                onPress={() => router.replace('/onboarding')}
+                style={styles.guestButton}
+              >
+                <Text style={styles.guestButtonText}>ゲストで今すぐ始める</Text>
+              </PressScale>
+              <Text style={styles.guestNote}>登録なしですぐに利用できます</Text>
+              <View style={styles.orRow}>
+                <View style={styles.orLine} />
+                <Text style={styles.orText}>またはアカウントを利用</Text>
+                <View style={styles.orLine} />
+              </View>
+            </View>
+          )}
 
           {needsVerification ? (
             <View style={styles.form}>
@@ -363,6 +410,11 @@ export default function LoginScreen() {
                   placeholder="8文字以上"
                   placeholderTextColor={colors.subtleForeground}
                 />
+                {tab === 'register' && (
+                  <Text style={styles.passwordHint}>
+                    8文字以上で、推測されにくい英字と数字を組み合わせてください
+                  </Text>
+                )}
 
                 {!!error && (
                   <View style={styles.errorBox}>
@@ -389,13 +441,6 @@ export default function LoginScreen() {
                   </PressScale>
                 )}
 
-                <PressScale
-                  onPress={() => router.replace('/onboarding')}
-                  style={styles.guestButton}
-                >
-                  <Text style={styles.guestButtonText}>ログインせずに始める</Text>
-                </PressScale>
-
                 <View nativeID="clerk-captcha" />
               </View>
             </>
@@ -419,7 +464,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: screenPadding,
     ...(Platform.OS === 'web' && { maxWidth: 480, width: '100%', alignSelf: 'center' as any }),
   },
-  mascotWrap: { alignItems: 'center', marginBottom: space.xxl },
+  mascotWrap: { alignItems: 'center', marginBottom: space.xl },
   titleLogo: { width: 180, height: 40, marginTop: space.md, tintColor: colors.foreground },
   subtitle: {
     ...typography.callout,
@@ -427,6 +472,19 @@ const styles = StyleSheet.create({
     marginTop: space.sm,
     textAlign: 'center',
   },
+  quickStart: { width: '100%', gap: space.sm, marginBottom: space.lg },
+  guestButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: control.height,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+  guestButtonText: { ...typography.bodyStrong, color: colors.primaryForeground },
+  guestNote: { ...typography.caption, color: colors.mutedForeground, textAlign: 'center' },
+  orRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.sm },
+  orLine: { flex: 1, height: border.width, backgroundColor: colors.border },
+  orText: { ...typography.caption, color: colors.mutedForeground },
 
   tabRow: {
     flexDirection: 'row',
@@ -460,6 +518,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     color: colors.foreground,
   },
+  passwordHint: { ...typography.caption, color: colors.mutedForeground, marginTop: -space.xs },
   codeInput: {
     height: 56,
     textAlign: 'center',
@@ -502,8 +561,6 @@ const styles = StyleSheet.create({
     minHeight: control.minTouch,
   },
   forgotText: { ...typography.callout, color: colors.mutedForeground },
-  guestButton: { alignItems: 'center', justifyContent: 'center', minHeight: control.height },
-  guestButtonText: { ...typography.bodyStrong, color: colors.primary, textDecorationLine: 'underline' },
 });
 
 const s = StyleSheet.create({

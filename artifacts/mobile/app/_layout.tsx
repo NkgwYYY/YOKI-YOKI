@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -13,7 +13,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { ClerkProvider } from '@clerk/expo';
+import { ClerkLoaded, ClerkLoading, ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -120,18 +120,26 @@ export default function RootLayout() {
           tokenCache={tokenCache}
           proxyUrl={clerkProxyUrl}
         >
-          <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-              <AppProvider>
-                <ItemProvider>
-                <GestureHandlerRootView style={styles.root}>
-                  <RootLayoutNav />
-                  <StartupLoadingOverlay />
-                </GestureHandlerRootView>
-                </ItemProvider>
-              </AppProvider>
-            </AuthProvider>
-          </QueryClientProvider>
+          <ClerkLoading>
+            <View style={styles.authLoading}>
+              <ActivityIndicator color="#F0528B" size="large" />
+              <Text style={styles.authLoadingText}>YOKI YOKIを準備しています</Text>
+            </View>
+          </ClerkLoading>
+          <ClerkLoaded>
+            <QueryClientProvider client={queryClient}>
+              <AuthProvider>
+                <AppProvider>
+                  <ItemProvider>
+                  <GestureHandlerRootView style={styles.root}>
+                    <RootLayoutNav />
+                    <StartupLoadingOverlay />
+                  </GestureHandlerRootView>
+                  </ItemProvider>
+                </AppProvider>
+              </AuthProvider>
+            </QueryClientProvider>
+          </ClerkLoaded>
         </ClerkProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
@@ -140,4 +148,15 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  authLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    backgroundColor: '#F7F1FB',
+  },
+  authLoadingText: {
+    color: '#3B2157',
+    fontSize: 15,
+  },
 });
