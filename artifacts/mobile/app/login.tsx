@@ -259,15 +259,44 @@ export default function LoginScreen() {
           Analytics.login();
           await signIn.finalize({ navigate: finalizeNavigate });
         } else if (signIn.status === 'needs_second_factor' || signIn.status === 'needs_client_trust') {
-          setError('追加の本人確認が必要です。確認を完了できない場合は、ゲストで始めることもできます');
+          const emailCodeFactor = signIn.supportedSecondFactors.find(
+            factor => factor.strategy === 'email_code',
+          );
+          if (emailCodeFactor) {
+            const { error: sendErr } = await signIn.mfa.sendEmailCode();
+            if (sendErr) { setError(clerkErrorMessage(sendErr)); return; }
+            setCode('');
+          } else {
+            setError('このアカウントでは追加確認が必要です。確認できない場合は、アカウントなしで始められます');
+          }
         } else {
-          setError('ログインを完了できませんでした。入力内容を確認するか、ゲストで始めてください');
+          setError('ログインを完了できませんでした。入力内容を確認するか、アカウントなしで始めてください');
         }
       } else {
         const { error: err } = await signUp.password({ emailAddress, password });
         if (err) { setError(clerkErrorMessage(err)); return; }
         const { error: sendErr } = await signUp.verifications.sendEmailCode();
         if (sendErr) { setError(clerkErrorMessage(sendErr)); return; }
+      }
+    } catch (e) {
+      setError(clerkErrorMessage(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLoginVerify = async () => {
+    setError('');
+    if (code.trim().length !== 6) { setError('6桁の確認コードを入力してください'); return; }
+    setSubmitting(true);
+    try {
+      const { error: err } = await signIn.mfa.verifyEmailCode({ code: code.trim() });
+      if (err) { setError(clerkErrorMessage(err)); return; }
+      if (signIn.status === 'complete') {
+        Analytics.login();
+        await signIn.finalize({ navigate: finalizeNavigate });
+      } else {
+        setError('本人確認を完了できませんでした。新しいコードを送って、もう一度お試しください');
       }
     } catch (e) {
       setError(clerkErrorMessage(e));
@@ -301,6 +330,9 @@ export default function LoginScreen() {
     signUp.status === 'missing_requirements' &&
     signUp.unverifiedFields.includes('email_address') &&
     signUp.missingFields.length === 0;
+  const needsLoginVerification =
+    tab === 'login' &&
+    (signIn.status === 'needs_client_trust' || signIn.status === 'needs_second_factor');
 
   return (
     <View style={[styles.root, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
@@ -323,26 +355,71 @@ export default function LoginScreen() {
             <Text style={styles.subtitle}>小さな夢の、あなたの居場所</Text>
           </View>
 
-          {!needsVerification && (
-            <View style={styles.quickStart}>
-              <PressScale
-                accessibilityRole="button"
-                accessibilityLabel="ゲストで今すぐ始める"
-                onPress={() => router.replace('/onboarding')}
-                style={styles.guestButton}
-              >
-                <Text style={styles.guestButtonText}>ゲストで今すぐ始める</Text>
-              </PressScale>
-              <Text style={styles.guestNote}>登録なしですぐに利用できます</Text>
-              <View style={styles.orRow}>
-                <View style={styles.orLine} />
-                <Text style={styles.orText}>またはアカウントを利用</Text>
-                <View style={styles.orLine} />
-              </View>
+          <View style={styles.quickStart}>
+            <PressScale
+              accessibilityRole="button"
+              accessibilityLabel="アカウントなしで始める"
+              onPress={() => router.replace('/onboarding')}
+              style={styles.guestButton}
+            >
+              <Text style={styles.guestButtonText}>アカウントなしで始める</Text>
+            </PressScale>
+            <Text style={styles.guestNote}>登録・メール確認なしで、すぐに利用できます</Text>
+            <View style={styles.orRow}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>またはアカウントを利用</Text>
+              <View style={styles.orLine} />
             </View>
-          )}
+          </View>
 
-          {needsVerification ? (
+          {needsLoginVerification ? (
+            <View style={styles.form}>
+              <Text style={styles.verifyTitle}>メールを確認してください</Text>
+              <Text style={styles.verifySub}>
+                新しい端末からのログインを確認するため、メールに送られた6桁のコードを入力してください
+              </Text>
+              <TextInput
+                style={[styles.input, styles.codeInput]}
+                value={code}
+                onChangeText={setCode}
+                keyboardType="number-pad"
+                placeholder="000000"
+                placeholderTextColor={colors.subtleForeground}
+                maxLength={6}
+                autoFocus
+              />
+              {!!error && (
+                <View style={styles.errorBox}>
+                  <Icon name="alert-circle" size={16} color={colors.danger} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+              <Button
+                label="確認してログイン"
+                onPress={handleLoginVerify}
+                loading={loading}
+                style={styles.submit}
+              />
+              <PressScale
+                onPress={async () => {
+                  setError('');
+                  const { error: sendErr } = await signIn.mfa.sendEmailCode();
+                  if (sendErr) setError(clerkErrorMessage(sendErr));
+                }}
+              >
+                <Text style={styles.resendText}>コードが届かない場合は再送する</Text>
+              </PressScale>
+              <PressScale
+                onPress={() => {
+                  signIn.reset();
+                  setCode('');
+                  setError('');
+                }}
+              >
+                <Text style={styles.restartText}>メールアドレスの入力へ戻る</Text>
+              </PressScale>
+            </View>
+          ) : needsVerification ? (
             <View style={styles.form}>
               <Text style={styles.verifyTitle}>メールを確認してください</Text>
               <Text style={styles.verifySub}>{email.trim()} に6桁の確認コードを送りました</Text>
@@ -538,6 +615,12 @@ const styles = StyleSheet.create({
     color: colors.primary,
     textAlign: 'center',
     marginTop: space.lg,
+  },
+  restartText: {
+    ...typography.callout,
+    color: colors.mutedForeground,
+    textAlign: 'center',
+    marginTop: space.sm,
   },
 
   errorBox: {
