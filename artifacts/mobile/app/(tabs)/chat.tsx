@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
-  FlatList, KeyboardAvoidingView, Platform,
+  FlatList, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Analytics } from '@/utils/analytics';
@@ -27,7 +27,24 @@ interface Message {
   content: string;
   timestamp: string;
   dateKey: string;
+  citations?: Citation[];
 }
+
+interface Citation {
+  title: string;
+  url: string;
+}
+
+const OFFICIAL_SOURCES: Citation[] = [
+  {
+    title: 'こころと体のセルフケア',
+    url: 'https://www.mhlw.go.jp/kokoro/youth/stress/self/index.html',
+  },
+  {
+    title: 'まもろうよ こころ',
+    url: 'https://www.mhlw.go.jp/mamorouyokokoro/',
+  },
+];
 
 function localDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -60,12 +77,24 @@ function normalizeStoredMessage(raw: unknown): Message | null {
       ? message.timestamp
       : validDate.toISOString(),
     dateKey: typeof message.dateKey === 'string' ? message.dateKey : localDateKey(validDate),
+    citations: Array.isArray(message.citations)
+      ? message.citations.filter((citation): citation is Citation =>
+          !!citation
+          && typeof citation.title === 'string'
+          && typeof citation.url === 'string'
+          && citation.url.startsWith('https://www.mhlw.go.jp/'))
+      : undefined,
   };
 }
 
-function newMessage(id: string, role: Message['role'], content: string): Message {
+function newMessage(
+  id: string,
+  role: Message['role'],
+  content: string,
+  citations?: Citation[],
+): Message {
   const now = new Date();
-  return { id, role, content, timestamp: now.toISOString(), dateKey: localDateKey(now) };
+  return { id, role, content, timestamp: now.toISOString(), dateKey: localDateKey(now), citations };
 }
 
 function messageDateLabel(dateKey: string): string {
@@ -115,6 +144,23 @@ function MessageBubble({ msg, mascotStage, mascotMood }: {
       </View>
       <View style={bubbleStyles.bubbleMascot}>
         <Text style={bubbleStyles.mascotText}>{msg.content}</Text>
+        {!!msg.citations?.length && (
+          <View style={bubbleStyles.citations}>
+            <Text style={bubbleStyles.citationsTitle}>参考資料（厚生労働省）</Text>
+            {msg.citations.map(citation => (
+              <PressScale
+                key={citation.url}
+                onPress={() => Linking.openURL(citation.url)}
+                accessibilityRole="link"
+                accessibilityLabel={`${citation.title}を開く`}
+                style={bubbleStyles.citationLink}
+              >
+                <Icon name="external-link" size={13} color={colors.primary} />
+                <Text style={bubbleStyles.citationText}>{citation.title}</Text>
+              </PressScale>
+            ))}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -155,6 +201,21 @@ const bubbleStyles = StyleSheet.create({
     ...border.hairline,
   },
   mascotText: { ...typography.body, color: colors.foreground },
+  citations: {
+    marginTop: space.md,
+    paddingTop: space.sm,
+    borderTopWidth: border.width,
+    borderTopColor: colors.border,
+    gap: space.xs,
+  },
+  citationsTitle: { ...typography.micro, color: colors.mutedForeground },
+  citationLink: {
+    minHeight: control.minTouch,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  citationText: { ...typography.caption, color: colors.primary, textDecorationLine: 'underline', flexShrink: 1 },
   dateDivider: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -293,7 +354,15 @@ export default function ChatScreen() {
         }),
       });
       const data = await res.json();
-      const assistantMsg = newMessage(`a_${Date.now()}`, 'assistant', data.content || 'うん、聞いてるよ！');
+      const citations = Array.isArray(data.citations) && data.citations.length
+        ? data.citations
+        : OFFICIAL_SOURCES;
+      const assistantMsg = newMessage(
+        `a_${Date.now()}`,
+        'assistant',
+        data.content || 'うん、聞いてるよ！',
+        citations,
+      );
       setMessages(prev => [...prev, assistantMsg]);
       Analytics.chatMessageSent();
       if (data.restEvent) {
@@ -351,6 +420,13 @@ export default function ChatScreen() {
             <Icon name="trash-2" size={18} color={colors.mutedForeground} />
           </PressScale>
         )}
+      </View>
+
+      <View style={styles.medicalNotice}>
+        <Icon name="info" size={15} color={colors.mutedForeground} />
+        <Text style={styles.medicalNoticeText}>
+          AIの回答は医療上の診断・治療を目的としたものではありません。症状が続く場合や医療上の判断をする前に、医師または資格を持つ専門家へ相談してください。
+        </Text>
       </View>
 
       <FlatList
@@ -463,6 +539,21 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  medicalNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space.sm,
+    paddingHorizontal: screenPadding,
+    paddingVertical: space.sm,
+    backgroundColor: colors.muted,
+    borderBottomWidth: border.width,
+    borderBottomColor: colors.border,
+  },
+  medicalNoticeText: {
+    ...typography.micro,
+    color: colors.mutedForeground,
+    flex: 1,
   },
 
   list: { flex: 1 },

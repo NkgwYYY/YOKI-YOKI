@@ -10,6 +10,17 @@ interface ChatMessage {
   dateKey?: string;
 }
 
+const CHAT_CITATIONS = [
+  {
+    title: "厚生労働省「こころと体のセルフケア」",
+    url: "https://www.mhlw.go.jp/kokoro/youth/stress/self/index.html",
+  },
+  {
+    title: "厚生労働省「まもろうよ こころ」",
+    url: "https://www.mhlw.go.jp/mamorouyokokoro/",
+  },
+] as const;
+
 chatRouter.post("/chat/message", async (req, res) => {
   try {
     const {
@@ -64,8 +75,19 @@ ${String(context).slice(0, 1500)}
 - 毎回記録の話をしない。データの読み上げはしない
 - 記録と発言が食い違うとき（記録は元気なのに辛そう、など）は、記録ではなく目の前の発言を優先して寄り添う` : ""}`;
 
+    const safetyPrompt = `
+
+【医療・健康に関する安全ルール】
+- あなたは友達として会話するマスコットであり、医師・心理職・医療機関ではない
+- 病名の診断、病気の可能性の判定、治療方針、服薬・減薬・中断、薬の量について指示しない
+- 心身の症状について聞かれた場合は、断定せず一般的なセルフケアの範囲に留める
+- 医療上の判断をする前や症状が続く・悪化する場合は、医師や資格を持つ専門家への相談を勧める
+- 自傷・自殺・他害の切迫した危険がある場合は、ひとりで抱えず、地域の緊急通報・救急、身近な人、厚生労働省の相談窓口へ今すぐ連絡するよう短く明確に伝える
+- 健康に関する一般的な提案は、回答画面に表示される厚生労働省「こころと体のセルフケア」「まもろうよ こころ」を参考資料とする。存在しない研究や出典を作らない
+- 返答本文にはURLを直接書かない。アプリが回答の下に参考資料リンクと医療免責文を表示する`;
+
     const chatMessages = [
-      { role: "system" as const, content: systemPrompt },
+      { role: "system" as const, content: systemPrompt + safetyPrompt },
       ...messages.map((m) => ({
         role: m.role,
         content: `[${typeof m.dateKey === "string" ? m.dateKey : "日付不明"}] ${m.content}`,
@@ -114,7 +136,7 @@ ${latestUserText}
     const content = chatResponse.choices[0]?.message?.content?.trim() ?? "うん、聞いてるよ！";
     const stressAnswer = stressResponse.choices[0]?.message?.content?.toLowerCase() ?? "";
     const restEvent = stressAnswer.includes("yes");
-    res.json({ content, restEvent });
+    res.json({ content, restEvent, citations: CHAT_CITATIONS });
   } catch (err) {
     console.error("Chat error:", err);
     res.status(500).json({ error: "チャットに失敗しました" });
