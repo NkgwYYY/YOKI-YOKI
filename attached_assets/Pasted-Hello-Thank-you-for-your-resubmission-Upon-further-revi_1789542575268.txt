@@ -1,0 +1,57 @@
+Hello,
+
+Thank you for your resubmission. Upon further review, we identified additional issues that need your attention. See below for more information.
+
+If you have any questions, we are here to help. Reply to this message in App Store Connect and let us know.
+
+Review Environment
+
+Submission ID: 42e84d19-2877-403e-a928-4f2b6983e185
+Review date: September 16, 2026
+Review Device: iPad Air (5th generation)
+Version reviewed: 1.0 (16)
+
+Guideline 1.4.1 - Safety - Physical Harm
+
+
+Issue Description
+
+The app includes medical information but does not include citations for the medical information. 
+
+Specifically, the app provides health or medical recommendations and references in the Chat without citations, such as links to sources for this information.
+
+All apps with medical and health information should include citations to ensure users are provided accurate information.
+
+Next Steps
+
+Include citations in the app of the sources of the recommendations or information, such as links to those sources. The citations to the sources should be easy for the user to find. 
+
+Resources 
+
+Learn more about requirements for medical apps in guideline 1.4.1.
+Guideline 1.4.1 - Safety - Physical Harm
+
+
+Issue Description
+
+The app provides medical diagnoses or treatment advice but does not include the required medical disclaimer.
+
+Next Steps
+
+Revise the app's description to include a disclaimer reminding users to seek a doctor’s advice in addition to using this app and before making any medical decisions.
+
+Once you have made the appropriate changes to the app's description, please reply to this message in App Store Connect, and we will continue with the review.
+
+Resources
+
+Learn more about medical app requirements in guideline 1.4.1.
+Support
+
+- Reply to this message in your preferred language if you need assistance. If you need additional support, use the Contact Us module.
+- Consult with fellow developers and Apple engineers on the Apple Developer Forums.
+- Request an App Review Appointment at Meet with Apple to discuss your app's review. Appointments subject to availability during your local business hours on Tuesdays and Thursdays.
+- Provide feedback on this message and your review experience by completing a short survey.
+
+Test on the latest betas
+
+Betas of iOS 27, iPadOS 27, macOS 27, tvOS 27 and visionOS 27 are now available. Download the latest betas to prepare your app for upcoming software releases. Learn more about installing and using Apple beta software.
