@@ -1,0 +1,69 @@
+Hello,
+
+Thank you for your resubmission. Upon further review, we identified additional issues that need your attention. See below for more information.
+
+If you have any questions, we are here to help. Reply to this message in App Store Connect and let us know.
+
+Review Environment
+
+Submission ID: 42e84d19-2877-403e-a928-4f2b6983e185
+Review date: September 21, 2026
+Review Device: iPhone 17 Pro Max and iPad Air 11-inch (M3)
+Version reviewed: 1.0 (17)
+
+Guideline 2.1(a) - Performance - App Completeness
+
+Issue Description
+
+The app still exhibited one or more bugs that would negatively impact users.
+
+Bug description: The app did not send the verification code email for a newly created account.
+
+Review device details:
+
+- Device type: iPhone 17 Pro Max and iPad Air 11-inch (M3) 
+- OS version: iOS 27.0 and iPadOS 27.0
+- Internet Connection: Active
+
+Next Steps
+
+Test the app on supported devices to identify and resolve bugs and stability issues before submitting for review.
+
+If the bug cannot be reproduced, try the following:
+
+- For new apps, uninstall all previous versions of the app from a device, then install and follow the steps to reproduce.
+- For app updates, install the new version as an update to the previous version, then follow the steps to reproduce.
+
+Note that users expect apps they download to function on all the devices where they are available. For example, apps that may be downloaded onto iPad devices should function as expected for iPad users. 
+Guideline 2.1(a) - Information Needed
+
+
+We have started the review of the app, but in addition to the demo account username and password you provided, we need an authentication code to access the app’s content and verify its functionality.
+
+App Review conducts a full review of all apps submitted to the App Store, including content and services that require authentication codes to access.
+
+Next Steps
+
+In order for the review to continue, you will need to arrange for an Apple representative to call you to obtain the code. Follow this link to request a call using our online form.
+
+Before requesting a call, confirm the phone number listed in the App Review Information section of this app's Version Information page in App Store Connect is up to date.
+
+For the review to proceed without a call, we recommend either: 
+
+- Allowing the provided demo account to bypass code verification
+- Establishing a fixed authentication code for the demo account and providing the code in the Review Notes
+- Or including a demonstration mode that exhibits the app’s full features and functionality
+
+Resources 
+
+- Learn how to share information when submitting an app for review.
+- Learn more about app completeness requirements in guideline 2.1(a).
+Support
+
+- Reply to this message in your preferred language if you need assistance. If you need additional support, use the Contact Us module.
+- Consult with fellow developers and Apple engineers on the Apple Developer Forums.
+- Request an App Review Appointment at Meet with Apple to discuss your app's review. Appointments subject to availability during your local business hours on Tuesdays and Thursdays.
+- Provide feedback on this message and your review experience by completing a short survey.
+Request a phone call from App Review
+
+At your request, we can arrange for an Apple Representative to call you within the next three to five business days to discuss your App Review issue.
