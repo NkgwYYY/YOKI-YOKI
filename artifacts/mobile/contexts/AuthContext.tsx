@@ -22,6 +22,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+const guestOnlyAuth: AuthContextType = {
+  isSignedIn: false,
+  user: null,
+  isLoading: false,
+  getToken: async () => null,
+  logout: async () => {},
+  deleteAccount: async () => {
+    throw new Error('このバージョンではアカウント機能を利用できません');
+  },
+};
+
+/**
+ * iOS App Store builds run without Clerk entirely. This provider deliberately
+ * ignores any session cached by a previously installed build, so an update
+ * cannot resume cloud reads or writes behind the guest-only UI.
+ */
+export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
+  return <AuthContext.Provider value={guestOnlyAuth}>{children}</AuthContext.Provider>;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn, getToken: clerkGetToken, signOut } = useClerkAuth();
   const { user: clerkUser } = useUser();

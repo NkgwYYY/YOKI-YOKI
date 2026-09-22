@@ -8,7 +8,7 @@
 - [YOKKY bolt trademark](yokky-bolt-trademark.md) — purple bolt on egg head must be in every egg asset; extract via fuzz +opaque and full-canvas composite.
 - [キャラ顔は元画像切り出しのみ](character-fidelity-rule.md) — 目・口・頬のAI/SVG再デザインと眉毛追加は全面禁止。表情は切り出しPNGの transform アニメだけで表現。
 - [Expo web head tags](expo-web-html-meta.md) — +html.tsx is ignored in single output; OGP/GA must be injected post-export via inject-meta.js; LINE preview cache dodged with ?v=2 URLs.
-- [Guest-first data migration](guest-first-data-migration.md) — visitors may start locally; account data stays authoritative while append-only guest progress is merged on optional login.
+- [Guest-first data migration](guest-first-data-migration.md) — iOS ships guest-only until auth email delivery is proven; web/Android keep optional login and safe local-to-cloud merging.
 - [Gentle runner accessibility](gentle-runner-accessibility.md) — Starlight Run must guide first-time players past early hazards; validate the course physics before browser polish.
 - [Web action-game input](web-action-game-input.md) — blur focused start/retry buttons and queue jump presses so Space is not swallowed between animation frames.
 - [Native game multitouch](native-game-multitouch.md) — use one parent responder with per-touch control ownership so direction and jump can be held together.

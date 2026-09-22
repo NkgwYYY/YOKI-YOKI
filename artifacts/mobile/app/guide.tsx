@@ -16,6 +16,7 @@ type SectionProps = {
 export default function GuideScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const isIOSGuestOnly = Platform.OS === 'ios';
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top + space.sm;
 
@@ -166,10 +167,16 @@ export default function GuideScreen() {
 
         {/* データ */}
         <Section icon="cloud" title="データについて">
-          <P>ログインなしでも記録はこの端末内に保存されます。ログインすると自動でクラウドにも同期され、機種変更しても同じアカウントでデータを戻せます。</P>
-          <Bullet label="アカウント削除">
-            成長タブ右上の人型アイコン →「アカウントを削除」から、認証情報と保存データを完全に削除できます。
-          </Bullet>
+          {isIOSGuestOnly ? (
+            <P>記録、進捗、所持アイテムはこの端末内に自動で保存されます。</P>
+          ) : (
+            <>
+              <P>ログインなしでも記録はこの端末内に保存されます。ログインすると自動でクラウドにも同期され、機種変更しても同じアカウントでデータを戻せます。</P>
+              <Bullet label="アカウント削除">
+                成長タブ右上の人型アイコン →「アカウントを削除」から、認証情報と保存データを完全に削除できます。
+              </Bullet>
+            </>
+          )}
           <Hint>アプリの削除、ブラウザデータの削除、端末の変更だけでは、ログインしていないデータを復元できません。</Hint>
         </Section>
       </ScrollView>

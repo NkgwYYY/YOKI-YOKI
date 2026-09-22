@@ -1,0 +1,96 @@
+{
+  "id": "d09ad253-53dd-4b4b-9260-5050df63b8f5",
+  "createdAt": "2026-09-22T22:44:28.989Z",
+  "runtimeVersion": "exposdk:54.0.0",
+  "launchAsset": {
+    "key": "bundle-1790117068989-1955",
+    "contentType": "application/javascript",
+    "url": "https://yoki-yoki.replit.app/1790117068989-1955/_expo/static/js/ios/bundle.js"
+  },
+  "assets": [],
+  "metadata": {},
+  "extra": {
+    "eas": {},
+    "expoClient": {
+      "name": "YOKI YOKI",
+      "slug": "mobile",
+      "version": "1.0.0",
+      "orientation": "portrait",
+      "icon": "./assets/images/icon.png",
+      "scheme": "mobile",
+      "userInterfaceStyle": "light",
+      "newArchEnabled": true,
+      "splash": {
+        "image": "./assets/images/icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FAF8FF",
+        "imageUrl": "http://127.0.0.1:38521/assets/./assets/images/icon.png"
+      },
+      "ios": {
+        "supportsTablet": false
+      },
+      "android": {},
+      "web": {
+        "favicon": "./assets/images/icon.png"
+      },
+      "plugins": [
+        "@clerk/expo",
+        [
+          "expo-router",
+          {
+            "origin": "https://replit.com/"
+          }
+        ],
+        "expo-font",
+        "expo-web-browser",
+        "expo-video"
+      ],
+      "experiments": {
+        "typedRoutes": true,
+        "reactCompiler": true
+      },
+      "_internal": {
+        "isDebug": false,
+        "projectRoot": "/home/runner/workspace/artifacts/mobile",
+        "dynamicConfigPath": {},
+        "staticConfigPath": "/home/runner/workspace/artifacts/mobile/app.json",
+        "packageJsonPath": "/home/runner/workspace/artifacts/mobile/package.json",
+        "pluginHistory": {
+          "expo-font": {
+            "name": "expo-font",
+            "version": "14.0.12"
+          },
+          "expo-web-browser": {
+            "name": "expo-web-browser",
+            "version": "15.0.11"
+          }
+        }
+      },
+      "sdkVersion": "54.0.0",
+      "platforms": [
+        "ios",
+        "android",
+        "web"
+      ],
+      "extra": {
+        "router": {
+          "origin": "https://replit.com/"
+        }
+      },
+      "iconUrl": "http://127.0.0.1:38521/assets/./assets/images/icon.png",
+      "hostUri": "yoki-yoki.replit.app/ios"
+    },
+    "expoGo": {
+      "debuggerHost": "yoki-yoki.replit.app/ios",
+      "developer": {
+        "tool": "expo-cli",
+        "projectRoot": "/home/runner/workspace/artifacts/mobile"
+      },
+      "packagerOpts": {
+        "dev": false
+      },
+      "mainModuleName": "node_modules/.pnpm/expo-router@6.0.24_e729a3583b50e92b95fad1f522b008c5/node_modules/expo-router/entry"
+    },
+    "scopeKey": "@anonymous/mobile-9ce4e579-7c08-4d8a-a61d-4b2be99cf5be"
+  }
+}

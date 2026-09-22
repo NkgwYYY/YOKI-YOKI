@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, Image, Modal, PanResponder, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Modal, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoomView } from '@/components/RoomView';
@@ -233,7 +233,13 @@ export default function ShopScreen() {
   }), [updateItemPlacement]);
   return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.wrap}>
     <View style={s.head}><Pressable onPress={() => router.back()}><Text style={s.back}>‹ 戻る</Text></Pressable><Text style={s.title}>YOKI SHOP</Text><Text style={s.points}>✦ {shopState.points} YOKI pt</Text></View>
-    {!isSignedIn && <Text style={s.guestNote}>ログインなしで購入できます。ログインすると端末データをバックアップできます。</Text>}
+    {!isSignedIn && (
+      <Text style={s.guestNote}>
+        {Platform.OS === 'ios'
+          ? '購入したアイテムと設定はこの端末に自動で保存されます。'
+          : 'ログインなしで購入できます。ログインすると端末データをバックアップできます。'}
+      </Text>
+    )}
     <View style={s.tabs}>{tabs.map(x => <Pressable key={x.id} onPress={() => setTab(x.id)} style={[s.tab, tab === x.id && s.tabOn]}><Text style={[s.tabText, tab === x.id && s.tabTextOn]}>{x.label}</Text></Pressable>)}</View>
     {loading ? <Text style={s.note}>アイテムを読み込み中…</Text> : error ? <Text style={s.error}>{error}</Text> : visibleItems.length === 0 ? <Text style={s.note}>このカテゴリのアイテムは、ただいま準備中です。</Text> : visibleItems.map(item => {
       const owned = shopState.inventory.includes(item.id); const itemSlot = slot(item); const equipped = shopState.equipped[itemSlot] === item.id;

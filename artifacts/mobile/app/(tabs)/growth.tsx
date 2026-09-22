@@ -73,11 +73,12 @@ export default function GrowthScreen() {
   const [showLogout, setShowLogout] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const isIOSGuestOnly = Platform.OS === 'ios';
 
   const handleLogout = async () => {
     setShowLogout(false);
     await logout();
-    router.replace('/login');
+    router.replace(isIOSGuestOnly ? '/(tabs)' : '/login');
   };
 
   const confirmDeleteAccount = () => {
@@ -176,7 +177,7 @@ export default function GrowthScreen() {
               style={styles.accountBtn}
               onPress={() => setShowLogout(true)}
               hitSlop={space.sm}
-              accessibilityLabel="アカウント"
+              accessibilityLabel={isIOSGuestOnly ? 'プロフィールと使い方' : 'アカウント'}
             >
               <Icon name="user" size={20} color={colors.foreground} />
             </PressScale>
@@ -188,29 +189,35 @@ export default function GrowthScreen() {
           <View style={styles.dialogHead}>
             <Icon name="user" size={32} color={colors.primary} />
             <Text style={styles.dialogTitle}>
-              {isSignedIn ? 'アカウント' : 'ゲストモードで利用中'}
+              {isIOSGuestOnly ? '設定' : isSignedIn ? 'アカウント' : 'ゲストモードで利用中'}
             </Text>
-            {user?.email ? <Text style={styles.dialogSub}>{user.email}</Text> : null}
+            {!isIOSGuestOnly && user?.email ? <Text style={styles.dialogSub}>{user.email}</Text> : null}
           </View>
 
           {!isSignedIn && (
-            <>
+            isIOSGuestOnly ? (
               <Text style={styles.dialogBody}>
-                記録はこの端末に保存されています。ログインすると記録と進捗をアカウントに追加して、バックアップできます。
+                記録、進捗、所持アイテムはこの端末に自動で保存されます。
               </Text>
-              <Text style={styles.dialogNote}>
-                すでにアカウントにあるプロフィールや設定は優先して保護されます。
-              </Text>
-              <Button
-                label="ログインしてデータを保存"
-                onPress={() => {
-                  Analytics.guestBackupPromptOpened();
-                  setShowLogout(false);
-                  router.push('/login');
-                }}
-                icon="upload-cloud"
-              />
-            </>
+            ) : (
+              <>
+                <Text style={styles.dialogBody}>
+                  記録はこの端末に保存されています。ログインすると記録と進捗をアカウントに追加して、バックアップできます。
+                </Text>
+                <Text style={styles.dialogNote}>
+                  すでにアカウントにあるプロフィールや設定は優先して保護されます。
+                </Text>
+                <Button
+                  label="ログインしてデータを保存"
+                  onPress={() => {
+                    Analytics.guestBackupPromptOpened();
+                    setShowLogout(false);
+                    router.push('/login');
+                  }}
+                  icon="upload-cloud"
+                />
+              </>
+            )
           )}
           <Button
             label="プロフィールを編集"
@@ -230,7 +237,7 @@ export default function GrowthScreen() {
             }}
             icon="book-open"
           />
-          {isSignedIn && (
+          {isSignedIn && !isIOSGuestOnly && (
             <>
               <PressScale onPress={handleLogout} style={styles.logoutBtn}>
                 <Icon name="log-out" size={16} color={colors.danger} />

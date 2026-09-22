@@ -16,7 +16,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { ClerkLoaded, ClerkLoading, ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider, useApp } from '@/contexts/AppContext';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { AuthProvider, GuestAuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ItemProvider } from '@/contexts/ItemContext';
 import { initAnalytics } from '@/utils/analytics';
 import { StartupLoadingOverlay } from '@/components/StartupLoadingOverlay';
@@ -41,6 +41,11 @@ function AuthGate() {
 
   useEffect(() => {
     if (isLoading || appLoading) return;
+    if (Platform.OS === 'ios' && segments[0] === 'login') {
+      router.replace(profile ? '/(tabs)' : '/onboarding');
+      return;
+    }
+
     const isPublicRoute =
       segments[0] === 'login' || segments[0] === 'gallery' ||
       segments[0] === 'onboarding' || segments[0] === 'shop';
@@ -73,6 +78,35 @@ function RootLayoutNav() {
         <Stack.Screen name="monthly-report" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </>
+  );
+}
+
+function AppContent() {
+  return (
+    <AppProvider>
+      <ItemProvider>
+        <GestureHandlerRootView style={styles.root}>
+          <RootLayoutNav />
+          <StartupLoadingOverlay />
+        </GestureHandlerRootView>
+      </ItemProvider>
+    </AppProvider>
+  );
+}
+
+function AppProviders({ guestOnly }: { guestOnly: boolean }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      {guestOnly ? (
+        <GuestAuthProvider>
+          <AppContent />
+        </GuestAuthProvider>
+      ) : (
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      )}
+    </QueryClientProvider>
   );
 }
 
@@ -115,32 +149,25 @@ export default function RootLayout() {
           console.error('Root application error:', error, stackTrace);
         }}
       >
-        <ClerkProvider
-          publishableKey={clerkPublishableKey}
-          tokenCache={tokenCache}
-          proxyUrl={clerkProxyUrl}
-        >
-          <ClerkLoading>
-            <View style={styles.authLoading}>
-              <ActivityIndicator color="#F0528B" size="large" />
-              <Text style={styles.authLoadingText}>YOKI YOKIを準備しています</Text>
-            </View>
-          </ClerkLoading>
-          <ClerkLoaded>
-            <QueryClientProvider client={queryClient}>
-              <AuthProvider>
-                <AppProvider>
-                  <ItemProvider>
-                  <GestureHandlerRootView style={styles.root}>
-                    <RootLayoutNav />
-                    <StartupLoadingOverlay />
-                  </GestureHandlerRootView>
-                  </ItemProvider>
-                </AppProvider>
-              </AuthProvider>
-            </QueryClientProvider>
-          </ClerkLoaded>
-        </ClerkProvider>
+        {Platform.OS === 'ios' ? (
+          <AppProviders guestOnly />
+        ) : (
+          <ClerkProvider
+            publishableKey={clerkPublishableKey}
+            tokenCache={tokenCache}
+            proxyUrl={clerkProxyUrl}
+          >
+            <ClerkLoading>
+              <View style={styles.authLoading}>
+                <ActivityIndicator color="#F0528B" size="large" />
+                <Text style={styles.authLoadingText}>YOKI YOKIを準備しています</Text>
+              </View>
+            </ClerkLoading>
+            <ClerkLoaded>
+              <AppProviders guestOnly={false} />
+            </ClerkLoaded>
+          </ClerkProvider>
+        )}
       </ErrorBoundary>
     </SafeAreaProvider>
   );

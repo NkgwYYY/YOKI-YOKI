@@ -334,10 +334,20 @@ export default function LoginScreen() {
     tab === 'login' &&
     (signIn.status === 'needs_client_trust' || signIn.status === 'needs_second_factor');
 
+  // The App Store iOS release is guest-only. Keep the shared auth route for web
+  // and Android, while AuthGate redirects any native iOS deep link immediately.
+  if (Platform.OS === 'ios') {
+    return (
+      <View style={styles.root}>
+        <SkyBackground />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.root, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
       <SkyBackground />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="height">
         <ScrollView
           contentContainerStyle={[
             styles.container,
