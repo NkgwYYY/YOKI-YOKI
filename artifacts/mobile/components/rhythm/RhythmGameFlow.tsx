@@ -65,10 +65,11 @@ interface Props {
   onClose: () => void;
   onBackToList?: () => void;
   rewardLabel?: string | null;
+  earnedPoints?: number | null;
   onPlayingChange?: (playing: boolean) => void;
 }
 
-export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, onPlayingChange }: Props) {
+export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, earnedPoints, onPlayingChange }: Props) {
   const [step, setStep] = useState<Step>('song');
   const [song, setSong] = useState<Song | null>(null);
   const [mode, setMode] = useState<RhythmMode>('tap');
@@ -274,21 +275,12 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
             />
           ))}
         </View>
-        <Text style={st.refreshTag}>今日のリフレッシュ +1</Text>
-        {(() => {
-          // YOKIポイント(MiniGameModal.resultToReward と同じルール)
-          const fp = stars >= 4 ? 3 : stars === 3 ? 2 : 1;
-          return (
-            <View style={st.energyRow}>
-              <View style={st.energyChip}>
-                <Icon name="coffee" size={iconSize.xs} color={colors.foreground} />
-                <Text style={[st.energyChipTxt, { color: colors.foreground }]}>
-                  YOKIポイント +{fp}
-                </Text>
-              </View>
-            </View>
-          );
-        })()}
+        {earnedPoints != null && earnedPoints > 0 ? (
+          <View style={st.energyRow}><View style={st.energyChip}>
+            <Icon name="coffee" size={iconSize.xs} color={colors.foreground} />
+            <Text style={[st.energyChipTxt, { color: colors.foreground }]}>YOKIポイント +{earnedPoints}</Text>
+          </View></View>
+        ) : null}
         <View style={st.resultMascotRow}>
           <Mascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />
           <View style={[st.commentBubble, st.commentBubbleInline]}>
@@ -297,7 +289,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
         </View>
         {/* 循環の導線: YOKIポイント → ごはんをあげる(ホームへ) */}
         <Button
-          label="YOKIポイントでごはんをあげよう"
+          label="部屋に戻って、ひと休み"
           icon="coffee"
           variant="secondary"
           fullWidth

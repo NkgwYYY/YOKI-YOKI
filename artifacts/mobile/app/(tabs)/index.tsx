@@ -61,7 +61,7 @@ export default function HomeScreen() {
     const item = items.find(i => i.id === id);
     if (!item?.assetUrl) return undefined;
     const p = shopState.placements[item.id];
-    return { uri: resolveItemAssetUrl(item.assetUrl), x: p?.x ?? 0, y: p?.y ?? 0, scale: p?.scale ?? 1 };
+    return { id: item.id, uri: resolveItemAssetUrl(item.assetUrl), x: p?.x ?? 0, y: p?.y ?? 0, scale: p?.scale ?? 1 };
   };
   const background = items.find(i => i.id === shopState.equipped.background);
   const chat = () => {
@@ -108,6 +108,7 @@ export default function HomeScreen() {
     </BottomSheet>}
     {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
       {menuRow('edit-3', '今日を記録する', () => setSheet('record'))}
+      {menuRow('message-circle', 'この子とお話しする', chat)}
       {menuRow('coffee', 'ごはんの時間', () => setSheet('feed'))}
       {menuRow('music', '音楽であそぶ', () => setSheet('music'))}
       {menuRow('shopping-bag', '暮らしのお店', () => { close(); router.push('/shop'); })}

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fitRoom, safeRoomPoint, ROOM_STOPS } from '../utils/roomGeometry.ts';
 import { mergeEncounterHistory } from '../utils/mergeEncounters.ts';
-import { resolveLightEnergyState, applyEnergyGain, GAIN_MOOD_RECORD } from '../utils/lightEnergy.ts';
+import { resolveLightEnergyState } from '../utils/lightEnergy.ts';
 
 test('room and hotspots remain inside compact, tall and landscape viewports', () => {
   for (const [width,height] of [[320,375],[390,620],[430,730],[844,210]]) {
@@ -31,4 +31,12 @@ test('legacy energy balance survives day rollover without absence penalties', ()
   assert.equal(state.storedEnergy,42);
   assert.equal(state.totalEnergy,100);
   assert.equal(state.flags.mood,false);
+});
+
+test('equipped glasses retain the Character Lab offset instead of sitting above the head', async () => {
+  const { roomWearableFrame } = await import('../utils/roomWearable.ts');
+  const frame=roomWearableFrame('catalog-wear-round-glasses','egg',100,{x:0,y:0,scale:1});
+  assert.ok(frame.top>0 && frame.top<50);
+  const shifted=roomWearableFrame('catalog-wear-round-glasses','egg',100,{x:51.2,y:0,scale:1});
+  assert.ok(Math.abs(shifted.left-frame.left-10)<0.001);
 });

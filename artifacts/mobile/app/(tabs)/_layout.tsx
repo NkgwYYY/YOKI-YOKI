@@ -17,7 +17,7 @@ function ClassicTabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: homePalette.navActive,
+        tabBarActiveTintColor: '#F0D6B6',
         tabBarInactiveTintColor: homePalette.navInactive,
         headerShown: false,
         tabBarLabelStyle: typography.micro,
@@ -35,7 +35,7 @@ function ClassicTabLayout() {
         },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           ) : isWeb ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: homePalette.navBackground }]} />
           ) : null,

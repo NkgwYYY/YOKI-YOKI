@@ -5,8 +5,9 @@ import type { MascotStage } from '@/utils/mascotUtils';
 import { fitRoom } from '@/utils/roomGeometry';
 import { StaticMascot } from '@/components/Mascot';
 import { RoomResident, type ResidentItem } from './room/RoomResident';
-import { RoomItemPreview } from './room/LegacyFurniture';
-export { RoomItemPreview, GrassTexture } from './room/LegacyFurniture';
+import { RoomFurnitureArt } from './room/RoomFurnitureArt';
+export { RoomItemPreview } from './room/RoomFurnitureArt';
+export { GrassTexture } from './room/LegacyFurniture';
 
 const ART = {
   background: require('@/assets/images/room/room-night.jpg'),
@@ -47,7 +48,7 @@ export function RoomView(props: Props) {
       {object('meal', 'ごはん', ART.meal, 0.79, 0.90, 0.19, props.onFeed)}
       {props.totalDays > 2 || props.customization.flower !== 'none'
         ? <Image source={ART.plant} resizeMode="contain" style={{ position: 'absolute', left: width * 0.05, top: height * 0.43, width: width * 0.15, height: width * 0.2, zIndex: 520 }} /> : null}
-      {props.customization.furniture !== 'none' && <View style={{ position: 'absolute', left: width * 0.07, top: height * 0.53, zIndex: 590 }}><RoomItemPreview kind="furniture" id={props.customization.furniture} /></View>}
+      {props.customization.furniture !== 'none' && <View style={{ position: 'absolute', left: width * 0.01, top: height * 0.55 - width * 0.24, zIndex: 550 }}><RoomFurnitureArt id={props.customization.furniture} size={width * 0.24} /></View>}
       {props.decor && <Image source={{ uri: props.decor.uri }} resizeMode="contain" style={{ position: 'absolute', left: width * 0.76 + props.decor.x, top: height * 0.51 + props.decor.y, width: width * 0.16 * props.decor.scale, height: width * 0.16 * props.decor.scale, zIndex: 620 }} />}
       {props.companion && <View style={{ position: 'absolute', left: width * 0.63, top: height * 0.56, zIndex: 630 }}><StaticMascot stage="egg" mood="happy" size={width * 0.13} /></View>}
       <RoomResident {...props} width={width} height={height} name={props.mascotName} onPress={props.onChat} />

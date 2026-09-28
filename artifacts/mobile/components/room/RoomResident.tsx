@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Image, PanResponder, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Image, PanResponder, Platform, StyleSheet, View } from 'react-native';
 import { Mascot, StaticMascot } from '@/components/Mascot';
-import type { MascotMood, MascotStage } from '@/utils/mascotUtils';
+import { getCharacter, type MascotMood, type MascotStage } from '@/utils/mascotUtils';
+import { roomWearableFrame } from '@/utils/roomWearable';
 import { ROOM_STOPS, safeRoomPoint } from '@/utils/roomGeometry';
 
-export type ResidentItem = { uri: string; x: number; y: number; scale: number };
+export type ResidentItem = { id: string; uri: string; x: number; y: number; scale: number };
 type Props = {
   width: number; height: number; stage: MascotStage; growthSize: number;
   active: boolean; reduceMotion: boolean; resting: boolean; reaction: number;
@@ -70,7 +71,7 @@ export function RoomResident(props: Props) {
     if (!active) {
       clearTimeout(holdTimer.current); position.stopAnimation(); lift.stopAnimation(); squash.stopAnimation(); shine.stopAnimation();
       lift.setValue(0); squash.setValue(0); shine.setValue(0);
-      gestureActive.current = false; lifted.current = false; setHeld(false);
+      gestureActive.current = false; lifted.current = false; setHeld(false); setHappy(false);
     }
     return () => { clearTimeout(holdTimer.current); position.stopAnimation(); lift.stopAnimation(); squash.stopAnimation(); shine.stopAnimation(); };
   }, [active, position, lift, squash, shine]);
@@ -122,6 +123,10 @@ export function RoomResident(props: Props) {
       accessibilityHint="タップで話す。長押しすると持ち上げられます" accessible
       onAccessibilityTap={() => props.onPress()}
       {...responder.panHandlers}
+      tabIndex={0}
+      {...(Platform.OS === 'web' ? { onKeyDown: (event: React.KeyboardEvent) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); latest.current.onPress(); }
+      } } : {})}
       style={[s.root, { width: size, height: size, zIndex: held ? 999 : depth,
         left: Animated.subtract(Animated.multiply(position.x, width), size / 2),
         top: Animated.subtract(Animated.multiply(position.y, height), size * 0.92) }]}>
@@ -133,7 +138,7 @@ export function RoomResident(props: Props) {
         {active && !reduceMotion && !held
           ? <Mascot stage={stage} mood={mood} size={size} preferStatic />
           : <StaticMascot stage={stage} mood={mood} size={size} />}
-        {wear && <Image source={{ uri: wear.uri }} resizeMode="contain" style={{ position: 'absolute', width: size * wear.scale, height: size * wear.scale, left: (size - size * wear.scale) / 2 + wear.x, top: -size * 0.27 + wear.y }} />}
+        {wear && <Image source={{ uri: wear.uri }} resizeMode="contain" style={{ position: 'absolute', ...roomWearableFrame(wear.id, getCharacter(stage).key, size, wear) }} />}
       </Animated.View>
       <Animated.View pointerEvents="none" style={[s.halo, { opacity: shine, transform: [{ scale: shine.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.5] }) }] }]} />
     </Animated.View>

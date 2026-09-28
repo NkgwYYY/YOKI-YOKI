@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { border, colors, control, radius, space, typography } from '@/constants/theme';
@@ -127,15 +127,29 @@ export function FeedModal({ visible, onClose, onFed }: FeedModalProps) {
   const [isEating, setIsEating] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '' });
 
+  const feeding = useRef(false);
+  const mounted = useRef(true);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; timers.current.forEach(clearTimeout); };
+  }, []);
   const handleFeed = async (foodId: string) => {
-    const result = await feedMascot(foodId);
-    if (result.success) {
-      if (onFed) { onFed(); return; }
-      setIsEating(true);
-      setTimeout(() => setIsEating(false), 800);
-    }
-    setToast({ visible: true, message: result.message });
-    setTimeout(() => setToast({ visible: false, message: '' }), 2200);
+    if (feeding.current) return;
+    feeding.current = true;
+    try {
+      const result = await feedMascot(foodId);
+      if (!mounted.current) return;
+      if (result.success) {
+        if (onFed) { onFed(); return; }
+        setIsEating(true);
+        timers.current.push(setTimeout(() => setIsEating(false), 800));
+      }
+      setToast({ visible: true, message: result.message });
+      timers.current.push(setTimeout(() => setToast({ visible: false, message: '' }), 2200));
+    } catch {
+      if (mounted.current) setToast({ visible: true, message: 'ごはんを保存できませんでした。もう一度お試しください。' });
+    } finally { feeding.current = false; }
   };
 
   const satietyColor = colors.primary;

@@ -17,9 +17,10 @@ export function MiniGameModal({ visible, slot, onClose, onReward, rewardEnabled 
   const insets = useSafeAreaInsets();
   const rewarded = useRef(false);
   const [rewardMessage, setRewardMessage] = useState('');
+  const [earnedPoints, setEarnedPoints] = useState<number | null>(null);
   useEffect(() => {
     if (!visible) return;
-    rewarded.current = false; setRewardMessage(''); holdLightFlow(true); Analytics.miniGameStarted(slot);
+    rewarded.current = false; setRewardMessage(''); setEarnedPoints(null); holdLightFlow(true); Analytics.miniGameStarted(slot);
     return () => holdLightFlow(false);
   }, [visible, holdLightFlow, slot]);
   const result = async (r: PlayResult) => {
@@ -30,6 +31,7 @@ export function MiniGameModal({ visible, slot, onClose, onReward, rewardEnabled 
       if (rewardEnabled) {
         const fp = stars >= 4 ? 3 : stars === 3 ? 2 : 1;
         await onReward({ fp, stars });
+        setEarnedPoints(fp);
         setRewardMessage(`${fp} YOKIポイント。おやつの時間に使えるよ。`);
       } else setRewardMessage('いっしょに音楽を楽しめたね。');
     } catch { setRewardMessage('報酬を保存できませんでした。通信と保存状態を確認してください。'); }
@@ -41,7 +43,7 @@ export function MiniGameModal({ visible, slot, onClose, onReward, rewardEnabled 
       <View style={s.header}><View><Text style={s.title}>ふたりの音楽室</Text><Text style={s.caption}>{rewardMessage || (rewardEnabled ? '音楽を楽しんで、ごはんのポイントに。' : 'この時間のポイントは受取済み。何度でも遊べます。')}</Text></View>
         <Pressable accessibilityRole="button" accessibilityLabel="音楽を止めて部屋へ戻る" onPress={onClose} style={s.close}><Icon name="x" size={23} color="#786081" /></Pressable>
       </View>
-      <RhythmGameFlow onResult={result} onClose={onClose} rewardLabel={rewardEnabled ? 'ごはんに使える 1〜3 YOKIポイント' : 'ポイントを使わずに楽しめます'} />
+      <RhythmGameFlow earnedPoints={earnedPoints} onResult={result} onClose={onClose} rewardLabel={rewardEnabled ? 'ごはんに使える 1〜3 YOKIポイント' : 'ポイントを使わずに楽しめます'} />
     </View>
   </Modal>;
 }
