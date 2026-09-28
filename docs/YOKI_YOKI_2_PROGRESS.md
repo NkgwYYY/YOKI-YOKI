@@ -29,7 +29,7 @@ HOME uses a portrait illustrated 2.5D room, independent furniture sprites, foot-
 | --- | --- | --- |
 | 0–1 audit/design | Main inspected; architecture above; existing data and character art retained | Recheck main and working tree on each resume |
 | 2 room HOME | Illustrated fitted room, furniture hotspots, short sheets, three-tab navigation; no scrolling dashboard | Native safe-area/orientation review |
-| 3 resident | Original sprites/rig, breathing/blinking, aisle movement, hold/lift/drop, depth ordering, equipment calibration | Richer bed/meal-specific behavior; native gesture QA |
+| 3 resident | Original sprites/rig, breathing/blinking, aisle movement, hold/lift/drop, depth ordering, equipment calibration; bed rest, window watching and successful-feed meal routines | Native gesture QA; browser interruption checks in progress |
 | 4 record | Short mood/activity flow, detailed entry secondary; explicit unentered-sleep flag | First-run and authenticated synchronization QA |
 | 5 reaction | Record/care reaction and light-energy integration; deferred reaction after returning to room | End-to-end native review of transitions |
 | 6 garden | Existing rich garden art, cable, liquid tank, one-step reward receipt; zero balance is visually empty | Live-account/offline persistence failure checks |
@@ -50,7 +50,7 @@ HOME uses a portrait illustrated 2.5D room, independent furniture sprites, foot-
 - Existing ItemContext loads local catalog equipment only after a successful catalog request. Offline catalog boot remains a known limitation; no inventory migration or deletion was introduced.
 
 ## Next action
-Do not rebuild the HOME implementation. Verify the latest branch checkpoint, then prioritize native gesture/audio/safe-area QA, guest first-run and authenticated data synchronization. Continue PHASE 11 secondary-screen/flower-art unification and richer PHASE 3 bed/meal behaviors. Keep all original character assets and stored ownership/history intact.
+Do not rebuild HOME or the bed/meal routines. Verify the latest branch checkpoint, then continue feedback/accessibility QA, native gesture/audio/safe-area QA, guest first-run and authenticated data synchronization. PHASE 11 secondary-screen/flower-art unification remains open. Keep all original character assets and stored ownership/history intact.
 
 ## Resume 2026-09-28
 - Re-fetched GitHub: main still `f99bf9ff3d2a9887ec88afc1321209402a2a6278`.
@@ -95,4 +95,13 @@ The image-generation workflow supplied room/furniture bitmap art only; original 
 - Existing milk/plant art reused. Furniture purchase IDs/costs and saved customization remain unchanged.
 
 ### Explicitly not done
-No main merge or deployment, no production credentials/configuration changes, no DB migration, no authenticated live-account or native-device pass. Whole-app visual unification and all PHASE 3 behaviors are not complete. Do not label the entire 2.0 project finished.
+No main merge or deployment, no production credentials/configuration changes, no DB migration, no authenticated live-account or native-device pass. Whole-app visual unification and production validation are not complete. Do not label the entire 2.0 project finished.
+
+## Resume 2026-09-29 JST — PHASE 3 implementation
+- Live main remains `f99bf9ff3d2a9887ec88afc1321209402a2a6278`; latest prior implementation is `d1a5ddcfe30601f8691276cccea275d4d2ff6caf` (2026-09-29 06:41:43 JST).
+- `git fetch` succeeded this time. The 15 staged files were identical to the remote commit's tree (`99fa82defbcbd835b5d74d3e6ac1e7ae563ca30b`). Soft-aligned local HEAD without rewriting or discarding files. No unfinished source delta remained; only excluded build outputs were untracked.
+- Earliest outstanding implementation: PHASE 3 bed/meal-specific behaviors. Added pure routine planning in `artifacts/mobile/utils/residentRoutine.ts` and cancellable native-animation scheduling in `components/room/useResidentRoutine.ts`.
+- Bed hotspot and accessible menu entry request a rest. Character walks via the aisle to the painted mattress and uses the original sleepy expression. Successful feeding alone requests a visit beside the meal bowl, happy expression and a small whole-character nod; no new purchase or reward operation occurs in animation.
+- Meals take priority over rest. Backgrounding, sheets and gestures stop timers/position animations; unfinished visual requests remain resumable. Reduced motion retains expressions without room travel or nodding. Dragging before the hold threshold no longer accidentally opens chat.
+- Mobile typecheck PASS; regression suite 12/12 PASS, including new priority, bed exit path, stationary rest and reduced-motion cases. Web export PASS. Native device verification remains pending.
+- Next: runtime QA of these routines; PHASE 5/12 review of energy feedback (existing global LightFlowHost is currently excluded on iOS and lacks background/reduced-motion guards).

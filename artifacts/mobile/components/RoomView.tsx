@@ -19,8 +19,8 @@ const ART = {
 type Props = {
   customization: RoomCustomization; stage: MascotStage; growthSize: number;
   mascotName: string; active: boolean; reduceMotion: boolean; resting: boolean;
-  reaction: number; hints: boolean; companion: boolean; totalDays: number;
-  onRecord: () => void; onFeed: () => void; onPlay: () => void; onChat: () => void; onAlbum: () => void;
+  reaction: number; meal: number; rest: number; hints: boolean; companion: boolean; totalDays: number;
+  onRecord: () => void; onFeed: () => void; onPlay: () => void; onChat: () => void; onAlbum: () => void; onRest: () => void;
   wear?: ResidentItem; effect?: ResidentItem; decor?: ResidentItem; background?: string;
 };
 /** All sprites share one fitted coordinate system, so letterboxing never moves hotspots. */
@@ -42,6 +42,10 @@ export function RoomView(props: Props) {
       <Pressable testID="room-album" accessibilityRole="button" accessibilityLabel="本棚のアルバム・成長と図鑑" onPress={props.onAlbum}
         style={{ position: 'absolute', left: width * 0.51, top: height * 0.09, width: width * 0.24, height: height * 0.12, zIndex: 20, minHeight: 44 }}>
         {props.hints && <Text style={[s.label, { bottom: 0 }]}>アルバム</Text>}
+      </Pressable>
+      <Pressable testID="room-bed" accessibilityRole="button" accessibilityLabel="ベッドで一緒に休む" onPress={props.onRest}
+        style={{ position: 'absolute', left: width * 0.56, top: height * 0.29, width: width * 0.31, height: height * 0.16, zIndex: 30, minHeight: 44 }}>
+        {props.hints && <Text style={[s.label, { bottom: 0 }]}>ひと休み</Text>}
       </Pressable>
       {object('record', '今日の記録', ART.desk, 0.24, 0.85, 0.39, props.onRecord)}
       {object('music', '音楽であそぶ', ART.music, 0.81, 0.75, 0.25, props.onPlay)}

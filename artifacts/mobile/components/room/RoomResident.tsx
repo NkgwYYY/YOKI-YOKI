@@ -4,11 +4,12 @@ import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getCharacter, type MascotMood, type MascotStage } from '@/utils/mascotUtils';
 import { roomWearableFrame } from '@/utils/roomWearable';
 import { ROOM_STOPS, safeRoomPoint } from '@/utils/roomGeometry';
+import { useResidentRoutine } from './useResidentRoutine';
 
 export type ResidentItem = { id: string; uri: string; x: number; y: number; scale: number };
 type Props = {
   width: number; height: number; stage: MascotStage; growthSize: number;
-  active: boolean; reduceMotion: boolean; resting: boolean; reaction: number;
+  active: boolean; reduceMotion: boolean; resting: boolean; reaction: number; meal: number; rest: number;
   name: string; onPress: () => void; wear?: ResidentItem; effect?: ResidentItem;
 };
 
@@ -20,37 +21,36 @@ export function RoomResident(props: Props) {
   const lift = useRef(new Animated.Value(0)).current;
   const squash = useRef(new Animated.Value(0)).current;
   const shine = useRef(new Animated.Value(0)).current;
+  const mealNod = useRef(new Animated.Value(0)).current;
   const [depth, setDepth] = useState(640);
   const [held, setHeld] = useState(false);
   const [happy, setHappy] = useState(false);
+  const [interacting, setInteracting] = useState(false);
   const gestureActive = useRef(false);
   const lifted = useRef(false);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const start = useRef(ROOM_STOPS[0]);
   const lastReaction = useRef(reaction);
   const size = width * 0.29 * Math.max(0.85, Math.min(1.2, growthSize));
+  const pose = useResidentRoutine({ active, reduceMotion, resting, interacting,
+    meal: props.meal, rest: props.rest, position, foot });
+  useEffect(() => {
+    mealNod.setValue(0);
+    if (!active || reduceMotion || interacting || pose !== 'eating') return;
+    const nod = Animated.loop(Animated.sequence([
+      Animated.timing(mealNod, { toValue: 1, duration: 450, useNativeDriver: false }),
+      Animated.timing(mealNod, { toValue: 0, duration: 550, useNativeDriver: false }),
+    ]));
+    nod.start();
+    return () => { nod.stop(); mealNod.setValue(0); };
+  }, [active, reduceMotion, interacting, pose, mealNod]);
 
   useEffect(() => {
     const listener = position.addListener(value => { foot.current = value; setDepth(Math.round(value.y * 1000)); });
     return () => position.removeListener(listener);
   }, [position]);
   useEffect(() => {
-    if (!active || reduceMotion || held) return;
-    let next = 0;
-    const timer = setInterval(() => {
-      if (gestureActive.current) return;
-      next = (next + 1) % ROOM_STOPS.length;
-      const destination = resting ? ROOM_STOPS[2] : ROOM_STOPS[next];
-      // Route via the clear central aisle instead of cutting through furniture.
-      Animated.sequence([
-        Animated.timing(position, { toValue: { x: 0.5, y: foot.current.y }, duration: 1300, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
-        Animated.timing(position, { toValue: destination, duration: 3000, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
-      ]).start();
-    }, resting ? 26000 : 13000);
-    return () => { clearInterval(timer); position.stopAnimation(); };
-  }, [active, reduceMotion, held, resting, position]);
-  useEffect(() => {
-    if (!active || reaction === lastReaction.current) return;
+    if (!active || interacting || reaction === lastReaction.current) return;
     lastReaction.current = reaction;
     setHappy(true);
     shine.setValue(0);
@@ -66,25 +66,28 @@ export function RoomResident(props: Props) {
     }
     const timer = setTimeout(() => setHappy(false), 2600);
     return () => { clearTimeout(timer); shine.stopAnimation(); lift.stopAnimation(); };
-  }, [reaction, active, reduceMotion, lift, shine]);
+  }, [reaction, active, interacting, reduceMotion, lift, shine]);
   useEffect(() => {
     if (!active) {
       clearTimeout(holdTimer.current); position.stopAnimation(); lift.stopAnimation(); squash.stopAnimation(); shine.stopAnimation();
       lift.setValue(0); squash.setValue(0); shine.setValue(0);
-      gestureActive.current = false; lifted.current = false; setHeld(false); setHappy(false);
+      gestureActive.current = false; lifted.current = false; setHeld(false); setHappy(false); setInteracting(false);
     }
     return () => { clearTimeout(holdTimer.current); position.stopAnimation(); lift.stopAnimation(); squash.stopAnimation(); shine.stopAnimation(); };
   }, [active, position, lift, squash, shine]);
 
   const responder = useMemo(() => {
+    let moved = false;
     const release = (cancelled: boolean) => {
       clearTimeout(holdTimer.current);
       gestureActive.current = false;
       const wasLifted = lifted.current;
       lifted.current = false;
-      if (!wasLifted) { if (!cancelled) latest.current.onPress(); return; }
+      if (!wasLifted) { setInteracting(false); if (!cancelled && !moved) latest.current.onPress(); return; }
+      // A bed is a routine-only destination; dropping always returns to clear floor.
+      position.setValue(safeRoomPoint(foot.current));
       const land = () => {
-        setHeld(false);
+        setHeld(false); setInteracting(false);
         if (!latest.current.active || latest.current.reduceMotion) return;
         squash.setValue(1);
         Animated.spring(squash, { toValue: 0, friction: 5, tension: 130, useNativeDriver: false }).start();
@@ -95,6 +98,7 @@ export function RoomResident(props: Props) {
     return PanResponder.create({
       onStartShouldSetPanResponder: () => latest.current.active,
       onPanResponderGrant: () => {
+        moved = false; setInteracting(true);
         gestureActive.current = true; lifted.current = false;
         position.stopAnimation(); start.current = foot.current;
         holdTimer.current = setTimeout(() => {
@@ -105,7 +109,7 @@ export function RoomResident(props: Props) {
       },
       onPanResponderMove: (_, g) => {
         if (!lifted.current) {
-          if (Math.abs(g.dx) + Math.abs(g.dy) > 12) clearTimeout(holdTimer.current);
+          if (Math.abs(g.dx) + Math.abs(g.dy) > 12) { moved = true; clearTimeout(holdTimer.current); }
           return;
         }
         const p = latest.current;
@@ -117,10 +121,12 @@ export function RoomResident(props: Props) {
       onPanResponderTerminationRequest: () => true,
     });
   }, [position, lift, squash]);
-  const mood: MascotMood = happy || held ? 'happy' : resting ? 'sleepy' : 'normal';
+  const mood: MascotMood = happy || held || pose === 'eating' ? 'happy' : resting || pose === 'sleeping' ? 'sleepy' : 'normal';
+  const activityLabel = pose === 'eating' ? 'おやつの時間' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'watching' ? '窓を眺めています' : pose === 'walking' ? '部屋を歩いています' : 'のんびりしています';
   return (
     <Animated.View testID="room-resident" accessibilityRole="button" accessibilityLabel={`${name}と話す`}
       accessibilityHint="タップで話す。長押しすると持ち上げられます" accessible
+      accessibilityValue={{ text: activityLabel }}
       onAccessibilityTap={() => props.onPress()}
       {...responder.panHandlers}
       tabIndex={0}
@@ -132,6 +138,7 @@ export function RoomResident(props: Props) {
         top: Animated.subtract(Animated.multiply(position.y, height), size * 0.92) }]}>
       <View pointerEvents="none" style={s.shadow} />
       <Animated.View pointerEvents="none" style={{ transform: [{ translateY: lift },
+        { rotate: mealNod.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '3deg'] }) },
         { scaleX: squash.interpolate({ inputRange: [0, 1], outputRange: [1, 1.13] }) },
         { scaleY: squash.interpolate({ inputRange: [0, 1], outputRange: [1, 0.87] }) }] }}>
         {effect && <Image source={{ uri: effect.uri }} style={{ position: 'absolute', width: size * effect.scale * 1.3, height: size * effect.scale * 1.3, left: -size * 0.15 + effect.x, top: -size * 0.15 + effect.y }} resizeMode="contain" />}

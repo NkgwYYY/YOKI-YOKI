@@ -35,6 +35,8 @@ export default function HomeScreen() {
   const [hints, setHints] = useState(true);
   const [name, setName] = useState('');
   const [reaction, setReaction] = useState(0);
+  const [meal, setMeal] = useState(0);
+  const [rest, setRest] = useState(0);
   const [message, setMessage] = useState('おかえり。今日は、どんな一日だった？');
   const [nameError, setNameError] = useState('');
   const today = getTodayRecord();
@@ -89,17 +91,17 @@ export default function HomeScreen() {
     </View>
     <RoomView customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
-      resting={!!today && today.mood <= 2} reaction={reaction} hints={hints} companion={companionState.extraEggs > 0}
+      resting={!!today && today.mood <= 2} reaction={reaction} meal={meal} rest={rest} hints={hints} companion={companionState.extraEggs > 0}
       totalDays={progress.totalDays} wear={equipment('wear')} effect={equipment('effect')} decor={equipment('decor')}
       background={background?.assetUrl ? resolveItemAssetUrl(background.assetUrl) : undefined}
       onRecord={() => setSheet('record')} onFeed={() => setSheet('feed')} onPlay={() => setSheet('music')}
-      onChat={chat} onAlbum={() => router.push('/(tabs)/growth')} />
+      onChat={chat} onRest={() => setRest(n => n + 1)} onAlbum={() => router.push('/(tabs)/growth')} />
     <View style={s.footer} pointerEvents="none"><Text style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : hints ? 'ノートに今日を。音楽にひと息。長押しで抱っこ。' : 'ここでは、あなたのペースで。'}</Text></View>
     {sheet === 'record' && <BottomSheet visible onClose={close} title="今日を、ひとこと" scroll={false} maxHeightRatio={0.95}>
       <QuickAffirmationRecord onComplete={() => { setReaction(n => n + 1); close(); }} />
       {menuRow('book-open', 'もっと詳しく記録する・チェック', () => { close(); router.push('/(tabs)/record'); })}
     </BottomSheet>}
-    {sheet === 'feed' && <FeedModal visible onClose={close} onFed={() => { setReaction(n => n + 1); close(); }} />}
+    {sheet === 'feed' && <FeedModal visible onClose={close} onFed={() => { setMeal(n => n + 1); close(); }} />}
     {sheet === 'music' && <MiniGameModal visible slot={slot} onClose={close} rewardEnabled={canEarn}
       onReward={async reward => { if (canEarn) await completeMiniGame(slot, reward); setReaction(n => n + 1); }} />}
     {sheet === 'chat' && <BottomSheet visible onClose={close} title={mascotName || 'よっきー'} scroll={false}>
@@ -110,6 +112,7 @@ export default function HomeScreen() {
       {menuRow('edit-3', '今日を記録する', () => setSheet('record'))}
       {menuRow('message-circle', 'この子とお話しする', chat)}
       {menuRow('coffee', 'ごはんの時間', () => setSheet('feed'))}
+      {menuRow('moon', 'ベッドで一緒に休む', () => { setRest(n => n + 1); close(); })}
       {menuRow('music', '音楽であそぶ', () => setSheet('music'))}
       {menuRow('shopping-bag', '暮らしのお店', () => { close(); router.push('/shop'); })}
       {menuRow('home', '部屋の模様替え', () => setSheet('atelier'))}
