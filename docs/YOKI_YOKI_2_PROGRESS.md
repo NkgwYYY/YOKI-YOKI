@@ -29,16 +29,16 @@ HOME uses a portrait illustrated 2.5D room, independent furniture sprites, foot-
 | --- | --- | --- |
 | 0–1 audit/design | Main inspected; architecture above; existing data and character art retained | Recheck main and working tree on each resume |
 | 2 room HOME | Illustrated fitted room, furniture hotspots, short sheets, three-tab navigation; no scrolling dashboard | Native safe-area/orientation review |
-| 3 resident | Original sprites/rig, breathing/blinking, aisle movement, hold/lift/drop, depth ordering, equipment calibration; bed rest, window watching and successful-feed meal routines | Native gesture QA; browser interruption checks in progress |
-| 4 record | Short mood/activity flow, detailed entry secondary; explicit unentered-sleep flag | First-run and authenticated synchronization QA |
-| 5 reaction | Record/care reaction and light-energy integration; deferred reaction after returning to room | End-to-end native review of transitions |
+| 3 resident | Original sprites/rig, breathing/blinking, aisle movement, hold/lift/drop, depth ordering, equipment calibration; bed rest, window watching and successful-feed meal routines; browser interruption checks passed | Native gesture QA |
+| 4 record | Short mood/activity flow, detailed entry secondary; explicit unentered-sleep flag; fresh guest onboarding, compact save and reload browser checks passed | Authenticated synchronization QA |
+| 5 reaction | Record/care reaction and saved-energy feedback on all platforms; compact garden link, motion preference and hidden-app guards; same-day update does not replay gains | End-to-end native review of transitions; storage failure recovery remains broader data-layer work |
 | 6 garden | Existing rich garden art, cable, liquid tank, one-step reward receipt; zero balance is visually empty | Live-account/offline persistence failure checks |
 | 7 rewards/growth | Existing food, growth, discovery and ownership retained; room atelier integrated | All purchasing/auth cases and flower-art variants |
 | 8 rhythm | Five modes/four existing songs, points-only primary flow, practice after reward cap, actual-earned result chip | All-mode/device audio and interruption matrix |
 | 9 conversation | Room tap/menu to conversation; existing context and safety API retained | Production AI response/auth QA |
 | 10 legacy | Old runner/town code and data retained outside primary flow; gallery redirects to growth | Broader navigation regression pass |
 | 11 visuals | Room/background/object sprites; sofa/vanity/bookshelf art; muted palette and dark navigation | Shop/album/detailed screens and flower art are NOT fully unified |
-| 12 performance/accessibility | Focus/background/reduced-motion guards, animation cleanup, keyboard chat entry | Device profiling and full screen-reader pass |
+| 12 performance/accessibility | Focus/background/reduced-motion guards, animation cleanup, keyboard chat entry, accessible resident activity description and static light feedback | Device profiling and full screen-reader pass |
 | 13 verification | Typechecks, regression tests, API build and Expo export; selected local guest browser flows | Native devices, real auth/cloud round-trip, purchase flows |
 | 14 handoff | Source checkpoint `2f86197eb2d8315e68db77ce63ca4b93b2fd0c74`; follow-up polish checkpoint contains this updated document | Main merge/deployment NOT performed; final product review pending |
 
@@ -105,3 +105,26 @@ No main merge or deployment, no production credentials/configuration changes, no
 - Meals take priority over rest. Backgrounding, sheets and gestures stop timers/position animations; unfinished visual requests remain resumable. Reduced motion retains expressions without room travel or nodding. Dragging before the hold threshold no longer accidentally opens chat.
 - Mobile typecheck PASS; regression suite 12/12 PASS, including new priority, bed exit path, stationary rest and reduced-motion cases. Web export PASS. Native device verification remains pending.
 - Next: runtime QA of these routines; PHASE 5/12 review of energy feedback (existing global LightFlowHost is currently excluded on iOS and lacks background/reduced-motion guards).
+
+## PHASE 5/12 follow-up — saved-energy feedback
+- PHASE 3 checkpoint: `998c90756217bcff5e0c727144db4a927ff1c3b8`. Runtime review found that React Native Web does not translate the combined `accessibilityValue` object on this button. The resident's accessible label now also describes the current activity; behavior itself correctly reached the mattress.
+- Reworked `artifacts/mobile/components/LightFlowEffect.tsx` with lightweight Native Animated particles and a compact warm-colored garden link. Window dimensions/safe areas update with layout. All particle animations and completion timers clean up on unmount. Reduced motion shows a static message without particle travel.
+- `components/LightFlowHost.tsx` now pauses its visual queue while hidden/backgrounded using the shared `useAppActivity` hook. Finishing an old event cannot accidentally discard the next queued event.
+- `app/(tabs)/_layout.tsx` mounts energy feedback on iOS too. The existing iOS discovery-modal policy was not changed. Native exports pass, but this is NOT an iPhone runtime test.
+- `contexts/AppContext.tsx` queues the positive energy message only after the energy storage write succeeds. Existing daily gain flags remain authoritative; no extra reward calculation, balance migration or charging operation was introduced. Full multi-key transaction recovery is still not implemented.
+- Fresh headless Chromium guest checks passed: bed arrival/rest; bed-to-meal route and exactly one food debit; lift/release during a routine; routines frozen behind a sheet; reduced-motion rest with unchanged position; saved-record static light feedback; hidden-tab feedback pause/resume; garden link; no duplicated energy celebration on a same-day record update. No page errors in these flows.
+- Additional fresh guest browser checks passed at 320×568: onboarding without pre-seeded profile, basic record save button within the viewport, successful first save, and reload without replaying an old energy event.
+- Regression tests: 12/12 PASS. Workspace, mobile, API and character-lab TypeScript checks PASS. Final Expo all-platform export PASS (Web 3.43 MB, iOS 6.71 MB, Android 6.72 MB). API source was unchanged; no backend deployment performed.
+- Next actionable gaps: PHASE 6 storage-failure recovery review; PHASE 7 offline catalog/equipment hydration; PHASE 11 secondary-screen and flower-art consistency. Native device/authenticated cloud/purchase validation remains open. Do not repeat the completed room/routine work.
+
+### Reproducible browser checks
+`artifacts/mobile/tests/room.browser.cjs` serves a local export and uses isolated browser contexts with synthetic guest data. It never signs in or writes production data. Playwright/Chromium are QA-only prerequisites, not new app dependencies.
+```sh
+# From artifacts/mobile; build-yoki-v2-life is an untracked output directory
+CI=1 EXPO_NO_TELEMETRY=1 node_modules/.bin/expo export --platform all --output-dir ../../build-yoki-v2-life
+# From repository root, with QA-only tools installed separately
+YOKI_QA_PLAYWRIGHT=/absolute/path/to/playwright \
+YOKI_QA_BROWSER=/absolute/path/to/chromium \
+node artifacts/mobile/tests/room.browser.cjs
+```
+`YOKI_QA_EXPORT` can override the export directory. The runtime checks use browser DOM/state and local storage; they do not certify native gestures/audio or Japanese font rendering on a physical device.

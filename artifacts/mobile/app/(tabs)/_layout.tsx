@@ -173,10 +173,10 @@ export default function TabLayout() {
         <>
           {/* 新キャラ初登場・進化時の「新しい仲間が生まれました!」演出(どのタブでも表示) */}
           <NewFriendModal />
-          {/* 記録・チェック・ゲームで光を獲得した瞬間の循環演出(どのタブでも表示) */}
-          <LightFlowHost />
         </>
       ) : null}
+      {/* Native Animated feedback is available on iOS as well as Android/Web. */}
+      <LightFlowHost />
     </>
   );
 }

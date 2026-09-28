@@ -425,10 +425,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const gained = next.totalEnergy - settled.totalEnergy;
       lightEnergyRef.current = next;
       setLightEnergy(next);
-      if (gained > 0) queueGainEvent(gained);
       await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next));
+      // A failed write must not tell the user that energy was saved successfully.
+      if (gained > 0) queueGainEvent(gained);
     },
-    [settleElapsedEnergy]
+    [settleElapsedEnergy, queueGainEvent]
   );
 
   // ── 出会い記録の最新化: レベル(=進化段階)が変わるたびに図鑑へ登録する ──

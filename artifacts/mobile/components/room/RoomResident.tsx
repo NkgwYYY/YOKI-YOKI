@@ -124,7 +124,7 @@ export function RoomResident(props: Props) {
   const mood: MascotMood = happy || held || pose === 'eating' ? 'happy' : resting || pose === 'sleeping' ? 'sleepy' : 'normal';
   const activityLabel = pose === 'eating' ? 'おやつの時間' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'watching' ? '窓を眺めています' : pose === 'walking' ? '部屋を歩いています' : 'のんびりしています';
   return (
-    <Animated.View testID="room-resident" accessibilityRole="button" accessibilityLabel={`${name}と話す`}
+    <Animated.View testID="room-resident" accessibilityRole="button" accessibilityLabel={`${name}と話す。${activityLabel}`}
       accessibilityHint="タップで話す。長押しすると持ち上げられます" accessible
       accessibilityValue={{ text: activityLabel }}
       onAccessibilityTap={() => props.onPress()}
