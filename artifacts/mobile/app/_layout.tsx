@@ -1,3 +1,4 @@
+import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -41,7 +42,7 @@ function AuthGate() {
 
   useEffect(() => {
     if (isLoading || appLoading) return;
-    if (Platform.OS === 'ios' && segments[0] === 'login') {
+    if (!ACCOUNT_ENABLED && segments[0] === 'login') {
       router.replace(profile ? '/(tabs)' : '/onboarding');
       return;
     }
@@ -149,7 +150,7 @@ export default function RootLayout() {
           console.error('Root application error:', error, stackTrace);
         }}
       >
-        {Platform.OS === 'ios' ? (
+        {!ACCOUNT_ENABLED ? (
           <AppProviders guestOnly />
         ) : (
           <ClerkProvider

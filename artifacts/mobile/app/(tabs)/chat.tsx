@@ -329,11 +329,11 @@ export default function ChatScreen() {
       const profileLine = profileToContext(profile);
       if (profileLine) ctxParts.push(`ユーザーのプロフィール: ${profileLine}`);
       if (recent.length) {
-        ctxParts.push(`直近${recent.length}日: 平均気分${avgOf(recent.map(r => r.mood))}/5, 平均睡眠${avgOf(recent.map(r => r.sleep))}h`);
+        ctxParts.push(`直近${recent.length}日: 平均気分${avgOf(recent.map(r => r.mood))}/5, 平均睡眠${avgOf(recent.filter(r => r.sleepRecorded !== false).map(r => r.sleep)) ?? '未入力'}h`);
       }
       if (todayRec) {
         ctxParts.push(
-          `今日の記録: 気分${todayRec.mood}/5, 睡眠${todayRec.sleep}h` +
+          `今日の記録: 気分${todayRec.mood}/5, 睡眠${todayRec.sleepRecorded === false ? '未入力' : `${todayRec.sleep}h`}` +
           (todayRec.behaviors.length ? `, したこと[${todayRec.behaviors.join(',')}]` : '') +
           (todayRec.win ? `, 小さな成功「${todayRec.win}」` : '')
         );

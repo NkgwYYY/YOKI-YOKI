@@ -13,6 +13,7 @@ import { BerryIcon, AppleIcon, CandyIcon, CakeFoodIcon, RamenIcon, SpecialFoodIc
 interface FeedModalProps {
   visible: boolean;
   onClose: () => void;
+  onFed?: () => void;
 }
 
 function getFoodIllustration(id: string) {
@@ -114,7 +115,7 @@ const toastStyles = StyleSheet.create({
   text: { ...typography.calloutStrong, color: colors.primaryForeground },
 });
 
-export function FeedModal({ visible, onClose }: FeedModalProps) {
+export function FeedModal({ visible, onClose, onFed }: FeedModalProps) {
   const { feedState, currentSatiety, feedMascot, progress, getTodayRecord, getCompletedCount, getTotalCheckCount } = useApp();
 
   const todayRecord = getTodayRecord();
@@ -129,6 +130,7 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
   const handleFeed = async (foodId: string) => {
     const result = await feedMascot(foodId);
     if (result.success) {
+      if (onFed) { onFed(); return; }
       setIsEating(true);
       setTimeout(() => setIsEating(false), 800);
     }
@@ -136,11 +138,11 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
     setTimeout(() => setToast({ visible: false, message: '' }), 2200);
   };
 
-  const satietyColor = currentSatiety >= 70 ? colors.success : currentSatiety >= 40 ? colors.warning : colors.danger;
-  const hungerLabel = currentSatiety >= 80 ? 'お腹いっぱい' : currentSatiety >= 60 ? 'まあまあかな' : currentSatiety >= 40 ? 'すこし空腹だよ' : currentSatiety >= 20 ? 'お腹すいた〜！' : 'ぺこぺこだよ';
+  const satietyColor = colors.primary;
+  const hungerLabel = currentSatiety >= 80 ? 'ごちそうさま' : 'おやつでひと休みしよう';
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="ごはんをあげる" subtitle="YOKIポイントで元気回復" maxHeightRatio={0.88} contentStyle={modalStyles.content}>
+    <BottomSheet visible={visible} onClose={onClose} title="ごはんをあげる" subtitle="一緒に、ほっとする時間" maxHeightRatio={0.88} contentStyle={modalStyles.content}>
       <View style={modalStyles.pointsBadge}>
         <Icon name="star" size={iconSize.sm} color={colors.primary} />
         <Text style={modalStyles.pointsText}>{feedState.points} pt</Text>

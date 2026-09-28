@@ -44,7 +44,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'ホーム',
+          title: '部屋',
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="house" tintColor={color} size={24} />
@@ -56,7 +56,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="record"
         options={{
-          title: '記録',
+          title: '記録', href: null,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="pencil" tintColor={color} size={24} />
@@ -68,7 +68,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'チャット',
+          title: 'チャット', href: null,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="bubble.left.and.bubble.right" tintColor={color} size={24} />
@@ -80,7 +80,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="growth"
         options={{
-          title: '成長',
+          title: 'アルバム',
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="chart.line.uptrend.xyaxis" tintColor={color} size={24} />
@@ -92,7 +92,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="plant"
         options={{
-          title: 'エネルギー',
+          title: 'ひかりの庭',
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="sparkles" tintColor={color} size={24} />

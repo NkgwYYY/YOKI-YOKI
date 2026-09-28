@@ -1,3 +1,4 @@
+import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { reloadAppAsync } from 'expo';
@@ -73,7 +74,7 @@ export default function GrowthScreen() {
   const [showLogout, setShowLogout] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const isIOSGuestOnly = Platform.OS === 'ios';
+  const isIOSGuestOnly = !ACCOUNT_ENABLED;
 
   const handleLogout = async () => {
     setShowLogout(false);
@@ -108,8 +109,9 @@ export default function GrowthScreen() {
   const avgMood = last7.length > 0
     ? (last7.reduce((s, r) => s + r.mood, 0) / last7.length).toFixed(1)
     : '--';
-  const avgSleep = last7.length > 0
-    ? (last7.reduce((s, r) => s + r.sleep, 0) / last7.length).toFixed(1)
+  const sleepRecords = last7.filter(r => r.sleepRecorded !== false);
+  const avgSleep = sleepRecords.length > 0
+    ? (sleepRecords.reduce((s, r) => s + r.sleep, 0) / sleepRecords.length).toFixed(1)
     : '--';
 
   // ─── 今月の積み重ね(日ごとの活動カウント)と月間ふりかえり ───

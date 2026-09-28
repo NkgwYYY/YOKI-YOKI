@@ -2,7 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Alert, Image, Modal, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { RoomView } from '@/components/RoomView';
+import { LegacyRoomView as RoomView } from '@/components/room/LegacyFurniture';
 import { StageCharacter } from '@/components/StageCharacter';
 import { useApp } from '@/contexts/AppContext';
 import { EquipmentSlot, Item, ItemCategory, resolveItemAssetUrl, useItems } from '@/contexts/ItemContext';

@@ -100,7 +100,7 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
 
   const todayRecord = getTodayRecord();
   const [mood, setMood] = useState(todayRecord?.mood ?? 3);
-  const [sleep, setSleep] = useState(todayRecord?.sleep ?? 7);
+  const [sleep, setSleep] = useState(todayRecord?.sleepRecorded === false ? 7 : todayRecord?.sleep ?? 7);
   const [behaviors, setBehaviors] = useState<string[]>(todayRecord?.behaviors ?? []);
   const [notes, setNotes] = useState(todayRecord?.notes ?? '');
   const [exercise, setExercise] = useState<number | undefined>(todayRecord?.exercise);
@@ -126,7 +126,7 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
       clearCloseTimer();
       const r = getTodayRecord();
       setMood(r?.mood ?? 3);
-      setSleep(r?.sleep ?? 7);
+      setSleep(r?.sleepRecorded === false ? 7 : r?.sleep ?? 7);
       setBehaviors(r?.behaviors ?? []);
       setNotes(r?.notes ?? '');
       setExercise(r?.exercise);

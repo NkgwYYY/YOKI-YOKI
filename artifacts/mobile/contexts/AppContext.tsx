@@ -1,3 +1,4 @@
+import { mergeEncounterHistory } from '@/utils/mergeEncounters';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -82,6 +83,8 @@ export interface DailyRecord {
   date: string;
   mood: number;
   sleep: number;
+  /** false for a basic mood-only entry; missing means an existing detailed record. */
+  sleepRecorded?: boolean;
   behaviors: string[];
   notes: string;
   // Life-condition extras (optional; added later, older records won't have them)
@@ -105,6 +108,7 @@ export interface UserProfile {
 }
 
 export interface RecordExtras {
+  sleepRecorded?: boolean;
   exercise?: number;
   meal?: number;
   social?: number;
@@ -483,7 +487,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(nextEnergy)),
         AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant)),
       ]);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
       return { converted, gained };
     } finally {
@@ -514,7 +518,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       powerPlantRef.current = nextPlant;
       setPowerPlant(nextPlant);
       await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
       return { built: item };
     } finally {
@@ -536,7 +540,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPowerPlant(nextPlant);
       await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
       await mutateFeedPoints(exchanged);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
       return { exchanged };
     } finally {
@@ -611,7 +615,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // data fills missing values; append-only histories and progress are merged below.
     const merged: Record<string, unknown> = { ...localData, ...cloudData };
     // Keep both sides of append-only histories and use the most progressed state.
-    for (const key of [KEYS.RECORDS, KEYS.BADGES, KEYS.ENCOUNTERS]) {
+    for (const key of [KEYS.RECORDS, KEYS.BADGES]) {
       const cloud = Array.isArray(cloudData[key]) ? cloudData[key] : [];
       const local = Array.isArray(localData[key]) ? localData[key] : [];
       const byId = new Map<string, unknown>();
@@ -621,6 +625,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
       merged[key] = [...byId.values()];
     }
+    merged[KEYS.ENCOUNTERS] = mergeEncounterHistory(cloudData[KEYS.ENCOUNTERS], localData[KEYS.ENCOUNTERS]);
     if (cloudData[KEYS.PROGRESS] || localData[KEYS.PROGRESS]) {
       const cloud = (cloudData[KEYS.PROGRESS] ?? {}) as UserProgress;
       const local = (localData[KEYS.PROGRESS] ?? {}) as UserProgress;
@@ -965,7 +970,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         satietyAtFeed: newSatiety,
       };
       await saveFeedState(next);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       return { success: true, message: `${food.name}をあげたよ！`, newSatiety };
     },
     [currentSatiety]
@@ -996,7 +1001,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (newest) {
         setNewlyUnlockedBadge(newest);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
 
       setUnlockedBadges(updated);
@@ -1128,6 +1133,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         date: today,
         mood,
         sleep,
+        sleepRecorded: extras?.sleepRecorded ?? true,
         behaviors,
         notes,
         exercise: extras?.exercise,
@@ -1179,7 +1185,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const allChecked = checkedState.items.every((i) => i.checked);
       await checkAndUnlockBadges(unlockedBadges, newProgress, newRecords, allChecked);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
       // Sync to cloud (fire-and-forget)
       pushDataToCloud();
@@ -1264,7 +1270,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         : { ...current, flower: id as RoomFlower, ownedFlowers: [...current.ownedFlowers, id as RoomFlower] };
       setRoomCustomization(next);
       await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
       return { success: true };
     } finally {
@@ -1283,7 +1289,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const next = { extraEggs: 1 };
       setCompanionState(next);
       await AsyncStorage.setItem(KEYS.COMPANIONS, JSON.stringify(next));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
       return { success: true };
     } finally {
@@ -1296,12 +1302,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => {
     // スロット上限に達していたら加算も報酬付与もしない (二重付与・上限回避の防止)
-    if ((miniGameState[slot] || 0) >= MAX_PLAYS_PER_SLOT) return;
+    const current = resolveMiniGameState(miniGameState);
+    if ((current[slot] || 0) >= MAX_PLAYS_PER_SLOT) return;
     if (completingSlotsRef.current.has(slot)) return;
     completingSlotsRef.current.add(slot);
     try {
     // Mark slot as done
-    const next: MiniGameState = { ...miniGameState, [slot]: (miniGameState[slot] || 0) + 1 };
+    const next: MiniGameState = { ...current, [slot]: (current[slot] || 0) + 1 };
     setMiniGameState(next);
     await AsyncStorage.setItem(KEYS.MINI_GAME, JSON.stringify(next));
 
@@ -1333,7 +1340,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // ミニゲームはYOKIポイントだけを生む(光エネルギーは日々の記録から生まれる)
 
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     pushDataToCloud();
     } finally {
       completingSlotsRef.current.delete(slot);

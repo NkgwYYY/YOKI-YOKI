@@ -48,3 +48,14 @@ HOME uses a portrait illustrated 2.5D room, independent furniture sprites, foot-
 
 ## Next action
 Integrate room art, implement bounded room layout and resident, then wire existing record/feed/rhythm/chat/album flows. Run mobile typecheck after each substantial phase and update this checkpoint.
+
+## Resume 2026-09-28
+- Re-fetched GitHub: main still `f99bf9ff3d2a9887ec88afc1321209402a2a6278`.
+- GitHub working branch contains initial progress commit `5c29870505873ebcbc5508a0ce5d2d50b89082c1`. Local original documentation commit had the same tree; local base aligned without discarding implementation changes.
+- Recovered uncommitted implementation (not reimplemented): illustrated RoomView, native RoomResident, short record, equipment, room atelier, three-tab navigation, rhythm-only primary flow, garden and one-step reward conversion.
+- Mobile, API and workspace-library TypeScript checks PASS on resume. Unit tests 7/7 PASS.
+- Fixed a pre-existing guest merge bug that treated `{list: encounters}` as an array and lost encounter history. Test verifies shape, union and earliest meeting dates.
+- Basic records mark sleepRecorded=false; calendar, averages, AI context and insight API exclude unentered sleep. Existing records remain compatible (missing flag means entered).
+- New room images optimized to ~936 KB total. Original character assets unchanged.
+- Browser verification in progress; bundled browser download endpoint returned truncated archives. Trying an isolated test browser package (no app dependency change).
+- Remaining: visual/runtime QA; purchased-furniture art consistency; interaction/equipment review; final build; source/image commit to GitHub. Native devices and authenticated live-account checks still outstanding.

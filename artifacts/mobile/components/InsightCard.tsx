@@ -60,6 +60,7 @@ export function InsightCard() {
           date: r.date,
           mood: r.mood,
           sleep: r.sleep,
+          sleepRecorded: r.sleepRecorded,
           behaviors: r.behaviors,
           notes: r.notes?.slice(0, 80) || undefined,
           exercise: r.exercise,

@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 
 const STARTUP_IMAGE_MODULES: ImageSourcePropType[] = [
-  require('@/public/grass-hill.png'),
+  require('@/assets/images/room/room-night.jpg'),
   require('@/assets/images/yoki_logo.png'),
   require('@/assets/images/egg/normal.png'),
   require('@/assets/images/egg/happy.png'),
@@ -40,9 +40,6 @@ function resolveStartupImageUris(): string[] {
     .map(resolveImageUri)
     .filter((uri): uri is string => Boolean(uri));
 
-  if (Platform.OS === 'web') {
-    bundledUris.push('/grass-hill.png');
-  }
 
   return [...new Set(bundledUris)];
 }
