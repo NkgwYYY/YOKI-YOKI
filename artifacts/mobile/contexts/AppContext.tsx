@@ -1,7 +1,8 @@
 import { mergeEncounterHistory } from '@/utils/mergeEncounters';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { balanceStorage as AsyncStorage } from '@/utils/balanceStorage';
+import { claimGardenReward } from '@/utils/gardenReward';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef, ChecklistCategory } from '@/data/defaultChecklist';
 import { BADGE_DEFINITIONS } from '@/data/badges';
@@ -241,6 +242,9 @@ interface AppContextType {
   completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => Promise<void>;
   /** キャラクターのエネルギー(元気・光の力・チャージ量)の現在の状態 */
   lightEnergy: LightEnergyState;
+  storageError: string | null;
+  retryStorageRecovery: () => Promise<void>;
+  receiveGardenReward: () => Promise<{ received: number }>;
   /** 直近の「ユーザー操作による」光エネルギー獲得イベント(循環演出用)。
    *  クラウド同期・読込では発火しない。seq は毎回増える識別子 */
   lightGainEvent: { amount: number; seq: number } | null;
@@ -333,6 +337,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // マスコットは進化しても同一個体なので characterId は固定 'mascot'
   const [growth, setGrowth] = useState<GrowthRecord>(() => createGrowthRecord('mascot'));
   const [lightEnergy, setLightEnergy] = useState<LightEnergyState>(() => createLightEnergyState(getTodayDate()));
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const feedStateRef = useRef<FeedState>(defaultFeedState);
   // 非同期処理の並走でも付与が失われないよう、最新値を ref でも保持する
   const lightEnergyRef = useRef(lightEnergy);
   useEffect(() => { lightEnergyRef.current = lightEnergy; }, [lightEnergy]);
@@ -348,32 +354,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [roomCustomization, setRoomCustomization] = useState<RoomCustomization>(defaultRoomCustomization);
   const [companionState, setCompanionState] = useState<CompanionState>(defaultCompanionState);
 
-  /** 時間経過ぶんの自然なエネルギーチャージを精算する。読込・復帰・定期更新のすべてで共通利用する */
-  const settleElapsedEnergy = useCallback(() => {
-    const next = applyElapsedEnergy(lightEnergyRef.current, getTodayDate());
-    if (next === lightEnergyRef.current) return next;
-    lightEnergyRef.current = next;
-    setLightEnergy(next);
-    AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next)).catch(() => {});
-    return next;
+  type Balances = { energy: LightEnergyState; plant: PowerPlantState; feed: FeedState };
+  const updateBalances = useCallback(async <T,>(change: (state: Balances) => { state: Balances; result: T }): Promise<T> => {
+    const saved = await AsyncStorage.transaction(values => {
+      const parse = (key: string) => values[key] === null ? null : JSON.parse(values[key]!);
+      const state: Balances = {
+        energy: resolveLightEnergyState(parse(KEYS.LIGHT_ENERGY), getTodayDate()),
+        plant: resolvePowerPlantState(parse(KEYS.POWER_PLANT)),
+        feed: parse(KEYS.FEED_STATE) ?? defaultFeedState,
+      };
+      const next = change(state);
+      const entries: [string, string][] = [
+        [KEYS.LIGHT_ENERGY, JSON.stringify(next.state.energy)],
+        [KEYS.POWER_PLANT, JSON.stringify(next.state.plant)],
+        [KEYS.FEED_STATE, JSON.stringify(next.state.feed)],
+      ];
+      return { entries: entries.filter(([key, value]) => values[key] !== value), result: next };
+    });
+    lightEnergyRef.current = saved.state.energy; setLightEnergy(saved.state.energy);
+    powerPlantRef.current = saved.state.plant; setPowerPlant(saved.state.plant);
+    feedStateRef.current = saved.state.feed; setFeedState(saved.state.feed);
+    return saved.result;
   }, []);
+
+  /** 時間経過ぶんの自然なエネルギーチャージを精算する。読込・復帰・定期更新のすべてで共通利用する */
+  const settleElapsedEnergy = useCallback(() => updateBalances(state => {
+    const energy = applyElapsedEnergy(state.energy, getTodayDate());
+    return { state: { ...state, energy }, result: energy };
+  }), [updateBalances]);
 
   // アプリを開いたまま日付が変わっても日次値(元気・光の力・今日のエネルギー)が
   // 前日のまま表示されないよう、1分ごとに日付ロールオーバーとチャージを精算する
   useEffect(() => {
     const timer = setInterval(() => {
-      settleElapsedEnergy();
+      if (!isLoading) settleElapsedEnergy().catch(() => {});
     }, 60_000);
     return () => clearInterval(timer);
-  }, [settleElapsedEnergy]);
+  }, [settleElapsedEnergy, isLoading]);
 
   // バックグラウンドから戻った瞬間にも、閉じていた時間のチャージ分を反映する
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') settleElapsedEnergy();
+      if (state === 'active' && !isLoading) settleElapsedEnergy().catch(() => {});
     });
     return () => subscription.remove();
-  }, [settleElapsedEnergy]);
+  }, [settleElapsedEnergy, isLoading]);
 
   // ユーザー操作による獲得イベント(循環演出はこれだけを根拠に発火する。
   // クラウドpullや読込による数値変動では発火しない)
@@ -417,19 +442,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const gainLightEnergy = useCallback(
     async (gain: EnergyGain, flag?: keyof LightEnergyState['flags']) => {
       const today = getTodayDate();
-      const settled = settleElapsedEnergy();
-      const next = applyEnergyGain(settled, gain, today, flag);
-      if (next === settled) return;
-      // 付与量は totalEnergy の差分で求める(todayEnergy は深夜のロールオーバーで
-      // リセットされるため、日付またぎ直後の付与でも正しい量になる)
-      const gained = next.totalEnergy - settled.totalEnergy;
-      lightEnergyRef.current = next;
-      setLightEnergy(next);
-      await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next));
+      const gained = await updateBalances(state => {
+        const settled = applyElapsedEnergy(state.energy, today);
+        const energy = applyEnergyGain(settled, gain, today, flag);
+        return { state: { ...state, energy }, result: energy.totalEnergy - settled.totalEnergy };
+      });
       // A failed write must not tell the user that energy was saved successfully.
       if (gained > 0) queueGainEvent(gained);
     },
-    [settleElapsedEnergy, queueGainEvent]
+    [updateBalances, queueGainEvent]
   );
 
   // ── 出会い記録の最新化: レベル(=進化段階)が変わるたびに図鑑へ登録する ──
@@ -466,35 +487,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (plantBusyRef.current) return { converted: 0, gained: 0 };
     plantBusyRef.current = true;
     try {
-      const energy = lightEnergyRef.current;
-      const converted = Math.floor(energy.storedEnergy);
-      if (converted <= 0) return { converted: 0, gained: 0 };
-      const gained = converted * ECO_POINTS_PER_ENERGY;
-
-      const nextEnergy = { ...energy, storedEnergy: energy.storedEnergy - converted };
-      lightEnergyRef.current = nextEnergy;
-      setLightEnergy(nextEnergy);
-
-      const nextPlant: PowerPlantState = {
-        ...powerPlantRef.current,
-        ecoPoints: powerPlantRef.current.ecoPoints + gained,
-        totalSold: powerPlantRef.current.totalSold + converted,
-        sellCount: powerPlantRef.current.sellCount + 1,
-      };
-      powerPlantRef.current = nextPlant;
-      setPowerPlant(nextPlant);
-
-      await Promise.all([
-        AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(nextEnergy)),
-        AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant)),
-      ]);
+      const result = await updateBalances(state => {
+        const converted = Math.floor(state.energy.storedEnergy);
+        const gained = converted * ECO_POINTS_PER_ENERGY;
+        if (converted <= 0) return { state, result: { converted: 0, gained: 0 } };
+        return { state: { ...state,
+          energy: { ...state.energy, storedEnergy: state.energy.storedEnergy - converted },
+          plant: { ...state.plant, ecoPoints: state.plant.ecoPoints + gained,
+            totalSold: state.plant.totalSold + converted, sellCount: state.plant.sellCount + 1 },
+        }, result: { converted, gained } };
+      });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
-      return { converted, gained };
+      return result;
     } finally {
       plantBusyRef.current = false;
     }
-  }, []);
+  }, [updateBalances]);
+
+  /** One recoverable transaction from stored light/legacy eco points to food points. */
+  const receiveGardenReward = useCallback(async () => {
+    if (plantBusyRef.current) return { received: 0 };
+    plantBusyRef.current = true;
+    try {
+      const result = await updateBalances(state => claimGardenReward(state, ECO_POINTS_PER_ENERGY));
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      pushDataToCloud();
+      return result;
+    } finally { plantBusyRef.current = false; }
+  }, [updateBalances]);
 
   const sellEnergy = useCallback(async (): Promise<{ sold: number; gained: number }> => {
     const { converted, gained } = await convertStoredEnergy();
@@ -506,48 +527,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (plantBusyRef.current) return { reason: 'not_enough' };
     plantBusyRef.current = true;
     try {
-      const plant = powerPlantRef.current;
-      const item = nextTownItem(plant);
-      if (!item) return { reason: 'no_more' };
-      if (plant.ecoPoints < item.cost) return { reason: 'not_enough' };
-
-      const nextPlant: PowerPlantState = {
-        ...plant,
-        ecoPoints: plant.ecoPoints - item.cost,
-        townBuilt: plant.townBuilt + 1,
-      };
-      powerPlantRef.current = nextPlant;
-      setPowerPlant(nextPlant);
-      await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
+      const result = await updateBalances<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }>(state => {
+        const item = nextTownItem(state.plant);
+        if (!item) return { state, result: { reason: 'no_more' } };
+        if (state.plant.ecoPoints < item.cost) return { state, result: { reason: 'not_enough' } };
+        return { state: { ...state, plant: { ...state.plant,
+          ecoPoints: state.plant.ecoPoints - item.cost, townBuilt: state.plant.townBuilt + 1,
+        } }, result: { built: item } };
+      });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
-      return { built: item };
+      return result;
     } finally {
       plantBusyRef.current = false;
     }
-  }, []);
+  }, [updateBalances]);
 
   /** 交換待ちポイント(旧エコポイント)をYOKIポイントに受け取る(1:1) */
   const exchangeEcoPoints = useCallback(async (amount: number): Promise<{ exchanged: number }> => {
     if (plantBusyRef.current) return { exchanged: 0 };
     plantBusyRef.current = true;
     try {
-      const plant = powerPlantRef.current;
-      const exchanged = Math.min(Math.floor(amount), plant.ecoPoints);
-      if (exchanged <= 0) return { exchanged: 0 };
-
-      const nextPlant: PowerPlantState = { ...plant, ecoPoints: plant.ecoPoints - exchanged };
-      powerPlantRef.current = nextPlant;
-      setPowerPlant(nextPlant);
-      await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
-      await mutateFeedPoints(exchanged);
+      const result = await updateBalances(state => {
+        const exchanged = Number.isFinite(amount) ? Math.min(Math.max(0, Math.floor(amount)), state.plant.ecoPoints) : 0;
+        return { state: { ...state,
+          plant: { ...state.plant, ecoPoints: state.plant.ecoPoints - exchanged },
+          feed: { ...state.feed, points: state.feed.points + exchanged },
+        }, result: { exchanged } };
+      });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
-      return { exchanged };
+      return result;
     } finally {
       plantBusyRef.current = false;
     }
-  }, []);
+  }, [updateBalances]);
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
@@ -728,6 +742,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
+      await AsyncStorage.recover();
       const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr, homeCommentPreferencesStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
@@ -891,8 +906,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCheckedState(fresh);
         await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
       }
+      setStorageError(null);
     } catch {
-      // use defaults on error
+      setStorageError('保存データを読み込めませんでした。データを保ったまま、もう一度読み込みます。');
     } finally {
       setIsLoading(false);
     }
@@ -922,28 +938,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // YOKIポイントの同時更新(交換・購入・報酬)で残高が上書きされないよう、
-  // 常に最新値を保持する ref を正とする
-  const feedStateRef = useRef<FeedState>(defaultFeedState);
-
-  const saveFeedState = async (next: FeedState) => {
-    feedStateRef.current = next;
-    setFeedState(next);
-    await AsyncStorage.setItem(KEYS.FEED_STATE, JSON.stringify(next));
-  };
-
+  // Point changes read the latest persisted balance inside the serialized transaction.
   const syncFeedPoints = useCallback(async (points: number) => {
     if (!Number.isFinite(points) || points < 0) return;
-    const next = { ...feedStateRef.current, points };
-    await saveFeedState(next);
-  }, []);
+    await updateBalances(state => ({ state: { ...state, feed: { ...state.feed, points } }, result: undefined }));
+  }, [updateBalances]);
 
-  /** ポイント増減は必ずこの関数経由(ref ベースで直列に適用) */
+  /** Point increments/debits use the same journal/queue as garden receipt. */
   const mutateFeedPoints = async (delta: number): Promise<FeedState> => {
-    const cur = feedStateRef.current;
-    const next: FeedState = { ...cur, points: Math.max(0, cur.points + delta) };
-    await saveFeedState(next);
-    return next;
+    return updateBalances(state => {
+      if (state.feed.points + delta < 0) throw new Error('YOKIポイントが足りません');
+      const feed = { ...state.feed, points: state.feed.points + delta };
+      return { state: { ...state, feed }, result: feed };
+    });
   };
 
   const spendFeedPoints = useCallback(async (points: number): Promise<boolean> => {
@@ -958,23 +965,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const food = FOOD_ITEMS.find((f) => f.id === foodId);
       if (!food) return { success: false, message: 'Unknown food', newSatiety: currentSatiety };
       // 残高チェック・減算は常に最新の ref を正とする(交換・報酬付与との競合対策)
-      const cur = feedStateRef.current;
-      if (cur.points < food.cost) {
-        return { success: false, message: 'YOKIポイントが足りないよ！', newSatiety: currentSatiety };
-      }
-
-      const baseSatiety = computeCurrentSatiety(cur);
-      const newSatiety = Math.min(100, baseSatiety + food.satietyGain);
-      const next: FeedState = {
-        points: cur.points - food.cost,
-        lastFeedTime: new Date().toISOString(),
-        satietyAtFeed: newSatiety,
-      };
-      await saveFeedState(next);
+      const result = await updateBalances(state => {
+        const baseSatiety = computeCurrentSatiety(state.feed);
+        if (state.feed.points < food.cost) return { state, result: { success: false, message: 'YOKIポイントが足りないよ！', newSatiety: baseSatiety } };
+        const newSatiety = Math.min(100, baseSatiety + food.satietyGain);
+        return { state: { ...state, feed: {
+          points: state.feed.points - food.cost,
+          lastFeedTime: new Date().toISOString(), satietyAtFeed: newSatiety,
+        } }, result: { success: true, message: `${food.name}をあげたよ！`, newSatiety } };
+      });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      return { success: true, message: `${food.name}をあげたよ！`, newSatiety };
+      return result;
     },
-    [currentSatiety]
+    [currentSatiety, updateBalances]
   );
 
   const checkAndUnlockBadges = useCallback(
@@ -1388,6 +1391,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         growth,
         markGrowthSeen,
         lightEnergy,
+        storageError,
+        retryStorageRecovery: loadAll,
+        receiveGardenReward,
         lightGainEvent,
         holdLightFlow,
         powerPlant,

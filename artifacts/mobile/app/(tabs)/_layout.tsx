@@ -113,6 +113,8 @@ export default function TabLayout() {
     isCloudSyncing,
     retryCloudSync,
     isLoading: appLoading,
+    storageError,
+    retryStorageRecovery,
   } = useApp();
   const [cloudWaitExpired, setCloudWaitExpired] = useState(false);
   const [retryAttempt, setRetryAttempt] = useState(0);
@@ -135,6 +137,13 @@ export default function TabLayout() {
   // The root navigator stays mounted, but the tabs and their frame-driven home
   // animations must not mount until startup state determines they are allowed.
   if (authLoading || appLoading) return null;
+  if (storageError) return <View style={styles.syncGate}>
+    <Text style={styles.syncTitle}>保存データを確認しています</Text>
+    <Text accessibilityRole="alert" style={styles.syncMessage}>{storageError}</Text>
+    <Pressable accessibilityRole="button" onPress={retryStorageRecovery} style={styles.retryButton}>
+      <Text style={styles.retryButtonText}>もう一度読み込む</Text>
+    </Pressable>
+  </View>;
   if (!isSignedIn && !profile) return <Redirect href="/onboarding" />;
   if (isSignedIn && !profile && !cloudSynced && !cloudWaitExpired) return null;
   if (isSignedIn && !profile && !cloudSynced) {

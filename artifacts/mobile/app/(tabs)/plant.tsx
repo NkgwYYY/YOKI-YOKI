@@ -226,7 +226,7 @@ export default function EnergyChargeScreen() {
   const insets = useSafeAreaInsets();
   const { active, reduceMotion } = useRoomActivity();
   const motion = active && !reduceMotion;
-  const { lightEnergy, powerPlant, convertStoredEnergy, exchangeEcoPoints, progress, getTodayRecord } = useApp();
+  const { lightEnergy, powerPlant, receiveGardenReward, progress, getTodayRecord } = useApp();
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const [message, setMessage] = useState('');
@@ -242,11 +242,9 @@ export default function EnergyChargeScreen() {
     if (lock.current || reward <= 0) return;
     lock.current = true; setBusy(true); setMessage('');
     try {
-      // Existing eco balance is recoverable even if the second operation fails.
-      const { gained } = await convertStoredEnergy();
-      const { exchanged } = await exchangeEcoPoints(powerPlant.ecoPoints + gained);
-      setMessage(exchanged > 0 ? `${exchanged}ポイント。次のおやつに使おう。` : 'ひかりを確認しました。');
-    } catch { setMessage('受け取れませんでした。残っているひかりは、もう一度受け取れます。'); }
+      const { received } = await receiveGardenReward();
+      setMessage(received > 0 ? `${received}ポイント。次のおやつに使おう。` : '受け取り状況を確認しました。');
+    } catch { setMessage('保存が完了しませんでした。もう一度押すと、受け取り状況を確認して再開します。'); }
     finally { lock.current = false; setBusy(false); }
   };
   const stage = getMascotStage(progress.level);

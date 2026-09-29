@@ -32,7 +32,7 @@ HOME uses a portrait illustrated 2.5D room, independent furniture sprites, foot-
 | 3 resident | Original sprites/rig, breathing/blinking, aisle movement, hold/lift/drop, depth ordering, equipment calibration; bed rest, window watching and successful-feed meal routines; browser interruption checks passed | Native gesture QA |
 | 4 record | Short mood/activity flow, detailed entry secondary; explicit unentered-sleep flag; fresh guest onboarding, compact save and reload browser checks passed | Authenticated synchronization QA |
 | 5 reaction | Record/care reaction and saved-energy feedback on all platforms; compact garden link, motion preference and hidden-app guards; same-day update does not replay gains | End-to-end native review of transitions; storage failure recovery remains broader data-layer work |
-| 6 garden | Existing rich garden art, cable, liquid tank, one-step reward receipt; zero balance is visually empty | Live-account/offline persistence failure checks |
+| 6 garden | Existing rich garden art, cable, liquid tank, one-step reward receipt; zero balance is visually empty; recoverable balance journal with retry/restart failure tests | Live-account synchronization and native persistence checks |
 | 7 rewards/growth | Existing food, growth, discovery and ownership retained; room atelier integrated | All purchasing/auth cases and flower-art variants |
 | 8 rhythm | Five modes/four existing songs, points-only primary flow, practice after reward cap, actual-earned result chip | All-mode/device audio and interruption matrix |
 | 9 conversation | Room tap/menu to conversation; existing context and safety API retained | Production AI response/auth QA |
@@ -128,3 +128,14 @@ YOKI_QA_BROWSER=/absolute/path/to/chromium \
 node artifacts/mobile/tests/room.browser.cjs
 ```
 `YOKI_QA_EXPORT` can override the export directory. The runtime checks use browser DOM/state and local storage; they do not certify native gestures/audio or Japanese font rendering on a physical device.
+
+## Resume 2026-09-29 afternoon JST — PHASE 6 storage recovery
+- Fetched main and working branch again. Main: `f99bf9ff3d2a9887ec88afc1321209402a2a6278`. Previous checkpoint: `d9096aecd027dc3a8a2615014c045dd8c7420cac`. No unfinished source edits; only generated export directories were untracked. Previous room/record/light feedback implementation was retained.
+- Earliest actionable gap was garden persistence. Replaced the primary garden's two separate conversion/exchange calls with `receiveGardenReward`: stored energy, legacy eco points and food points are committed as one recoverable operation.
+- `utils/recoverableStorage.ts` serializes writes and keeps a local write-ahead journal of exact resulting values. Preparation failure touches no balance; interruption after preparation rolls forward before the next operation or load. Replaying values does not reapply a reward delta. Unknown/corrupt journal shapes are preserved and block recovery rather than deleting data.
+- `utils/balanceStorage.ts` shares the coordinator with AppContext storage operations. The journal key is intentionally absent from cloud-synchronized KEYS. Existing balance keys, conversion rate, fractional energy, satiety and legacy town history are retained.
+- `contexts/AppContext.tsx` uses the same transaction queue for garden receipt, legacy conversions, energy gains/passive settlement and food-point changes; React balance state is published only after successful persistence. Record/progress/inventory multi-key operations outside those balances are NOT all transactional yet.
+- Root AuthGate and tabs show a retryable storage recovery state instead of redirecting an unreadable existing profile to new-user onboarding. This regression was discovered by the restart browser test and fixed in `app/_layout.tsx` and `app/(tabs)/_layout.tsx`.
+- Regression tests 21/21 PASS (nine new cases: fractional/history preservation; interruptions at prepare, each balance write and journal deletion; concurrent credit; write/recovery ordering; invalid journal). Mobile typecheck and Web export PASS.
+- Fresh browser injection of a quota error during the food-point write passed both in-place retry and restart/recovery. Exactly 19 points were received from 12 whole energy + 7 legacy eco points; 0.75 fractional energy and town history survived. No page errors. Reproducer: `tests/storage.browser.cjs`, using the same QA environment variables as `room.browser.cjs`, export default `build-yoki-v2-storage`.
+- Next: PHASE 7 offline catalog/equipment hydration, then full build and regression verification. Main has not been merged or deployed.
