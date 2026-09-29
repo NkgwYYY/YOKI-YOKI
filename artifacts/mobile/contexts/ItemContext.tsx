@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { balanceStorage as AsyncStorage } from '@/utils/balanceStorage';
+import { SHOP_STORAGE_KEY } from '@/utils/itemPurchase';
 import { API_BASE, useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { readCatalogCache, readLocalInventory } from '@/utils/itemCache';
@@ -23,7 +24,7 @@ export function resolveItemAssetUrl(assetUrl: string): string {
   return `${API_BASE.replace(/\/api$/, '')}${assetUrl}`;
 }
 
-const SHOP_KEY = '@mentore/shop_state_v2';
+const SHOP_KEY = SHOP_STORAGE_KEY;
 const CATALOG_KEY = '@yoki/item_catalog_cache_v1';
 const emptyState: ShopState = { items: [], inventory: [], equipped: { accessory: null, wear: null, effect: null, decor: null, background: null, voice: null }, placements: {}, points: 0 };
 const slotForItem = (item: Item): EquipmentSlot | null => {
@@ -48,7 +49,7 @@ const ItemContext = createContext<ItemContextValue | null>(null);
 
 export function ItemProvider({ children }: { children: React.ReactNode }) {
   const { isSignedIn, getToken } = useAuth();
-  const { feedState, syncFeedPoints, spendFeedPoints, pushDataToCloud, isLoading: appLoading, storageError } = useApp();
+  const { feedState, syncFeedPoints, purchaseGuestItem, pushDataToCloud, isLoading: appLoading, storageError } = useApp();
   const [items, setItems] = useState<Item[]>([]);
   const [adminItems, setAdminItems] = useState<Item[]>([]);
   const [shopState, setShopState] = useState<ShopState>(emptyState);
@@ -63,7 +64,11 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
     return readLocalInventory(await AsyncStorage.getItem(SHOP_KEY));
   }, []);
   const persistLocal = useCallback(async (next: Pick<ShopState, 'inventory' | 'equipped' | 'placements'>) => {
-    await AsyncStorage.setItem(SHOP_KEY, JSON.stringify(next));
+    await AsyncStorage.transaction(values => {
+      const latest = readLocalInventory(values[SHOP_KEY]);
+      const merged = { ...next, inventory: [...new Set([...latest.inventory, ...next.inventory])] };
+      return { entries: [[SHOP_KEY, JSON.stringify(merged)]], result: undefined };
+    });
     pushDataToCloud();
   }, [pushDataToCloud]);
   const request = useCallback(async (path: string, init: RequestInit = {}, authenticated = false) => {
@@ -133,20 +138,19 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
     if (!isSignedIn) {
       const item = items.find((candidate) => candidate.id === itemId && candidate.isActive && candidate.category !== 'food');
       if (!item) throw new Error('このアイテムは購入できません');
-      if (shopState.inventory.includes(itemId)) return shopState;
-      if (!(await spendFeedPoints(item.cost))) throw new Error('YOKIポイントが足りません');
-      const next = { ...shopState, inventory: [...shopState.inventory, itemId], points: feedState.points - item.cost };
+      const saved = await purchaseGuestItem(itemId, item.cost);
+      const next = { ...shopState, ...saved.local, equipped: { ...emptyState.equipped, ...saved.local.equipped }, points: saved.feed.points };
       setShopState(next);
-      await persistLocal(next);
       return next;
     }
     const data = await request('/shop/buy', { method: 'POST', body: JSON.stringify({ itemId }) }, true);
     const local = await loadLocal();
     const next = { ...emptyState, ...data.state, inventory: [...new Set([...(data.state.inventory || []), ...(local.inventory || [])])], equipped: { ...emptyState.equipped, ...data.state.equipped, ...local.equipped }, placements: local.placements || {} };
-    setShopState(next);
+    await AsyncStorage.setItem(SHOP_KEY, JSON.stringify({ inventory: next.inventory, equipped: next.equipped, placements: next.placements }));
     await syncFeedPoints(data.state.points);
+    setShopState(next);
     return next;
-  }, [feedState.points, isSignedIn, items, loadLocal, persistLocal, request, shopState, spendFeedPoints, syncFeedPoints]);
+  }, [isSignedIn, items, loadLocal, persistLocal, request, shopState, purchaseGuestItem, syncFeedPoints]);
   const equipItem = useCallback(async (slot: EquipmentSlot, itemId: string | null) => {
     if (itemId) {
       const item = items.find((candidate) => candidate.id === itemId);

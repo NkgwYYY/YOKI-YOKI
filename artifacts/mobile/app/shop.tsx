@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, Image, Modal, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { LegacyRoomView as RoomView } from '@/components/room/LegacyFurniture';
@@ -123,6 +123,8 @@ export default function ShopScreen() {
   const { progress, growth, getTodayRecord, roomCustomization } = useApp();
   const { items, shopState, loading, error, catalogOnline, refreshItems, buyItem, equipItem, updateItemPlacement } = useItems();
   const [tab, setTab] = useState<ShopGenre>('wear'); const [busy, setBusy] = useState<string | null>(null);
+  const actionBusy = useRef(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [customizing, setCustomizing] = useState<Item | null>(null);
   const [draftPlacement, setDraftPlacement] = useState<ItemPlacement>(DEFAULT_PLACEMENT);
   const draftPlacementRef = useRef<ItemPlacement>(DEFAULT_PLACEMENT);
@@ -151,6 +153,9 @@ export default function ShopScreen() {
       : shopState.equipped[customizingSlot!] === customizing.id
   );
   const act = async (item: Item) => {
+    if (actionBusy.current) return;
+    actionBusy.current = true;
+    setActionError(null);
     setBusy(item.id);
     try {
       if (!shopState.inventory.includes(item.id)) await buyItem(item.id);
@@ -158,8 +163,8 @@ export default function ShopScreen() {
         const itemSlot = slot(item);
         await equipItem(itemSlot, shopState.equipped[itemSlot] === item.id ? null : item.id);
       }
-    } catch (e) { Alert.alert('できませんでした', e instanceof Error ? e.message : 'もう一度お試しください'); }
-    finally { setBusy(null); }
+    } catch (e) { setActionError('保存が完了しませんでした。もう一度操作すると保存状況を確認します。' + (e instanceof Error ? ` ${e.message}` : '')); }
+    finally { actionBusy.current = false; setBusy(null); }
   };
   const openCustomizer = (item: Item) => {
     const placement = shopState.placements[item.id] ?? DEFAULT_PLACEMENT;
@@ -232,6 +237,7 @@ export default function ShopScreen() {
     onPanResponderTerminationRequest: () => false,
   }), [updateItemPlacement]);
   return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.wrap}>
+    {actionError && <Text accessibilityRole="alert" style={s.error}>{actionError}</Text>}
     <View style={s.head}><Pressable onPress={() => router.back()}><Text style={s.back}>‹ 戻る</Text></Pressable><Text style={s.title}>YOKI SHOP</Text><Text style={s.points}>✦ {shopState.points} YOKI pt</Text></View>
     {!isSignedIn && (
       <Text style={s.guestNote}>
@@ -246,7 +252,7 @@ export default function ShopScreen() {
       const owned = shopState.inventory.includes(item.id); const itemSlot = slot(item); const equipped = shopState.equipped[itemSlot] === item.id;
       const insufficient = !owned && shopState.points < item.cost;
       const label = !owned && !catalogOnline ? '再接続すると交換できます' : insufficient ? 'YOKIポイントが足りません' : !owned ? `${item.cost} pt で交換` : equipped ? 'はずす' : '着ける / 設定する';
-      const disabled = busy === item.id || insufficient || (!owned && !catalogOnline);
+      const disabled = busy !== null || insufficient || (!owned && !catalogOnline);
       return <View key={item.id} style={s.card}><View style={s.preview}>{item.category === 'voice' ? <Text style={s.voicePreview}>♪</Text> : item.assetUrl ? <Image source={{ uri: resolveItemAssetUrl(item.assetUrl) }} style={s.image} /> : <Text>✦</Text>}</View><View style={s.info}><Text style={s.name}>{item.name}</Text><Text style={s.cost}>{owned ? '所持済み' : `${item.cost} YOKIポイント`}</Text><Pressable disabled={disabled} onPress={() => act(item)} style={[s.button, (disabled || equipped) && s.buttonOn]}><Text style={s.buttonText}>{busy === item.id ? '処理中…' : label}</Text></Pressable>{item.category !== 'voice' && <Pressable onPress={() => openCustomizer(item)} style={s.customButton}><Text style={s.customText}>{owned ? itemSlot === 'background' ? 'ホームで確認' : 'ホームで位置を調整' : 'ホームで試す'}</Text></Pressable>}</View></View>;
     })}
   </ScrollView>{customizing && <Modal transparent animationType="fade" onRequestClose={() => setCustomizing(null)}><View style={s.modalShade}><View style={s.modalCard}><Text style={s.modalTitle}>{customizing.name}</Text><Text style={s.modalHelp}>{customizingSlot === 'background' ? '実際のホーム全体で見え方を確認できます' : 'アイテムを直接ドラッグ。2本指で大きさも変えられます'}</Text><View style={s.characterPreview}><View pointerEvents="none" style={StyleSheet.absoluteFill}><HomeScenePreview stage={previewStage} mood={previewMood} growthSize={growth.growthSize} roomCustomization={roomCustomization} background={itemForSlot('background')} wear={itemForSlot('wear')} effect={itemForSlot('effect')} decor={itemForSlot('decor')} placements={scenePlacements} /></View>{customizingSlot !== 'background' ? <View accessibilityLabel="アイテムを直接動かして調整" style={StyleSheet.absoluteFill} {...gestureResponder.panHandlers} /> : null}</View>{customizingSlot !== 'background' && <><View style={s.controls}><View style={s.pad}><Pressable accessibilityLabel="上へ移動" style={s.padButton} onPress={() => adjust(customizing, 0, -10)}><Text style={s.padText}>↑</Text></Pressable><View style={s.padRow}><Pressable accessibilityLabel="左へ移動" style={s.padButton} onPress={() => adjust(customizing, -10, 0)}><Text style={s.padText}>←</Text></Pressable><Pressable accessibilityLabel="右へ移動" style={s.padButton} onPress={() => adjust(customizing, 10, 0)}><Text style={s.padText}>→</Text></Pressable></View><Pressable accessibilityLabel="下へ移動" style={s.padButton} onPress={() => adjust(customizing, 0, 10)}><Text style={s.padText}>↓</Text></Pressable></View><View style={s.sizeColumn}><Pressable style={s.sizeButton} onPress={() => adjust(customizing, 0, 0, 0.1)}><Text style={s.sizeText}>＋ 大きく</Text></Pressable><Pressable style={s.sizeButton} onPress={() => adjust(customizing, 0, 0, -0.1)}><Text style={s.sizeText}>− 小さく</Text></Pressable></View></View><View style={s.secondaryRow}><Pressable style={s.resetButton} onPress={() => savePlacement(customizing, DEFAULT_PLACEMENT)}><Text style={s.resetText}>初期位置に戻す</Text></Pressable>{customizingEquipped && <Pressable style={s.removeButton} onPress={async () => { await equipItem(slot(customizing), null); setCustomizing(null); }}><Text style={s.removeText}>取り外す</Text></Pressable>}</View></>}<Pressable style={s.closeButton} onPress={() => setCustomizing(null)}><Text style={s.buttonText}>{customizingSlot === 'background' ? 'プレビューを閉じる' : 'この位置で完了'}</Text></Pressable></View></View></Modal>}</SafeAreaView>;

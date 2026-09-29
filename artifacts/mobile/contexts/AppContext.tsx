@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { AppState } from 'react-native';
 import { balanceStorage as AsyncStorage } from '@/utils/balanceStorage';
 import { claimGardenReward } from '@/utils/gardenReward';
+import { prepareItemPurchase } from '@/utils/itemPurchase';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef, ChecklistCategory } from '@/data/defaultChecklist';
 import { BADGE_DEFINITIONS } from '@/data/badges';
@@ -215,6 +216,7 @@ interface AppContextType {
   syncFeedPoints: (points: number) => Promise<void>;
   /** 端末側ポイントを不足チェック付きで減算する */
   spendFeedPoints: (points: number) => Promise<boolean>;
+  purchaseGuestItem: (itemId: string, cost: number) => Promise<ReturnType<typeof prepareItemPurchase>['result']>;
   currentSatiety: number;
   inactivityHours: number;
   miniGameState: MiniGameState;
@@ -960,6 +962,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [pushDataToCloud]);
 
+  const purchaseGuestItem = useCallback(async (itemId: string, cost: number) => {
+    const saved = await AsyncStorage.transaction(values => prepareItemPurchase(values, itemId, cost, defaultFeedState));
+    feedStateRef.current = saved.feed;
+    setFeedState(saved.feed);
+    pushDataToCloud();
+    return saved;
+  }, [pushDataToCloud]);
+
   const feedMascot = useCallback(
     async (foodId: string): Promise<{ success: boolean; message: string; newSatiety: number }> => {
       const food = FOOD_ITEMS.find((f) => f.id === foodId);
@@ -1365,6 +1375,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         feedState,
         syncFeedPoints,
         spendFeedPoints,
+        purchaseGuestItem,
         currentSatiety,
         inactivityHours,
         miniGameState,

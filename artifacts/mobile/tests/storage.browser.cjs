@@ -93,7 +93,25 @@ const server=http.createServer((req,res)=>{
     offline=false;await page.getByText('お店に再接続する',{exact:true}).click();
     await page.getByText('50 pt で交換',{exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),100);
+    await page.evaluate(()=>{
+      const set=Storage.prototype.setItem;
+      Storage.prototype.setItem=function(key,value){
+        if(key==='@mentore/shop_state_v2'&&localStorage.getItem('qa-block-purchase')&&localStorage.getItem('@yoki/balance_journal_v1'))throw new DOMException('QA purchase failure','QuotaExceededError');
+        return set.call(this,key,value);
+      };
+      localStorage.setItem('qa-block-purchase','true');
+    });
+    await page.getByText('50 pt で交換',{exact:true}).click();
+    await page.getByRole('alert').filter({hasText:'保存が完了しませんでした'}).waitFor();
+    assert.ok(await page.evaluate(()=>localStorage.getItem('@yoki/balance_journal_v1')));
+    await page.evaluate(()=>localStorage.removeItem('qa-block-purchase'));
+    await page.getByText('50 pt で交換',{exact:true}).click();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).inventory.includes('starter-moon-ribbon'));
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),50);
+    await page.reload();
+    await page.getByText('新しいリボン',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),50);
     assert.deepEqual(errors,[]);await page.close();
-    console.log('PASS cached equipped art, offline ownership/unequip/reload, purchase guard and reconnect');
+    console.log('PASS cached equipment, reconnect, interrupted purchase retry/reload with one debit');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
