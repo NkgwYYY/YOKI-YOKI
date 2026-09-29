@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE, useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
+import { readCatalogCache, readLocalInventory } from '@/utils/itemCache';
 
 /** food is retained only to safely read legacy catalog/inventory records. */
 export type ItemCategory = 'food' | 'accessory' | 'background' | 'voice';
@@ -23,6 +24,7 @@ export function resolveItemAssetUrl(assetUrl: string): string {
 }
 
 const SHOP_KEY = '@mentore/shop_state_v2';
+const CATALOG_KEY = '@yoki/item_catalog_cache_v1';
 const emptyState: ShopState = { items: [], inventory: [], equipped: { accessory: null, wear: null, effect: null, decor: null, background: null, voice: null }, placements: {}, points: 0 };
 const slotForItem = (item: Item): EquipmentSlot | null => {
   if (item.category === 'food') return null;
@@ -32,7 +34,7 @@ const slotForItem = (item: Item): EquipmentSlot | null => {
   return item.category;
 };
 type ItemContextValue = {
-  items: Item[]; shopState: ShopState; loading: boolean; error: string | null;
+  items: Item[]; shopState: ShopState; loading: boolean; error: string | null; catalogOnline: boolean;
   adminItems: Item[];
   refreshItems: () => Promise<void>;
   refreshAdminItems: () => Promise<void>;
@@ -46,16 +48,19 @@ const ItemContext = createContext<ItemContextValue | null>(null);
 
 export function ItemProvider({ children }: { children: React.ReactNode }) {
   const { isSignedIn, getToken } = useAuth();
-  const { feedState, syncFeedPoints, spendFeedPoints, pushDataToCloud } = useApp();
+  const { feedState, syncFeedPoints, spendFeedPoints, pushDataToCloud, isLoading: appLoading, storageError } = useApp();
   const [items, setItems] = useState<Item[]>([]);
   const [adminItems, setAdminItems] = useState<Item[]>([]);
   const [shopState, setShopState] = useState<ShopState>(emptyState);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [catalogOnline, setCatalogOnline] = useState(false);
+  const onlineRef = useRef(false);
+  const pointsRef = useRef(feedState.points); pointsRef.current = feedState.points;
+  const refreshVersion = useRef(0);
+  const refreshAbort = useRef<AbortController | null>(null);
   const loadLocal = useCallback(async () => {
-    const raw = await AsyncStorage.getItem(SHOP_KEY);
-    if (!raw) return { inventory: [] as string[], equipped: {}, placements: {} };
-    try { return JSON.parse(raw); } catch { return { inventory: [], equipped: {}, placements: {} }; }
+    return readLocalInventory(await AsyncStorage.getItem(SHOP_KEY));
   }, []);
   const persistLocal = useCallback(async (next: Pick<ShopState, 'inventory' | 'equipped' | 'placements'>) => {
     await AsyncStorage.setItem(SHOP_KEY, JSON.stringify(next));
@@ -74,31 +79,57 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
     return body;
   }, [getToken]);
   const refreshItems = useCallback(async () => {
+    const version = ++refreshVersion.current;
+    refreshAbort.current?.abort();
+    const controller = new AbortController(); refreshAbort.current = controller;
+    onlineRef.current = false; setCatalogOnline(false);
     setLoading(true); setError(null);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const data = await request('/items', {}, isSignedIn);
+      const [local, cached] = await Promise.all([loadLocal(), AsyncStorage.getItem(CATALOG_KEY)]);
+      if (version !== refreshVersion.current) return;
+      const cachedItems = readCatalogCache(cached);
+      if (cachedItems.length) setItems(cachedItems);
+      // Ownership is local-first and independent of catalog availability.
+      setShopState({ ...emptyState, inventory: local.inventory, equipped: { ...emptyState.equipped, ...local.equipped }, placements: local.placements, points: pointsRef.current });
+      setLoading(false);
+      const data = await request('/items', { signal: controller.signal }, isSignedIn);
+      if (version !== refreshVersion.current) return;
       setItems((data.items || []).filter((item: Item) => item.category !== 'food'));
-      const local = await loadLocal();
+      // An offline equip action may have completed while this request was in flight.
+      const latestLocal = await loadLocal();
+      if (version !== refreshVersion.current) return;
       if (data.state) {
         const merged = {
           ...emptyState,
           ...data.state,
-          inventory: [...new Set([...(data.state.inventory || []), ...(local.inventory || [])])],
-          equipped: { ...emptyState.equipped, ...data.state.equipped, ...local.equipped },
-          placements: local.placements || {},
+          inventory: [...new Set([...(data.state.inventory || []), ...latestLocal.inventory])],
+          equipped: { ...emptyState.equipped, ...data.state.equipped, ...latestLocal.equipped },
+          placements: latestLocal.placements,
         };
         setShopState(merged);
+        // Keep server-owned IDs available on the next offline boot, without caching points.
+        await AsyncStorage.setItem(SHOP_KEY, JSON.stringify({ inventory: merged.inventory, equipped: merged.equipped, placements: merged.placements }));
         await syncFeedPoints(data.state.points);
       } else {
-        setShopState({ ...emptyState, inventory: local.inventory || [], equipped: { ...emptyState.equipped, ...local.equipped }, placements: local.placements || {}, points: feedState.points });
+        setShopState({ ...emptyState, inventory: latestLocal.inventory, equipped: { ...emptyState.equipped, ...latestLocal.equipped }, placements: latestLocal.placements, points: pointsRef.current });
       }
-    } catch (e) { setError(e instanceof Error ? e.message : 'アイテムを読み込めませんでした'); }
-    finally { setLoading(false); }
-  }, [feedState.points, isSignedIn, loadLocal, request, syncFeedPoints]);
-  useEffect(() => { refreshItems(); }, [refreshItems]);
-  useEffect(() => { if (isSignedIn) refreshItems(); }, [isSignedIn, refreshItems]);
+      if (version !== refreshVersion.current) return;
+      onlineRef.current = true; setCatalogOnline(true);
+      await AsyncStorage.setItem(CATALOG_KEY, JSON.stringify({ version: 1, items: data.items || [] })).catch(() => {});
+    } catch {
+      if (version === refreshVersion.current) setError('お店に接続できません。保存済みのアイテムを表示しています。新しい交換は再接続後にできます。');
+    } finally { clearTimeout(timeout); if (version === refreshVersion.current) setLoading(false); }
+  }, [isSignedIn, loadLocal, request, syncFeedPoints]);
+  useEffect(() => {
+    if (appLoading || storageError) return;
+    refreshItems();
+    return () => { refreshVersion.current++; refreshAbort.current?.abort(); };
+  }, [appLoading, storageError, refreshItems]);
   useEffect(() => { if (!isSignedIn) setShopState((prev) => ({ ...prev, points: feedState.points })); }, [feedState.points, isSignedIn]);
   const buyItem = useCallback(async (itemId: string) => {
+    if (shopState.inventory.includes(itemId)) return shopState;
+    if (!onlineRef.current) throw new Error('お店に再接続してから交換してください。');
     if (!isSignedIn) {
       const item = items.find((candidate) => candidate.id === itemId && candidate.isActive && candidate.category !== 'food');
       if (!item) throw new Error('このアイテムは購入できません');
@@ -122,8 +153,8 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
       if (!item || slotForItem(item) !== slot || !shopState.inventory.includes(itemId)) throw new Error('このアイテムは装着できません');
     }
     const next = { ...shopState, equipped: { ...shopState.equipped, [slot]: itemId, ...(slot === 'wear' ? { accessory: itemId } : {}) } };
-    setShopState(next);
     await persistLocal(next);
+    setShopState(next);
     if (isSignedIn && (slot === 'background' || slot === 'voice')) {
       const data = await request('/character/equip', { method: 'POST', body: JSON.stringify({ category: slot, itemId }) }, true);
       setShopState((prev) => ({ ...prev, points: data.state.points }));
@@ -132,8 +163,8 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
   }, [isSignedIn, items, persistLocal, request, shopState]);
   const updateItemPlacement = useCallback(async (itemId: string, placement: { x: number; y: number; scale: number }) => {
     const next = { ...shopState, placements: { ...shopState.placements, [itemId]: placement } };
-    setShopState(next);
     await persistLocal(next);
+    setShopState(next);
   }, [persistLocal, shopState]);
   const refreshAdminItems = useCallback(async () => {
     const data = await request('/admin/items', {}, true);
@@ -147,7 +178,7 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
     await request(`/admin/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' }, true);
     await Promise.all([refreshItems(), refreshAdminItems()]);
   }, [request, refreshItems, refreshAdminItems]);
-  return <ItemContext.Provider value={{ items, adminItems, shopState, loading, error, refreshItems, refreshAdminItems, buyItem, equipItem, updateItemPlacement, saveItem, disableItem }}>{children}</ItemContext.Provider>;
+  return <ItemContext.Provider value={{ items, adminItems, shopState, loading, error, catalogOnline, refreshItems, refreshAdminItems, buyItem, equipItem, updateItemPlacement, saveItem, disableItem }}>{children}</ItemContext.Provider>;
 }
 export function useItems() {
   const value = useContext(ItemContext);

@@ -33,7 +33,7 @@ HOME uses a portrait illustrated 2.5D room, independent furniture sprites, foot-
 | 4 record | Short mood/activity flow, detailed entry secondary; explicit unentered-sleep flag; fresh guest onboarding, compact save and reload browser checks passed | Authenticated synchronization QA |
 | 5 reaction | Record/care reaction and saved-energy feedback on all platforms; compact garden link, motion preference and hidden-app guards; same-day update does not replay gains | End-to-end native review of transitions; storage failure recovery remains broader data-layer work |
 | 6 garden | Existing rich garden art, cable, liquid tank, one-step reward receipt; zero balance is visually empty; recoverable balance journal with retry/restart failure tests | Live-account synchronization and native persistence checks |
-| 7 rewards/growth | Existing food, growth, discovery and ownership retained; room atelier integrated | All purchasing/auth cases and flower-art variants |
+| 7 rewards/growth | Existing food, growth, discovery and ownership retained; room atelier integrated; local inventory/equipment hydrate before catalog requests, cached catalog and reconnection UI | Compound purchase persistence, all purchasing/auth cases and flower-art variants |
 | 8 rhythm | Five modes/four existing songs, points-only primary flow, practice after reward cap, actual-earned result chip | All-mode/device audio and interruption matrix |
 | 9 conversation | Room tap/menu to conversation; existing context and safety API retained | Production AI response/auth QA |
 | 10 legacy | Old runner/town code and data retained outside primary flow; gallery redirects to growth | Broader navigation regression pass |
@@ -47,10 +47,10 @@ HOME uses a portrait illustrated 2.5D room, independent furniture sprites, foot-
 - Native iOS/Android devices and authenticated production account may be unavailable; never claim unperformed tests.
 - Main risks: room coordinates across aspect ratios, gesture/animation cleanup, preservation of equipped items, async record/reward duplication.
 - Installer-generated invalid allowBuilds addition was removed without changing unrelated configuration. Use existing direct binaries for verification; do not approve dependency build scripts automatically.
-- Existing ItemContext loads local catalog equipment only after a successful catalog request. Offline catalog boot remains a known limitation; no inventory migration or deletion was introduced.
+- ItemContext now loads saved inventory/equipment before catalog requests and caches catalog metadata. Image/audio binaries are not downloaded into a dedicated offline cache; their offline availability still depends on platform/HTTP caching. No inventory migration or deletion was introduced.
 
 ## Next action
-Do not rebuild HOME or the bed/meal routines. Verify the latest branch checkpoint, then continue feedback/accessibility QA, native gesture/audio/safe-area QA, guest first-run and authenticated data synchronization. PHASE 11 secondary-screen/flower-art unification remains open. Keep all original character assets and stored ownership/history intact.
+Do not rebuild HOME, bed/meal routines, balance-journal recovery or offline equipment hydration. Verify the latest branch checkpoint, then review PHASE 7 compound purchase persistence (point debit plus inventory grant) and authenticated synchronization. Native gesture/audio/safe-area QA and PHASE 11 secondary-screen/flower-art unification remain open. Keep all original character assets and stored ownership/history intact.
 
 ## Resume 2026-09-28
 - Re-fetched GitHub: main still `f99bf9ff3d2a9887ec88afc1321209402a2a6278`.
@@ -139,3 +139,13 @@ node artifacts/mobile/tests/room.browser.cjs
 - Regression tests 21/21 PASS (nine new cases: fractional/history preservation; interruptions at prepare, each balance write and journal deletion; concurrent credit; write/recovery ordering; invalid journal). Mobile typecheck and Web export PASS.
 - Fresh browser injection of a quota error during the food-point write passed both in-place retry and restart/recovery. Exactly 19 points were received from 12 whole energy + 7 legacy eco points; 0.75 fractional energy and town history survived. No page errors. Reproducer: `tests/storage.browser.cjs`, using the same QA environment variables as `room.browser.cjs`, export default `build-yoki-v2-storage`.
 - Next: PHASE 7 offline catalog/equipment hydration, then full build and regression verification. Main has not been merged or deployed.
+
+## PHASE 7 follow-up — offline owned equipment
+- PHASE 6 recovery checkpoint saved on GitHub: `5cc96c34028840ca29263648552d07d82040df92`. Continued without redoing prior HOME work.
+- `artifacts/mobile/contexts/ItemContext.tsx` now hydrates saved inventory, equipment and placements before waiting for the catalog. Successful catalog metadata and server-owned IDs are retained for subsequent offline boots. Catalog refresh waits for AppContext recovery, aborts superseded requests, times out after eight seconds and rereads local equipment before applying a response.
+- `utils/itemCache.ts` validates the versioned display cache, preserves inactive item metadata for existing equipment and retains unknown legacy ownership IDs. Cached prices never authorize a new offline exchange. Removed duplicate signed-in refresh and point-change-driven refetches.
+- `app/shop.tsx` keeps saved items visible beside the connection error and offers explicit reconnection. New exchanges are disabled until a successful request; owned equipment can be removed and saved. Equipment/placement state is published after local persistence succeeds.
+- Regression tests 25/25 PASS, including four new cache/legacy ownership cases. Workspace, mobile, API and character-lab typechecks and `git diff --check` PASS. Expo export for Web, iOS and Android PASS; this compiles JS/assets and is not a native device build.
+- Fresh isolated guest browser checks PASS: both garden partial-write retry/restart cases; cached equipped art on an offline catalog boot; retained ownership; unequip and reload; disabled new exchanges; reconnection restores exchange controls with no point debit. No page errors. `tests/storage.browser.cjs` contains the reproducer; its catalog/image responses are mocked and no production purchase is performed.
+- Existing `tests/room.browser.cjs` also passed against this export: bed/meal and single food debit, lift/release, sheet interruption, reduced motion, saved-record/hidden-tab feedback, garden link, same-day duplicate guard, 320×568 guest onboarding and record save/reload. No page errors.
+- Offline image/audio binary storage, signed-in cloud round-trips and native-device behavior remain unverified. Purchases still require a separate review of debit-plus-inventory failure recovery; this checkpoint does not claim every multi-key operation is atomic. Main merge and deployment were not performed.

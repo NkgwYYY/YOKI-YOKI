@@ -59,5 +59,41 @@ const server=http.createServer((req,res)=>{
       assert.deepEqual(errors,[]);await page.close();
       console.log(`PASS partial-save ${mode}: one reward, fractional energy/history retained, no page errors`);
     }
+    const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    let offline=false;
+    const catalog=[
+      {id:'catalog-wear-round-glasses',name:'保存しためがね',category:'accessory',cost:40,assetUrl:'/qa-glasses.png',posX:0,posY:0,scale:1,isActive:true,createdAt:''},
+      {id:'starter-moon-ribbon',name:'新しいリボン',category:'accessory',cost:50,assetUrl:'/qa-glasses.png',posX:0,posY:0,scale:1,isActive:true,createdAt:''},
+    ];
+    await page.route('**/api/items',route=>offline?route.abort():route.fulfill({json:{items:catalog}}));
+    await page.route('**/qa-glasses.png',route=>route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jS1kAAAAASUVORK5CYII=','base64')}));
+    await page.addInitScript(()=>{
+      if(localStorage.getItem('qa-seeded'))return;
+      localStorage.setItem('@mentore/profile_v1',JSON.stringify({nickname:'装備テスト',ageRange:'回答しない',gender:'回答しない'}));
+      localStorage.setItem('@mentore/feed_state_v1',JSON.stringify({points:100,lastFeedTime:null,satietyAtFeed:50}));
+      localStorage.setItem('@mentore/encounters_v1',JSON.stringify({list:[{charKey:'egg',metDate:'2026-09-01'}]}));
+      localStorage.setItem('@mentore/shop_state_v2',JSON.stringify({inventory:['catalog-wear-round-glasses'],equipped:{wear:'catalog-wear-round-glasses'},placements:{'catalog-wear-round-glasses':{x:12,y:3,scale:1}}}));
+      localStorage.setItem('qa-seeded','true');
+    });
+    await page.goto('http://127.0.0.1:'+server.address().port);
+    await page.waitForFunction(()=>localStorage.getItem('@yoki/item_catalog_cache_v1'));
+    offline=true;await page.reload();
+    await page.getByTestId('room-resident').locator('img[src$="/qa-glasses.png"]').waitFor({state:'attached'});
+    await page.waitForTimeout(3000);
+    await page.getByTestId('home-more-menu').click();
+    await page.getByText('暮らしのお店',{exact:true}).click();
+    await page.getByText('お店に再接続する',{exact:true}).waitFor();
+    await page.getByText('保存しためがね',{exact:true}).waitFor();
+    await page.getByText('再接続すると交換できます',{exact:true}).waitFor();
+    await page.getByText('はずす',{exact:true}).click();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).equipped.wear===null);
+    await page.reload();await page.getByText('保存しためがね',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).equipped.wear),null);
+    offline=false;await page.getByText('お店に再接続する',{exact:true}).click();
+    await page.getByText('50 pt で交換',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),100);
+    assert.deepEqual(errors,[]);await page.close();
+    console.log('PASS cached equipped art, offline ownership/unequip/reload, purchase guard and reconnect');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
