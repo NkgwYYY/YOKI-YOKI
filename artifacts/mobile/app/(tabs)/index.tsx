@@ -103,7 +103,7 @@ export default function HomeScreen() {
     </BottomSheet>}
     {sheet === 'feed' && <FeedModal visible onClose={close} onFed={() => { setMeal(n => n + 1); close(); }} />}
     {sheet === 'music' && <MiniGameModal visible slot={slot} onClose={close} rewardEnabled={canEarn}
-      onReward={async reward => { if (canEarn) await completeMiniGame(slot, reward); setReaction(n => n + 1); }} />}
+      onReward={async (reward, playId) => { const earned = await completeMiniGame(slot, reward, playId); if (earned) setReaction(n => n + 1); return earned; }} />}
     {sheet === 'chat' && <BottomSheet visible onClose={close} title={mascotName || 'よっきー'} scroll={false}>
       <Text style={s.chatText}>{today && today.mood <= 2 ? '今日は一緒に休もう。話したいことがあったら、ここにいるよ。' : message}</Text>
       <Button label="少し、お話しする" icon="message-circle" onPress={() => { close(); router.push('/(tabs)/chat'); }} />

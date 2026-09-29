@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import { balanceStorage as AsyncStorage } from '@/utils/balanceStorage';
 import { claimGardenReward } from '@/utils/gardenReward';
 import { prepareItemPurchase } from '@/utils/itemPurchase';
+import { prepareRhythmReward } from '@/utils/rhythmReward';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef, ChecklistCategory } from '@/data/defaultChecklist';
 import { BADGE_DEFINITIONS } from '@/data/badges';
@@ -241,7 +242,7 @@ interface AppContextType {
   getTotalCheckCount: () => number;
   setMascotName: (name: string) => Promise<void>;
   feedMascot: (foodId: string) => Promise<{ success: boolean; message: string; newSatiety: number }>;
-  completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => Promise<void>;
+  completeMiniGame: (slot: GameSlot, reward: { fp: number; stars?: number }, playId: string) => Promise<number>;
   /** キャラクターのエネルギー(元気・光の力・チャージ量)の現在の状態 */
   lightEnergy: LightEnergyState;
   storageError: string | null;
@@ -1311,38 +1312,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [companionState, pushDataToCloud]);
 
-  // completeMiniGame の同時多重呼び出し(再レンダー前の連打)でも二重付与しないための同期ガード
-  const completingSlotsRef = useRef<Set<GameSlot>>(new Set());
-
-  const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => {
-    // スロット上限に達していたら加算も報酬付与もしない (二重付与・上限回避の防止)
-    const current = resolveMiniGameState(miniGameState);
-    if ((current[slot] || 0) >= MAX_PLAYS_PER_SLOT) return;
-    if (completingSlotsRef.current.has(slot)) return;
-    completingSlotsRef.current.add(slot);
-    try {
-    // Mark slot as done
-    const next: MiniGameState = { ...current, [slot]: (current[slot] || 0) + 1 };
-    setMiniGameState(next);
-    await AsyncStorage.setItem(KEYS.MINI_GAME, JSON.stringify(next));
-
-    // Apply FP reward
-    if (reward.fp) {
-      await mutateFeedPoints(reward.fp);
-    }
-
-    // Apply XP reward
-    if (reward.xp) {
-      const newExp = progress.experience + reward.xp;
-      const newProgress: UserProgress = {
-        ...progress,
-        experience: newExp,
-        level: calculateLevel(newExp),
-        mentalMuscle: calculateMentalMuscle(newExp),
-      };
-      setProgress(newProgress);
-      await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
-    }
+  const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp: number; stars?: number }, playId: string) => {
+    const saved = await AsyncStorage.transaction(values => prepareRhythmReward(values, playId, slot, reward.fp, getTodayDate(), defaultFeedState, MAX_PLAYS_PER_SLOT));
+    setMiniGameState(saved.game);
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (!saved.newlyGranted) return saved.earned;
 
     // メンタルケア連携: 音楽と楽しく過ごした記録として、ごく僅かな成長ボーナス
     // (1回では見えない +0.03%。Level/Evolution とは独立、時間ベース成長にも影響しない)
@@ -1356,10 +1330,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     pushDataToCloud();
-    } finally {
-      completingSlotsRef.current.delete(slot);
-    }
-  }, [miniGameState, feedState, progress, pushDataToCloud]);
+    return saved.earned;
+  }, [pushDataToCloud]);
 
   return (
     <AppContext.Provider

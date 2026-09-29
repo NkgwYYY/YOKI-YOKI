@@ -10,39 +10,52 @@ import { type PlayResult, starRating } from '@/utils/rhythm/types';
 interface Props {
   visible: boolean; slot: GameSlot; onClose: () => void;
   rewardEnabled?: boolean;
-  onReward: (reward: { fp?: number; xp?: number; stars?: number }) => void | Promise<void>;
+  onReward: (reward: { fp: number; stars?: number }, playId: string) => Promise<number>;
 }
 export function MiniGameModal({ visible, slot, onClose, onReward, rewardEnabled = true }: Props) {
   const { holdLightFlow } = useApp();
   const insets = useSafeAreaInsets();
   const rewarded = useRef(false);
+  const saving = useRef(false);
+  const playId = useRef('');
+  const pendingReward = useRef<{ fp: number; stars: number } | null>(null);
+  const [rewardFailed, setRewardFailed] = useState(false);
   const [rewardMessage, setRewardMessage] = useState('');
   const [earnedPoints, setEarnedPoints] = useState<number | null>(null);
   useEffect(() => {
     if (!visible) return;
-    rewarded.current = false; setRewardMessage(''); setEarnedPoints(null); holdLightFlow(true); Analytics.miniGameStarted(slot);
+    rewarded.current = false; saving.current = false; pendingReward.current = null;
+    playId.current = `rhythm-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setRewardFailed(false); setRewardMessage(''); setEarnedPoints(null); holdLightFlow(true); Analytics.miniGameStarted(slot);
     return () => holdLightFlow(false);
   }, [visible, holdLightFlow, slot]);
+  const saveReward = async () => {
+    if (saving.current || !pendingReward.current) return;
+    saving.current = true; setRewardFailed(false);
+    try {
+      const earned = await onReward(pendingReward.current, playId.current);
+      setEarnedPoints(earned); pendingReward.current = null;
+      setRewardMessage(earned > 0 ? `${earned} YOKIポイント。おやつの時間に使えるよ。` : 'いっしょに音楽を楽しめたね。');
+    } catch { setRewardFailed(true); setRewardMessage('報酬の保存が完了しませんでした。もう一度確認できます。'); }
+    finally { saving.current = false; }
+  };
   const result = async (r: PlayResult) => {
     if (rewarded.current) return;
     rewarded.current = true;
     const stars = starRating(r);
-    try {
-      if (rewardEnabled) {
-        const fp = stars >= 4 ? 3 : stars === 3 ? 2 : 1;
-        await onReward({ fp, stars });
-        setEarnedPoints(fp);
-        setRewardMessage(`${fp} YOKIポイント。おやつの時間に使えるよ。`);
-      } else setRewardMessage('いっしょに音楽を楽しめたね。');
-    } catch { setRewardMessage('報酬を保存できませんでした。通信と保存状態を確認してください。'); }
+    if (rewardEnabled) {
+      pendingReward.current = { fp: stars >= 4 ? 3 : stars === 3 ? 2 : 1, stars };
+      await saveReward();
+    } else setRewardMessage('いっしょに音楽を楽しめたね。');
     Analytics.miniGameCompleted(slot, r.score);
   };
   if (!visible) return null;
   return <Modal visible animationType="slide" onRequestClose={onClose}>
     <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <View style={s.header}><View><Text style={s.title}>ふたりの音楽室</Text><Text style={s.caption}>{rewardMessage || (rewardEnabled ? '音楽を楽しんで、ごはんのポイントに。' : 'この時間のポイントは受取済み。何度でも遊べます。')}</Text></View>
+      <View style={s.header}><View style={{ flex: 1 }}><Text style={s.title}>ふたりの音楽室</Text><Text style={s.caption}>{rewardMessage || (rewardEnabled ? '音楽を楽しんで、ごはんのポイントに。' : 'この時間のポイントは受取済み。何度でも遊べます。')}</Text></View>
         <Pressable accessibilityRole="button" accessibilityLabel="音楽を止めて部屋へ戻る" onPress={onClose} style={s.close}><Icon name="x" size={23} color="#786081" /></Pressable>
       </View>
+      {rewardFailed && <Pressable accessibilityRole="button" onPress={saveReward} style={s.close}><Text>報酬の保存を再試行</Text></Pressable>}
       <RhythmGameFlow earnedPoints={earnedPoints} onResult={result} onClose={onClose} rewardLabel={rewardEnabled ? 'ごはんに使える 1〜3 YOKIポイント' : 'ポイントを使わずに楽しめます'} />
     </View>
   </Modal>;
