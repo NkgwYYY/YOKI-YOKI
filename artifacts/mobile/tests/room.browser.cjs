@@ -98,6 +98,24 @@ const server = http.createServer((req,res) => {
     assert.ok(energyAfter.totalEnergy-energy.totalEnergy<0.1);
     assert.deepEqual(errors,[]);
     console.log('PASS same-day update has no duplicate energy celebration; no page errors');
+    const beforeGames=await page.evaluate(()=>({feed:localStorage.getItem('@mentore/feed_state_v1'),game:localStorage.getItem('@mentore/mini_game_v1')}));
+    await page.getByTestId('room-music').click();
+    await page.getByText('グリッティ・ブギ',{exact:true}).click();
+    await page.getByText('つぎへ',{exact:true}).click();
+    for(const mode of ['TAP BEAT','RHYTHM JUMP','RHYTHM SWIPE','RHYTHM COPY','RHYTHM RELAX']){
+      await page.getByText(mode,{exact:true}).click();
+      await page.getByText('つぎへ',{exact:true}).click();
+      await page.getByText('START',{exact:true}).click();
+      await page.waitForTimeout(1200);
+      await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
+      await page.getByText('演奏を中断しました。もう一度はじめられます。',{exact:true}).waitFor();
+      await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));});
+      await page.waitForTimeout(200);
+      assert.deepEqual(await page.evaluate(()=>({feed:localStorage.getItem('@mentore/feed_state_v1'),game:localStorage.getItem('@mentore/mini_game_v1')})),beforeGames);
+      await page.getByText('もどる',{exact:true}).click();
+      console.log(`PASS ${mode}: hidden-tab interruption returns to selection without rewards`);
+    }
+    assert.deepEqual(errors,[]);
     const first=await browser.newPage({viewport:{width:320,height:568}});
     first.on('pageerror',e=>errors.push(e.message));
     await first.goto('http://127.0.0.1:'+server.address().port);

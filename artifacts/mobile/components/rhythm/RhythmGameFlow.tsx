@@ -21,6 +21,7 @@ import { PressScale } from '@/components/ui/PressScale';
 import { SONGS } from '@/utils/rhythm/songs';
 import { getChart } from '@/utils/rhythm/charts';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
+import { useAppActivity } from '@/components/room/useRoomActivity';
 import { TapBeatGame } from './TapBeatGame';
 import { RhythmJumpGame } from './RhythmJumpGame';
 import { RhythmSwipeGame } from './RhythmSwipeGame';
@@ -80,6 +81,9 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
   const mascotStage = getMascotStage(progress.level);
   const preview = useSongClock();
   const previewIdRef = useRef<string | null>(null);
+  const { active } = useAppActivity();
+  const activeRef = useRef(active); activeRef.current = active;
+  const [interrupted, setInterrupted] = useState(false);
 
   useEffect(() => { onPlayingChange?.(step === 'playing'); }, [step]);
 
@@ -102,6 +106,15 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
     preview.unload();
   }, [preview]);
 
+  useEffect(() => {
+    if (active) return;
+    stopPreview();
+    if (step === 'playing') {
+      setInterrupted(true);
+      setStep('difficulty');
+    }
+  }, [active, step, stopPreview]);
+
   useEffect(() => () => { stopPreview(); }, []);
 
   const chart = useMemo(
@@ -110,6 +123,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
   );
 
   const handleFinish = useCallback((r: PlayResult) => {
+    if (!activeRef.current) return;
     setResult(r);
     setStep('result');
     onResult(r);
@@ -191,6 +205,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
     return (
       <ScrollView style={st.scroll} contentContainerStyle={st.body}>
         <Text style={st.stepTitle}>むずかしさをえらぼう</Text>
+        {interrupted && <Text accessibilityRole="alert" style={st.subTitle}>演奏を中断しました。もう一度はじめられます。</Text>}
         <Text style={st.subTitle}>{song?.title} / {MODES.find(m => m.id === mode)?.title}</Text>
         {DIFFS.map(d => {
           const c = song ? getChart(song.id, mode, d.id) : null;
@@ -209,7 +224,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
         {rewardLabel ? <Text style={st.rewardHint}>{rewardLabel}</Text> : null}
         <ButtonRow>
           <Button label="もどる" variant="outline" onPress={() => setStep('mode')} />
-          <Button label="START" icon="play" onPress={() => setStep('playing')} style={st.grow} />
+          <Button label="START" icon="play" onPress={() => { setInterrupted(false); setStep('playing'); }} style={st.grow} />
         </ButtonRow>
       </ScrollView>
     );
