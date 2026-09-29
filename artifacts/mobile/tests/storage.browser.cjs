@@ -111,7 +111,23 @@ const server=http.createServer((req,res)=>{
     await page.reload();
     await page.getByText('新しいリボン',{exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),50);
+    await page.setViewportSize({width:320,height:568});
+    const titleBox=await page.getByText('暮らしのお店',{exact:true}).boundingBox();
+    assert.ok(titleBox.x>=0&&titleBox.x+titleBox.width<=320);
+    await page.getByText('ホームで位置を調整',{exact:true}).first().click();
+    await page.getByTestId('shop-room-preview').getByTestId('room-scene').waitFor();
+    await page.getByTestId('shop-room-preview').locator('img[src*="room-night"]').waitFor();
+    await page.waitForTimeout(400); // Finish the native-web modal fade before visual inspection.
+    await page.getByLabel('右へ移動',{exact:true}).click();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).placements['catalog-wear-round-glasses'].x===22);
+    const done=page.getByText('この位置で完了',{exact:true});
+    await done.scrollIntoViewIfNeeded();
+    const doneBox=await done.boundingBox(); assert.ok(doneBox.y>=0&&doneBox.y+doneBox.height<=568);
+    if(process.env.YOKI_QA_SCREENSHOT)await page.screenshot({path:process.env.YOKI_QA_SCREENSHOT});
+    await done.click();
+    await page.reload(); await page.getByText('保存しためがね',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).placements['catalog-wear-round-glasses'].x),22);
     assert.deepEqual(errors,[]);await page.close();
-    console.log('PASS cached equipment, reconnect, interrupted purchase retry/reload with one debit');
+    console.log('PASS cached equipment, purchase recovery, 320px current-room preview/placement/close/reload');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});

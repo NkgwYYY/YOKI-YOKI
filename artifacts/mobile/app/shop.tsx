@@ -2,8 +2,8 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Image, Modal, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
-import { LegacyRoomView as RoomView } from '@/components/room/LegacyFurniture';
-import { StageCharacter } from '@/components/StageCharacter';
+import { RoomView } from '@/components/RoomView';
+import { fitRoom } from '@/utils/roomGeometry';
 import { useApp } from '@/contexts/AppContext';
 import { EquipmentSlot, Item, ItemCategory, resolveItemAssetUrl, useItems } from '@/contexts/ItemContext';
 import { getMascotStage } from '@/utils/mascotUtils';
@@ -11,7 +11,6 @@ import { getMascotStage } from '@/utils/mascotUtils';
 type ShopGenre = 'wear' | 'effect' | 'decor' | 'background' | 'voice';
 type ItemPlacement = { x: number; y: number; scale: number };
 const DEFAULT_PLACEMENT: ItemPlacement = { x: 0, y: 0, scale: 1 };
-const STAGE_UNITS_PER_PREVIEW_PIXEL = 1.75;
 const clampPlacement = ({ x, y, scale }: ItemPlacement): ItemPlacement => ({
   x: Math.max(-160, Math.min(160, x)),
   y: Math.max(-160, Math.min(160, y)),
@@ -35,13 +34,10 @@ const genreOf = (id: string, category: ItemCategory): ShopGenre => {
   return category as ShopGenre;
 };
 
-const PREVIEW_CHARACTER_SIZE = 104;
-const PREVIEW_CHARACTER_FRAME = PREVIEW_CHARACTER_SIZE * 1.7;
-const PREVIEW_CHARACTER_HEIGHT = PREVIEW_CHARACTER_SIZE * 2.4;
+const ignorePreviewAction = () => {};
 
 function HomeScenePreview({
   stage,
-  mood,
   growthSize,
   roomCustomization,
   background,
@@ -51,7 +47,6 @@ function HomeScenePreview({
   placements,
 }: {
   stage: ReturnType<typeof getMascotStage>;
-  mood: 'happy' | 'normal';
   growthSize: number;
   roomCustomization: React.ComponentProps<typeof RoomView>['customization'];
   background?: Item;
@@ -60,67 +55,23 @@ function HomeScenePreview({
   decor?: Item;
   placements: Record<string, ItemPlacement>;
 }) {
-  const wearPlacement = wear ? placements[wear.id] ?? DEFAULT_PLACEMENT : DEFAULT_PLACEMENT;
-  const effectPlacement = effect ? placements[effect.id] ?? DEFAULT_PLACEMENT : DEFAULT_PLACEMENT;
-  const decorPlacement = decor ? placements[decor.id] ?? DEFAULT_PLACEMENT : DEFAULT_PLACEMENT;
-  const effectSize = PREVIEW_CHARACTER_SIZE * 1.55 * effectPlacement.scale;
-  const decorSize = 64 * decorPlacement.scale;
-
-  return (
-    <RoomView customization={roomCustomization} sceneHeight={250}>
-      <View style={s.previewGarden}>
-        {background?.assetUrl ? <Image source={{ uri: resolveItemAssetUrl(background.assetUrl) }} style={StyleSheet.absoluteFillObject} resizeMode="cover" /> : null}
-        <View style={s.previewGroundGlow} />
-        <View style={s.previewCharacterMain}>
-          <StageCharacter
-            stage={stage}
-            mood={mood}
-            size={PREVIEW_CHARACTER_SIZE}
-            growthSize={growthSize}
-            wearable={wear?.assetUrl ? {
-              id: wear.id,
-              url: resolveItemAssetUrl(wear.assetUrl),
-              offsetX: wearPlacement.x,
-              offsetY: wearPlacement.y,
-              scale: wearPlacement.scale,
-            } : null}
-          />
-          {effect?.assetUrl ? (
-            <Image
-              source={{ uri: resolveItemAssetUrl(effect.assetUrl) }}
-              resizeMode="contain"
-              style={{
-                position: 'absolute',
-                width: effectSize,
-                height: effectSize,
-                left: (PREVIEW_CHARACTER_FRAME - effectSize) / 2 + effectPlacement.x,
-                top: PREVIEW_CHARACTER_HEIGHT * 0.48 + effectPlacement.y,
-              }}
-            />
-          ) : null}
-        </View>
-        {decor?.assetUrl ? (
-          <Image
-            source={{ uri: resolveItemAssetUrl(decor.assetUrl) }}
-            resizeMode="contain"
-            style={{
-              position: 'absolute',
-              width: decorSize,
-              height: decorSize,
-              right: 18 - decorPlacement.x,
-              bottom: 8 - decorPlacement.y,
-              zIndex: 12,
-            }}
-          />
-        ) : null}
-      </View>
-    </RoomView>
-  );
+  const { progress, companionState } = useApp();
+  const equipment = (item?: Item) => item?.assetUrl ? {
+    id: item.id, uri: resolveItemAssetUrl(item.assetUrl),
+    ...(placements[item.id] ?? DEFAULT_PLACEMENT),
+  } : undefined;
+  return <RoomView customization={roomCustomization} stage={stage} growthSize={growthSize}
+    mascotName="試着中" active={false} reduceMotion resting={false} reaction={0} meal={0} rest={0}
+    hints={false} companion={companionState.extraEggs > 0} totalDays={progress.totalDays}
+    onRecord={ignorePreviewAction} onFeed={ignorePreviewAction} onPlay={ignorePreviewAction}
+    onChat={ignorePreviewAction} onAlbum={ignorePreviewAction} onRest={ignorePreviewAction}
+    wear={equipment(wear)} effect={equipment(effect)} decor={equipment(decor)}
+    background={background?.assetUrl ? resolveItemAssetUrl(background.assetUrl) : undefined} />;
 }
 
 export default function ShopScreen() {
   const router = useRouter(); const { isSignedIn } = useAuth();
-  const { progress, growth, getTodayRecord, roomCustomization } = useApp();
+  const { progress, growth, roomCustomization } = useApp();
   const { items, shopState, loading, error, catalogOnline, refreshItems, buyItem, equipItem, updateItemPlacement } = useItems();
   const [tab, setTab] = useState<ShopGenre>('wear'); const [busy, setBusy] = useState<string | null>(null);
   const actionBusy = useRef(false);
@@ -129,11 +80,11 @@ export default function ShopScreen() {
   const [draftPlacement, setDraftPlacement] = useState<ItemPlacement>(DEFAULT_PLACEMENT);
   const draftPlacementRef = useRef<ItemPlacement>(DEFAULT_PLACEMENT);
   const customizingRef = useRef<Item | null>(null);
+  const previewWidth = useRef(220);
   const gestureStart = useRef({ placement: DEFAULT_PLACEMENT, pinchDistance: 0, pinchScale: 1, pinching: false });
   draftPlacementRef.current = draftPlacement;
   customizingRef.current = customizing;
   const previewStage = getMascotStage(progress.level);
-  const previewMood = getTodayRecord() ? 'happy' : 'normal';
   const visibleItems = items.filter(x => x.category !== 'food' && genreOf(x.id, x.category) === tab && x.isActive);
   const slot = (item: Item): EquipmentSlot => genreOf(item.id, item.category) as EquipmentSlot;
   const customizingSlot = customizing ? slot(customizing) : null;
@@ -218,10 +169,12 @@ export default function ShopScreen() {
       }
       // Keep the last pinch result stable when one finger lifts before the other.
       if (gestureStart.current.pinching) return;
+      const unitsPerPixel = slot(item) === 'wear'
+        ? 512 / (previewWidth.current * 0.29 * Math.max(0.85, Math.min(1.2, growth.growthSize))) : 1;
       const next = clampPlacement({
         ...gestureStart.current.placement,
-        x: gestureStart.current.placement.x + gesture.dx * (slot(item) === 'wear' ? STAGE_UNITS_PER_PREVIEW_PIXEL : 1),
-        y: gestureStart.current.placement.y + gesture.dy * (slot(item) === 'wear' ? STAGE_UNITS_PER_PREVIEW_PIXEL : 1),
+        x: gestureStart.current.placement.x + gesture.dx * unitsPerPixel,
+        y: gestureStart.current.placement.y + gesture.dy * unitsPerPixel,
       });
       setDraftPlacement(next);
       draftPlacementRef.current = next;
@@ -235,10 +188,11 @@ export default function ShopScreen() {
       if (item) void updateItemPlacement(item.id, draftPlacementRef.current);
     },
     onPanResponderTerminationRequest: () => false,
-  }), [updateItemPlacement]);
+  }), [updateItemPlacement, growth.growthSize]);
   return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.wrap}>
     {actionError && <Text accessibilityRole="alert" style={s.error}>{actionError}</Text>}
-    <View style={s.head}><Pressable onPress={() => router.back()}><Text style={s.back}>‹ 戻る</Text></Pressable><Text style={s.title}>YOKI SHOP</Text><Text style={s.points}>✦ {shopState.points} YOKI pt</Text></View>
+    <View style={s.head}><Pressable accessibilityRole="button" onPress={() => router.back()}><Text style={s.back}>‹ 部屋へ</Text></Pressable><Text style={s.title}>暮らしのお店</Text></View>
+    <Text style={s.points}>✦ {shopState.points} YOKI pt</Text>
     {!isSignedIn && (
       <Text style={s.guestNote}>
         {Platform.OS === 'ios'
@@ -255,6 +209,6 @@ export default function ShopScreen() {
       const disabled = busy !== null || insufficient || (!owned && !catalogOnline);
       return <View key={item.id} style={s.card}><View style={s.preview}>{item.category === 'voice' ? <Text style={s.voicePreview}>♪</Text> : item.assetUrl ? <Image source={{ uri: resolveItemAssetUrl(item.assetUrl) }} style={s.image} /> : <Text>✦</Text>}</View><View style={s.info}><Text style={s.name}>{item.name}</Text><Text style={s.cost}>{owned ? '所持済み' : `${item.cost} YOKIポイント`}</Text><Pressable disabled={disabled} onPress={() => act(item)} style={[s.button, (disabled || equipped) && s.buttonOn]}><Text style={s.buttonText}>{busy === item.id ? '処理中…' : label}</Text></Pressable>{item.category !== 'voice' && <Pressable onPress={() => openCustomizer(item)} style={s.customButton}><Text style={s.customText}>{owned ? itemSlot === 'background' ? 'ホームで確認' : 'ホームで位置を調整' : 'ホームで試す'}</Text></Pressable>}</View></View>;
     })}
-  </ScrollView>{customizing && <Modal transparent animationType="fade" onRequestClose={() => setCustomizing(null)}><View style={s.modalShade}><View style={s.modalCard}><Text style={s.modalTitle}>{customizing.name}</Text><Text style={s.modalHelp}>{customizingSlot === 'background' ? '実際のホーム全体で見え方を確認できます' : 'アイテムを直接ドラッグ。2本指で大きさも変えられます'}</Text><View style={s.characterPreview}><View pointerEvents="none" style={StyleSheet.absoluteFill}><HomeScenePreview stage={previewStage} mood={previewMood} growthSize={growth.growthSize} roomCustomization={roomCustomization} background={itemForSlot('background')} wear={itemForSlot('wear')} effect={itemForSlot('effect')} decor={itemForSlot('decor')} placements={scenePlacements} /></View>{customizingSlot !== 'background' ? <View accessibilityLabel="アイテムを直接動かして調整" style={StyleSheet.absoluteFill} {...gestureResponder.panHandlers} /> : null}</View>{customizingSlot !== 'background' && <><View style={s.controls}><View style={s.pad}><Pressable accessibilityLabel="上へ移動" style={s.padButton} onPress={() => adjust(customizing, 0, -10)}><Text style={s.padText}>↑</Text></Pressable><View style={s.padRow}><Pressable accessibilityLabel="左へ移動" style={s.padButton} onPress={() => adjust(customizing, -10, 0)}><Text style={s.padText}>←</Text></Pressable><Pressable accessibilityLabel="右へ移動" style={s.padButton} onPress={() => adjust(customizing, 10, 0)}><Text style={s.padText}>→</Text></Pressable></View><Pressable accessibilityLabel="下へ移動" style={s.padButton} onPress={() => adjust(customizing, 0, 10)}><Text style={s.padText}>↓</Text></Pressable></View><View style={s.sizeColumn}><Pressable style={s.sizeButton} onPress={() => adjust(customizing, 0, 0, 0.1)}><Text style={s.sizeText}>＋ 大きく</Text></Pressable><Pressable style={s.sizeButton} onPress={() => adjust(customizing, 0, 0, -0.1)}><Text style={s.sizeText}>− 小さく</Text></Pressable></View></View><View style={s.secondaryRow}><Pressable style={s.resetButton} onPress={() => savePlacement(customizing, DEFAULT_PLACEMENT)}><Text style={s.resetText}>初期位置に戻す</Text></Pressable>{customizingEquipped && <Pressable style={s.removeButton} onPress={async () => { await equipItem(slot(customizing), null); setCustomizing(null); }}><Text style={s.removeText}>取り外す</Text></Pressable>}</View></>}<Pressable style={s.closeButton} onPress={() => setCustomizing(null)}><Text style={s.buttonText}>{customizingSlot === 'background' ? 'プレビューを閉じる' : 'この位置で完了'}</Text></Pressable></View></View></Modal>}</SafeAreaView>;
+  </ScrollView>{customizing && <Modal transparent animationType="fade" onRequestClose={() => setCustomizing(null)}><View style={s.modalShade}><ScrollView style={s.modalCard} contentContainerStyle={{ padding: 18, gap: 10 }}><Text style={s.modalTitle}>{customizing.name}</Text><Text style={s.modalHelp}>{customizingSlot === 'background' ? '実際のホーム全体で見え方を確認できます' : 'アイテムを直接ドラッグ。2本指で大きさも変えられます'}</Text><View testID="shop-room-preview" onLayout={e => { previewWidth.current = Math.max(1, fitRoom(e.nativeEvent.layout.width, e.nativeEvent.layout.height).width); }} style={s.characterPreview}><View pointerEvents="none" style={StyleSheet.absoluteFill}><HomeScenePreview stage={previewStage} growthSize={growth.growthSize} roomCustomization={roomCustomization} background={itemForSlot('background')} wear={itemForSlot('wear')} effect={itemForSlot('effect')} decor={itemForSlot('decor')} placements={scenePlacements} /></View>{customizingSlot !== 'background' ? <View accessibilityLabel="アイテムを直接動かして調整" style={StyleSheet.absoluteFill} {...gestureResponder.panHandlers} /> : null}</View>{customizingSlot !== 'background' && <><View style={s.controls}><View style={s.pad}><Pressable accessibilityLabel="上へ移動" style={s.padButton} onPress={() => adjust(customizing, 0, -10)}><Text style={s.padText}>↑</Text></Pressable><View style={s.padRow}><Pressable accessibilityLabel="左へ移動" style={s.padButton} onPress={() => adjust(customizing, -10, 0)}><Text style={s.padText}>←</Text></Pressable><Pressable accessibilityLabel="右へ移動" style={s.padButton} onPress={() => adjust(customizing, 10, 0)}><Text style={s.padText}>→</Text></Pressable></View><Pressable accessibilityLabel="下へ移動" style={s.padButton} onPress={() => adjust(customizing, 0, 10)}><Text style={s.padText}>↓</Text></Pressable></View><View style={s.sizeColumn}><Pressable style={s.sizeButton} onPress={() => adjust(customizing, 0, 0, 0.1)}><Text style={s.sizeText}>＋ 大きく</Text></Pressable><Pressable style={s.sizeButton} onPress={() => adjust(customizing, 0, 0, -0.1)}><Text style={s.sizeText}>− 小さく</Text></Pressable></View></View><View style={s.secondaryRow}><Pressable style={s.resetButton} onPress={() => savePlacement(customizing, DEFAULT_PLACEMENT)}><Text style={s.resetText}>初期位置に戻す</Text></Pressable>{customizingEquipped && <Pressable style={s.removeButton} onPress={async () => { await equipItem(slot(customizing), null); setCustomizing(null); }}><Text style={s.removeText}>取り外す</Text></Pressable>}</View></>}<Pressable style={s.closeButton} onPress={() => setCustomizing(null)}><Text style={s.buttonText}>{customizingSlot === 'background' ? 'プレビューを閉じる' : 'この位置で完了'}</Text></Pressable></ScrollView></View></Modal>}</SafeAreaView>;
 }
-const s = StyleSheet.create({ safe:{flex:1,backgroundColor:'#F5F4FF'},wrap:{padding:20,gap:14},head:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{fontSize:16,color:'#5B57A8'},title:{fontWeight:'800',fontSize:20,color:'#34306E'},points:{fontWeight:'700',color:'#7650B7'},guestNote:{backgroundColor:'#E9E6FF',color:'#4A4384',padding:12,borderRadius:12,fontSize:12,lineHeight:18,textAlign:'center'},tabs:{flexDirection:'row',flexWrap:'wrap',gap:3,backgroundColor:'#E8E6F5',borderRadius:12,padding:3},tab:{width:'32.6%',paddingVertical:9,borderRadius:9},tabOn:{backgroundColor:'white'},tabText:{fontSize:11,textAlign:'center',color:'#69657C'},tabTextOn:{color:'#403A8A',fontWeight:'700'},card:{backgroundColor:'white',borderRadius:18,padding:12,flexDirection:'row',gap:14,shadowColor:'#59547D',shadowOpacity:.08,shadowRadius:8,elevation:2},preview:{width:92,height:92,borderRadius:13,backgroundColor:'#EFEDFA',alignItems:'center',justifyContent:'center',overflow:'hidden'},image:{width:'100%',height:'100%',resizeMode:'contain'},voicePreview:{fontSize:44,fontWeight:'700',color:'#6258B6'},info:{flex:1,justifyContent:'space-around'},name:{fontSize:16,fontWeight:'700',color:'#302D4F'},cost:{color:'#78738D',fontSize:13},button:{backgroundColor:'#6258B6',paddingVertical:9,borderRadius:10},buttonOn:{backgroundColor:'#A39DBF'},buttonText:{color:'white',fontWeight:'700',fontSize:13,textAlign:'center'},customButton:{paddingVertical:6},customText:{textAlign:'center',fontSize:12,fontWeight:'700',color:'#554EA0'},modalShade:{flex:1,backgroundColor:'rgba(25,20,55,.55)',alignItems:'center',justifyContent:'center',padding:16},modalCard:{width:'100%',maxWidth:380,backgroundColor:'white',borderRadius:24,padding:18,gap:10},modalTitle:{fontSize:20,fontWeight:'800',color:'#302D4F',textAlign:'center'},modalHelp:{fontSize:13,color:'#77738B',textAlign:'center'},characterPreview:{height:250,borderRadius:18,backgroundColor:'#F5F4FF',alignItems:'stretch',justifyContent:'center',overflow:'hidden'},previewGarden:{width:'100%',height:250,position:'relative'},previewGroundGlow:{position:'absolute',left:0,right:0,bottom:0,height:70,backgroundColor:'rgba(226,232,255,.72)'},previewCharacterMain:{position:'absolute',top:'31%',left:'50%',width:PREVIEW_CHARACTER_FRAME,height:PREVIEW_CHARACTER_HEIGHT,marginLeft:-PREVIEW_CHARACTER_FRAME/2,marginTop:-PREVIEW_CHARACTER_HEIGHT/2,zIndex:10,alignItems:'center',justifyContent:'center'},controls:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:26},pad:{alignItems:'center',gap:7},padRow:{flexDirection:'row',gap:48},padButton:{width:48,height:39,borderRadius:12,backgroundColor:'#EFEDFA',alignItems:'center',justifyContent:'center'},padText:{fontSize:19,fontWeight:'700',color:'#403A8A'},sizeColumn:{gap:10},sizeButton:{minWidth:104,paddingVertical:12,paddingHorizontal:10,borderRadius:12,backgroundColor:'#EFEDFA',alignItems:'center'},sizeText:{fontWeight:'700',color:'#403A8A'},secondaryRow:{flexDirection:'row',gap:8},resetButton:{flex:1,padding:10,borderRadius:12,backgroundColor:'#F5F4FA',alignItems:'center'},resetText:{color:'#5D5872',fontWeight:'600',fontSize:12},removeButton:{flex:1,padding:10,borderRadius:12,backgroundColor:'#FFF0F2',alignItems:'center'},removeText:{color:'#A33A4B',fontWeight:'700',fontSize:12},closeButton:{padding:13,borderRadius:12,backgroundColor:'#6258B6'},note:{textAlign:'center',color:'#777',padding:30},error:{color:'#B33',textAlign:'center',padding:20} });
+const s = StyleSheet.create({ safe:{flex:1,backgroundColor:'#F8F4EF'},wrap:{padding:20,gap:14},head:{gap:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},back:{fontSize:16,color:'#5B57A8'},title:{fontWeight:'800',fontSize:20,color:'#34306E'},points:{fontWeight:'700',color:'#7650B7',alignSelf:'flex-end'},guestNote:{backgroundColor:'#E9E6FF',color:'#4A4384',padding:12,borderRadius:12,fontSize:12,lineHeight:18,textAlign:'center'},tabs:{flexDirection:'row',flexWrap:'wrap',gap:3,backgroundColor:'#E8E6F5',borderRadius:12,padding:3},tab:{width:'32.6%',paddingVertical:9,borderRadius:9},tabOn:{backgroundColor:'white'},tabText:{fontSize:11,textAlign:'center',color:'#69657C'},tabTextOn:{color:'#403A8A',fontWeight:'700'},card:{backgroundColor:'white',borderRadius:18,padding:12,flexDirection:'row',gap:14,shadowColor:'#59547D',shadowOpacity:.08,shadowRadius:8,elevation:2},preview:{width:92,height:92,borderRadius:13,backgroundColor:'#EFEDFA',alignItems:'center',justifyContent:'center',overflow:'hidden'},image:{width:'100%',height:'100%',resizeMode:'contain'},voicePreview:{fontSize:44,fontWeight:'700',color:'#6258B6'},info:{flex:1,justifyContent:'space-around'},name:{fontSize:16,fontWeight:'700',color:'#302D4F'},cost:{color:'#78738D',fontSize:13},button:{backgroundColor:'#6258B6',paddingVertical:9,borderRadius:10},buttonOn:{backgroundColor:'#A39DBF'},buttonText:{color:'white',fontWeight:'700',fontSize:13,textAlign:'center'},customButton:{paddingVertical:6},customText:{textAlign:'center',fontSize:12,fontWeight:'700',color:'#554EA0'},modalShade:{flex:1,backgroundColor:'rgba(25,20,55,.55)',alignItems:'center',justifyContent:'center',padding:16},modalCard:{width:'100%',maxWidth:380,maxHeight:'95%',flexGrow:0,backgroundColor:'#F8F4EF',borderRadius:20},modalTitle:{fontSize:20,fontWeight:'800',color:'#302D4F',textAlign:'center'},modalHelp:{fontSize:13,color:'#77738B',textAlign:'center'},characterPreview:{height:330,borderRadius:18,backgroundColor:'#F5F4FF',alignItems:'stretch',justifyContent:'center',overflow:'hidden'},controls:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:26},pad:{alignItems:'center',gap:7},padRow:{flexDirection:'row',gap:48},padButton:{width:48,height:39,borderRadius:12,backgroundColor:'#EFEDFA',alignItems:'center',justifyContent:'center'},padText:{fontSize:19,fontWeight:'700',color:'#403A8A'},sizeColumn:{gap:10},sizeButton:{minWidth:104,paddingVertical:12,paddingHorizontal:10,borderRadius:12,backgroundColor:'#EFEDFA',alignItems:'center'},sizeText:{fontWeight:'700',color:'#403A8A'},secondaryRow:{flexDirection:'row',gap:8},resetButton:{flex:1,padding:10,borderRadius:12,backgroundColor:'#F5F4FA',alignItems:'center'},resetText:{color:'#5D5872',fontWeight:'600',fontSize:12},removeButton:{flex:1,padding:10,borderRadius:12,backgroundColor:'#FFF0F2',alignItems:'center'},removeText:{color:'#A33A4B',fontWeight:'700',fontSize:12},closeButton:{padding:13,borderRadius:12,backgroundColor:'#6258B6'},note:{textAlign:'center',color:'#777',padding:30},error:{color:'#B33',textAlign:'center',padding:20} });
