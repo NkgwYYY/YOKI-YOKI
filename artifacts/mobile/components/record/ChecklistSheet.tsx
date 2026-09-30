@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,12 +10,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-
-const easeOut = (t: number) => t * (2 - t);
-
 import { border, colors, control, radius, space, typography } from '@/constants/theme';
-import { BottomSheet } from '@/components/ui/BottomSheet';
+import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
@@ -36,7 +31,7 @@ function CompleteBanner() {
   return (
     <View style={styles.completeBanner}>
       <Icon name="check-circle" size={16} color={colors.success} />
-      <Text style={styles.completeText}>全て完了！よく頑張りました</Text>
+      <Text style={styles.completeText}>今日の積み重ねを残せたね</Text>
     </View>
   );
 }
@@ -67,9 +62,13 @@ export function ChecklistSheet({ visible, onClose }: Props) {
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [addCategory, setAddCategory]   = useState<ChecklistCategory>('basics');
   const [newText, setNewText]           = useState('');
+  const [pending, setPending] = useState<{ id: string; text: string } | 'reset' | null>(null);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!visible) { setEditMode(false); setShowAddSheet(false); }
+    if (!visible) { setEditMode(false); setShowAddSheet(false); setPending(null); setActionError(null); }
   }, [visible]);
 
   const catColors = CATEGORY_COLORS;
@@ -80,35 +79,32 @@ export function ChecklistSheet({ visible, onClose }: Props) {
 
   const isChecked = (id: string) => checkedState.items.find(i => i.id === id)?.checked ?? false;
 
-  const barW = useSharedValue(0);
-  useEffect(() => {
-    barW.value = withTiming(progressPct, { duration: 500, easing: easeOut });
-  }, [progressPct]);
-  const barStyle = useAnimatedStyle(() => ({ width: `${barW.value}%` as any }));
+  const runAction = async (action: () => Promise<void>) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setActionError(null);
+    try { await action(); }
+    catch { setActionError('保存を完了できませんでした。アプリを開き直して、保存状態を確認してください。'); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
 
   const handleAdd = async () => {
     if (!newText.trim()) return;
-    await addChecklistItem(newText.trim(), addCategory);
-    setNewText('');
-    setShowAddSheet(false);
+    await runAction(async () => {
+      await addChecklistItem(newText.trim(), addCategory);
+      setNewText('');
+      setShowAddSheet(false);
+    });
   };
 
-  const handleDelete = useCallback((id: string) => {
-    Alert.alert('項目を削除', 'この項目を削除しますか？', [
-      { text: 'キャンセル', style: 'cancel' },
-      { text: '削除', style: 'destructive', onPress: () => removeChecklistItem(id) },
-    ]);
-  }, [removeChecklistItem]);
-
-  const handleReset = () => {
-    Alert.alert(
-      'デフォルトに戻す',
-      'カスタムした変更がすべてリセットされ、元の項目に戻ります。よろしいですか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { text: 'リセット', style: 'destructive', onPress: () => { resetChecklistToDefaults(); setEditMode(false); } },
-      ]
-    );
+  const confirmChange = () => {
+    if (!pending) return;
+    void runAction(async () => {
+      if (pending === 'reset') { await resetChecklistToDefaults(); setEditMode(false); }
+      else await removeChecklistItem(pending.id);
+      setPending(null);
+    });
   };
 
   const openAddForCategory = (cat: ChecklistCategory) => {
@@ -120,17 +116,19 @@ export function ChecklistSheet({ visible, onClose }: Props) {
   return (
     <BottomSheet
       visible={visible}
-      onClose={onClose}
+      onClose={() => { if (!busyRef.current) onClose(); }}
       title="今日できたこと"
       subtitle={formatDateJP(getTodayDate())}
       maxHeightRatio={0.92}
       contentStyle={styles.content}
     >
+      <Text style={styles.editHint}>できたことを、ひとつずつ。全部埋めなくても大丈夫。</Text>
+      {actionError && !showAddSheet && !pending && <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text>}
       {/* 進捗 */}
       {!editMode ? (
         <View style={styles.progressBlock}>
           <View style={styles.progressHead}>
-            <Text style={styles.progressCount}>
+            <Text style={styles.progressCount} accessibilityLabel={`${completed}件の積み重ね`}>
               {completed}
               <Text style={styles.progressTotal}> / {total}</Text>
             </Text>
@@ -144,7 +142,7 @@ export function ChecklistSheet({ visible, onClose }: Props) {
             </PressScale>
           </View>
           <View style={styles.progressTrack}>
-            <Animated.View style={[styles.progressFill, barStyle]} />
+            <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
           </View>
           {allDone && <CompleteBanner />}
         </View>
@@ -152,7 +150,7 @@ export function ChecklistSheet({ visible, onClose }: Props) {
         <View style={styles.editBar}>
           <Text style={styles.editHint}>− で項目を削除　＋ で項目を追加</Text>
           <View style={styles.editActions}>
-            <PressScale onPress={handleReset} style={styles.resetBtn}>
+            <PressScale disabled={busy} onPress={() => setPending('reset')} style={styles.resetBtn}>
               <Text style={styles.resetBtnText}>リセット</Text>
             </PressScale>
             <Button label="完了" size="sm" onPress={() => setEditMode(false)} />
@@ -176,6 +174,8 @@ export function ChecklistSheet({ visible, onClose }: Props) {
               ) : (
                 <PressScale
                   style={styles.addCatBtn}
+                  accessibilityLabel={`${CATEGORY_LABELS[cat]}に項目を追加`}
+                  disabled={busy}
                   onPress={() => openAddForCategory(cat)}
                 >
                   <Icon name="plus" size={14} color={colors.primaryOnSoft} />
@@ -201,8 +201,9 @@ export function ChecklistSheet({ visible, onClose }: Props) {
                     text={item.text}
                     isChecked={isChecked(item.id)}
                     categoryColor={catColor}
-                    onToggle={toggleCheckItem}
-                    onDelete={handleDelete}
+                    onToggle={id => { void runAction(() => toggleCheckItem(id)); }}
+                    onDelete={id => setPending({ id, text: item.text })}
+                    disabled={busy}
                     editMode={editMode}
                     index={idx}
                   />
@@ -218,7 +219,7 @@ export function ChecklistSheet({ visible, onClose }: Props) {
         visible={showAddSheet}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowAddSheet(false)}
+        onRequestClose={() => { if (!busyRef.current) setShowAddSheet(false); }}
       >
         <KeyboardAvoidingView
           style={styles.addOverlay}
@@ -226,6 +227,8 @@ export function ChecklistSheet({ visible, onClose }: Props) {
         >
           <PressScale
             style={styles.addBackdrop}
+            accessibilityLabel="追加をキャンセル"
+            disabled={busy}
             onPress={() => setShowAddSheet(false)}
           />
           <View
@@ -234,6 +237,7 @@ export function ChecklistSheet({ visible, onClose }: Props) {
               { paddingBottom: Platform.OS === 'web' ? space.xl : insets.bottom + space.lg },
             ]}
           >
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: space.md }}>
             <View style={styles.handle} />
             <Text style={styles.addTitle}>チェック項目を追加</Text>
 
@@ -262,6 +266,9 @@ export function ChecklistSheet({ visible, onClose }: Props) {
             </View>
 
             <TextInput
+              accessibilityLabel="追加するチェック項目"
+              maxLength={120}
+              editable={!busy}
               style={styles.input}
               placeholder="例：お風呂に入った"
               placeholderTextColor={colors.subtleForeground}
@@ -271,16 +278,29 @@ export function ChecklistSheet({ visible, onClose }: Props) {
               returnKeyType="done"
               onSubmitEditing={handleAdd}
             />
-            <Button label="追加する" onPress={handleAdd} disabled={!newText.trim()} />
+            {actionError && <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text>}
+            <Button label={busy ? '保存中…' : '追加する'} onPress={handleAdd} disabled={busy || !newText.trim()} />
+            <Button label="キャンセル" variant="ghost" onPress={() => setShowAddSheet(false)} disabled={busy} />
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <CenterDialog visible={!!pending} onClose={() => { if (!busyRef.current) setPending(null); }}>
+        <Text style={styles.addTitle}>{pending === 'reset' ? '元の項目に戻しますか？' : 'この項目を削除しますか？'}</Text>
+        <Text style={styles.editHint}>{pending === 'reset'
+          ? '追加した項目と今日のチェック状態がリセットされます。'
+          : pending?.text}</Text>
+        {actionError && <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text>}
+        <Button label="キャンセル" variant="secondary" disabled={busy} onPress={() => setPending(null)} />
+        <Button label={busy ? '保存中…' : pending === 'reset' ? '元の項目に戻す' : '削除する'} disabled={busy} onPress={confirmChange} />
+      </CenterDialog>
     </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { gap: space.xl },
+  content: { gap: space.xl, backgroundColor: '#F8F4EF' },
+  error: { ...typography.callout, color: colors.danger },
 
   /* 進捗 */
   progressBlock: { gap: space.md },
@@ -341,6 +361,7 @@ const styles = StyleSheet.create({
   catLabel: { ...typography.subhead, color: colors.foreground, flex: 1 },
   catCount: { ...typography.label },
   addCatBtn: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.xs,
@@ -368,7 +389,8 @@ const styles = StyleSheet.create({
   addOverlay: { flex: 1, justifyContent: 'flex-end' },
   addBackdrop: { flex: 1, backgroundColor: colors.scrim },
   addSheet: {
-    backgroundColor: colors.sheet,
+    maxHeight: '90%',
+    backgroundColor: '#F8F4EF',
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     borderTopWidth: border.width,

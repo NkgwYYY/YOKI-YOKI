@@ -79,7 +79,7 @@ export function PressScale({
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
       accessibilityState={accessibilityState ?? { disabled: !!disabled }}
-      {...(Platform.OS === 'web' ? { 'aria-expanded': accessibilityState?.expanded } : {})}
+      {...(Platform.OS === 'web' ? { 'aria-expanded': accessibilityState?.expanded, 'aria-checked': accessibilityState?.checked } : {})}
       style={[style, { transform: [{ scale }] }]}
     >
       {children}

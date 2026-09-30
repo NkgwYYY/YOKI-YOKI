@@ -114,6 +114,9 @@ const server=http.createServer((req,res)=>{
     await page.setViewportSize({width:320,height:568});
     const titleBox=await page.getByText('暮らしのお店',{exact:true}).boundingBox();
     assert.ok(titleBox.x>=0&&titleBox.x+titleBox.width<=320);
+    const activeTab=page.getByRole('tab',{selected:true});
+    assert.equal(await activeTab.count(),1);
+    const tabBox=await activeTab.boundingBox(); assert.ok(tabBox.height>=44);
     await page.getByText('ホームで位置を調整',{exact:true}).first().click();
     await page.getByTestId('shop-room-preview').getByTestId('room-scene').waitFor();
     await page.getByTestId('shop-room-preview').locator('img[src*="room-night"]').waitFor();
@@ -124,10 +127,21 @@ const server=http.createServer((req,res)=>{
     await done.scrollIntoViewIfNeeded();
     const doneBox=await done.boundingBox(); assert.ok(doneBox.y>=0&&doneBox.y+doneBox.height<=568);
     if(process.env.YOKI_QA_SCREENSHOT)await page.screenshot({path:process.env.YOKI_QA_SCREENSHOT});
+    await page.evaluate(()=>{
+      const original=Storage.prototype.setItem;
+      Storage.prototype.setItem=function(key,value){
+        if(key==='@mentore/shop_state_v2'){Storage.prototype.setItem=original;throw new DOMException('QA placement failure','QuotaExceededError');}
+        return original.call(this,key,value);
+      };
+    });
     await done.click();
+    await page.getByText('位置を保存できませんでした。「この位置で完了」からもう一度保存できます。',{exact:true}).last().waitFor();
+    assert.equal(await page.getByTestId('shop-room-preview').count(),1);
+    await done.click();
+    await page.getByTestId('shop-room-preview').waitFor({state:'hidden'});
     await page.reload(); await page.getByText('保存しためがね',{exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).placements['catalog-wear-round-glasses'].x),22);
     assert.deepEqual(errors,[]);await page.close();
-    console.log('PASS cached equipment, purchase recovery, 320px current-room preview/placement/close/reload');
+    console.log('PASS cached equipment, purchase recovery, 320px preview, selected category, placement failure/retry/close/reload');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
