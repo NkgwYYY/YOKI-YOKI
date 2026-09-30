@@ -18,6 +18,9 @@ import {
   typography,
 } from '@/constants/theme';
 import { StageCharacter } from '@/components/StageCharacter';
+import { StaticMascot } from '@/components/Mascot';
+import { useAppActivity } from '@/components/room/useRoomActivity';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CharacterKey, MascotMood } from '@/utils/mascotUtils';
 import { stageForChar } from '@/utils/encounters';
 import { DEX_PROFILES } from '@/data/characterDex';
@@ -52,6 +55,8 @@ const ACTIONS: { key: ActionKey; icon: IconName; label: string }[] = [
 
 export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Props) {
   const { lightEnergy, growth } = useApp();
+  const { active, reduceMotion } = useAppActivity();
+  const insets = useSafeAreaInsets();
   const profile = DEX_PROFILES[charKey];
   const stage = stageForChar(charKey);
 
@@ -59,10 +64,6 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
   const [speech, setSpeech] = useState<string | null>(null);
   const speechTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moodTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (speechTimer.current) clearTimeout(speechTimer.current);
-    if (moodTimer.current) clearTimeout(moodTimer.current);
-  }, []);
 
   const say = (line: string, ms = 2600) => {
     setSpeech(line);
@@ -82,6 +83,15 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
   const translateX = RNAnimated.add(shakeX, walkX);
   const squishY = squish.interpolate({ inputRange: [0, 1], outputRange: [1, 0.94] });
   const squishX = squish.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
+  useEffect(() => {
+    const stop = () => {
+      [jumpY, shakeX, walkX, squish].forEach(value => { value.stopAnimation(); value.setValue(0); });
+      if (speechTimer.current) clearTimeout(speechTimer.current);
+      if (moodTimer.current) clearTimeout(moodTimer.current);
+    };
+    if (!active || reduceMotion) { stop(); setSpeech(null); setMood('normal'); }
+    return stop;
+  }, [active, reduceMotion, jumpY, shakeX, walkX, squish]);
 
   const doSquish = () => {
     squish.stopAnimation();
@@ -98,6 +108,12 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
   };
 
   const handleAction = (key: ActionKey) => {
+    if (!active) return;
+    if (reduceMotion) {
+      feel('happy');
+      say(key === 'talk' ? TALK_LINES[charKey][0] : key === 'pet' ? 'えへへ…' : 'いっしょにいると、うれしいね');
+      return;
+    }
     switch (key) {
       case 'talk': {
         const lines = TALK_LINES[charKey];
@@ -164,7 +180,7 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: insets.bottom }]} testID="character-album-detail">
           <PressScale
             style={styles.closeBtn}
             onPress={onClose}
@@ -178,10 +194,10 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
             <View style={styles.stageArea}>
               {speech && (
                 <View style={styles.bubble}>
-                  <Text style={styles.bubbleText}>{speech}</Text>
+                  <Text style={styles.bubbleText} accessibilityLiveRegion="polite">{speech}</Text>
                 </View>
               )}
-              <RNAnimated.View
+              <RNAnimated.View testID="dex-character-motion"
                 style={{
                   transform: [
                     { translateY: jumpY },
@@ -191,13 +207,13 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
                   ],
                 }}
               >
-                <StageCharacter
+                {!active || reduceMotion ? <StaticMascot stage={stage} mood={mood} size={150 * (isCurrent ? growth.growthSize : 1)} /> : <StageCharacter
                   stage={stage}
                   mood={mood}
                   size={150}
                   growthSize={isCurrent ? growth.growthSize : 1}
                   onPet={() => handleAction('pet')}
-                />
+                />}
               </RNAnimated.View>
             </View>
 
@@ -215,6 +231,8 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
                 <PressScale
                   key={a.key}
                   style={styles.actionBtn}
+                  accessibilityLabel={a.label}
+                  scaleTo={reduceMotion ? 1 : undefined}
                   onPress={() => handleAction(a.key)}
                 >
                   <Icon name={a.icon} size={iconSize.md} color={colors.primaryOnSoft} />
@@ -276,7 +294,7 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' },
   sheet: {
     maxHeight: '92%',
-    backgroundColor: colors.sheet,
+    backgroundColor: '#F8F4EF',
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     borderTopWidth: border.width,
@@ -289,8 +307,8 @@ const styles = StyleSheet.create({
     top: space.lg,
     right: space.lg,
     zIndex: 1,
-    width: control.iconSm,
-    height: control.iconSm,
+    width: control.icon,
+    height: control.icon,
     borderRadius: radius.pill,
     backgroundColor: colors.muted,
     alignItems: 'center',
@@ -312,7 +330,7 @@ const styles = StyleSheet.create({
   bubbleText: { ...typography.label, color: colors.foreground },
 
   name: { ...typography.title, color: colors.foreground, textAlign: 'center' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
+  metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: space.sm },
   metaBadge: {
     backgroundColor: colors.primarySoft,
     borderRadius: radius.pill,
@@ -322,9 +340,10 @@ const styles = StyleSheet.create({
   metaBadgeText: { ...typography.micro, color: colors.primaryOnSoft },
   metaText: { ...typography.micro, color: colors.mutedForeground },
 
-  actionRow: { flexDirection: 'row', gap: space.sm },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   actionBtn: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '28%',
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.xs,

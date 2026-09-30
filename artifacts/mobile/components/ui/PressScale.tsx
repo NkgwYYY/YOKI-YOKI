@@ -2,9 +2,11 @@ import React, { useCallback, useRef } from 'react';
 import {
   Animated,
   Pressable,
+  Platform,
   type StyleProp,
   type ViewStyle,
   type AccessibilityRole,
+  type AccessibilityState,
 } from 'react-native';
 import { control } from '@/constants/theme';
 
@@ -44,7 +46,7 @@ export function PressScale({
   accessibilityLabel?: string;
   accessibilityHint?: string;
   accessibilityRole?: AccessibilityRole;
-  accessibilityState?: { disabled?: boolean; selected?: boolean };
+  accessibilityState?: AccessibilityState;
   pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only';
 }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -77,6 +79,7 @@ export function PressScale({
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
       accessibilityState={accessibilityState ?? { disabled: !!disabled }}
+      {...(Platform.OS === 'web' ? { 'aria-expanded': accessibilityState?.expanded } : {})}
       style={[style, { transform: [{ scale }] }]}
     >
       {children}
