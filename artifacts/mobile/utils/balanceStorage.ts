@@ -7,4 +7,5 @@ export const balanceStorage = createRecoverableStorage(AsyncStorage, BALANCE_JOU
   '@mentore/light_energy_v1', '@mentore/power_plant_v1', '@mentore/feed_state_v1',
   '@mentore/shop_state_v2',
   '@mentore/mini_game_v1',
+  '@mentore/records_v2', '@mentore/progress_v2', '@mentore/badges_v2', '@mentore/checked_state_v2',
 ]);

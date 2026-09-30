@@ -5,6 +5,7 @@ import { balanceStorage as AsyncStorage } from '@/utils/balanceStorage';
 import { claimGardenReward } from '@/utils/gardenReward';
 import { prepareItemPurchase } from '@/utils/itemPurchase';
 import { prepareRhythmReward } from '@/utils/rhythmReward';
+import { prepareDailyRecord } from '@/utils/dailyRecordTransaction';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef, ChecklistCategory } from '@/data/defaultChecklist';
 import { BADGE_DEFINITIONS } from '@/data/badges';
@@ -13,7 +14,6 @@ import {
   calculateLevel,
   calculateMentalMuscle,
   XP_FOR_CHECKLIST_ITEM,
-  XP_FOR_MOOD_RECORD,
   XP_FULL_DAY_BONUS,
 } from '@/utils/gameLogic';
 import {
@@ -46,8 +46,6 @@ import {
   applyEnergyGain,
   GAIN_CHECK_ITEM,
   GAIN_FULL_DAY_BONUS,
-  GAIN_MOOD_RECORD,
-  GAIN_DIARY,
   EnergyGain,
 } from '@/utils/lightEnergy';
 import {
@@ -1138,74 +1136,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const saveRecord = useCallback(
     async (mood: number, sleep: number, behaviors: string[], notes: string, extras?: RecordExtras) => {
-      const today = getTodayDate();
-      const yesterday = getYesterdayDate();
-      const existingIndex = records.findIndex((r) => r.date === today);
-      const isNew = existingIndex === -1;
-
-      const record: DailyRecord = {
-        id: isNew ? `r_${Date.now()}` : records[existingIndex].id,
-        date: today,
-        mood,
-        sleep,
-        sleepRecorded: extras?.sleepRecorded ?? true,
-        behaviors,
-        notes,
-        exercise: extras?.exercise,
-        meal: extras?.meal,
-        social: extras?.social,
-        win: extras?.win?.trim() || undefined,
-        activities: extras?.activities,
-      };
-
-      const newRecords = isNew
-        ? [...records, record]
-        : records.map((r, i) => (i === existingIndex ? record : r));
-
-      let newProgress = { ...progress };
-      if (isNew) {
-        const newStreak =
-          progress.lastRecordDate === yesterday
-            ? progress.streak + 1
-            : progress.lastRecordDate === today
-            ? progress.streak
-            : 1;
-        const newTotalDays = progress.totalDays + 1;
-        const newExp = progress.experience + XP_FOR_MOOD_RECORD;
-        newProgress = {
-          ...progress,
-          experience: newExp,
-          level: calculateLevel(newExp),
-          mentalMuscle: calculateMentalMuscle(newExp),
-          streak: newStreak,
-          totalDays: newTotalDays,
-          lastRecordDate: today,
-        };
-      }
-
-      setRecords(newRecords);
-      setProgress(newProgress);
-      await AsyncStorage.setItem(KEYS.RECORDS, JSON.stringify(newRecords));
-      await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
-
-      if (isNew) {
-        await mutateFeedPoints(FP_PER_MOOD_RECORD);
-      }
-
-      // 光エネルギー: 気分・生活の記録(1日1回) + 日記を書いた(1日1回)
-      await gainLightEnergy(GAIN_MOOD_RECORD, 'mood');
-      if (notes.trim().length > 0 || (extras?.win?.trim()?.length ?? 0) > 0) {
-        await gainLightEnergy(GAIN_DIARY, 'diary');
-      }
-
-      const allChecked = checkedState.items.every((i) => i.checked);
-      await checkAndUnlockBadges(unlockedBadges, newProgress, newRecords, allChecked);
+      const saved = await AsyncStorage.transaction(values => prepareDailyRecord(values, {
+        today: getTodayDate(), yesterday: getYesterdayDate(), mood, sleep, behaviors, notes, extras,
+      }, { progress: defaultProgress, feed: defaultFeedState }, FP_PER_MOOD_RECORD));
+      // Publish only the committed snapshot; retry first recovers any interrupted write.
+      setRecords(saved.records);
+      setProgress(saved.progress);
+      feedStateRef.current = saved.feed; setFeedState(saved.feed);
+      lightEnergyRef.current = saved.energy; setLightEnergy(saved.energy);
+      setUnlockedBadges(saved.badges);
+      if (saved.newestBadge) setNewlyUnlockedBadge(saved.newestBadge);
+      if (saved.gainedEnergy > 0) queueGainEvent(saved.gainedEnergy);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-
-      // Sync to cloud (fire-and-forget)
-      pushDataToCloud();
+      void pushDataToCloud().catch(() => {});
     },
-    [records, progress, unlockedBadges, checkedState, feedState, checkAndUnlockBadges, pushDataToCloud, gainLightEnergy]
+    [queueGainEvent, pushDataToCloud]
   );
 
   const getTodayRecord = useCallback((): DailyRecord | undefined => {
