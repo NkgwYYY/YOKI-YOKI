@@ -4,6 +4,7 @@ import {
   FlatList, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -250,6 +251,7 @@ const MAX_STORED = 60;
 const MAX_CONTEXT = 20;
 
 export default function ChatScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
           currentSatiety, inactivityHours, profile } = useApp();
@@ -395,6 +397,10 @@ export default function ChatScreen() {
       <SkyBackground />
 
       <View style={[styles.header, { paddingTop: topPad + space.md }]}>
+        <PressScale accessibilityLabel="部屋へ戻る" style={styles.clearBtn}
+          onPress={() => router.navigate('/(tabs)')}>
+          <Icon name="chevron-left" size={iconSize.md} color={colors.foreground} />
+        </PressScale>
         {Platform.OS === 'ios' ? (
           <StaticMascot stage={mascotStage} mood={mascotMood} size={40} />
         ) : (

@@ -1039,9 +1039,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const clearNewBadge = useCallback(() => setNewlyUnlockedBadge(null), []);
 
   const saveProfile = useCallback(async (p: UserProfile) => {
-    setProfile(p);
     await AsyncStorage.setItem(KEYS.PROFILE, JSON.stringify(p));
-    pushDataToCloud();
+    setProfile(p);
+    void pushDataToCloud().catch(() => {});
   }, [pushDataToCloud]);
 
   const saveHomeCommentPreferences = useCallback(async (preferences: HomeCommentPreferences) => {
@@ -1049,10 +1049,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const commentInputsChanged =
       resolved.frequency !== homeCommentPreferences.frequency ||
       resolved.includeRecentChat !== homeCommentPreferences.includeRecentChat;
-    setHomeCommentPreferences(resolved);
-    await AsyncStorage.setItem(KEYS.HOME_COMMENT_PREFERENCES, JSON.stringify(resolved));
     if (commentInputsChanged) await clearHomeCommentCache();
-    pushDataToCloud();
+    await AsyncStorage.setItem(KEYS.HOME_COMMENT_PREFERENCES, JSON.stringify(resolved));
+    setHomeCommentPreferences(resolved);
+    void pushDataToCloud().catch(() => {});
   }, [homeCommentPreferences, pushDataToCloud]);
 
   const setMascotName = useCallback(async (name: string) => {

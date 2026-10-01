@@ -17,6 +17,8 @@ export default function RecordScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#F8F4EF' }}>
       <Screen scroll={true} contentStyle={{ backgroundColor: '#F8F4EF' }}>
+        <Button label="部屋へ戻る" icon="chevron-left" variant="ghost" size="sm"
+          onPress={() => router.navigate('/(tabs)')} style={{ alignSelf: 'flex-start' }} />
         <View style={styles.header}>
           <Text style={styles.title}>今日のあなたへ</Text>
           <Text style={styles.date}>{formatDateJP(getTodayDate())}</Text>

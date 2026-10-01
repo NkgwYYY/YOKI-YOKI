@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -9,7 +9,7 @@ import { useApp, UserProfile } from '@/contexts/AppContext';
 import { ProfileForm } from '@/components/ProfileForm';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
-import { DEFAULT_HOME_COMMENT_PREFERENCES, type HomeCommentFrequency } from '@/utils/homeComment';
+import { DEFAULT_HOME_COMMENT_PREFERENCES, type HomeCommentFrequency, type HomeCommentPreferences } from '@/utils/homeComment';
 
 const FREQUENCY_OPTIONS: { value: HomeCommentFrequency; label: string; description: string }[] = [
   { value: 'daily', label: '毎日', description: 'その日の最初に、ひとこと話します' },
@@ -23,18 +23,44 @@ export default function ProfileScreen() {
   const router = useRouter();
   const {
     profile,
+    isLoading: profileLoading,
     saveProfile,
     homeCommentPreferences,
     saveHomeCommentPreferences,
   } = useApp();
   const [saving, setSaving] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [preferencesError, setPreferencesError] = useState('');
+  const saveBusy = useRef(false);
+
+  const handlePreferences = async (preferences: HomeCommentPreferences) => {
+    if (saveBusy.current) return;
+    saveBusy.current = true;
+    setSavingPreferences(true);
+    setPreferencesError('');
+    try {
+      await saveHomeCommentPreferences(preferences);
+    } catch {
+      setPreferencesError('設定を保存できませんでした。もう一度選んでください。');
+    } finally {
+      saveBusy.current = false;
+      setSavingPreferences(false);
+    }
+  };
 
   const handleSubmit = async (p: UserProfile) => {
+    if (saveBusy.current) return;
+    saveBusy.current = true;
     setSaving(true);
+    setProfileError('');
     try {
       await saveProfile(p);
       backToRoom(router);
+    } catch {
+      setProfileError('プロフィールを保存できませんでした。入力は残っています。もう一度保存してください。');
     } finally {
+      saveBusy.current = false;
       setSaving(false);
     }
   };
@@ -83,11 +109,14 @@ export default function ProfileScreen() {
               return (
                 <PressScale
                   key={option.value}
-                  onPress={() => saveHomeCommentPreferences({
+                  onPress={() => handlePreferences({
                     ...homeCommentPreferences,
                     frequency: option.value,
                   })}
                   accessibilityLabel={`${option.label}・${option.description}`}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected, disabled: saving || savingPreferences }}
+                  disabled={saving || savingPreferences}
                   style={[styles.frequencyOption, selected && styles.frequencyOptionSelected]}
                 >
                   <View style={styles.frequencyCopy}>
@@ -109,7 +138,7 @@ export default function ProfileScreen() {
               ホームで吹き出しを長押しすると、上下左右へ移動したりサイズを変えたりできます
             </Text>
             <PressScale
-              onPress={() => saveHomeCommentPreferences({
+              onPress={() => handlePreferences({
                 ...homeCommentPreferences,
                 placement: DEFAULT_HOME_COMMENT_PREFERENCES.placement,
                 positionX: DEFAULT_HOME_COMMENT_PREFERENCES.positionX,
@@ -117,6 +146,7 @@ export default function ProfileScreen() {
                 sizeScale: DEFAULT_HOME_COMMENT_PREFERENCES.sizeScale,
               })}
               accessibilityLabel="ひとことの位置とサイズを元に戻す"
+              disabled={saving || savingPreferences}
               style={styles.resetPlacementButton}
             >
               <Icon name="rotate-ccw" size={iconSize.sm} color={colors.primary} />
@@ -132,17 +162,20 @@ export default function ProfileScreen() {
             </View>
             <Switch
               value={homeCommentPreferences.includeRecentChat}
-              onValueChange={(includeRecentChat) => saveHomeCommentPreferences({
+              onValueChange={(includeRecentChat) => handlePreferences({
                 ...homeCommentPreferences,
                 includeRecentChat,
               })}
               trackColor={{ false: colors.border, true: colors.primarySoft }}
               thumbColor={homeCommentPreferences.includeRecentChat ? colors.primary : colors.subtleForeground}
               accessibilityLabel="最近のチャットも参考にする"
+              disabled={saving || savingPreferences}
             />
           </View>
         </View>
-        <ProfileForm initial={profile} submitLabel="保存する" onSubmit={handleSubmit} submitting={saving} />
+        {!!preferencesError && <Text accessibilityRole="alert" style={styles.error}>{preferencesError}</Text>}
+        {!profileLoading && <ProfileForm initial={profile} submitLabel="保存する" onSubmit={handleSubmit} submitting={saving || savingPreferences} />}
+        {!!profileError && <Text accessibilityRole="alert" style={styles.error}>{profileError}</Text>}
       </ScrollView>
     </View>
   );
@@ -168,7 +201,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerSpacer: { width: control.icon },
-  title: { ...typography.title, color: colors.foreground },
+  title: { ...typography.title, color: colors.foreground, flex: 1, textAlign: 'center' },
+  error: { ...typography.callout, color: colors.danger },
   subtitle: { ...typography.callout, color: colors.mutedForeground },
   commentSettings: {
     gap: space.md,

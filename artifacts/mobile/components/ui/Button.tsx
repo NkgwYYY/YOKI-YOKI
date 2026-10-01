@@ -67,6 +67,7 @@ export function Button({
       onPress={onPress}
       disabled={inert}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled: !!inert }}
       style={[
         styles.base,
