@@ -2,7 +2,7 @@
  * RHYTHM SWIPE — 矢印ノーツが落ちてくるので、タイミングよく同じ方向にスワイプ。
  * 成功するとキャラクターが同じ方向に楽しそうに揺れる。
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, PanResponder } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -179,7 +179,7 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
     }
   }, [clock]);
 
-  const pan = useRef(
+  const pan = useMemo(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8,
@@ -192,7 +192,7 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
         onSwipe(dir);
       },
     }),
-  ).current;
+  [onSwipe]);
 
   const visible = notesRef.current.filter(
     n => !n.judged && n.time - now < TRAVEL_S && n.time - now > -0.35,
