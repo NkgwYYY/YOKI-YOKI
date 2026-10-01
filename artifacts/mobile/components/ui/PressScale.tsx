@@ -1,6 +1,7 @@
 import React, { useCallback, useRef } from 'react';
 import {
   Animated,
+  Platform,
   Pressable,
   type StyleProp,
   type ViewStyle,
@@ -61,6 +62,30 @@ export function PressScale({
     },
     [scale],
   );
+
+  // Keep the native iOS hit target stable. Moving the responder itself with
+  // native-driver transforms can cancel a press before onPress is dispatched.
+  // The App Store path deliberately uses the standard, unanimated Pressable.
+  if (Platform.OS === 'ios') {
+    return (
+      <Pressable
+        testID={testID}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={delayLongPress}
+        disabled={disabled}
+        hitSlop={hitSlop}
+        pointerEvents={pointerEvents}
+        accessibilityRole={accessibilityRole}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={accessibilityState ?? { disabled: !!disabled }}
+        style={style}
+      >
+        {children}
+      </Pressable>
+    );
+  }
 
   return (
     <AnimatedPressable

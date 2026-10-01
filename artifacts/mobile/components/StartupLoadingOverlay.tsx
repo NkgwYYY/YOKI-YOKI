@@ -17,12 +17,14 @@ export function StartupLoadingOverlay() {
   const attempt = useRef(0);
   const minimumTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visible, setVisible] = useState(true);
+  const [dismissing, setDismissing] = useState(false);
   const [error, setError] = useState(false);
 
   const load = useCallback(() => {
     const currentAttempt = ++attempt.current;
     if (minimumTimer.current) clearTimeout(minimumTimer.current);
     setError(false);
+    setDismissing(false);
     opacity.setValue(1);
 
     const minimumWait = new Promise<void>((resolve) => {
@@ -38,6 +40,9 @@ export function StartupLoadingOverlay() {
     ])
       .then(() => {
         if (attempt.current !== currentAttempt) return;
+        // Release the full-screen touch blocker before the native opacity
+        // animation finishes, even if its completion callback is interrupted.
+        setDismissing(true);
         Animated.timing(opacity, {
           toValue: 0,
           duration: 320,
@@ -71,6 +76,7 @@ export function StartupLoadingOverlay() {
 
   return (
     <Animated.View
+      pointerEvents={dismissing ? 'none' : 'auto'}
       accessibilityLiveRegion="polite"
       style={[styles.overlay, { opacity }]}
     >

@@ -93,6 +93,7 @@ function OrbitAction({
       style={[styles.orbitAction, style, disabled && styles.orbitActionDisabled]}
     >
       <LinearGradient
+        pointerEvents="none"
         colors={[
           'rgba(255, 255, 255, 0.68)',
           'rgba(255, 255, 255, 0.34)',
@@ -105,6 +106,7 @@ function OrbitAction({
         style={styles.orbitBubbleGradient}
       >
         <BlurView
+          pointerEvents="none"
           intensity={24}
           tint="light"
           style={[
@@ -470,13 +472,14 @@ export default function HomeScreen() {
 
         {homeComment ? (
           <View
+            pointerEvents="box-none"
             style={styles.homeCommentArea}
             onLayout={(event) => {
               commentAreaWidth.current = event.nativeEvent.layout.width;
               setCommentAreaMeasuredWidth(event.nativeEvent.layout.width);
             }}
           >
-            <View style={styles.homeComment}>
+            <View pointerEvents="box-none" style={styles.homeComment}>
               <Animated.View
                 testID="home-comment-draggable"
                 accessible
@@ -548,9 +551,9 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        <View style={styles.centerArea}>
-          <View style={styles.sceneStack}>
-            <View style={styles.actionButtonsContainer}>
+        <View pointerEvents="box-none" style={styles.centerArea}>
+          <View pointerEvents="box-none" style={styles.sceneStack}>
+            <View pointerEvents="box-none" style={styles.actionButtonsContainer}>
               <OrbitAction
                 testID="home-feed"
                 icon="coffee"
@@ -586,7 +589,7 @@ export default function HomeScreen() {
                 onPress={() => setShowMiniGame(true)}
               />
             </View>
-            <View style={[styles.characterContainer, { height: sceneHeight }]}>
+            <View pointerEvents="box-none" style={[styles.characterContainer, { height: sceneHeight }]}>
               <RoomView
                 level={progress.level}
                 streak={progress.streak}
@@ -782,7 +785,8 @@ const styles = StyleSheet.create({
   nameFieldText: { ...typography.body, flex: 1, color: colors.foreground },
   nameFieldPlaceholder: { color: colors.mutedForeground },
 
-  centerArea: { ...NO_CLIP, flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' },
+  // Above the movable comment (35); empty scene space must pass touches through.
+  centerArea: { ...NO_CLIP, zIndex: 40, flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' },
   sceneStack: {
     ...NO_CLIP,
     width: '100%',
@@ -816,7 +820,9 @@ const styles = StyleSheet.create({
     zIndex: 20,
     width: '100%',
     left: 0,
-    height: 120,
+    // Native hit testing ignores children outside their parent's bounds.
+    // The lower buttons start at 50 and can be 96 high, plus 4px translation.
+    height: 154,
     marginBottom: 0,
     transform: [{ translateY: 4 }],
   },
