@@ -27,9 +27,10 @@ export function RoomAtelier({ onClose }: { onClose: () => void }) {
     const owned = item.id === 'none' || (kind === 'furniture' ? room.ownedFurniture : room.ownedFlowers).some(id => id === item.id);
     const selected = room[kind] === item.id;
     return <Pressable key={item.id} disabled={busy} accessibilityRole="button" accessibilityLabel={`${item.name} ${selected ? '使用中' : owned ? '選ぶ' : `${item.cost}ポイント`}`}
+      accessibilityState={{ selected, disabled: busy }}
       onPress={() => act(async () => {
-        if (owned) { await selectRoomItem(kind, item.id); setMessage('部屋の模様替えをしました。'); }
-        else { const result = await buyRoomItem(kind, item.id, item.cost); setMessage(result.success ? '新しい家具を迎えました。' : 'ポイントがもう少し必要です。'); }
+        if (owned) { const saved = await selectRoomItem(kind, item.id); setMessage(saved ? '部屋の模様替えをしました。' : 'このアイテムはまだ持っていません。'); }
+        else { const result = await buyRoomItem(kind, item.id, item.cost); setMessage(result.success ? (kind === 'flower' ? '新しい花を迎えました。' : '新しい家具を迎えました。') : 'ポイントがもう少し必要です。'); }
       })} style={[s.row, selected && { backgroundColor: '#EEE5F2' }]}>
       <RoomItemPreview kind={kind} id={item.id} /><Text style={s.name}>{item.name}</Text><Text>{selected ? '使用中' : owned ? '選ぶ' : `${item.cost} pt`}</Text>
     </Pressable>;

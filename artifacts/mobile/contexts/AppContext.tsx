@@ -799,16 +799,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const ownedFlowers = Array.isArray(parsed.ownedFlowers)
           ? parsed.ownedFlowers.filter((v): v is RoomFlower => ['pink', 'violet', 'rainbow'].includes(v))
           : [];
-        // The first room version showed a sofa and flower before purchase.
-        // Treat those starter-only values as empty so the room follows the
-        // purchase rule introduced with the shared points wallet.
-        const migratedFurniture = ownedFurniture.filter((id) => id !== 'sofa' || ownedFurniture.length > 1);
-        const migratedFlowers = ownedFlowers.filter((id) => id !== 'pink' || ownedFlowers.length > 1);
+        // A single saved sofa/rose may be a legitimate purchase. Without a
+        // versioned receipt we cannot infer starter ownership and remove it.
         const resolved: RoomCustomization = {
-          furniture: migratedFurniture.includes(parsed.furniture as RoomFurniture) ? parsed.furniture as RoomFurniture : 'none',
-          flower: migratedFlowers.includes(parsed.flower as RoomFlower) ? parsed.flower as RoomFlower : 'none',
-          ownedFurniture: Array.from(new Set(migratedFurniture)) as RoomFurniture[],
-          ownedFlowers: Array.from(new Set(migratedFlowers)) as RoomFlower[],
+          furniture: ownedFurniture.includes(parsed.furniture as RoomFurniture) ? parsed.furniture as RoomFurniture : 'none',
+          flower: ownedFlowers.includes(parsed.flower as RoomFlower) ? parsed.flower as RoomFlower : 'none',
+          ownedFurniture: Array.from(new Set(ownedFurniture)) as RoomFurniture[],
+          ownedFlowers: Array.from(new Set(ownedFlowers)) as RoomFlower[],
         };
         setRoomCustomization(resolved);
         await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(resolved));
@@ -1070,15 +1067,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (kind === 'furniture') {
       if (id !== 'none' && (!['sofa', 'vanity', 'bookshelf'].includes(id) || !current.ownedFurniture.includes(id as RoomFurniture))) return false;
       const next = { ...current, furniture: id as RoomFurniture };
-      setRoomCustomization(next);
       await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
+      setRoomCustomization(next);
       pushDataToCloud();
       return true;
     }
     if (id !== 'none' && (!['pink', 'violet', 'rainbow'].includes(id) || !current.ownedFlowers.includes(id as RoomFlower))) return false;
     const next = { ...current, flower: id as RoomFlower };
-    setRoomCustomization(next);
     await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
+    setRoomCustomization(next);
     pushDataToCloud();
     return true;
   }, [roomCustomization, pushDataToCloud]);

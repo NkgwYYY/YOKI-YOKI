@@ -5,7 +5,7 @@ import type { MascotStage } from '@/utils/mascotUtils';
 import { fitRoom } from '@/utils/roomGeometry';
 import { StaticMascot } from '@/components/Mascot';
 import { RoomResident, type ResidentItem } from './room/RoomResident';
-import { RoomFurnitureArt } from './room/RoomFurnitureArt';
+import { RoomFurnitureArt, RoomFlowerArt } from './room/RoomFurnitureArt';
 export { RoomItemPreview } from './room/RoomFurnitureArt';
 export { GrassTexture } from './room/LegacyFurniture';
 
@@ -50,8 +50,11 @@ export function RoomView(props: Props) {
       {object('record', '今日の記録', ART.desk, 0.24, 0.85, 0.39, props.onRecord)}
       {object('music', '音楽であそぶ', ART.music, 0.81, 0.75, 0.25, props.onPlay)}
       {object('meal', 'ごはん', ART.meal, 0.79, 0.90, 0.19, props.onFeed)}
-      {props.totalDays > 2 || props.customization.flower !== 'none'
-        ? <Image source={ART.plant} resizeMode="contain" style={{ position: 'absolute', left: width * 0.05, top: height * 0.43, width: width * 0.15, height: width * 0.2, zIndex: 520 }} /> : null}
+      {props.customization.flower !== 'none'
+        ? <View pointerEvents="none" style={{ position: 'absolute', left: width * 0.25, top: height * 0.40, zIndex: 520 }}>
+          <RoomFlowerArt id={props.customization.flower} size={width * 0.20} accessible />
+        </View>
+        : props.totalDays > 2 ? <Image testID="room-growth-plant" source={ART.plant} resizeMode="contain" accessible={false} style={{ position: 'absolute', left: width * 0.05, top: height * 0.43, width: width * 0.15, height: width * 0.2, zIndex: 520 }} /> : null}
       {props.customization.furniture !== 'none' && <View style={{ position: 'absolute', left: width * 0.01, top: height * 0.55 - width * 0.24, zIndex: 550 }}><RoomFurnitureArt id={props.customization.furniture} size={width * 0.24} /></View>}
       {props.decor && <Image source={{ uri: props.decor.uri }} resizeMode="contain" style={{ position: 'absolute', left: width * 0.76 + props.decor.x, top: height * 0.51 + props.decor.y, width: width * 0.16 * props.decor.scale, height: width * 0.16 * props.decor.scale, zIndex: 620 }} />}
       {props.companion && <View style={{ position: 'absolute', left: width * 0.63, top: height * 0.56, zIndex: 630 }}><StaticMascot stage="egg" mood="happy" size={width * 0.13} /></View>}
