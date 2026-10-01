@@ -85,7 +85,7 @@ export function ChecklistSheet({ visible, onClose }: Props) {
     setBusy(true);
     setActionError(null);
     try { await action(); }
-    catch { setActionError('保存を完了できませんでした。アプリを開き直して、保存状態を確認してください。'); }
+    catch { setActionError('保存できませんでした。同じ操作をもう一度行うと、保存状況を確認して再開します。'); }
     finally { busyRef.current = false; setBusy(false); }
   };
 

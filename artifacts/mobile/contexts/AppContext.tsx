@@ -6,16 +6,11 @@ import { claimGardenReward } from '@/utils/gardenReward';
 import { prepareItemPurchase } from '@/utils/itemPurchase';
 import { prepareRhythmReward } from '@/utils/rhythmReward';
 import { prepareDailyRecord } from '@/utils/dailyRecordTransaction';
+import { prepareChecklist, type ChecklistOperation } from '@/utils/checklistTransaction';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef, ChecklistCategory } from '@/data/defaultChecklist';
 import { BADGE_DEFINITIONS } from '@/data/badges';
 import { getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
-import {
-  calculateLevel,
-  calculateMentalMuscle,
-  XP_FOR_CHECKLIST_ITEM,
-  XP_FULL_DAY_BONUS,
-} from '@/utils/gameLogic';
 import {
   FOOD_ITEMS,
   FP_PER_CHECKLIST_ITEM,
@@ -43,10 +38,6 @@ import {
   createLightEnergyState,
   resolveLightEnergyState,
   applyElapsedEnergy,
-  applyEnergyGain,
-  GAIN_CHECK_ITEM,
-  GAIN_FULL_DAY_BONUS,
-  EnergyGain,
 } from '@/utils/lightEnergy';
 import {
   PowerPlantState,
@@ -127,6 +118,8 @@ export interface CheckedState {
   date: string;
   items: CheckedItem[];
   bonusEarned: boolean;
+  /** Daily receipts retained even when a checked item is removed or the list is reset. */
+  earnedItemIds?: string[];
 }
 
 export interface UserProgress {
@@ -438,21 +431,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setTimeout(flushGainEvent, 350);
     }
   }, [flushGainEvent]);
-
-  /** 光エネルギー獲得(獲得ルールは utils/lightEnergy.ts に集約)。flag 指定時は1日1回のみ */
-  const gainLightEnergy = useCallback(
-    async (gain: EnergyGain, flag?: keyof LightEnergyState['flags']) => {
-      const today = getTodayDate();
-      const gained = await updateBalances(state => {
-        const settled = applyElapsedEnergy(state.energy, today);
-        const energy = applyEnergyGain(settled, gain, today, flag);
-        return { state: { ...state, energy }, result: energy.totalEnergy - settled.totalEnergy };
-      });
-      // A failed write must not tell the user that energy was saved successfully.
-      if (gained > 0) queueGainEvent(gained);
-    },
-    [updateBalances, queueGainEvent]
-  );
 
   // ── 出会い記録の最新化: レベル(=進化段階)が変わるたびに図鑑へ登録する ──
   // ロード完了前(defaultProgress)や、ログイン済みでクラウド取得が終わる前は
@@ -989,150 +967,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [currentSatiety, updateBalances]
   );
 
-  const checkAndUnlockBadges = useCallback(
-    async (currentBadges: UnlockedBadge[], newProgress: UserProgress, newRecords: DailyRecord[], allChecked: boolean) => {
-      const unlocked = new Set(currentBadges.map((b) => b.id));
-      const updated = [...currentBadges];
-      let newest: string | null = null;
-      const now = new Date().toISOString();
+  const runChecklist = useCallback(async (operation: ChecklistOperation) => {
+    const saved = await AsyncStorage.transaction(values => prepareChecklist(values, operation, getTodayDate(),
+      { items: DEFAULT_CHECKLIST_ITEMS, progress: defaultProgress, feed: defaultFeedState },
+      { item: FP_PER_CHECKLIST_ITEM, fullDay: FP_PER_FULL_DAY_BONUS }));
+    setChecklistItems(saved.items);
+    setCheckedState(saved.checked);
+    if (operation.kind === 'check') {
+      setProgress(saved.progress);
+      feedStateRef.current = saved.feed; setFeedState(saved.feed);
+      lightEnergyRef.current = saved.energy; setLightEnergy(saved.energy);
+      setUnlockedBadges(saved.badges);
+      if (saved.newestBadge) setNewlyUnlockedBadge(saved.newestBadge);
+      if (saved.gainedEnergy > 0) queueGainEvent(saved.gainedEnergy);
+      if (operation.checked) await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
+    void pushDataToCloud().catch(() => {});
+  }, [queueGainEvent, pushDataToCloud]);
 
-      const unlock = (id: string) => {
-        if (!unlocked.has(id)) {
-          unlocked.add(id);
-          updated.push({ id, unlockedAt: now });
-          newest = id;
-        }
-      };
+  const toggleCheckItem = useCallback(async (id: string) => {
+    const current = checkedState.items.find(item => item.id === id);
+    if (!current) return;
+    // Keep the requested target on retry even if a prior write recovered meanwhile.
+    await runChecklist({ kind: 'check', id, checked: !(checkedState.date === getTodayDate() && current.checked) });
+  }, [checkedState, runChecklist]);
 
-      if (newRecords.length >= 1) unlock('firstStep');
-      if (newProgress.streak >= 3) unlock('streak3');
-      if (newProgress.streak >= 7) unlock('streak7');
-      if (newProgress.streak >= 30) unlock('streak30');
-      if (newRecords.length >= 7) unlock('moodLogger7');
-      if (newProgress.level >= 5) unlock('levelUp5');
-      if (allChecked) unlock('checkMaster');
+  const pendingChecklistAdd = useRef<{ text: string; category: ChecklistCategory; id: string } | null>(null);
+  const addChecklistItem = useCallback(async (text: string, category: ChecklistCategory) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    if (!pendingChecklistAdd.current || pendingChecklistAdd.current.text !== trimmed || pendingChecklistAdd.current.category !== category) {
+      pendingChecklistAdd.current = { text: trimmed, category, id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` };
+    }
+    const pending = pendingChecklistAdd.current;
+    await runChecklist({ kind: 'add', item: { ...pending, isDefault: false } });
+    if (pendingChecklistAdd.current === pending) pendingChecklistAdd.current = null;
+  }, [runChecklist]);
 
-      if (newest) {
-        setNewlyUnlockedBadge(newest);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      }
+  const removeChecklistItem = useCallback(async (id: string) => {
+    await runChecklist({ kind: 'remove', id });
+  }, [runChecklist]);
 
-      setUnlockedBadges(updated);
-      await AsyncStorage.setItem(KEYS.BADGES, JSON.stringify(updated));
-    },
-    []
-  );
-
-  const toggleCheckItem = useCallback(
-    async (id: string) => {
-      const currentItem = checkedState.items.find((i) => i.id === id);
-      if (!currentItem) return;
-
-      const wasChecked = currentItem.checked;
-      const nowChecked = !wasChecked;
-
-      let xpGain = 0;
-      if (nowChecked && !currentItem.xpEarned) xpGain = XP_FOR_CHECKLIST_ITEM;
-
-      const newItems = checkedState.items.map((i) =>
-        i.id === id ? { ...i, checked: nowChecked, xpEarned: nowChecked ? true : i.xpEarned } : i
-      );
-
-      const allDefaultChecked = newItems.every((i) => i.checked);
-
-      let bonusXp = 0;
-      let newBonusEarned = checkedState.bonusEarned;
-      if (allDefaultChecked && !checkedState.bonusEarned) {
-        bonusXp = XP_FULL_DAY_BONUS;
-        newBonusEarned = true;
-      }
-
-      const newState: CheckedState = { ...checkedState, items: newItems, bonusEarned: newBonusEarned };
-
-      const totalXpGain = xpGain + bonusXp;
-      const newExp = progress.experience + totalXpGain;
-      const newProgress: UserProgress = {
-        ...progress,
-        experience: newExp,
-        level: calculateLevel(newExp),
-        mentalMuscle: calculateMentalMuscle(newExp),
-      };
-
-      setCheckedState(newState);
-      if (totalXpGain > 0) {
-        setProgress(newProgress);
-        await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
-      }
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newState));
-
-      if (nowChecked && !currentItem.xpEarned) {
-        let fpGain = FP_PER_CHECKLIST_ITEM;
-        if (allDefaultChecked && !checkedState.bonusEarned) fpGain += FP_PER_FULL_DAY_BONUS;
-        await mutateFeedPoints(fpGain);
-
-        // 光エネルギー: チェック1件(初回のみ) + 全達成ボーナス
-        await gainLightEnergy(GAIN_CHECK_ITEM);
-        if (allDefaultChecked && !checkedState.bonusEarned) {
-          await gainLightEnergy(GAIN_FULL_DAY_BONUS);
-        }
-      }
-
-      if (nowChecked) await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      const allChecked = newItems.every((i) => i.checked);
-      await checkAndUnlockBadges(unlockedBadges, newProgress, records, allChecked);
-
-      // Sync to cloud (fire-and-forget)
-      pushDataToCloud();
-    },
-    [checkedState, progress, unlockedBadges, records, feedState, checkAndUnlockBadges, pushDataToCloud, gainLightEnergy]
-  );
-
-  const addChecklistItem = useCallback(
-    async (text: string, category: ChecklistCategory) => {
-      const id = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-      const newItem: ChecklistItemDef = { id, text, category, isDefault: false };
-      const newItems = [...checklistItems, newItem];
-      const newChecked: CheckedState = {
-        ...checkedState,
-        items: [...checkedState.items, { id, checked: false, xpEarned: false }],
-      };
-      setChecklistItems(newItems);
-      setCheckedState(newChecked);
-      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(newItems));
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newChecked));
-      pushDataToCloud();
-    },
-    [checklistItems, checkedState, pushDataToCloud]
-  );
-
-  const removeChecklistItem = useCallback(
-    async (id: string) => {
-      const newItems = checklistItems.filter(i => i.id !== id);
-      const newChecked: CheckedState = {
-        ...checkedState,
-        items: checkedState.items.filter(i => i.id !== id),
-      };
-      setChecklistItems(newItems);
-      setCheckedState(newChecked);
-      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(newItems));
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newChecked));
-      pushDataToCloud();
-    },
-    [checklistItems, checkedState, pushDataToCloud]
-  );
-
-  const resetChecklistToDefaults = useCallback(
-    async () => {
-      const fresh = buildFreshCheckedState(DEFAULT_CHECKLIST_ITEMS);
-      setChecklistItems(DEFAULT_CHECKLIST_ITEMS);
-      setCheckedState(fresh);
-      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(DEFAULT_CHECKLIST_ITEMS));
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
-      pushDataToCloud();
-    },
-    [checkedState, pushDataToCloud]
-  );
+  const resetChecklistToDefaults = useCallback(async () => {
+    await runChecklist({ kind: 'reset' });
+  }, [runChecklist]);
 
   const saveRecord = useCallback(
     async (mood: number, sleep: number, behaviors: string[], notes: string, extras?: RecordExtras) => {
