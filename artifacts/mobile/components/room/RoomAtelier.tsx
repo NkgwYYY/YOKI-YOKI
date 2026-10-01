@@ -3,14 +3,15 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { RoomItemPreview } from '@/components/RoomView';
+import { ROOM_PRICES } from '@/utils/roomPurchase';
 import { EGG_COMPANION_COST, useApp, type RoomFurniture, type RoomFlower, type RoomItemKind } from '@/contexts/AppContext';
 const FURNITURE: { id: RoomFurniture; name: string; cost: number }[] = [
-  { id: 'none', name: '置かない', cost: 0 }, { id: 'sofa', name: 'ソファ', cost: 450 },
-  { id: 'vanity', name: 'ドレッサー', cost: 650 }, { id: 'bookshelf', name: '本棚', cost: 900 },
+  { id: 'none', name: '置かない', cost: 0 }, { id: 'sofa', name: 'ソファ', cost: ROOM_PRICES.furniture.sofa },
+  { id: 'vanity', name: 'ドレッサー', cost: ROOM_PRICES.furniture.vanity }, { id: 'bookshelf', name: '本棚', cost: ROOM_PRICES.furniture.bookshelf },
 ];
 const FLOWERS: { id: RoomFlower; name: string; cost: number }[] = [
-  { id: 'none', name: '置かない', cost: 0 }, { id: 'pink', name: 'ローズ', cost: 250 },
-  { id: 'violet', name: 'バイオレット', cost: 350 }, { id: 'rainbow', name: 'レインボー', cost: 550 },
+  { id: 'none', name: '置かない', cost: 0 }, { id: 'pink', name: 'ローズ', cost: ROOM_PRICES.flower.pink },
+  { id: 'violet', name: 'バイオレット', cost: ROOM_PRICES.flower.violet }, { id: 'rainbow', name: 'レインボー', cost: ROOM_PRICES.flower.rainbow },
 ];
 export function RoomAtelier({ onClose }: { onClose: () => void }) {
   const { feedState, roomCustomization: room, selectRoomItem, buyRoomItem, companionState, buyEggCompanion } = useApp();

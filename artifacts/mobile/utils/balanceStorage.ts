@@ -9,4 +9,5 @@ export const balanceStorage = createRecoverableStorage(AsyncStorage, BALANCE_JOU
   '@mentore/mini_game_v1',
   '@mentore/records_v2', '@mentore/progress_v2', '@mentore/badges_v2', '@mentore/checked_state_v2',
   '@mentore/checklist_items_v3',
+  '@mentore/room_customization_v1', '@mentore/companions_v1',
 ]);

@@ -7,6 +7,7 @@ import { prepareItemPurchase } from '@/utils/itemPurchase';
 import { prepareRhythmReward } from '@/utils/rhythmReward';
 import { prepareDailyRecord } from '@/utils/dailyRecordTransaction';
 import { prepareChecklist, type ChecklistOperation } from '@/utils/checklistTransaction';
+import { prepareRoomOperation, COMPANION_PRICE, type RoomOperation } from '@/utils/roomPurchase';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef, ChecklistCategory } from '@/data/defaultChecklist';
 import { BADGE_DEFINITIONS } from '@/data/badges';
@@ -157,7 +158,7 @@ export interface CompanionState {
   extraEggs: number;
 }
 
-export const EGG_COMPANION_COST = 1000;
+export const EGG_COMPANION_COST = COMPANION_PRICE;
 
 const KEYS = {
   PROGRESS: '@mentore/progress_v2',
@@ -1060,77 +1061,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     pushDataToCloud();
   }, [pushDataToCloud]);
 
-  const shopBusyRef = useRef(false);
+  const runRoomOperation = useCallback(async (operation: RoomOperation) => {
+    const saved = await AsyncStorage.transaction(values => prepareRoomOperation(values, operation, defaultFeedState));
+    // Publish recovered snapshots even when the retry finds an existing receipt.
+    feedStateRef.current = saved.feed;
+    setFeedState(saved.feed);
+    setRoomCustomization(saved.room);
+    setCompanionState(saved.companions);
+    if (saved.success) {
+      if (saved.newlyPurchased) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      void pushDataToCloud().catch(() => {});
+    }
+    return saved;
+  }, [pushDataToCloud]);
 
   const selectRoomItem = useCallback(async (kind: RoomItemKind, id: RoomFurniture | RoomFlower): Promise<boolean> => {
-    const current = roomCustomization;
-    if (kind === 'furniture') {
-      if (id !== 'none' && (!['sofa', 'vanity', 'bookshelf'].includes(id) || !current.ownedFurniture.includes(id as RoomFurniture))) return false;
-      const next = { ...current, furniture: id as RoomFurniture };
-      await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
-      setRoomCustomization(next);
-      pushDataToCloud();
-      return true;
-    }
-    if (id !== 'none' && (!['pink', 'violet', 'rainbow'].includes(id) || !current.ownedFlowers.includes(id as RoomFlower))) return false;
-    const next = { ...current, flower: id as RoomFlower };
-    await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
-    setRoomCustomization(next);
-    pushDataToCloud();
-    return true;
-  }, [roomCustomization, pushDataToCloud]);
+    const saved = await runRoomOperation({ kind: 'select', category: kind, id });
+    return saved.success;
+  }, [runRoomOperation]);
 
-  const buyRoomItem = useCallback(async (
-    kind: RoomItemKind,
-    id: RoomFurniture | RoomFlower,
-    cost: number,
-  ): Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' | 'invalid' }> => {
-    if (shopBusyRef.current) return { success: false, reason: 'not_enough' };
-    const validFurniture = ['none', 'sofa', 'vanity', 'bookshelf'].includes(id);
-    const validFlower = ['none', 'pink', 'violet', 'rainbow'].includes(id);
-    if ((kind === 'furniture' && !validFurniture) || (kind === 'flower' && !validFlower)) {
-      return { success: false, reason: 'invalid' };
-    }
-    const current = roomCustomization;
-    if (id === 'none') return { success: false, reason: 'invalid' };
-    const owned = kind === 'furniture' ? current.ownedFurniture.includes(id as RoomFurniture) : current.ownedFlowers.includes(id as RoomFlower);
-    if (owned) return { success: false, reason: 'already_owned' };
-    if (feedStateRef.current.points < cost) return { success: false, reason: 'not_enough' };
+  const buyRoomItem = useCallback(async (kind: RoomItemKind, id: RoomFurniture | RoomFlower, cost: number) => {
+    const saved = await runRoomOperation({ kind: 'buy', category: kind, id, cost });
+    return { success: saved.success, reason: saved.reason };
+  }, [runRoomOperation]);
 
-    shopBusyRef.current = true;
-    try {
-      await mutateFeedPoints(-cost);
-      const next: RoomCustomization = kind === 'furniture'
-        ? { ...current, furniture: id as RoomFurniture, ownedFurniture: [...current.ownedFurniture, id as RoomFurniture] }
-        : { ...current, flower: id as RoomFlower, ownedFlowers: [...current.ownedFlowers, id as RoomFlower] };
-      setRoomCustomization(next);
-      await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      pushDataToCloud();
-      return { success: true };
-    } finally {
-      shopBusyRef.current = false;
-    }
-  }, [roomCustomization, pushDataToCloud]);
-
-  const buyEggCompanion = useCallback(async (): Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' }> => {
-    if (shopBusyRef.current) return { success: false, reason: 'not_enough' };
-    if (companionState.extraEggs >= 1) return { success: false, reason: 'already_owned' };
-    if (feedStateRef.current.points < EGG_COMPANION_COST) return { success: false, reason: 'not_enough' };
-
-    shopBusyRef.current = true;
-    try {
-      await mutateFeedPoints(-EGG_COMPANION_COST);
-      const next = { extraEggs: 1 };
-      setCompanionState(next);
-      await AsyncStorage.setItem(KEYS.COMPANIONS, JSON.stringify(next));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      pushDataToCloud();
-      return { success: true };
-    } finally {
-      shopBusyRef.current = false;
-    }
-  }, [companionState, pushDataToCloud]);
+  const buyEggCompanion = useCallback(async (): Promise<{ success: boolean; reason?: 'not_enough' }> => {
+    const saved = await runRoomOperation({ kind: 'companion' });
+    return { success: saved.success, reason: saved.success ? undefined : 'not_enough' };
+  }, [runRoomOperation]);
 
   const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp: number; stars?: number }, playId: string) => {
     const saved = await AsyncStorage.transaction(values => prepareRhythmReward(values, playId, slot, reward.fp, getTodayDate(), defaultFeedState, MAX_PLAYS_PER_SLOT));
