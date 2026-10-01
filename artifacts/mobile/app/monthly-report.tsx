@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { backToRoom } from '@/utils/backToRoom';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -150,7 +151,7 @@ export default function MonthlyReportScreen() {
   return (
     <View style={[styles.screen, { paddingTop: Platform.OS === 'web' ? space.lg : insets.top }]}>
       <View style={styles.toolbar}>
-        <Pressable accessibilityRole="button" accessibilityLabel="戻る" style={styles.iconButton} onPress={() => router.back()}>
+        <Pressable accessibilityRole="button" accessibilityLabel="戻る" style={styles.iconButton} onPress={() => backToRoom(router)}>
           <Icon name="chevron-left" size={iconSize.lg} color={colors.foreground} />
         </Pressable>
         <Text style={styles.toolbarTitle}>月次レポート</Text>

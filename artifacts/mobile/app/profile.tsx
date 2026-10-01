@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { backToRoom } from '@/utils/backToRoom';
 import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useApp, UserProfile } from '@/contexts/AppContext';
@@ -32,7 +33,7 @@ export default function ProfileScreen() {
     setSaving(true);
     try {
       await saveProfile(p);
-      router.back();
+      backToRoom(router);
     } finally {
       setSaving(false);
     }
@@ -54,10 +55,11 @@ export default function ProfileScreen() {
       >
         <View style={styles.headerRow}>
           <PressScale
-            onPress={() => router.back()}
+            onPress={() => backToRoom(router)}
             hitSlop={space.md}
             style={styles.backBtn}
             accessibilityLabel="戻る"
+            accessibilityRole="button"
           >
             <Icon name="chevron-left" size={20} color={colors.foreground} />
           </PressScale>

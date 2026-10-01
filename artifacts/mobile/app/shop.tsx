@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Image, Modal, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { backToRoom } from '@/utils/backToRoom';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoomView } from '@/components/RoomView';
 import { fitRoom } from '@/utils/roomGeometry';
@@ -210,7 +211,7 @@ export default function ShopScreen() {
   }), [updateItemPlacement, growth.growthSize]);
   return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.wrap}>
     {actionError && <Text accessibilityRole="alert" style={s.error}>{actionError}</Text>}
-    <View style={s.head}><Pressable accessibilityRole="button" accessibilityLabel="部屋へ戻る" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => router.back()}><Text style={s.back}>‹ 部屋へ</Text></Pressable><Text style={s.title}>暮らしのお店</Text></View>
+    <View style={s.head}><Pressable accessibilityRole="button" accessibilityLabel="戻る" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => backToRoom(router)}><Text style={s.back}>‹ 戻る</Text></Pressable><Text style={s.title}>暮らしのお店</Text></View>
     <Text style={s.points}>✦ {shopState.points} YOKI pt</Text>
     {!isSignedIn && (
       <Text style={s.guestNote}>
