@@ -97,14 +97,14 @@ export default function HomeScreen() {
       onRecord={() => setSheet('record')} onFeed={() => setSheet('feed')} onPlay={() => setSheet('music')}
       onChat={chat} onRest={() => setRest(n => n + 1)} onAlbum={() => router.push('/(tabs)/growth')} />
     <View style={s.footer} pointerEvents="none"><Text style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : hints ? 'ノートに今日を。音楽にひと息。長押しで抱っこ。' : 'ここでは、あなたのペースで。'}</Text></View>
-    {sheet === 'record' && <BottomSheet visible onClose={close} title="今日を、ひとこと" scroll={false} maxHeightRatio={0.95}>
+    {sheet === 'record' && <BottomSheet visible onClose={close} title="今日を、ひとこと" maxHeightRatio={0.95}>
       <QuickAffirmationRecord onComplete={() => { setReaction(n => n + 1); close(); }} />
       {menuRow('book-open', 'もっと詳しく記録する・チェック', () => { close(); router.push('/(tabs)/record'); })}
     </BottomSheet>}
     {sheet === 'feed' && <FeedModal visible onClose={close} onFed={() => { setMeal(n => n + 1); close(); }} />}
     {sheet === 'music' && <MiniGameModal visible slot={slot} onClose={close} rewardEnabled={canEarn}
       onReward={async (reward, playId) => { const earned = await completeMiniGame(slot, reward, playId); if (earned) setReaction(n => n + 1); return earned; }} />}
-    {sheet === 'chat' && <BottomSheet visible onClose={close} title={mascotName || 'よっきー'} scroll={false}>
+    {sheet === 'chat' && <BottomSheet visible onClose={close} title={mascotName || 'よっきー'}>
       <Text style={s.chatText}>{today && today.mood <= 2 ? '今日は一緒に休もう。話したいことがあったら、ここにいるよ。' : message}</Text>
       <Button label="少し、お話しする" icon="message-circle" onPress={() => { close(); router.push('/(tabs)/chat'); }} />
     </BottomSheet>}
