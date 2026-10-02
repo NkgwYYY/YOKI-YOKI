@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, Modal,
+  View, Text, StyleSheet, Modal, ScrollView,
   Dimensions, Animated as RNAnimated, PanResponder, Platform,
 } from 'react-native';
 import Svg, {
@@ -16,6 +16,7 @@ import { getMascotStage } from '@/utils/mascotUtils';
 import { Analytics } from '@/utils/analytics';
 import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const SCENE_DURATION = 10_000;
@@ -45,31 +46,35 @@ const SOUND_MAP: Record<Scene, any> = {
 /* ─── Sound hook ──────────────────────────────── */
 function useSceneAudio() {
   const soundRef = useRef<Audio.Sound | null>(null);
+  const generation = useRef(0);
 
   const play = async (scene: Scene) => {
+    const current = ++generation.current;
     try {
       await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (current !== generation.current) return;
+      const previous = soundRef.current;
+      soundRef.current = null;
+      if (previous) {
+        await previous.unloadAsync();
       }
+      if (current !== generation.current) return;
       const { sound } = await Audio.Sound.createAsync(
         SOUND_MAP[scene],
         { isLooping: true, volume: 1.0 },
       );
+      if (current !== generation.current) { await sound.unloadAsync(); return; }
       soundRef.current = sound;
       await sound.playAsync();
     } catch (_) {}
   };
 
   const stop = async () => {
+    ++generation.current;
+    const sound = soundRef.current;
+    soundRef.current = null;
     try {
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
+      if (sound) await sound.unloadAsync();
     } catch (_) {}
   };
 
@@ -596,13 +601,16 @@ function RainScene() {
   ).current;
 
   useEffect(() => {
+    let active = true;
     drops.forEach(({ y, speed }) => {
       const fall = () => {
+        if (!active) return;
         y.setValue(-(30 + Math.random() * 100));
         RNAnimated.timing(y, { toValue: SH, duration: speed, useNativeDriver: true }).start(fall);
       };
       fall();
     });
+    return () => { active = false; drops.forEach(({ y }) => y.stopAnimation()); };
   }, []);
 
   return (
@@ -626,16 +634,24 @@ function Ripples() {
   ).current;
 
   useEffect(() => {
+    let active = true;
+    const timers: ReturnType<typeof setTimeout>[] = [];
     ripples.forEach(({ scale, opacity }, i) => {
       const pulse = () => {
+        if (!active) return;
         scale.setValue(0); opacity.setValue(0.6);
         RNAnimated.parallel([
           RNAnimated.timing(scale,   { toValue: 1, duration: 1400, useNativeDriver: true }),
           RNAnimated.timing(opacity, { toValue: 0, duration: 1400, useNativeDriver: true }),
-        ]).start(() => setTimeout(pulse, 400 + Math.random() * 1200));
+        ]).start(() => { if (active) timers.push(setTimeout(pulse, 400 + Math.random() * 1200)); });
       };
-      setTimeout(pulse, i * 600);
+      timers.push(setTimeout(pulse, i * 600));
     });
+    return () => {
+      active = false;
+      timers.forEach(clearTimeout);
+      ripples.forEach(({ scale, opacity }) => { scale.stopAnimation(); opacity.stopAnimation(); });
+    };
   }, []);
 
   return (
@@ -710,6 +726,7 @@ interface Props {
 }
 
 export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
+  const insets = useSafeAreaInsets();
   const mascotStage = getMascotStage(level);
   const { play, stop } = useSceneAudio();
 
@@ -730,6 +747,7 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
   }, [visible]);
 
   const startScene = (s: Scene) => {
+    clearInterval(timerRef.current!);
     setScene(s);
     setPhase('playing');
     Analytics.restEventScene(s);
@@ -748,12 +766,8 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
 
   const cfg = SCENES.find(s => s.key === scene)!;
 
-  const SceneView = () => {
-    if (scene === 'campfire') return <CampfireScene />;
-    if (scene === 'rain')     return <RainScene />;
-    if (scene === 'stars')    return <StarsScene />;
-    return <CatScene />;
-  };
+  const sceneView = scene === 'campfire' ? <CampfireScene />
+    : scene === 'rain' ? <RainScene /> : scene === 'stars' ? <StarsScene /> : <CatScene />;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
@@ -761,7 +775,7 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
 
         {/* Choose phase */}
         {phase === 'choose' && (
-          <View style={m.sheet}>
+          <ScrollView style={m.sheet} contentContainerStyle={{ paddingBottom: insets.bottom + space.sm }}>
             <View style={m.chooseHeader}>
               {Platform.OS === 'ios' ? (
                 <StaticMascot stage={mascotStage} mood="sleepy" size={64} />
@@ -775,6 +789,7 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
               {SCENES.map((s) => (
                 <PressScale
                   key={s.key}
+                  accessibilityLabel={s.label}
                   style={m.sceneBtn}
                   onPress={() => startScene(s.key)}
                 >
@@ -785,13 +800,13 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
               ))}
             </View>
             <Button label="今は大丈夫" variant="ghost" onPress={handleClose} style={m.skipBtn} />
-          </View>
+          </ScrollView>
         )}
 
         {/* Playing phase */}
         {phase === 'playing' && (
           <View style={[m.fullScreen, { backgroundColor: cfg.bg }]}>
-            <SceneView />
+            {sceneView}
             <View style={m.timerPill}>
               <Text style={m.timerText}>{timeLeft}s</Text>
             </View>
@@ -801,7 +816,7 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
         {/* Outro phase */}
         {phase === 'outro' && (
           <View style={[m.fullScreen, { backgroundColor: cfg.bg }]}>
-            <SceneView />
+            {sceneView}
             <View style={m.outroCard}>
               {Platform.OS === 'ios' ? (
                 <StaticMascot stage={mascotStage} mood="happy" size={64} />
@@ -834,6 +849,12 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
             </View>
           </View>
         )}
+
+        {phase !== 'choose' && <PressScale
+          accessibilityLabel="休憩を閉じる"
+          onPress={handleClose}
+          style={[m.closeButton, { top: insets.top + space.md }]}
+        ><Icon name="x" size={24} color={colors.foreground} /></PressScale>}
 
       </View>
     </Modal>
@@ -913,6 +934,11 @@ const m = StyleSheet.create({
 
   /* 選択シート — アプリの面なのでトークンに従う */
   sheet: {
+    flexGrow: 0,
+    maxHeight: '90%',
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     backgroundColor: colors.sheet,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
@@ -952,6 +978,8 @@ const m = StyleSheet.create({
     borderRadius: radius.pill,
   },
   timerText: { ...typography.calloutStrong, color: colors.foreground },
+  closeButton: { position: 'absolute', left: space.lg, width: 44, height: 44,
+    borderRadius: radius.pill, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
 
   outroCard: {
     position: 'absolute',
