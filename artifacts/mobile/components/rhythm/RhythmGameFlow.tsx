@@ -81,6 +81,9 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
   const mascotStage = getMascotStage(progress.level);
   const preview = useSongClock();
   const previewIdRef = useRef<string | null>(null);
+  const previewRequest = useRef(0);
+  const [previewStatus, setPreviewStatus] = useState<'idle' | 'loading' | 'playing'>('idle');
+  const [previewError, setPreviewError] = useState(false);
   const { active } = useAppActivity();
   const activeRef = useRef(active); activeRef.current = active;
   const [interrupted, setInterrupted] = useState(false);
@@ -96,13 +99,33 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
   const selectSong = useCallback(async (s: Song) => {
     setSong(s);
     if (previewIdRef.current === s.id) return;
+    const request = ++previewRequest.current;
     previewIdRef.current = s.id;
-    await preview.load(s.audio, { volume: 0.45, positionMillis: Math.floor(s.duration * 0.35 * 1000) });
-    if (previewIdRef.current === s.id) await preview.play();
+    setPreviewStatus('loading'); setPreviewError(false);
+    try {
+      await preview.load(s.audio, { volume: 0.45, positionMillis: Math.floor(s.duration * 0.35 * 1000) });
+      if (request !== previewRequest.current) return;
+      preview.setOnFinish(() => {
+        if (request !== previewRequest.current) return;
+        previewIdRef.current = null;
+        setPreviewStatus('idle');
+      });
+      const played = await preview.play();
+      if (request !== previewRequest.current) return;
+      if (!played) throw new Error('Preview could not start');
+      setPreviewStatus('playing');
+    } catch {
+      if (request !== previewRequest.current) return;
+      previewIdRef.current = null;
+      void preview.unload();
+      setPreviewStatus('idle'); setPreviewError(true);
+    }
   }, [preview]);
 
   const stopPreview = useCallback(() => {
+    previewRequest.current++;
     previewIdRef.current = null;
+    setPreviewStatus('idle'); setPreviewError(false);
     preview.unload();
   }, [preview]);
 
@@ -144,7 +167,10 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
           <PressScale
             key={s.id}
             onPress={() => selectSong(s)}
-            accessibilityState={{ selected: song?.id === s.id }}
+            accessibilityRole="radio"
+            accessibilityLabel={s.title}
+            accessibilityHint={`${s.mood}、${fmtTime(s.duration)}。選ぶと試聴します`}
+            accessibilityState={{ checked: song?.id === s.id }}
             style={[st.songCard, song?.id === s.id && st.songCardSel]}
           >
             {/* 曲の色は左端の細い帯だけで示す */}
@@ -156,9 +182,10 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
                 {s.mood}・{fmtTime(s.duration)}・BPM {Math.round(s.bpm)}
               </Text>
             </View>
-            {song?.id === s.id && <Text style={st.songPlaying}>試聴中</Text>}
+            {song?.id === s.id && <Text style={st.songPlaying}>{previewStatus === 'playing' ? '試聴中' : previewStatus === 'loading' ? '読込中' : '選択中'}</Text>}
           </PressScale>
         ))}
+        {previewError && <Text accessibilityRole="alert" style={st.previewError}>試聴できませんでした。同じ曲を選ぶと再試行できます。</Text>}
         <Button
           label="つぎへ"
           disabled={!song}
@@ -179,6 +206,10 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
             key={m.id}
             style={[st.modeCard, mode === m.id && m.ready && st.modeCardSel, !m.ready && st.modeCardLocked]}
             disabled={!m.ready}
+            accessibilityRole="radio"
+            accessibilityLabel={m.title}
+            accessibilityHint={m.desc}
+            accessibilityState={{ checked: mode === m.id, disabled: !m.ready }}
             onPress={() => setMode(m.id)}
           >
             <Icon
@@ -213,7 +244,10 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
             <PressScale
               key={d.id}
               style={[st.diffCard, { borderColor: d.color }, difficulty === d.id && { backgroundColor: d.color + '18' }]}
-              accessibilityState={{ selected: difficulty === d.id }}
+              accessibilityRole="radio"
+              accessibilityLabel={d.label}
+              accessibilityHint={d.desc}
+              accessibilityState={{ checked: difficulty === d.id }}
               onPress={() => setDifficulty(d.id)}
             >
               <Text style={[st.diffLabel, { color: d.color }]}>{d.label}</Text>
@@ -320,7 +354,8 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
 
 const st = StyleSheet.create({
   scroll: { flex: 1 },
-  body: { padding: space.xl, gap: space.sm, alignItems: 'stretch' },
+  body: { padding: space.xl, gap: space.sm, alignItems: 'stretch', width: '100%', maxWidth: 600, alignSelf: 'center' },
+  previewError: { ...typography.caption, color: colors.danger },
   stepTitle: { ...typography.heading, color: colors.foreground, textAlign: 'center' },
   grow: { flex: 1 },
   listBack: {
