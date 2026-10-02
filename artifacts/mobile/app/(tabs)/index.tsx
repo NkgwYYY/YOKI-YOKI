@@ -39,12 +39,26 @@ export default function HomeScreen() {
   const [rest, setRest] = useState(0);
   const [message, setMessage] = useState('おかえり。今日は、どんな一日だった？');
   const [nameError, setNameError] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const nameBusy = useRef(false);
+  const nameSession = useRef(0);
   const today = getTodayRecord();
   const soundRef = useRef<Audio.Sound | null>(null);
   const soundGeneration = useRef(0);
   const slot = getCurrentSlot() ?? 'night';
   const canEarn = resolveMiniGameState(miniGameState)[slot] < MAX_PLAYS_PER_SLOT;
-  const close = () => setSheet(null);
+  const close = () => { nameSession.current++; setSheet(null); };
+  const saveName = async () => {
+    if (nameBusy.current || !name.trim()) return;
+    const session = nameSession.current;
+    nameBusy.current = true; setSavingName(true); setNameError('');
+    try {
+      await setMascotName(name.trim());
+      if (session === nameSession.current) close();
+    } catch {
+      if (session === nameSession.current) setNameError('名前を保存できませんでした。入力は残っています。もう一度お試しください。');
+    } finally { nameBusy.current = false; setSavingName(false); }
+  };
   useEffect(() => { let alive = true; AsyncStorage.getItem(HINT_KEY).then(value => { if (alive) setHints(value !== 'seen'); }).catch(() => {}); return () => { alive = false; }; }, []);
   useEffect(() => {
     if (!active) return;
@@ -122,9 +136,9 @@ export default function HomeScreen() {
     </BottomSheet>}
     {sheet === 'atelier' && <RoomAtelier onClose={close} />}
     {sheet === 'name' && <CenterDialog visible onClose={close}><Text style={s.menuText}>この子を、なんて呼ぼう？</Text>
-      <TextInput accessibilityLabel="なかまの名前" maxLength={16} value={name} onChangeText={setName} style={s.input} placeholder="よっきー" />
-      {nameError ? <Text>{nameError}</Text> : null}
-      <Button label="この名前にする" disabled={!name.trim()} onPress={async () => { try { await setMascotName(name.trim()); close(); } catch { setNameError('名前を保存できませんでした。'); } }} />
+      <TextInput accessibilityLabel="なかまの名前" editable={!savingName} maxLength={16} value={name} onChangeText={setName} style={s.input} placeholder="よっきー" />
+      {nameError ? <Text accessibilityRole="alert">{nameError}</Text> : null}
+      <Button label="この名前にする" disabled={!name.trim() || savingName} loading={savingName} onPress={saveName} />
     </CenterDialog>}
   </View>;
 }

@@ -1056,9 +1056,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [homeCommentPreferences, pushDataToCloud]);
 
   const setMascotName = useCallback(async (name: string) => {
-    setMascotNameState(name);
     await AsyncStorage.setItem(KEYS.MASCOT_NAME, name);
-    pushDataToCloud();
+    setMascotNameState(name);
+    void pushDataToCloud().catch(() => {});
   }, [pushDataToCloud]);
 
   const runRoomOperation = useCallback(async (operation: RoomOperation) => {
