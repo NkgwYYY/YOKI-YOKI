@@ -4,7 +4,7 @@ import {
   FlatList, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -271,7 +271,22 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showRestEvent, setShowRestEvent] = useState(false);
+  const [sendError, setSendError] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
+  const request = useRef<AbortController | null>(null);
+  const restTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<FlatList>(null);
+
+  useFocusEffect(useCallback(() => () => {
+    if (request.current) {
+      request.current.abort();
+      request.current = null;
+      setIsLoading(false);
+      setSendError(true);
+    }
+    if (restTimer.current) clearTimeout(restTimer.current);
+    setShowRestEvent(false);
+  }, []));
 
   useEffect(() => {
     (async () => {
@@ -302,17 +317,26 @@ export default function ChatScreen() {
   }, []);
 
   const clearHistory = useCallback(async () => {
-    await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
-    setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ` }]);
+    if (request.current) return;
+    try {
+      await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
+      setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ` }]);
+      setSendError(false);
+      setHistoryError(false);
+    } catch { setHistoryError(true); }
   }, [displayName]);
 
-  const sendMessage = useCallback(async (text?: string) => {
+  const sendMessage = useCallback(async (text?: string, retry = false) => {
     const msg = (text ?? input).trim();
-    if (!msg || isLoading) return;
-    setInput('');
+    if ((!retry && !msg) || request.current || !historyLoaded) return;
+    const controller = new AbortController();
+    request.current = controller;
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    if (!retry) setInput('');
+    setSendError(false);
 
     const userMsg = newMessage(`u_${Date.now()}`, 'user', msg);
-    const next = [...messages, userMsg];
+    const next = retry ? messages : [...messages, userMsg];
     setMessages(next);
     scrollToBottom();
     setIsLoading(true);
@@ -345,6 +369,7 @@ export default function ChatScreen() {
       if (progress?.streak) ctxParts.push(`連続記録${progress.streak}日目`);
 
       const res = await fetch(`${API_BASE}/chat/message`, {
+        signal: controller.signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -355,9 +380,14 @@ export default function ChatScreen() {
           context: ctxParts.join('\n') || undefined,
         }),
       });
+      if (!res.ok) throw new Error('Chat request failed');
       const data = await res.json();
-      const citations = Array.isArray(data.citations) && data.citations.length
-        ? data.citations
+      if (typeof data?.content !== 'string' || !data.content.trim()) throw new Error('Invalid chat response');
+      if (request.current !== controller) return;
+      const validCitations = Array.isArray(data.citations) ? data.citations.filter((item: any) =>
+        typeof item?.title === 'string' && typeof item?.url === 'string' && /^https:\/\//i.test(item.url)) : [];
+      const citations = validCitations.length
+        ? validCitations
         : OFFICIAL_SOURCES;
       const assistantMsg = newMessage(
         `a_${Date.now()}`,
@@ -368,23 +398,23 @@ export default function ChatScreen() {
       setMessages(prev => [...prev, assistantMsg]);
       Analytics.chatMessageSent();
       if (data.restEvent) {
-        setTimeout(() => setShowRestEvent(true), 1200);
+        restTimer.current = setTimeout(() => setShowRestEvent(true), 1200);
       }
     } catch {
-      setMessages(prev => [...prev, newMessage(
-        `err_${Date.now()}`,
-        'assistant',
-        'ごめん、うまく繋がらなかった…もう一度話しかけてね',
-      )]);
+      if (request.current === controller) setSendError(true);
     } finally {
-      setIsLoading(false);
-      scrollToBottom();
+      clearTimeout(timeout);
+      if (request.current === controller) {
+        request.current = null;
+        setIsLoading(false);
+        scrollToBottom();
+      }
     }
-  }, [input, isLoading, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom]);
+  }, [input, historyLoaded, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom]);
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
 
-  const canSend = !!input.trim() && !isLoading;
+  const canSend = !!input.trim() && !isLoading && historyLoaded;
   const showChips = messages.length <= 1;
   const CHIPS = ['今日あったこと話したい', '少し落ち込んでる', 'がんばった！聞いて', '雑談しよう'];
 
@@ -420,6 +450,7 @@ export default function ChatScreen() {
         {messages.length > 1 && (
           <PressScale
             onPress={clearHistory}
+            disabled={isLoading}
             style={styles.clearBtn}
             accessibilityLabel="会話履歴を消す"
           >
@@ -480,10 +511,18 @@ export default function ChatScreen() {
             ))}
           </View>
         )}
+        {historyError && <Text accessibilityRole="alert">履歴を消せませんでした。もう一度お試しください。</Text>}
+        {sendError && <View>
+          <Text accessibilityRole="alert">返事を受け取れませんでした。もう一度試せます。</Text>
+          <PressScale style={chipStyles.chip} accessibilityLabel="返事をもう一度受け取る" onPress={() => sendMessage(undefined, true)} disabled={isLoading}>
+            <Text style={chipStyles.text}>もう一度試す</Text>
+          </PressScale>
+        </View>}
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
             placeholder={`${displayName}に話しかける…`}
+            accessibilityLabel="話しかける内容"
             placeholderTextColor={colors.subtleForeground}
             value={input}
             onChangeText={setInput}
