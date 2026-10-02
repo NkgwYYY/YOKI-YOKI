@@ -249,6 +249,13 @@ const chipStyles = StyleSheet.create({
 const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
 const MAX_STORED = 60;
 const MAX_CONTEXT = 20;
+// Keep reads, writes and deletion ordered, including across screen remounts.
+let historyQueue: Promise<unknown> = Promise.resolve();
+function queueHistory<T>(operation: () => Promise<T>): Promise<T> {
+  const result = historyQueue.then(operation, operation);
+  historyQueue = result.catch(() => {});
+  return result;
+}
 
 export default function ChatScreen() {
   const router = useRouter();
@@ -273,6 +280,13 @@ export default function ChatScreen() {
   const [showRestEvent, setShowRestEvent] = useState(false);
   const [sendError, setSendError] = useState(false);
   const [historyError, setHistoryError] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const clearBusy = useRef(false);
+  const loadBusy = useRef(false);
+  const saveVersion = useRef(0);
+  const lastScheduled = useRef('[]');
   const request = useRef<AbortController | null>(null);
   const restTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<FlatList>(null);
@@ -288,47 +302,71 @@ export default function ChatScreen() {
     setShowRestEvent(false);
   }, []));
 
-  useEffect(() => {
-    (async () => {
+  const loadHistory = async () => {
+      if (loadBusy.current) return;
+      loadBusy.current = true;
+      setLoadError(false);
       try {
-        const raw = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
+        const raw = await queueHistory(() => AsyncStorage.getItem(CHAT_HISTORY_KEY));
         if (raw) {
-          const stored = (JSON.parse(raw) as unknown[])
+          const parsed: unknown = JSON.parse(raw);
+          if (!Array.isArray(parsed)) throw new Error('Invalid history');
+          const stored = parsed
             .map(normalizeStoredMessage)
             .filter((message): message is Message => message !== null)
             .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
           if (stored.length > 0) {
+            lastScheduled.current = JSON.stringify(stored.slice(-MAX_STORED));
             setMessages([welcomeMsg, ...stored]);
           }
         }
-      } catch { /* use default */ }
-      setHistoryLoaded(true);
-    })();
+        setHistoryLoaded(true);
+      } catch { setLoadError(true); }
+      finally { loadBusy.current = false; }
+  };
+
+  useEffect(() => {
+    void loadHistory();
+  }, []);
+
+  const persistHistory = useCallback((serialized: string) => {
+    const version = ++saveVersion.current;
+    lastScheduled.current = serialized;
+    return queueHistory(() => AsyncStorage.setItem(CHAT_HISTORY_KEY, serialized))
+      .then(() => { if (saveVersion.current === version) setSaveError(false); })
+      .catch(() => { if (saveVersion.current === version) setSaveError(true); });
   }, []);
 
   useEffect(() => {
     if (!historyLoaded) return;
     const toSave = messages.filter(m => m.id !== 'welcome').slice(-MAX_STORED);
-    AsyncStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(toSave)).catch(() => {});
-  }, [messages, historyLoaded]);
+    const serialized = JSON.stringify(toSave);
+    if (serialized !== lastScheduled.current) void persistHistory(serialized);
+  }, [messages, historyLoaded, persistHistory]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
 
   const clearHistory = useCallback(async () => {
-    if (request.current) return;
+    if (request.current || clearBusy.current || !historyLoaded) return;
+    clearBusy.current = true;
+    setClearing(true);
     try {
-      await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
+      await queueHistory(() => AsyncStorage.removeItem(CHAT_HISTORY_KEY));
+      ++saveVersion.current;
+      lastScheduled.current = '[]';
+      setSaveError(false);
       setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ` }]);
       setSendError(false);
       setHistoryError(false);
     } catch { setHistoryError(true); }
-  }, [displayName]);
+    finally { clearBusy.current = false; setClearing(false); }
+  }, [displayName, historyLoaded]);
 
   const sendMessage = useCallback(async (text?: string, retry = false) => {
     const msg = (text ?? input).trim();
-    if ((!retry && !msg) || request.current || !historyLoaded) return;
+    if ((!retry && !msg) || request.current || clearBusy.current || !historyLoaded) return;
     const controller = new AbortController();
     request.current = controller;
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -414,7 +452,7 @@ export default function ChatScreen() {
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
 
-  const canSend = !!input.trim() && !isLoading && historyLoaded;
+  const canSend = !!input.trim() && !isLoading && historyLoaded && !clearing;
   const showChips = messages.length <= 1;
   const CHIPS = ['今日あったこと話したい', '少し落ち込んでる', 'がんばった！聞いて', '雑談しよう'];
 
@@ -450,7 +488,7 @@ export default function ChatScreen() {
         {messages.length > 1 && (
           <PressScale
             onPress={clearHistory}
-            disabled={isLoading}
+            disabled={isLoading || clearing}
             style={styles.clearBtn}
             accessibilityLabel="会話履歴を消す"
           >
@@ -512,6 +550,14 @@ export default function ChatScreen() {
           </View>
         )}
         {historyError && <Text accessibilityRole="alert">履歴を消せませんでした。もう一度お試しください。</Text>}
+        {loadError && <View>
+          <Text accessibilityRole="alert">会話履歴を読み込めませんでした。保存済みの履歴を守るため、読み込み直してください。</Text>
+          <PressScale style={chipStyles.chip} accessibilityLabel="会話履歴を読み込み直す" onPress={loadHistory}><Text>読み込み直す</Text></PressScale>
+        </View>}
+        {saveError && <View>
+          <Text accessibilityRole="alert">会話履歴を保存できませんでした。画面を閉じる前に保存をお試しください。</Text>
+          <PressScale style={chipStyles.chip} accessibilityLabel="会話履歴を保存し直す" disabled={clearing} onPress={() => { void persistHistory(JSON.stringify(messages.filter(m => m.id !== 'welcome').slice(-MAX_STORED))); }}><Text>保存をもう一度試す</Text></PressScale>
+        </View>}
         {sendError && <View>
           <Text accessibilityRole="alert">返事を受け取れませんでした。もう一度試せます。</Text>
           <PressScale style={chipStyles.chip} accessibilityLabel="返事をもう一度受け取る" onPress={() => sendMessage(undefined, true)} disabled={isLoading}>
