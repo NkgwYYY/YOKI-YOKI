@@ -5,6 +5,7 @@ import { RhythmGameFlow } from '@/components/rhythm/RhythmGameFlow';
 import { Icon } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { Analytics } from '@/utils/analytics';
+import { useReducedMotion } from '@/utils/useReducedMotion';
 import type { GameSlot } from '@/utils/miniGameUtils';
 import { type PlayResult, starRating } from '@/utils/rhythm/types';
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 export function MiniGameModal({ visible, slot, onClose, onReward, rewardEnabled = true }: Props) {
   const { holdLightFlow } = useApp();
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const rewarded = useRef(false);
   const saving = useRef(false);
   const playId = useRef('');
@@ -50,8 +52,8 @@ export function MiniGameModal({ visible, slot, onClose, onReward, rewardEnabled 
     Analytics.miniGameCompleted(slot, r.score);
   };
   if (!visible) return null;
-  return <Modal visible animationType="slide" onRequestClose={onClose}>
-    <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+  return <Modal visible animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={onClose}>
+    <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={s.header}><View style={{ flex: 1 }}><Text style={s.title}>ふたりの音楽室</Text><Text style={s.caption}>{rewardMessage || (rewardEnabled ? '音楽を楽しんで、ごはんのポイントに。' : 'この時間のポイントは受取済み。何度でも遊べます。')}</Text></View>
         <Pressable accessibilityRole="button" accessibilityLabel="音楽を止めて部屋へ戻る" onPress={onClose} style={s.close}><Icon name="x" size={23} color="#786081" /></Pressable>
       </View>

@@ -819,14 +819,14 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
     : scene === 'rain' ? <RainScene /> : scene === 'stars' ? <StarsScene /> : <CatScene />;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View style={m.overlay}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? 'none' : 'fade'} onRequestClose={handleClose}>
+      <View accessibilityViewIsModal onAccessibilityEscape={handleClose} style={m.overlay}>
 
         {/* Choose phase */}
         {phase === 'choose' && (
           <ScrollView style={m.sheet} contentContainerStyle={{ paddingBottom: insets.bottom + space.sm }}>
             <View style={m.chooseHeader}>
-              {Platform.OS === 'ios' ? (
+              {Platform.OS === 'ios' || reduceMotion || !active ? (
                 <StaticMascot stage={mascotStage} mood="sleepy" size={64} />
               ) : (
                 <Mascot stage={mascotStage} mood="sleepy" size={64} />
