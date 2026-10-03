@@ -38,6 +38,8 @@ const server=http.createServer((req,res)=>{
       assert.ok(box && box.x>=0 && box.x+box.width<=320,'mood action fits: '+name);
     }
     assert.equal(await page.getByLabel('睡眠時間を増やす',{exact:true}).count(),0);
+    for(const name of ['運動：軽め','食事：ふつう','人間関係：ふつう'])
+      assert.equal(await page.getByRole('button',{name,exact:true}).isEnabled(),true);
     await page.getByLabel('今日のメモ',{exact:true}).fill('書き足したメモ');
     await page.evaluate(()=>{
       const original=Storage.prototype.setItem;
@@ -49,6 +51,8 @@ const server=http.createServer((req,res)=>{
     await page.getByTestId('detailed-record-save').click();
     await page.getByText('保存できませんでした。入力内容はこのまま、もう一度お試しください。',{exact:true}).waitFor();
     assert.equal(await page.getByLabel('今日のメモ',{exact:true}).inputValue(),'書き足したメモ');
+    assert.equal(await page.getByLabel('今日のメモ',{exact:true}).isEditable(),true);
+    assert.equal(await page.getByRole('button',{name:'食事：ふつう',exact:true}).isEnabled(),true);
     await page.getByTestId('detailed-record-save').click();
     await page.getByText('今日の記録ノート',{exact:true}).waitFor({state:'hidden'});
     const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/records_v2'))[0]);
@@ -59,6 +63,7 @@ const server=http.createServer((req,res)=>{
     await page.getByText('くわしく残す',{exact:true}).click();
     await page.getByLabel('睡眠時間を記録する',{exact:true}).click();
     await page.getByLabel('睡眠時間を増やす',{exact:true}).click();
+    await page.getByLabel('睡眠時間：7.5時間',{exact:true}).waitFor();
     await page.getByTestId('detailed-record-save').click();
     await page.getByText('今日の記録ノート',{exact:true}).waitFor({state:'hidden'});
     assert.equal((await read()).sleep,7.5);assert.equal((await read()).sleepRecorded,true);

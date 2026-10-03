@@ -39,15 +39,17 @@ const CONDITION_SCALES = [
 ];
 
 function MoodButton({
-  option, selected, onPress,
+  option, selected, onPress, disabled,
 }: {
   option: (typeof MOOD_OPTIONS)[0];
   selected: boolean;
   onPress: () => void;
+  disabled: boolean;
 }) {
   return (
       <PressScale
         onPress={onPress}
+        disabled={disabled}
         scaleTo={1}
         accessibilityState={{ selected }}
         accessibilityLabel={`気分：${option.label}`}
@@ -166,6 +168,8 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
   };
 
   const selectedMood = MOOD_OPTIONS.find((m) => m.value === mood);
+  // Keep the displayed draft identical to the submitted snapshot until retry or dismissal.
+  const inputLocked = isSaving || saved;
 
   return (
     <BottomSheet
@@ -193,6 +197,7 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
               key={option.value}
               option={option}
               selected={mood === option.value}
+              disabled={inputLocked}
               onPress={() => setMood(option.value)}
             />
           ))}
@@ -211,6 +216,7 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>睡眠時間（任意）</Text>
         <PressScale onPress={() => setSleepRecorded(value => !value)}
+          disabled={inputLocked}
           accessibilityRole="checkbox" accessibilityState={{ checked: sleepRecorded }}
           accessibilityLabel="睡眠時間を記録する" style={styles.sleepChoice}>
           <Icon name={sleepRecorded ? 'check-square' : 'square'} size={20} color={colors.primaryOnSoft} />
@@ -221,17 +227,19 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
           <PressScale
             style={styles.stepperBtn}
             onPress={() => adjustSleep(-0.5)}
+            disabled={inputLocked || sleep <= 0}
             accessibilityLabel="睡眠時間を減らす"
           >
             <Icon name="minus" size={20} color={colors.foreground} />
           </PressScale>
-          <View style={styles.sleepDisplay}>
+          <View style={styles.sleepDisplay} accessible accessibilityLabel={`睡眠時間：${sleep}時間`} accessibilityLiveRegion="polite">
             <Text style={styles.sleepValue}>{sleep % 1 === 0 ? sleep : sleep.toFixed(1)}</Text>
             <Text style={styles.sleepUnit}>時間</Text>
           </View>
           <PressScale
             style={styles.stepperBtn}
             onPress={() => adjustSleep(0.5)}
+            disabled={inputLocked || sleep >= 12}
             accessibilityLabel="睡眠時間を増やす"
           >
             <Icon name="plus" size={20} color={colors.foreground} />
@@ -275,6 +283,8 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
                     <PressScale
                       key={v}
                       onPress={() => setValue(sel ? undefined : v)}
+                      disabled={inputLocked}
+                      accessibilityLabel={`${scale.title}：${label}`}
                       accessibilityState={{ selected: sel }}
                       style={[styles.scaleBtn, sel && styles.optionSelected]}
                     >
@@ -295,6 +305,7 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
         <Text style={styles.cardTitle}>今日の小さな成功（任意）</Text>
         <TextInput
           accessibilityLabel="今日の小さな成功"
+          editable={!inputLocked}
           style={styles.input}
           placeholder="例：早起きできた、ありがとうと言えた"
           placeholderTextColor={colors.subtleForeground}
@@ -314,6 +325,8 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
               <PressScale
                 key={tag}
                 onPress={() => toggleBehavior(tag)}
+                disabled={inputLocked}
+                accessibilityLabel={tag}
                 accessibilityState={{ selected: sel }}
                 style={[styles.tag, sel && styles.optionSelected]}
               >
@@ -330,6 +343,7 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
         <Text style={styles.cardTitle}>メモ（任意）</Text>
         <TextInput
           accessibilityLabel="今日のメモ"
+          editable={!inputLocked}
           style={[styles.input, styles.inputMultiline]}
           placeholder="今日の気づき、感情、出来事など..."
           placeholderTextColor={colors.subtleForeground}
@@ -342,6 +356,9 @@ export function MoodRecordSheet({ visible, onClose, onSaved }: Props) {
       </View>
 
       {saveError && <Text accessibilityRole="alert" style={styles.error}>{saveError}</Text>}
+      {inputLocked && <Text accessibilityLiveRegion="polite" style={styles.cardHintCenter}>
+        {saved ? '記録を保存しました。' : '記録を保存しています。'}
+      </Text>}
         <Button
           label={saved ? '保存しました' : isSaving ? '保存中…' : '記録を保存する'}
           onPress={handleSave}
