@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { getTabBarHeight } from '@/utils/tabLayout';
 import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,8 +20,6 @@ import { Icon, iconSize } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
-
-const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 64 : Platform.OS === 'ios' ? 50 : 58;
 
 interface Message {
   id: string;
@@ -260,6 +259,7 @@ function queueHistory<T>(operation: () => Promise<T>): Promise<T> {
 export default function ChatScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = getTabBarHeight(Platform.OS, insets.bottom);
   const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
           currentSatiety, inactivityHours, profile } = useApp();
 
@@ -533,22 +533,19 @@ export default function ChatScreen() {
               <TypingDots />
             </View>
           </View>
+        ) : showChips ? (
+          <View style={[styles.chips, { paddingHorizontal: screenPadding }]}>
+            {CHIPS.map(c => <Chip key={c} label={c} onPress={() => sendMessage(c)} />)}
+          </View>
         ) : null}
       />
 
       <View
         style={[
           styles.inputArea,
-          { paddingBottom: TAB_BAR_HEIGHT + (Platform.OS === 'ios' ? insets.bottom : space.sm) },
+          { paddingBottom: tabBarHeight + space.sm },
         ]}
       >
-        {showChips && (
-          <View style={styles.chips}>
-            {CHIPS.map(c => (
-              <Chip key={c} label={c} onPress={() => sendMessage(c)} />
-            ))}
-          </View>
-        )}
         {historyError && <Text accessibilityRole="alert">履歴を消せませんでした。もう一度お試しください。</Text>}
         {loadError && <View>
           <Text accessibilityRole="alert">会話履歴を読み込めませんでした。保存済みの履歴を守るため、読み込み直してください。</Text>
@@ -647,10 +644,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  list: { flex: 1 },
+  list: { flex: 1, minHeight: 0 },
   listContent: { paddingVertical: space.lg, gap: space.md },
 
   inputArea: {
+    flexShrink: 0,
     borderTopWidth: border.width,
     borderTopColor: colors.border,
     backgroundColor: colors.card,

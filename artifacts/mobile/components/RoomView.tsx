@@ -66,5 +66,5 @@ const s = StyleSheet.create({
   frame: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#382B37' },
   image: { width: '100%', height: '100%' },
   object: { position: 'absolute', minWidth: 44, minHeight: 44 },
-  label: { position: 'absolute', bottom: -12, alignSelf: 'center', color: '#FFF3DF', backgroundColor: '#3B293DCF', fontSize: 11, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, overflow: 'hidden' },
+  label: { position: 'absolute', bottom: -12, alignSelf: 'center', minWidth: 88, textAlign: 'center', color: '#FFF3DF', backgroundColor: '#3B293DCF', fontSize: 11, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, overflow: 'hidden' },
 });

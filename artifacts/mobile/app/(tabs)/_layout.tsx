@@ -9,8 +9,11 @@ import { LightFlowHost } from '@/components/LightFlowHost';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getTabBarHeight } from '@/utils/tabLayout';
 
 function ClassicTabLayout() {
+  const insets = useSafeAreaInsets();
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
 
@@ -31,7 +34,7 @@ function ClassicTabLayout() {
           borderTopWidth: 1,
           borderTopColor: homePalette.navBorder,
           elevation: 0,
-          ...(isWeb ? { height: 84 } : {}),
+          height: getTabBarHeight(Platform.OS, insets.bottom),
         },
         tabBarBackground: () =>
           isIOS ? (

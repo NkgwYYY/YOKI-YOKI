@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   },
   fullWidth: { alignSelf: 'stretch' },
   disabled: { backgroundColor: colors.mutedStrong, borderColor: colors.border },
-  label: { ...typography.bodyStrong },
+  label: { ...typography.bodyStrong, flexShrink: 1, textAlign: 'center' },
   labelSm: { ...typography.calloutStrong },
   row: { flexDirection: 'row', gap: space.sm },
 });
