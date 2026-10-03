@@ -6,6 +6,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getTabBarHeight } from '@/utils/tabLayout';
+import { localDateKey, normalizeStoredMessage, type Message, type Citation } from '@/utils/chatHistory';
 import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,20 +22,6 @@ import { PressScale } from '@/components/ui/PressScale';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-  dateKey: string;
-  citations?: Citation[];
-}
-
-interface Citation {
-  title: string;
-  url: string;
-}
-
 const OFFICIAL_SOURCES: Citation[] = [
   {
     title: 'こころと体のセルフケア',
@@ -45,47 +32,6 @@ const OFFICIAL_SOURCES: Citation[] = [
     url: 'https://www.mhlw.go.jp/mamorouyokokoro/',
   },
 ];
-
-function localDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-function messageDateFromId(id: unknown): Date | null {
-  if (typeof id !== 'string') return null;
-  const match = id.match(/_(\d{10,})$/);
-  if (!match) return null;
-  const date = new Date(Number(match[1]));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function normalizeStoredMessage(raw: unknown): Message | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const message = raw as Partial<Message>;
-  if (
-    typeof message.id !== 'string'
-    || (message.role !== 'user' && message.role !== 'assistant')
-    || typeof message.content !== 'string'
-  ) return null;
-  const idDate = messageDateFromId(message.id);
-  const timestampDate = message.timestamp ? new Date(message.timestamp) : idDate;
-  const validDate = timestampDate && !Number.isNaN(timestampDate.getTime()) ? timestampDate : new Date();
-  return {
-    id: message.id,
-    role: message.role,
-    content: message.content,
-    timestamp: message.timestamp && !Number.isNaN(new Date(message.timestamp).getTime())
-      ? message.timestamp
-      : validDate.toISOString(),
-    dateKey: typeof message.dateKey === 'string' ? message.dateKey : localDateKey(validDate),
-    citations: Array.isArray(message.citations)
-      ? message.citations.filter((citation): citation is Citation =>
-          !!citation
-          && typeof citation.title === 'string'
-          && typeof citation.url === 'string'
-          && citation.url.startsWith('https://www.mhlw.go.jp/'))
-      : undefined,
-  };
-}
 
 function newMessage(
   id: string,
@@ -314,7 +260,8 @@ export default function ChatScreen() {
           const stored = parsed
             .map(normalizeStoredMessage)
             .filter((message): message is Message => message !== null)
-            .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+            .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+            .slice(-MAX_STORED);
           if (stored.length > 0) {
             lastScheduled.current = JSON.stringify(stored.slice(-MAX_STORED));
             setMessages([welcomeMsg, ...stored]);
@@ -616,7 +563,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     backgroundColor: colors.card,
   },
-  headerCopy: { flex: 1 },
+  headerCopy: { flex: 1, minWidth: 0 },
   headerName: { ...typography.subhead, color: colors.foreground },
   onlineRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   onlineDot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.success },
