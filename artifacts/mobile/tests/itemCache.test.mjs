@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {readCatalogCache,readLocalInventory} from '../utils/itemCache.ts';
+import {mergeOwnedCatalog,readCatalogCache,readLocalInventory} from '../utils/itemCache.ts';
 const item={id:'catalog-wear-round-glasses',name:'めがね',category:'accessory',cost:40,assetUrl:'/items/glasses.png',posX:0,posY:0,scale:1,isActive:true,createdAt:''};
+test('catalog refresh retains only missing owned artwork as inactive and keeps fresh metadata authoritative',()=>{
+  const fresh={...item,name:'更新しためがね',cost:70};
+  const retired={...item,id:'retired'};
+  const result=mergeOwnedCatalog([fresh],[item,retired,{...item,id:'unowned'}],[item.id,'retired','unknown']);
+  assert.deepEqual(result,[fresh,{...retired,isActive:false}]);
+  assert.equal(retired.isActive,true);
+  assert.deepEqual(mergeOwnedCatalog([],result,['retired']),[{...retired,isActive:false}]);
+});
 test('cached catalog accepts displayable equipment and retains inactive owned art metadata',()=>{
   const cached=readCatalogCache(JSON.stringify({version:1,items:[item,{...item,id:'retired',isActive:false},{...item,id:'legacy-food',category:'food'}]}));
   assert.deepEqual(cached.map(x=>x.id),['catalog-wear-round-glasses','retired']);

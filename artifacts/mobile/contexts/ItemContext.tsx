@@ -3,7 +3,7 @@ import { balanceStorage as AsyncStorage } from '@/utils/balanceStorage';
 import { SHOP_STORAGE_KEY } from '@/utils/itemPurchase';
 import { API_BASE, useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
-import { readCatalogCache, readLocalInventory } from '@/utils/itemCache';
+import { mergeOwnedCatalog, readCatalogCache, readLocalInventory } from '@/utils/itemCache';
 
 /** food is retained only to safely read legacy catalog/inventory records. */
 export type ItemCategory = 'food' | 'accessory' | 'background' | 'voice';
@@ -100,10 +100,12 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       const data = await request('/items', { signal: controller.signal }, isSignedIn);
       if (version !== refreshVersion.current) return;
-      setItems((data.items || []).filter((item: Item) => item.category !== 'food'));
       // An offline equip action may have completed while this request was in flight.
       const latestLocal = await loadLocal();
       if (version !== refreshVersion.current) return;
+      const catalog = mergeOwnedCatalog(data.items || [], cachedItems,
+        [...latestLocal.inventory, ...(data.state?.inventory || [])]);
+      setItems(catalog);
       if (data.state) {
         const merged = {
           ...emptyState,
@@ -121,7 +123,7 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
       }
       if (version !== refreshVersion.current) return;
       onlineRef.current = true; setCatalogOnline(true);
-      await AsyncStorage.setItem(CATALOG_KEY, JSON.stringify({ version: 1, items: data.items || [] })).catch(() => {});
+      await AsyncStorage.setItem(CATALOG_KEY, JSON.stringify({ version: 1, items: catalog })).catch(() => {});
     } catch {
       if (version === refreshVersion.current) setError('お店に接続できません。保存済みのアイテムを表示しています。新しい交換は再接続後にできます。');
     } finally { clearTimeout(timeout); if (version === refreshVersion.current) setLoading(false); }

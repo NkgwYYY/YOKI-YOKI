@@ -1,5 +1,14 @@
 import type { Item } from '../contexts/ItemContext';
 
+/** Preserve owned artwork after retirement; fresh catalog entries remain authoritative. */
+export function mergeOwnedCatalog(fresh: Item[], cached: Item[], ownedIds: string[]): Item[] {
+  const current = fresh.filter(item => item.category !== 'food');
+  const ids = new Set(current.map(item => item.id));
+  const owned = new Set(ownedIds);
+  return [...current, ...cached.filter(item => !ids.has(item.id) && owned.has(item.id) && item.category !== 'food')
+    .map(item => ({ ...item, isActive: false }))];
+}
+
 /** Catalog metadata is a display cache, never a source of authority for purchases. */
 export function readCatalogCache(raw: string | null): Item[] {
   if (!raw) return [];
