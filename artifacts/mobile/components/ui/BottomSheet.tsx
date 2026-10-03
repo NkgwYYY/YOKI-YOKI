@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { border, colors, elevation, radius, space, typography } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
+import { useReducedMotion } from '@/utils/useReducedMotion';
 
 export function BottomSheet({
   visible,
@@ -36,25 +37,24 @@ export function BottomSheet({
   contentStyle?: StyleProp<ViewStyle>;
 }) {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const paddingBottom = Platform.OS === 'web' ? space.xl : insets.bottom + space.lg;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="閉じる" />
-        <View style={[styles.sheet, { maxHeight: `${maxHeightRatio * 100}%` }]}>
+        <Pressable style={styles.scrim} onPress={onClose} accessible={false} importantForAccessibility="no-hide-descendants" tabIndex={-1} />
+        <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={[styles.sheet, { maxHeight: `${maxHeightRatio * 100}%` }]}>
           <View style={styles.handle} />
-          {title ? (
-            <View style={styles.header}>
-              <View style={styles.headerCopy}>
-                <Text accessibilityRole="header" style={styles.title}>{title}</Text>
-                {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-              </View>
-              <PressScale onPress={onClose} style={styles.closeButton} accessibilityLabel="閉じる">
-                <Icon name="x" size={iconSize.md} color={colors.subtleForeground} />
-              </PressScale>
+          <View style={styles.header}>
+            <View style={styles.headerCopy}>
+              {title ? <Text accessibilityRole="header" style={styles.title}>{title}</Text> : null}
+              {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
             </View>
-          ) : null}
+            <PressScale onPress={onClose} style={styles.closeButton} accessibilityLabel="閉じる">
+              <Icon name="x" size={iconSize.md} color={colors.subtleForeground} />
+            </PressScale>
+          </View>
           {scroll ? (
             <ScrollView
               style={styles.scroll}
@@ -83,12 +83,13 @@ export function CenterDialog({
   children: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? 'none' : 'fade'} onRequestClose={onClose}>
       <KeyboardAvoidingView style={[styles.dialogOverlay, { paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.lg }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="閉じる" />
-        <View style={styles.dialog}>
+        <Pressable style={styles.scrim} onPress={onClose} accessible={false} importantForAccessibility="no-hide-descendants" tabIndex={-1} />
+        <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={styles.dialog}>
           <View style={styles.dialogHeader}>
             <PressScale onPress={onClose} style={styles.closeButton} accessibilityLabel="閉じる">
               <Icon name="x" size={iconSize.md} color={colors.subtleForeground} />

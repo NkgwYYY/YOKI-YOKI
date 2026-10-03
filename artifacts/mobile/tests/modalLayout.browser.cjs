@@ -52,11 +52,18 @@ const server=http.createServer((req,res)=>{
       await within(nameSave,page);
       if(process.env.YOKI_QA_SCREENSHOT&&viewport.width===844)await page.screenshot({path:process.env.YOKI_QA_SCREENSHOT});
       await nameSave.click();await name.waitFor({state:'hidden'});
+      await page.getByTestId('home-more-menu').click();
+      await page.getByRole('dialog').waitFor();
+      await page.getByRole('button',{name:'閉じる',exact:true}).focus();
+      assert.equal(await page.getByRole('button',{name:'閉じる',exact:true}).count(),1);
+      await page.keyboard.press('Escape');await page.getByText('この部屋でできること',{exact:true}).waitFor({state:'hidden'});
       await page.getByTestId('room-meal').click();await page.getByText('ごはんをあげる',{exact:true}).waitFor();
       await page.getByRole('button',{name:'閉じる',exact:true}).last().click();
       await page.getByTestId('home-more-menu').click();await page.getByText('なまえをつける',{exact:true}).click();
       assert.equal(await page.getByLabel('なかまの名前',{exact:true}).inputValue(),'ちいさな相棒');
-      await page.getByRole('button',{name:'閉じる',exact:true}).last().click();
+      await page.getByRole('dialog').waitFor();
+      assert.equal(await page.getByRole('button',{name:'閉じる',exact:true}).count(),1);
+      await page.keyboard.press('Escape');await page.getByLabel('なかまの名前',{exact:true}).waitFor({state:'hidden'});
       await page.close();console.log('PASS '+viewport.width+'x'+viewport.height+' record save, name save/reopen, bounded dialogs and close targets');
     }
     assert.deepEqual(errors,[]);
