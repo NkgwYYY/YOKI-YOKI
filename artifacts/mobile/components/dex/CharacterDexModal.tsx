@@ -178,9 +178,9 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
   };
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={[styles.sheet, { paddingBottom: insets.bottom }]} testID="character-album-detail">
+        <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={[styles.sheet, { paddingBottom: insets.bottom }]} testID="character-album-detail">
           <PressScale
             style={styles.closeBtn}
             onPress={onClose}
@@ -307,8 +307,8 @@ const styles = StyleSheet.create({
     top: space.lg,
     right: space.lg,
     zIndex: 1,
-    width: control.icon,
-    height: control.icon,
+    width: 44,
+    height: 44,
     borderRadius: radius.pill,
     backgroundColor: colors.muted,
     alignItems: 'center',
