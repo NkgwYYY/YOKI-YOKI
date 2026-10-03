@@ -27,10 +27,22 @@ const server=http.createServer((req,res)=>{
       await send();
       const skip=page.getByRole('button',{name:'今は大丈夫',exact:true});
       await skip.scrollIntoViewIfNeeded();let box=await skip.boundingBox();assert.ok(box.y>=0&&box.y+box.height<=viewport.height+1);await skip.click();
-      await send();const rain=page.getByRole('button',{name:'雨の音を聞く',exact:true});await rain.scrollIntoViewIfNeeded();box=await rain.boundingBox();assert.ok(box.width<=560&&box.x>=0);await rain.click();
-      const close=page.getByRole('button',{name:'休憩を閉じる',exact:true});await close.waitFor();box=await close.boundingBox();assert.ok(box.width>=44&&box.height>=44&&box.y>=0);await close.click();
-      await close.waitFor({state:'hidden'});await page.getByRole('textbox',{name:'話しかける内容'}).waitFor();assert.deepEqual(errors,[]);
-      console.log('PASS rest selection skip, bounded scrollable choices, playing exit '+viewport.width+'x'+viewport.height);await page.close();
+      for(const label of ['焚き火を見る','雨の音を聞く','夜空を見る','猫を撫でる']){
+        await page.emulateMedia({reducedMotion:label==='猫を撫でる'?'reduce':'no-preference'});
+        await send();const choice=page.getByRole('button',{name:label,exact:true});await choice.scrollIntoViewIfNeeded();box=await choice.boundingBox();assert.ok(box.width<=560&&box.x>=0);await choice.click();
+        const close=page.getByRole('button',{name:'休憩を閉じる',exact:true});await close.waitFor();
+        await page.setViewportSize({width:viewport.height,height:viewport.width});
+        box=await close.boundingBox();assert.ok(box.width>=44&&box.height>=44&&box.y>=0);
+        if(label==='夜空を見る'){
+          await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
+          await page.getByRole('button',{name:'今は大丈夫',exact:true}).waitFor();
+          await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));});
+          await page.getByRole('button',{name:'今は大丈夫',exact:true}).click();
+        }else await close.click();
+        await close.waitFor({state:'hidden'});await page.setViewportSize(viewport);
+        await page.getByRole('textbox',{name:'話しかける内容'}).waitFor();assert.deepEqual(errors,[]);
+      }
+      console.log('PASS four rest scenes, resize during playback, reduced-motion cat, hidden-page reset and exit '+viewport.width+'x'+viewport.height);await page.close();
     }
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
