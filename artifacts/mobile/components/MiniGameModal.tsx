@@ -17,6 +17,7 @@ export function MiniGameModal({ visible, slot, onClose, onReward, rewardEnabled 
   const { holdLightFlow } = useApp();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
+  const session = useRef(0);
   const rewarded = useRef(false);
   const saving = useRef(false);
   const playId = useRef('');
@@ -25,21 +26,27 @@ export function MiniGameModal({ visible, slot, onClose, onReward, rewardEnabled 
   const [rewardMessage, setRewardMessage] = useState('');
   const [earnedPoints, setEarnedPoints] = useState<number | null>(null);
   useEffect(() => {
+    ++session.current;
     if (!visible) return;
     rewarded.current = false; saving.current = false; pendingReward.current = null;
     playId.current = `rhythm-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setRewardFailed(false); setRewardMessage(''); setEarnedPoints(null); holdLightFlow(true); Analytics.miniGameStarted(slot);
-    return () => holdLightFlow(false);
+    return () => { ++session.current; holdLightFlow(false); };
   }, [visible, holdLightFlow, slot]);
   const saveReward = async () => {
     if (saving.current || !pendingReward.current) return;
+    const startedSession = session.current;
     saving.current = true; setRewardFailed(false);
     try {
       const earned = await onReward(pendingReward.current, playId.current);
+      if (session.current !== startedSession) return;
       setEarnedPoints(earned); pendingReward.current = null;
       setRewardMessage(earned > 0 ? `${earned} YOKIポイント。おやつの時間に使えるよ。` : 'いっしょに音楽を楽しめたね。');
-    } catch { setRewardFailed(true); setRewardMessage('報酬の保存が完了しませんでした。もう一度確認できます。'); }
-    finally { saving.current = false; }
+    } catch {
+      if (session.current !== startedSession) return;
+      setRewardFailed(true); setRewardMessage('報酬の保存が完了しませんでした。もう一度確認できます。');
+    }
+    finally { if (session.current === startedSession) saving.current = false; }
   };
   const result = async (r: PlayResult) => {
     if (rewarded.current) return;
