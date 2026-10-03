@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Mascot } from '@/components/Mascot';
+import { Mascot, StaticMascot } from '@/components/Mascot';
 import { useApp } from '@/contexts/AppContext';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { Song, Difficulty, RhythmMode, PlayResult, starRating } from '@/utils/rhythm/types';
@@ -84,7 +84,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
   const previewRequest = useRef(0);
   const [previewStatus, setPreviewStatus] = useState<'idle' | 'loading' | 'playing'>('idle');
   const [previewError, setPreviewError] = useState(false);
-  const { active } = useAppActivity();
+  const { active, reduceMotion } = useAppActivity();
   const activeRef = useRef(active); activeRef.current = active;
   const [interrupted, setInterrupted] = useState(false);
 
@@ -314,15 +314,17 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
           </>
         )}
         <Text style={st.starsLabel}>今日のリズム</Text>
-        <View style={st.starRow}>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Icon
-              key={i}
-              name="star"
-              size={iconSize.lg}
-              color={i < stars ? colors.primary : colors.border}
-            />
-          ))}
+        <View accessible accessibilityRole="image" accessibilityLabel={`今日のリズム、5段階中${stars}`}>
+          <View style={st.starRow} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Icon
+                key={i}
+                name="star"
+                size={iconSize.lg}
+                color={i < stars ? colors.primary : colors.border}
+              />
+            ))}
+          </View>
         </View>
         {earnedPoints != null && earnedPoints > 0 ? (
           <View style={st.energyRow}><View style={st.energyChip}>
@@ -330,8 +332,10 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
             <Text style={[st.energyChipTxt, { color: colors.foreground }]}>YOKIポイント +{earnedPoints}</Text>
           </View></View>
         ) : null}
-        <View style={st.resultMascotRow}>
-          <Mascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />
+        <View style={st.resultMascotRow} testID={reduceMotion || !active ? 'rhythm-result-static' : 'rhythm-result-animated'}>
+          {reduceMotion || !active
+            ? <StaticMascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />
+            : <Mascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />}
           <View style={[st.commentBubble, st.commentBubbleInline]}>
             <Text style={st.commentTxt}>{characterComment(result, mode)}</Text>
           </View>
