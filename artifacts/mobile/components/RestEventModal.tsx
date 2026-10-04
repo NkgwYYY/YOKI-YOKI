@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react';
 import {
-  View, Text, StyleSheet, Modal,
-  Dimensions, Animated as RNAnimated, PanResponder, Platform,
+  View, Text, StyleSheet, Modal, ScrollView,
+  useWindowDimensions, Animated as RNAnimated, PanResponder, Platform,
 } from 'react-native';
 import Svg, {
   G, Path, Circle, Ellipse, Line, Defs,
@@ -16,9 +16,11 @@ import { getMascotStage } from '@/utils/mascotUtils';
 import { Analytics } from '@/utils/analytics';
 import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
+import { useAppActivity } from '@/components/room/useRoomActivity';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { width: SW, height: SH } = Dimensions.get('window');
 const SCENE_DURATION = 10_000;
+const ReduceMotion = createContext(false);
 
 type Scene = 'campfire' | 'rain' | 'stars' | 'cat';
 type Phase = 'choose' | 'playing' | 'outro';
@@ -45,31 +47,35 @@ const SOUND_MAP: Record<Scene, any> = {
 /* ─── Sound hook ──────────────────────────────── */
 function useSceneAudio() {
   const soundRef = useRef<Audio.Sound | null>(null);
+  const generation = useRef(0);
 
   const play = async (scene: Scene) => {
+    const current = ++generation.current;
     try {
       await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
+      if (current !== generation.current) return;
+      const previous = soundRef.current;
+      soundRef.current = null;
+      if (previous) {
+        await previous.unloadAsync();
       }
+      if (current !== generation.current) return;
       const { sound } = await Audio.Sound.createAsync(
         SOUND_MAP[scene],
         { isLooping: true, volume: 1.0 },
       );
+      if (current !== generation.current) { await sound.unloadAsync(); return; }
       soundRef.current = sound;
       await sound.playAsync();
     } catch (_) {}
   };
 
   const stop = async () => {
+    ++generation.current;
+    const sound = soundRef.current;
+    soundRef.current = null;
     try {
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
+      if (sound) await sound.unloadAsync();
     } catch (_) {}
   };
 
@@ -232,6 +238,7 @@ function CatTailSvg() {
 }
 
 function CatScene() {
+  const reduceMotion = useContext(ReduceMotion);
   const [catState, setCatState]   = useState<CatState>('sleeping');
   const [petCount, setPetCount]   = useState(0);
 
@@ -243,6 +250,7 @@ function CatScene() {
 
   // Continuous breathing + tail sway (speed varies by state)
   useEffect(() => {
+    if (reduceMotion) return;
     const breathing = catState === 'purring'
       ? RNAnimated.loop(RNAnimated.sequence([
           RNAnimated.timing(bodyScale, { toValue: 1.05, duration: 420, useNativeDriver: true }),
@@ -267,11 +275,12 @@ function CatScene() {
       useNativeDriver: true,
     }).start();
 
-    return () => { breathing.stop(); tail.stop(); };
-  }, [catState]);
+    return () => { breathing.stop(); tail.stop(); earPerk.stopAnimation(); };
+  }, [catState, reduceMotion]);
 
   // Zzz drift while sleeping
   useEffect(() => {
+    if (reduceMotion) return;
     if (catState !== 'sleeping') { zzzFloat.stopAnimation(); return; }
     const loop = RNAnimated.loop(RNAnimated.sequence([
       RNAnimated.timing(zzzFloat, { toValue: 1, duration: 2200, useNativeDriver: true }),
@@ -279,7 +288,7 @@ function CatScene() {
     ]));
     loop.start();
     return () => loop.stop();
-  }, [catState]);
+  }, [catState, reduceMotion]);
 
   // 3 pooled floating hearts
   const hearts = useRef(
@@ -289,11 +298,16 @@ function CatScene() {
       x:       new RNAnimated.Value(0),
     }))
   ).current;
+  useEffect(() => () => {
+    petBounce.stopAnimation();
+    hearts.forEach(({x,y,opacity}) => { x.stopAnimation(); y.stopAnimation(); opacity.stopAnimation(); });
+  }, [reduceMotion]);
   const heartIdx = useRef(0);
   const lastPetAt = useRef(0);
 
   // Quick head-tilt wiggle + bounce when petted
   const petWiggle = () => {
+    if (reduceMotion) return;
     petBounce.stopAnimation();
     petBounce.setValue(0);
     RNAnimated.sequence([
@@ -304,6 +318,7 @@ function CatScene() {
   };
 
   const floatHeart = () => {
+    if (reduceMotion) return;
     const h = hearts[heartIdx.current % hearts.length];
     heartIdx.current++;
     h.x.setValue((Math.random() - 0.5) * 70);
@@ -339,7 +354,7 @@ function CatScene() {
     onPanResponderRelease: () => { lastPetAt.current = 0; },
     onPanResponderTerminate: () => { lastPetAt.current = 0; },
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [catState]);
+  }), [catState, reduceMotion]);
 
   const labelText =
     catState === 'sleeping' ? 'すやすや眠ってる…\nそっとなでてみよう' :
@@ -433,6 +448,8 @@ function CatScene() {
 
 /* ─── Campfire scene — 線香花火スタイル ────────── */
 function CampfireScene() {
+  const reduceMotion = useContext(ReduceMotion);
+  const { width: SW, height: SH } = useWindowDimensions();
   const glowOpacity = useRef(new RNAnimated.Value(0.35)).current;
   const flames = useRef(
     Array.from({ length: 3 }, (_, i) => ({
@@ -443,28 +460,32 @@ function CampfireScene() {
   ).current;
 
   useEffect(() => {
+    if (reduceMotion) return;
+    const loops: RNAnimated.CompositeAnimation[] = [];
+    const start = (animation: RNAnimated.CompositeAnimation) => { loops.push(animation); animation.start(); };
     // Gentle breathing glow
-    RNAnimated.loop(RNAnimated.sequence([
+    start(RNAnimated.loop(RNAnimated.sequence([
       RNAnimated.timing(glowOpacity, { toValue: 0.55, duration: 2800, useNativeDriver: true }),
       RNAnimated.timing(glowOpacity, { toValue: 0.28, duration: 2600, useNativeDriver: true }),
-    ])).start();
+    ])));
 
     // Very slow, gentle flame flicker
     flames.forEach(({ scaleY, sway, opacity }, i) => {
-      RNAnimated.loop(RNAnimated.sequence([
+      start(RNAnimated.loop(RNAnimated.sequence([
         RNAnimated.timing(scaleY, { toValue: 0.72 + i * 0.08, duration: 1400 + i * 320, useNativeDriver: true }),
         RNAnimated.timing(scaleY, { toValue: 0.95 + i * 0.05, duration: 1200 + i * 260, useNativeDriver: true }),
-      ])).start();
-      RNAnimated.loop(RNAnimated.sequence([
+      ])));
+      start(RNAnimated.loop(RNAnimated.sequence([
         RNAnimated.timing(sway, { toValue: 1,  duration: 2000 + i * 500, useNativeDriver: true }),
         RNAnimated.timing(sway, { toValue: -1, duration: 1800 + i * 420, useNativeDriver: true }),
-      ])).start();
-      RNAnimated.loop(RNAnimated.sequence([
+      ])));
+      start(RNAnimated.loop(RNAnimated.sequence([
         RNAnimated.timing(opacity, { toValue: 0.40 + i * 0.06, duration: 1100 + i * 240, useNativeDriver: true }),
         RNAnimated.timing(opacity, { toValue: 0.75 + i * 0.08, duration: 900  + i * 180, useNativeDriver: true }),
-      ])).start();
+      ])));
     });
-  }, []);
+    return () => loops.forEach(loop => loop.stop());
+  }, [reduceMotion]);
 
   const flameColors = [
     { base: '#FF5C10', mid: '#FF9820', tip: '#FFE060' },
@@ -529,6 +550,8 @@ function CampfireScene() {
 
 /* 線香花火のような静かな火花 */
 function GentleEmbers() {
+  const reduceMotion = useContext(ReduceMotion);
+  const { width: SW, height: SH } = useWindowDimensions();
   const embers = useRef(
     Array.from({ length: 6 }, () => ({
       x:       new RNAnimated.Value(SW / 2),
@@ -538,8 +561,16 @@ function GentleEmbers() {
   ).current;
 
   useEffect(() => {
+    if (reduceMotion) return;
+    let active = true;
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const later = (fn: () => void, delay: number) => {
+      const timer = setTimeout(() => { timers.delete(timer); if (active) fn(); }, delay);
+      timers.add(timer);
+    };
     embers.forEach(({ x, y, opacity }, i) => {
       const rise = () => {
+        if (!active) return;
         const startX = SW / 2 + (Math.random() - 0.5) * 20;
         x.setValue(startX);
         y.setValue(SH * 0.525);
@@ -556,11 +587,12 @@ function GentleEmbers() {
             duration: dur,
             useNativeDriver: true,
           }),
-        ]).start(() => setTimeout(rise, 1500 + Math.random() * 2500));
+        ]).start(() => { if (active) later(rise, 1500 + Math.random() * 2500); });
       };
-      setTimeout(rise, i * 700 + Math.random() * 500);
+      later(rise, i * 700 + Math.random() * 500);
     });
-  }, []);
+    return () => { active = false; timers.forEach(clearTimeout); embers.forEach(({x,y,opacity}) => { x.stopAnimation(); y.stopAnimation(); opacity.stopAnimation(); }); };
+  }, [reduceMotion]);
 
   return (
     <>
@@ -586,6 +618,8 @@ function GentleEmbers() {
 
 /* ─── Rain scene ──────────────────────────────── */
 function RainScene() {
+  const reduceMotion = useContext(ReduceMotion);
+  const { width: SW, height: SH } = useWindowDimensions();
   const drops = useRef(
     Array.from({ length: 24 }, (_, i) => ({
       x:       (i / 24) * SW + (Math.random() * SW) / 24,
@@ -596,14 +630,18 @@ function RainScene() {
   ).current;
 
   useEffect(() => {
+    if (reduceMotion) return;
+    let active = true;
     drops.forEach(({ y, speed }) => {
       const fall = () => {
+        if (!active) return;
         y.setValue(-(30 + Math.random() * 100));
         RNAnimated.timing(y, { toValue: SH, duration: speed, useNativeDriver: true }).start(fall);
       };
       fall();
     });
-  }, []);
+    return () => { active = false; drops.forEach(({ y }) => y.stopAnimation()); };
+  }, [reduceMotion]);
 
   return (
     <View style={sc.scene}>
@@ -617,6 +655,8 @@ function RainScene() {
 }
 
 function Ripples() {
+  const reduceMotion = useContext(ReduceMotion);
+  const { width: SW, height: SH } = useWindowDimensions();
   const ripples = useRef(
     Array.from({ length: 4 }, () => ({
       scale:   new RNAnimated.Value(0),
@@ -626,17 +666,26 @@ function Ripples() {
   ).current;
 
   useEffect(() => {
+    if (reduceMotion) return;
+    let active = true;
+    const timers: ReturnType<typeof setTimeout>[] = [];
     ripples.forEach(({ scale, opacity }, i) => {
       const pulse = () => {
+        if (!active) return;
         scale.setValue(0); opacity.setValue(0.6);
         RNAnimated.parallel([
           RNAnimated.timing(scale,   { toValue: 1, duration: 1400, useNativeDriver: true }),
           RNAnimated.timing(opacity, { toValue: 0, duration: 1400, useNativeDriver: true }),
-        ]).start(() => setTimeout(pulse, 400 + Math.random() * 1200));
+        ]).start(() => { if (active) timers.push(setTimeout(pulse, 400 + Math.random() * 1200)); });
       };
-      setTimeout(pulse, i * 600);
+      timers.push(setTimeout(pulse, i * 600));
     });
-  }, []);
+    return () => {
+      active = false;
+      timers.forEach(clearTimeout);
+      ripples.forEach(({ scale, opacity }) => { scale.stopAnimation(); opacity.stopAnimation(); });
+    };
+  }, [reduceMotion]);
 
   return (
     <>
@@ -652,6 +701,8 @@ function Ripples() {
 
 /* ─── Stars scene ─────────────────────────────── */
 function StarsScene() {
+  const reduceMotion = useContext(ReduceMotion);
+  const { width: SW, height: SH } = useWindowDimensions();
   const stars = useRef(
     Array.from({ length: 40 }, () => {
       const base = 0.1 + Math.random() * 0.5;
@@ -663,14 +714,20 @@ function StarsScene() {
   ).current;
 
   useEffect(() => {
+    if (reduceMotion) return;
+    let active = true;
+    const loops: RNAnimated.CompositeAnimation[] = [];
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const start = (animation: RNAnimated.CompositeAnimation) => { loops.push(animation); animation.start(); };
     stars.forEach(({ opacity, base }) => {
-      RNAnimated.loop(RNAnimated.sequence([
+      start(RNAnimated.loop(RNAnimated.sequence([
         RNAnimated.timing(opacity, { toValue: Math.min(1, base + 0.4), duration: 800 + Math.random() * 1200, useNativeDriver: true }),
         RNAnimated.timing(opacity, { toValue: Math.max(0.05, base - 0.2), duration: 800 + Math.random() * 1200, useNativeDriver: true }),
-      ])).start();
+      ])));
     });
     shooters.forEach(({ x, opacity }, i) => {
       const shoot = () => {
+        if (!active) return;
         x.setValue(-80); opacity.setValue(0);
         RNAnimated.sequence([
           RNAnimated.delay(3000 + Math.random() * 4000),
@@ -683,9 +740,10 @@ function StarsScene() {
           ]),
         ]).start(() => shoot());
       };
-      setTimeout(shoot, i * 2000);
+      timers.push(setTimeout(shoot, i * 2000));
     });
-  }, []);
+    return () => { active = false; timers.forEach(clearTimeout); loops.forEach(loop => loop.stop()); shooters.forEach(({x,opacity}) => { x.stopAnimation(); opacity.stopAnimation(); }); };
+  }, [reduceMotion]);
 
   return (
     <View style={sc.scene}>
@@ -710,6 +768,9 @@ interface Props {
 }
 
 export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const { active, reduceMotion } = useAppActivity();
   const mascotStage = getMascotStage(level);
   const { play, stop } = useSceneAudio();
 
@@ -729,7 +790,13 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
     return () => { clearInterval(timerRef.current!); };
   }, [visible]);
 
+  useEffect(() => {
+    if (!active) { stop(); clearInterval(timerRef.current!); setPhase('choose'); }
+  }, [active]);
+
   const startScene = (s: Scene) => {
+    if (!active) return;
+    clearInterval(timerRef.current!);
     setScene(s);
     setPhase('playing');
     Analytics.restEventScene(s);
@@ -748,22 +815,18 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
 
   const cfg = SCENES.find(s => s.key === scene)!;
 
-  const SceneView = () => {
-    if (scene === 'campfire') return <CampfireScene />;
-    if (scene === 'rain')     return <RainScene />;
-    if (scene === 'stars')    return <StarsScene />;
-    return <CatScene />;
-  };
+  const sceneView = scene === 'campfire' ? <CampfireScene />
+    : scene === 'rain' ? <RainScene /> : scene === 'stars' ? <StarsScene /> : <CatScene />;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <View style={m.overlay}>
+    <Modal visible={visible} transparent animationType={reduceMotion ? 'none' : 'fade'} onRequestClose={handleClose}>
+      <View accessibilityViewIsModal onAccessibilityEscape={handleClose} style={m.overlay}>
 
         {/* Choose phase */}
         {phase === 'choose' && (
-          <View style={m.sheet}>
+          <ScrollView style={m.sheet} contentContainerStyle={{ paddingBottom: insets.bottom + space.sm }}>
             <View style={m.chooseHeader}>
-              {Platform.OS === 'ios' ? (
+              {Platform.OS === 'ios' || reduceMotion || !active ? (
                 <StaticMascot stage={mascotStage} mood="sleepy" size={64} />
               ) : (
                 <Mascot stage={mascotStage} mood="sleepy" size={64} />
@@ -775,6 +838,7 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
               {SCENES.map((s) => (
                 <PressScale
                   key={s.key}
+                  accessibilityLabel={s.label}
                   style={m.sceneBtn}
                   onPress={() => startScene(s.key)}
                 >
@@ -785,13 +849,13 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
               ))}
             </View>
             <Button label="今は大丈夫" variant="ghost" onPress={handleClose} style={m.skipBtn} />
-          </View>
+          </ScrollView>
         )}
 
         {/* Playing phase */}
         {phase === 'playing' && (
           <View style={[m.fullScreen, { backgroundColor: cfg.bg }]}>
-            <SceneView />
+            <View key={`${width}x${height}`} style={StyleSheet.absoluteFill}><ReduceMotion.Provider value={reduceMotion}>{sceneView}</ReduceMotion.Provider></View>
             <View style={m.timerPill}>
               <Text style={m.timerText}>{timeLeft}s</Text>
             </View>
@@ -801,7 +865,7 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
         {/* Outro phase */}
         {phase === 'outro' && (
           <View style={[m.fullScreen, { backgroundColor: cfg.bg }]}>
-            <SceneView />
+            <View key={`${width}x${height}`} style={StyleSheet.absoluteFill}><ReduceMotion.Provider value={reduceMotion}>{sceneView}</ReduceMotion.Provider></View>
             <View style={m.outroCard}>
               {Platform.OS === 'ios' ? (
                 <StaticMascot stage={mascotStage} mood="happy" size={64} />
@@ -835,6 +899,12 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
           </View>
         )}
 
+        {phase !== 'choose' && <PressScale
+          accessibilityLabel="休憩を閉じる"
+          onPress={handleClose}
+          style={[m.closeButton, { top: insets.top + space.md }]}
+        ><Icon name="x" size={24} color={colors.foreground} /></PressScale>}
+
       </View>
     </Modal>
   );
@@ -844,19 +914,19 @@ export function RestEventModal({ visible, level, mascotName, onClose }: Props) {
 const sc = StyleSheet.create({
   scene:        { flex: 1, position: 'relative', overflow: 'hidden' },
   flameEmoji:   { position: 'absolute' },
-  logBase:      { position: 'absolute', bottom: 38, left: SW / 2 - 36, width: 72, height: 20, flexDirection: 'row', justifyContent: 'center', gap: 4 },
+  logBase:      { position: 'absolute', bottom: 38, left: '50%', marginLeft: -36, width: 72, height: 20, flexDirection: 'row', justifyContent: 'center', gap: 4 },
   log:          { width: 56, height: 10, backgroundColor: '#4A2000', borderRadius: 5, position: 'absolute' },
   raindrop:     { position: 'absolute', width: 1.5, height: 18, backgroundColor: '#7FBFFF', borderRadius: 1 },
   ripple:       { position: 'absolute', width: 40, height: 14, borderRadius: 20, borderWidth: 1, borderColor: '#7FBFFF' },
   star:         { position: 'absolute', backgroundColor: '#FFFFFF' },
   shootingStar: { position: 'absolute', width: 60, height: 1.5, backgroundColor: '#FFFFFF', borderRadius: 1 },
-  moon:         { position: 'absolute', top: SH * 0.07, right: 36 },
+  moon:         { position: 'absolute', top: '7.000000000000001%', right: 36 },
   sceneLabel:   { position: 'absolute', bottom: 36, alignSelf: 'center', color: '#FF9966', fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center', opacity: 0.85 },
 
   // Campfire glow
   fireGlow: {
     position: 'absolute',
-    bottom: SH * 0.085,
+    bottom: '8.5%',
     alignSelf: 'center',
     width: 110,
     height: 44,
@@ -865,12 +935,12 @@ const sc = StyleSheet.create({
   },
 
   // Cat scene — full-bleed photo
-  catMoon:  { position: 'absolute', top: SH * 0.06, left: 28 },
-  catStar1: { position: 'absolute', top: SH * 0.08, right: 44 },
-  catStar2: { position: 'absolute', top: SH * 0.14, right: 76, opacity: 0.6 },
+  catMoon:  { position: 'absolute', top: '6%', left: 28 },
+  catStar1: { position: 'absolute', top: '8%', right: 44 },
+  catStar2: { position: 'absolute', top: '14.000000000000002%', right: 76, opacity: 0.6 },
   catStage: {
     position: 'absolute',
-    top: SH * 0.2,
+    top: '20%',
     alignSelf: 'center',
     width: CAT_W,
     height: CAT_H,
@@ -913,6 +983,11 @@ const m = StyleSheet.create({
 
   /* 選択シート — アプリの面なのでトークンに従う */
   sheet: {
+    flexGrow: 0,
+    maxHeight: '90%',
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     backgroundColor: colors.sheet,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
@@ -952,6 +1027,8 @@ const m = StyleSheet.create({
     borderRadius: radius.pill,
   },
   timerText: { ...typography.calloutStrong, color: colors.foreground },
+  closeButton: { position: 'absolute', left: space.lg, width: 44, height: 44,
+    borderRadius: radius.pill, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
 
   outroCard: {
     position: 'absolute',

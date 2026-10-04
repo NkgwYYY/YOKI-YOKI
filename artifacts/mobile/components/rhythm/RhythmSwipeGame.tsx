@@ -2,7 +2,7 @@
  * RHYTHM SWIPE — 矢印ノーツが落ちてくるので、タイミングよく同じ方向にスワイプ。
  * 成功するとキャラクターが同じ方向に楽しそうに揺れる。
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, PanResponder } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -10,6 +10,7 @@ import {
   JUDGE_PERFECT_MS, JUDGE_GREAT_MS, JUDGE_GOOD_MS, SCORE_PER,
 } from '@/utils/rhythm/types';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
+import { withinTimingWindow, noteHasExpired } from '@/utils/rhythm/judgment';
 import { RhythmMascot, RhythmMascotHandle, SwipeDirection } from './RhythmMascot';
 import { border, colors, gameSurface, judgePalette, lanePalette } from '@/constants/theme';
 import { clamp, measuredOr, useMeasuredSize } from '@/utils/rhythm/geometry';
@@ -114,7 +115,7 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
       const t = clock.getTime();
       setNow(t);
       for (const n of notesRef.current) {
-        if (!n.judged && t - n.time > JUDGE_GOOD_MS / 1000) applyJudgment(n, 'miss');
+        if (!n.judged && noteHasExpired(n.time, t, JUDGE_GOOD_MS)) applyJudgment(n, 'miss');
       }
       const allDone = notesRef.current.length > 0 && notesRef.current.every(n => n.judged);
       if (allDone || t >= song.duration - 0.2) { finish(); return; }
@@ -157,7 +158,7 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
     for (const n of notesRef.current) {
       if (n.judged) continue;
       const diff = Math.abs(n.time - t) * 1000;
-      if (diff <= JUDGE_GOOD_MS && diff < bestDiff) { best = n; bestDiff = diff; }
+      if (withinTimingWindow(diff, JUDGE_GOOD_MS) && diff < bestDiff) { best = n; bestDiff = diff; }
     }
     if (!best) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); return; } // 空振りノーカウント
     if (best.direction !== dir) {
@@ -166,10 +167,10 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return;
     }
-    if (bestDiff <= JUDGE_PERFECT_MS) {
+    if (withinTimingWindow(bestDiff, JUDGE_PERFECT_MS)) {
       applyJudgment(best, 'perfect');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else if (bestDiff <= JUDGE_GREAT_MS) {
+    } else if (withinTimingWindow(bestDiff, JUDGE_GREAT_MS)) {
       applyJudgment(best, 'great');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } else {
@@ -178,7 +179,7 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
     }
   }, [clock]);
 
-  const pan = useRef(
+  const pan = useMemo(() =>
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 8 || Math.abs(g.dy) > 8,
@@ -191,7 +192,7 @@ export function RhythmSwipeGame({ song, chart, onFinish, onQuit }: Props) {
         onSwipe(dir);
       },
     }),
-  ).current;
+  [onSwipe]);
 
   const visible = notesRef.current.filter(
     n => !n.judged && n.time - now < TRAVEL_S && n.time - now > -0.35,

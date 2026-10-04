@@ -1,3 +1,4 @@
+import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -35,13 +36,17 @@ const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 function AuthGate() {
   const { isSignedIn, isLoading } = useAuth();
-  const { profile, cloudSynced, isLoading: appLoading } = useApp();
+  const { profile, cloudSynced, storageError, isLoading: appLoading } = useApp();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (isLoading || appLoading) return;
-    if (Platform.OS === 'ios' && segments[0] === 'login') {
+    if (storageError) {
+      if (segments[0] !== '(tabs)') router.replace('/(tabs)');
+      return;
+    }
+    if (!ACCOUNT_ENABLED && segments[0] === 'login') {
       router.replace(profile ? '/(tabs)' : '/onboarding');
       return;
     }
@@ -59,7 +64,7 @@ function AuthGate() {
     } else if (isSignedIn && profile && segments[0] === 'onboarding') {
       router.replace('/(tabs)');
     }
-  }, [isSignedIn, isLoading, appLoading, cloudSynced, profile, router, segments]);
+  }, [isSignedIn, isLoading, appLoading, cloudSynced, storageError, profile, router, segments]);
 
   return null;
 }
@@ -149,7 +154,7 @@ export default function RootLayout() {
           console.error('Root application error:', error, stackTrace);
         }}
       >
-        {Platform.OS === 'ios' ? (
+        {!ACCOUNT_ENABLED ? (
           <AppProviders guestOnly />
         ) : (
           <ClerkProvider

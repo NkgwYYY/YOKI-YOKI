@@ -8,7 +8,6 @@ import { QuickAffirmationRecord } from '@/components/record/QuickAffirmationReco
 import { MoodRecordSheet } from '@/components/record/MoodRecordSheet';
 import { ChecklistSheet } from '@/components/record/ChecklistSheet';
 import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
-import { SkyBackground } from '@/components/SkyBackground';
 
 export default function RecordScreen() {
   const router = useRouter();
@@ -16,9 +15,10 @@ export default function RecordScreen() {
   const [showChecklist, setShowChecklist] = useState(false);
 
   return (
-    <>
-      <SkyBackground />
-      <Screen scroll={true}>
+    <View style={{ flex: 1, backgroundColor: '#F8F4EF' }}>
+      <Screen scroll={true} contentStyle={{ backgroundColor: '#F8F4EF' }}>
+        <Button label="部屋へ戻る" icon="chevron-left" variant="ghost" size="sm"
+          onPress={() => router.navigate('/(tabs)')} style={{ alignSelf: 'flex-start' }} />
         <View style={styles.header}>
           <Text style={styles.title}>今日のあなたへ</Text>
           <Text style={styles.date}>{formatDateJP(getTodayDate())}</Text>
@@ -46,13 +46,13 @@ export default function RecordScreen() {
 
       <MoodRecordSheet visible={showDetails} onClose={() => setShowDetails(false)} />
       <ChecklistSheet visible={showChecklist} onClose={() => setShowChecklist(false)} />
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   header: { alignItems: 'center', marginBottom: space.md },
-  title: { ...typography.display, color: colors.foreground, textAlign: 'center' },
+  title: { ...typography.heading, color: colors.foreground, textAlign: 'center' },
   date: { ...typography.callout, color: colors.primary, marginTop: space.xs, textAlign: 'center' },
   grow: { flex: 1 },
 });

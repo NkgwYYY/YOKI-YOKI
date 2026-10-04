@@ -1,12 +1,11 @@
 import { Image as ExpoImage } from 'expo-image';
 import {
   Image as NativeImage,
-  Platform,
   type ImageSourcePropType,
 } from 'react-native';
 
 const STARTUP_IMAGE_MODULES: ImageSourcePropType[] = [
-  require('@/public/grass-hill.png'),
+  require('@/assets/images/room/room-night.jpg'),
   require('@/assets/images/yoki_logo.png'),
   require('@/assets/images/egg/normal.png'),
   require('@/assets/images/egg/happy.png'),
@@ -21,6 +20,7 @@ const STARTUP_IMAGE_MODULES: ImageSourcePropType[] = [
 ];
 
 let startupImagePromise: Promise<void> | null = null;
+const STARTUP_IMAGE_TIMEOUT_MS = 15000;
 
 function resolveImageUri(source: ImageSourcePropType): string | null {
   if (typeof source === 'string') return source;
@@ -40,29 +40,31 @@ function resolveStartupImageUris(): string[] {
     .map(resolveImageUri)
     .filter((uri): uri is string => Boolean(uri));
 
-  if (Platform.OS === 'web') {
-    bundledUris.push('/grass-hill.png');
-  }
 
   return [...new Set(bundledUris)];
 }
 
 async function cacheImage(uri: string): Promise<void> {
-  const [nativeCached, expoCached] = await Promise.all([
-    NativeImage.prefetch(uri).catch(() => false),
-    ExpoImage.prefetch(uri, { cachePolicy: 'memory-disk' }).catch(() => false),
+  const requireSuccess = (cached: boolean) => {
+    if (!cached) throw new Error(`画像を読み込めませんでした: ${uri}`);
+  };
+  // Either cache is sufficient; a stalled backend must not hide the other's success.
+  await Promise.any([
+    Promise.resolve().then(() => NativeImage.prefetch(uri)).then(requireSuccess),
+    Promise.resolve().then(() => ExpoImage.prefetch(uri, { cachePolicy: 'memory-disk' })).then(requireSuccess),
   ]);
-
-  if (!nativeCached && !expoCached) {
-    throw new Error(`画像を読み込めませんでした: ${uri}`);
-  }
 }
 
 export function preloadStartupImages(): Promise<void> {
   if (!startupImagePromise) {
     const uris = resolveStartupImageUris();
-    startupImagePromise = Promise.all(uris.map(cacheImage))
+    let timer: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('画像の準備に時間がかかっています。もう一度お試しください。')), STARTUP_IMAGE_TIMEOUT_MS);
+    });
+    startupImagePromise = Promise.race([Promise.all(uris.map(cacheImage)), timeout])
       .then(() => undefined)
+      .finally(() => clearTimeout(timer))
       .catch((error) => {
         startupImagePromise = null;
         throw error;
