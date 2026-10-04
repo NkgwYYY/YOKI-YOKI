@@ -643,6 +643,8 @@ async function main() {
   setupSignalHandlers();
 
   const domain = getDeploymentDomain();
+  // Fail before deleting a previous build or starting the web/Metro processes.
+  getClerkPublishableKey();
   const expoPublicReplId = getExpoPublicReplId();
   const baseUrl = `https://${domain}`;
   const timestamp = `${Date.now()}-${process.pid}`;
