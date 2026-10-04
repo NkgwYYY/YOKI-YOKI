@@ -59,6 +59,11 @@ const server=http.createServer((req,res)=>{
       await page.keyboard.press('Escape');await page.getByText('この部屋でできること',{exact:true}).waitFor({state:'hidden'});
       await page.getByTestId('room-meal').click();await page.getByText('ごはんをあげる',{exact:true}).waitFor();
       await page.getByRole('button',{name:'閉じる',exact:true}).last().click();
+      await page.getByTestId('room-music').click();await page.getByText('グリッティ・ブギ',{exact:true}).waitFor();
+      await page.getByRole('button',{name:'音楽を止めて部屋へ戻る',exact:true}).click();
+      await page.getByTestId('home-more-menu').click();await page.getByText('この子とお話しする',{exact:true}).click();
+      await page.getByRole('button',{name:'少し、お話しする',exact:true}).waitFor();
+      await page.getByRole('button',{name:'閉じる',exact:true}).last().click();
       await page.getByTestId('home-more-menu').click();await page.getByText('なまえをつける',{exact:true}).click();
       assert.equal(await page.getByLabel('なかまの名前',{exact:true}).inputValue(),'ちいさな相棒');
       await page.getByRole('dialog').waitFor();
