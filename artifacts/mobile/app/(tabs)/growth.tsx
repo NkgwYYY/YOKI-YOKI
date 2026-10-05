@@ -20,6 +20,8 @@ import { useRoomActivity } from '@/components/room/useRoomActivity';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
+import {MemoryBook} from '@/components/world/MemoryBook';
+import {getTabBarHeight} from '@/utils/tabLayout';
 import { GrowthChart } from '@/components/GrowthChart';
 import { BadgeCard } from '@/components/BadgeCard';
 import { MoodCalendar } from '@/components/MoodCalendar';
@@ -29,8 +31,6 @@ import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
 import { getMascotStage, getCharacter } from '@/utils/mascotUtils';
 import { Image, ImageSourcePropType } from 'react-native';
 import { ACTIVITY_DEFS, totalActivityCount } from '@/utils/activities';
-import { DEX_PROFILES, WORLD_CARDS } from '@/data/characterDex';
-import { DEX_IMAGES } from '@/components/dex/dexAssets';
 import { CharacterDexModal } from '@/components/dex/CharacterDexModal';
 import type { CharacterKey } from '@/utils/mascotUtils';
 import { charsMetByLevel } from '@/utils/encounters';
@@ -61,7 +61,7 @@ function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
 
 export default function GrowthScreen() {
   const insets = useSafeAreaInsets();
-  const { progress, records, unlockedBadges, growth, markGrowthSeen, encounters } = useApp();
+  const { progress, records, unlockedBadges, growth, markGrowthSeen, encounters, mascotName } = useApp();
   const [dexChar, setDexChar] = useState<CharacterKey | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const { active } = useRoomActivity();
@@ -158,16 +158,16 @@ export default function GrowthScreen() {
   const dexList = encounters.list.filter((e) => metNow.has(e.charKey));
 
   return (
-    <View style={[styles.flex, { backgroundColor: '#F8F4EF' }]} testID="album-screen">
+    <View style={[styles.flex, { backgroundColor: '#EFEADB' }]} testID="album-screen">
 
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[
-          styles.content,
+          styles.content, {width: '100%', maxWidth: 720, alignSelf: 'center'},
           {
             paddingTop: topPad + space.lg,
             paddingBottom:
-              (Platform.OS === 'web' ? space.xxl : insets.bottom) + control.height + space.xl,
+              getTabBarHeight(Platform.OS,insets.bottom) + space.xl,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -298,6 +298,16 @@ export default function GrowthScreen() {
           />
         </CenterDialog>
 
+        <MemoryBook current={currentChar.key} name={mascotName||'よっきー'} totalDays={progress.totalDays}
+          hasGrown={hasGrown} records={records} encounters={dexList} onCharacter={setDexChar} onRecords={()=>router.push('/monthly-report')}/>
+
+        <PressScale onPress={() => setShowDetails(value => !value)}
+          accessibilityRole="button" accessibilityState={{ expanded: showDetails }}
+          testID="album-details-toggle" style={styles.detailsToggle}>
+          <Text style={[styles.dexAboutTitle, { flex: 1 }]}>{showDetails ? '記録と成長の詳細を閉じる' : '記録と成長をくわしく見る'}</Text>
+          <Icon name={showDetails ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primaryOnSoft} />
+        </PressScale>
+        {showDetails && <View testID="album-details" style={{ gap: space.lg }}>
         {/* キャラの成長(はじめ vs 今)。進化に合わせて画像・名前も変わる */}
         <FadeIn delay={360}>
           <View style={styles.card}>
@@ -352,63 +362,7 @@ export default function GrowthScreen() {
           </FadeIn>
         )}
 
-        {/* キャラクター図鑑: 出会った仲間だけが並ぶ(未登場キャラは表示しない) */}
-        <FadeIn delay={370}>
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>キャラクター図鑑</Text>
-              <Text style={styles.badgeCount}>出会った仲間 {dexList.length}</Text>
-            </View>
-            {dexList.length === 0 ? (
-              <Text style={styles.growthNote}>仲間と出会うと、ここに記録されていくよ</Text>
-            ) : (
-              <View style={styles.dexGrid}>
-                {dexList.map((e) => {
-                  const p = DEX_PROFILES[e.charKey];
-                  const isCurrent = e.charKey === currentChar.key;
-                  return (
-                    <PressScale
-                      key={e.charKey}
-                      testID={`album-character-${e.charKey}`}
-                      style={[styles.dexCell, isCurrent && styles.dexCellCurrent]}
-                      onPress={() => setDexChar(e.charKey)}
-                    >
-                      <Image source={DEX_IMAGES[e.charKey]} style={styles.dexImg} resizeMode="contain" />
-                      <Text style={styles.dexName}>{p.name}</Text>
-                      <Text style={styles.dexMet}>
-                        {isCurrent ? 'いまのパートナー' : e.metDate.slice(5).replace('-', '/') + ' 出会い'}
-                      </Text>
-                    </PressScale>
-                  );
-                })}
-              </View>
-            )}
-            {/* この子たちについて(世界観カード) */}
-            <Text style={styles.dexAboutTitle}>この子たちについて</Text>
-            <View style={styles.worldList}>
-              {WORLD_CARDS.map((c, i) => (
-                <View key={c.title} style={styles.worldCard}>
-                  <Icon name={c.icon} size={iconSize.md} color={colors.primaryOnSoft} />
-                  <View style={styles.worldCopy}>
-                    <Text style={styles.worldTitle}>{c.title}</Text>
-                    <Text style={styles.worldText}>{c.text}</Text>
-                  </View>
-                  {i < WORLD_CARDS.length - 1 && (
-                    <Icon name="chevron-down" size={14} color={colors.subtleForeground} />
-                  )}
-                </View>
-              ))}
-            </View>
-          </View>
-        </FadeIn>
 
-        <PressScale onPress={() => setShowDetails(value => !value)}
-          accessibilityRole="button" accessibilityState={{ expanded: showDetails }}
-          testID="album-details-toggle" style={styles.detailsToggle}>
-          <Text style={[styles.dexAboutTitle, { flex: 1 }]}>{showDetails ? '記録と成長の詳細を閉じる' : '記録と成長をくわしく見る'}</Text>
-          <Icon name={showDetails ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primaryOnSoft} />
-        </PressScale>
-        {showDetails && <View testID="album-details" style={{ gap: space.lg }}>
         {/* Level Card */}
         <FadeIn delay={100}>
           <View style={styles.card}>

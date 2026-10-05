@@ -13,14 +13,25 @@ The user explicitly requested a full 3.0 redesign and removal of game access. Th
 | 4 HOME | COMPLETE (local QA) | Day/night full-bleed cottage, grounded original mascot, hints and safe hit areas; 320×568 / 390×844 / 820×1180 / 844×390 browser checks |
 | 5 CHARACTER LIFE | COMPLETE (local QA) | Greeting/petting/lift/drop/bed/meal staging verified; one food debit, paused routines, reduced motion |
 | 6 DAILY RECORD | COMPLETE (local QA) | One primary quick entry, landscape two-column form, save→resident/light→garden, same-day no repeated gain, reload preservation |
-| 7 ENERGY WORLD | IN PROGRESS | Recompose scene around grounded character, cable and liquid tank |
-| 8 CHARACTER BOOK | NOT STARTED | Existing data retained; visual redesign pending |
-| 9 POLISH | NOT STARTED | Cross-screen final visual/interaction review |
-| 10 QA | NOT STARTED | Fresh complete flow, typecheck/export, responsive and motion tests; physical iPad unavailable |
+| 7 ENERGY WORLD | COMPLETE (local QA) | Full-scene garden, grounded cord, cylindrical transparent tank; 0/50/100/250 display, one receipt/reload, motion pause and four viewport checks |
+| 8 CHARACTER BOOK | COMPLETE (local QA) | Paper album with original portraits, encountered-only friends/dates and excerpts from saved records; details remain optional; browser interaction and preservation checks passed |
+| 9 POLISH | IN PROGRESS | Reviewed garden/book screenshots; compact wording and opaque dock improve readability; final cross-screen touch pass underway |
+| 10 QA | IN PROGRESS | 264 unit tests and current mobile/Web checks passed; final all-platform export and touch regression underway; native/device/account QA still unverified |
 
-Starting commit: `2d2d6e2b3882bd81f1c0722977dddd7c93a23fce`. Main: `f99bf9ff3d2a9887ec88afc1321209402a2a6278` (2026-09-23 08:08:02 JST). No unfinished source edits; unrelated binary differences and prior generated exports excluded. The user's Replit main merge/build results were supplied as a screenshot; its unpushed conflict-resolution edits cannot be assumed present here. Reconcile them before release. The previous 2.0 draft PR must not be treated as the 3.0 release.
+## Latest resume — 2026-10-05 20:56 JST
 
-Audit validation: fresh Web export PASS; local guest browser inspection reported no page errors. This is browser evidence, not physical/native certification. New illustration production underway; original character art untouched. Preserve 2.0 history below for data/implementation context.
+- Fetched GitHub: main is `f99bf9ff3d2a`; continued local `08ba654` rather than redoing PHASE 0–6. Interrupted files were plant.tsx, EnergyWorld.tsx, worldEnergy.ts and their tests. Unrelated MP3/MP4/PNG changes remain excluded.
+- Published HOME/foundation/record checkpoint: `7a97cbfdec8156f06636bb9751ccc01912c48ebb` (2026-10-05 21:06:10 JST). Fetched it and confirmed the tree exactly matches the local validated snapshot. Local branch now follows the published history. Private brief and detailed design/audit documents were excluded from both the snapshot and its ancestry after automatic approval review rejected their disclosure. QA JPEGs were inspected individually before publication; they contain only test UI and generated art.
+- PHASE 7: preserved receiveGardenReward and balances; replaced the cropped middle panel with EnergyWorld, a grounded cubic cord, transparent cylindrical SVG vessel, true empty/proportional/full liquid and visible overflow amount. Genki controls presentation brightness and cord-flow speed; reward/generation rules are unchanged. Browser verified 0/50/100/250 light, a single point credit, empty after receipt, restart preservation, activity/reduced-motion cleanup and return HOME at four viewports. No page errors.
+- PHASE 8: MemoryBook prioritizes an original-art portrait, actual encounter dates and three latest real saved moments. Never invents visits or exposes future characters. Moved numerical growth comparison/history behind the existing details disclosure; retained existing character modal, account controls, statistics and monthly report. Corrected the new report link to the existing /monthly-report route during typecheck. Four-viewport browser checks covered empty/populated book, character detail, hidden future character, history order, details toggle, unchanged source records and report navigation.
+- 264 unit tests PASS, including tank-boundary and read-only memory selection tests. Mobile typecheck and shared-library build/typecheck PASS. Fresh Web export and API bundle build PASS. Latest full iOS/Android bundle validation is being refreshed after these screen changes.
+- Subjective screenshot review /100 (WORLD/CHARACTER/VISUAL/DEPTH/UX/EMOTION/YOKI): garden 84/82/83/82/85/81/87; book 81/84/84/80/84/85/84. These are development assessments, not user acceptance or native certification.
+- Next: finish PHASE 9/10 local cross-screen/touch checks, record final build results, and publish the garden/book checkpoint. Native iPad/iPhone/Android operation, accessibility/performance and authenticated synchronization remain unverified; no main merge, deployment, DB push or signed app release has been performed.
+
+
+Starting commit: `2d2d6e2b3882bd81f1c0722977dddd7c93a23fce`. Main: `f99bf9ff3d2a9887ec88afc1321209402a2a6278` (2026-09-23 08:08:02 JST). At the initial audit there were no unfinished source edits; unrelated binary differences and prior generated exports excluded. The user's Replit main merge/build results were supplied as a screenshot; its unpushed conflict-resolution edits cannot be assumed present here. Reconcile them before release. The previous 2.0 draft PR must not be treated as the 3.0 release.
+
+Audit validation: fresh Web export PASS; local guest browser inspection reported no page errors. This is browser evidence, not physical/native certification. HOME illustration production is complete; original character art untouched. Preserve 2.0 history below for data/implementation context.
 
 ## Resume 2026-10-05 — interrupted 3.0 source recovered
 
@@ -460,7 +471,7 @@ node artifacts/mobile/tests/room.browser.cjs
 `YOKI_QA_EXPORT` can override the export directory. The runtime checks use browser DOM/state and local storage; they do not certify native gestures/audio or Japanese font rendering on a physical device.
 
 ## Resume 2026-09-29 afternoon JST — PHASE 6 storage recovery
-- Fetched main and working branch again. Main: `f99bf9ff3d2a9887ec88afc1321209402a2a6278`. Previous checkpoint: `d9096aecd027dc3a8a2615014c045dd8c7420cac`. No unfinished source edits; only generated export directories were untracked. Previous room/record/light feedback implementation was retained.
+- Fetched main and working branch again. Main: `f99bf9ff3d2a9887ec88afc1321209402a2a6278`. Previous checkpoint: `d9096aecd027dc3a8a2615014c045dd8c7420cac`. At the initial audit there were no unfinished source edits; only generated export directories were untracked. Previous room/record/light feedback implementation was retained.
 - Earliest actionable gap was garden persistence. Replaced the primary garden's two separate conversion/exchange calls with `receiveGardenReward`: stored energy, legacy eco points and food points are committed as one recoverable operation.
 - `utils/recoverableStorage.ts` serializes writes and keeps a local write-ahead journal of exact resulting values. Preparation failure touches no balance; interruption after preparation rolls forward before the next operation or load. Replaying values does not reapply a reward delta. Unknown/corrupt journal shapes are preserved and block recovery rather than deleting data.
 - `utils/balanceStorage.ts` shares the coordinator with AppContext storage operations. The journal key is intentionally absent from cloud-synchronized KEYS. Existing balance keys, conversion rate, fractional energy, satiety and legacy town history are retained.
