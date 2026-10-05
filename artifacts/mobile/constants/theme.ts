@@ -18,14 +18,14 @@ const atelierColors = {
   400: '#D1BDF0', // Borders subtle
   300: '#E6D8F8', // Muted backgrounds / Dividers
   200: '#F3EAFB', // Secondary surfaces
-  100: '#F4EFF9', // App background
-  50:  '#FFFBFF', // Pink-white card highlights
+  100: '#F6F1EC', // App background
+  50:  '#FCF8F3', // Pink-white card highlights
 } as const;
 
 const charmColors = {
-  500: '#FA5C98', // Primary pink
-  600: '#E03D7B', // Primary pressed
-  900: '#FFF0F5', // Soft pink
+  500: '#80618D', // Primary pink
+  600: '#694F76', // Primary pressed
+  900: '#EEE5F2', // Soft pink
 } as const;
 
 export const colors = {
@@ -103,9 +103,9 @@ export const homePalette = {
   playMarker: '#E7B944',
   gaugeTrack: '#EDE8F5',
   dateText: '#6D5F8A',
-  navActive: '#E06A8B',
-  navInactive: '#A095B5',
-  navBackground: 'rgba(255, 255, 255, 0.72)',
+  navActive: '#80618D',
+  navInactive: '#BAA6C2',
+  navBackground: '#382B37',
   navBorder: 'rgba(160, 149, 181, 0.22)',
   softShadow: 'rgba(180, 170, 210, 0.25)',
   actionShadow: 'rgba(200, 180, 210, 0.35)',
@@ -227,7 +227,7 @@ export const moodPalette: Record<number, string> = {
   2: '#FF9533',
   3: '#B093D6',
   4: '#20D695',
-  5: '#FA5C98',
+  5: '#80618D',
 };
 
 export const activityPalette = {
@@ -236,7 +236,7 @@ export const activityPalette = {
   study: '#FF9533',
   journal: '#33B5E5',
   earlySleep: '#8A67B4',
-  selfCare: '#FA5C98',
+  selfCare: '#80618D',
 } as const;
 
 export const categoryPalette = {
@@ -249,7 +249,7 @@ export const categoryPalette = {
 export const rarityPalette = {
   common: { bg: atelierColors[200], text: atelierColors[800], border: atelierColors[400] },
   rare: { bg: '#E4F4FF', text: '#0083B0', border: '#70C2E8' },
-  special: { bg: '#FFF0F5', text: '#E03D7B', border: '#FA5C98' },
+  special: { bg: '#EEE5F2', text: '#694F76', border: '#80618D' },
 } as const;
 
 export const judgePalette = {
@@ -259,14 +259,14 @@ export const judgePalette = {
   miss: atelierColors[500],
 } as const;
 
-export const lanePalette = ['#FA5C98', '#FF9533', '#20D695', '#33B5E5'] as const;
+export const lanePalette = ['#80618D', '#FF9533', '#20D695', '#33B5E5'] as const;
 
 export const gameSurface = {
   background: atelierColors[100],
   scrim: 'rgba(42, 24, 70, 0.6)',
 } as const;
 
-export const chartPalette = ['#FA5C98', '#20D695', '#33B5E5', '#FF9533', '#FF4D6D'] as const;
+export const chartPalette = ['#80618D', '#20D695', '#33B5E5', '#FF9533', '#FF4D6D'] as const;
 
 /* ------------------------------------------------------------------ *
  * Hook

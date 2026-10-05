@@ -4,6 +4,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { Readable } = require('stream');
 const { pipeline } = require('stream/promises');
+const { getReleaseDomain } = require('./releaseDomain.cjs');
 
 let metroProcess = null;
 let metroPort = null;
@@ -48,33 +49,8 @@ function setupSignalHandlers() {
   process.on('SIGHUP', cleanup);
 }
 
-function stripProtocol(domain) {
-  let urlString = domain.trim();
-
-  if (!/^https?:\/\//i.test(urlString)) {
-    urlString = `https://${urlString}`;
-  }
-
-  return new URL(urlString).host;
-}
-
 function getDeploymentDomain() {
-  if (process.env.NATIVE_BUNDLE_PUBLIC_DOMAIN) {
-    return stripProtocol(process.env.NATIVE_BUNDLE_PUBLIC_DOMAIN);
-  }
-
-  if (process.env.REPLIT_INTERNAL_APP_DOMAIN) {
-    return stripProtocol(process.env.REPLIT_INTERNAL_APP_DOMAIN);
-  }
-
-  if (process.env.EXPO_PUBLIC_DOMAIN) {
-    return stripProtocol(process.env.EXPO_PUBLIC_DOMAIN);
-  }
-
-  console.error(
-    'ERROR: No public deployment domain found. Set NATIVE_BUNDLE_PUBLIC_DOMAIN, REPLIT_INTERNAL_APP_DOMAIN, or EXPO_PUBLIC_DOMAIN. Development domains must not be used by App Store builds.',
-  );
-  process.exit(1);
+  return getReleaseDomain(process.env);
 }
 
 function prepareDirectories(timestamp) {
@@ -667,6 +643,8 @@ async function main() {
   setupSignalHandlers();
 
   const domain = getDeploymentDomain();
+  // Fail before deleting a previous build or starting the web/Metro processes.
+  getClerkPublishableKey();
   const expoPublicReplId = getExpoPublicReplId();
   const baseUrl = `https://${domain}`;
   const timestamp = `${Date.now()}-${process.pid}`;

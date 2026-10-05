@@ -9,6 +9,8 @@ import * as Haptics from 'expo-haptics';
 import { Song, PlayResult, Judgment, Difficulty, SCORE_PER } from '@/utils/rhythm/types';
 import { getCopyPhrases } from '@/utils/rhythm/charts';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
+import { withinTimingWindow, noteHasExpired } from '@/utils/rhythm/judgment';
+import { getCopyPhase } from '@/utils/rhythm/copyPhase';
 import { RhythmMascot, RhythmMascotHandle } from './RhythmMascot';
 import { border, colors, gameSurface, judgePalette } from '@/constants/theme';
 import { clamp, measuredOr, useMeasuredSize } from '@/utils/rhythm/geometry';
@@ -70,7 +72,9 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
     const spb = 60 / song.bpm;
     runsRef.current = phrases.map(ph => {
       const presentStart = song.firstBeat + ph.start * 4 * spb;
-      const respondStart = presentStart + ph.len * 4 * spb;
+      // Match the chart's arithmetic so the first expected tap is not a tiny
+      // fraction before the response phase due to floating-point associativity.
+      const respondStart = song.firstBeat + (ph.start + ph.len) * 4 * spb;
       return {
         presentStart,
         respondStart,
@@ -133,15 +137,7 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
       const t = clock.getTime();
       const runs = runsRef.current;
 
-      let currentPhase: 'watch' | 'copy' | 'wait' = 'wait';
-      let currentIdx = 0;
-      for (let i = 0; i < runs.length; i++) {
-        const r = runs[i];
-        if (t >= r.presentStart - 0.05 && t < r.respondStart) { currentPhase = 'watch'; currentIdx = i; break; }
-        if (t >= r.respondStart && t < r.respondEnd + 0.35) { currentPhase = 'copy'; currentIdx = i; break; }
-        if (t < r.presentStart) { currentIdx = i; break; }
-        currentIdx = i;
-      }
+      const { phase: currentPhase, index: currentIdx } = getCopyPhase(runs, t);
       if (currentPhase !== phaseRef.current) { phaseRef.current = currentPhase; setPhase(currentPhase); }
       setPhraseIdx(currentIdx);
 
@@ -159,7 +155,7 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
       // 再現枠を過ぎた未判定タップを自動MISS
       for (const r of runs) {
         for (const tap of r.taps) {
-          if (!tap.judged && t - tap.time > COPY_GOOD_MS / 1000) applyJudgment(tap, 'miss');
+          if (!tap.judged && noteHasExpired(tap.time, t, COPY_GOOD_MS)) applyJudgment(tap, 'miss');
         }
       }
 
@@ -208,25 +204,24 @@ export function RhythmCopyGame({ song, difficulty, onFinish, onQuit }: Props) {
 
   const tap = useCallback(() => {
     if (!started || finishedRef.current) return;
-    if (phaseRef.current !== 'copy') {
+    const t = clock.getTime();
+    const active = getCopyPhase(runsRef.current, t);
+    if (active.phase !== 'copy') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return; // 提示中のタップはノーカウント
     }
-    const t = clock.getTime();
     let best: ExpectedTap | null = null;
     let bestDiff = Infinity;
-    for (const r of runsRef.current) {
-      for (const et of r.taps) {
-        if (et.judged) continue;
-        const diff = Math.abs(et.time - t) * 1000;
-        if (diff <= COPY_GOOD_MS && diff < bestDiff) { best = et; bestDiff = diff; }
-      }
+    for (const et of runsRef.current[active.index].taps) {
+      if (et.judged) continue;
+      const diff = Math.abs(et.time - t) * 1000;
+      if (withinTimingWindow(diff, COPY_GOOD_MS) && diff < bestDiff) { best = et; bestDiff = diff; }
     }
     if (!best) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); return; }
-    if (bestDiff <= COPY_PERFECT_MS) {
+    if (withinTimingWindow(bestDiff, COPY_PERFECT_MS)) {
       applyJudgment(best, 'perfect');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else if (bestDiff <= COPY_GREAT_MS) {
+    } else if (withinTimingWindow(bestDiff, COPY_GREAT_MS)) {
       applyJudgment(best, 'great');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } else {

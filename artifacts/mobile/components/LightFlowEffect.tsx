@@ -1,126 +1,63 @@
-/**
- * 「光が流れる」循環演出
- * 記録・ゲームなどで光エネルギーが増えた瞬間、キャラのあたりから光の粒が
- * 庭園へのぼっていき、「エネルギーチャージされたよ」のバナーを出す軽い演出。
- * 重い描画はせず Reanimated の transform/opacity だけで構成する。
- */
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import Animated, {
-  useSharedValue, useAnimatedStyle, withTiming, withDelay, withSequence,
-  Easing, FadeInDown, FadeOut,
-} from 'react-native-reanimated';
-import { border, colors, elevation, radius, space, typography } from '@/constants/theme';
-import { Icon, iconSize } from '@/components/ui/Icon';
-import { PressScale } from '@/components/ui/PressScale';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Icon } from '@/components/ui/Icon';
 
-const { height: SH, width: SW } = Dimensions.get('window');
-
-function Particle({ delay, xOff, size }: { delay: number; xOff: number; size: number }) {
-  const t = useSharedValue(0);
+function Particle({ delay, index, width, height }: { delay: number; index: number; width: number; height: number }) {
+  const progress = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    t.value = withDelay(delay, withTiming(1, { duration: 1500, easing: Easing.out(Easing.quad) }));
-  }, []);
-  const style = useAnimatedStyle(() => ({
-    opacity: t.value < 0.12 ? t.value / 0.12 : 1 - Math.max(0, (t.value - 0.7) / 0.3),
+    const animation = Animated.sequence([
+      Animated.delay(delay),
+      Animated.timing(progress, { toValue: 1, duration: 1700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+    ]);
+    animation.start();
+    return () => animation.stop();
+  }, [delay, progress]);
+  return <Animated.View testID="light-flow-particle" style={[styles.particle, {
+    width: index % 2 ? 7 : 10, height: index % 2 ? 7 : 10,
+    opacity: progress.interpolate({ inputRange: [0, 0.15, 0.8, 1], outputRange: [0, 1, 0.9, 0] }),
     transform: [
-      { translateY: -t.value * SH * 0.55 },
-      { translateX: Math.sin(t.value * Math.PI * 2) * 18 + xOff },
-      { scale: 0.6 + t.value * 0.5 },
+      { translateX: progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: [(index - 2) * 8, width * 0.12 + index * 5, width * 0.33] }) },
+      { translateY: progress.interpolate({ inputRange: [0, 0.35, 1], outputRange: [0, -24 - index * 5, height * 0.30] }) },
     ],
-  }));
-  return (
-    <Animated.View
-      style={[
-        styles.particle,
-        { width: size, height: size, borderRadius: size / 2 },
-        style,
-      ]}
-    />
-  );
+  }]} />;
 }
 
-interface Props {
-  /** 今回増えたエネルギー量(バナー表示用) */
-  amount: number;
-  /** 演出終了時(自動でも呼ばれる) */
-  onDone: () => void;
-  /** バナータップでエネルギーチャージ画面へ(任意) */
-  onGoPlant?: () => void;
-}
+type Props = { amount: number; reduceMotion?: boolean; onDone: () => void; onGoPlant?: () => void };
 
-export function LightFlowEffect({ amount, onDone, onGoPlant }: Props) {
+/** A saved-gain event is the sole trigger; loading balances never plays this feedback. */
+export function LightFlowEffect({ amount, reduceMotion = false, onDone, onGoPlant }: Props) {
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const done = useRef(onDone); done.current = onDone;
   useEffect(() => {
-    const t = setTimeout(onDone, 3200);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => done.current(), 4500);
+    return () => clearTimeout(timer);
   }, []);
-
-  return (
-    <View style={styles.overlay} pointerEvents="box-none">
-      {/* キャラのあたり(画面中央やや下)から立ちのぼる光の粒 */}
-      <View style={styles.particleOrigin} pointerEvents="none">
-        {[0, 120, 260, 420, 560, 700].map((d, i) => (
-          <Particle key={i} delay={d} xOff={(i - 2.5) * 22} size={i % 2 === 0 ? 18 : 13} />
-        ))}
-      </View>
-      {/* バナー: 光→庭園→チャージ */}
-      <Animated.View
-        entering={FadeInDown.delay(700).springify().damping(14)}
-        exiting={FadeOut}
-        style={styles.bannerWrap}
-      >
-        <PressScale
-          onPress={() => { if (onGoPlant) { onDone(); onGoPlant(); } }}
-          accessibilityLabel={`光エネルギー +${amount}。チャージを見る`}
-          style={styles.banner}
-        >
-          <View style={styles.bannerFlow}>
-            <Icon name="feather" size={iconSize.sm} color={colors.primaryOnSoft} />
-            <Icon name="arrow-right" size={iconSize.xs} color={colors.subtleForeground} />
-            <Icon name="star" size={iconSize.sm} color={colors.primaryOnSoft} />
-            <Icon name="arrow-right" size={iconSize.xs} color={colors.subtleForeground} />
-            <Icon name="gift" size={iconSize.sm} color={colors.primaryOnSoft} />
-          </View>
-          <Text style={styles.bannerText}>キミの光がエネルギーになったよ　+{amount}</Text>
-          {onGoPlant && (
-            <View style={styles.bannerLinkRow}>
-              <Text style={styles.bannerLink}>チャージを見る</Text>
-              <Icon name="chevron-right" size={iconSize.xs} color={colors.mutedForeground} />
-            </View>
-          )}
-        </PressScale>
-      </Animated.View>
+  return <View style={styles.overlay} pointerEvents="box-none" testID="light-flow-feedback">
+    {!reduceMotion && <View style={{ position: 'absolute', left: width * 0.5, top: height * 0.60 }} pointerEvents="none">
+      {[0, 150, 300, 450, 600].map((delay, index) => <Particle key={index} {...{ delay, index, width, height }} />)}
+    </View>}
+    <View style={[styles.bannerWrap, { bottom: Math.max(insets.bottom + 74, 104), left: insets.left + 16, right: insets.right + 16 }]} pointerEvents="box-none">
+      <Pressable testID="light-flow-garden" accessibilityRole="button"
+        accessibilityLabel={`光エネルギー ${amount}が庭に届きました。ひかりの庭を見る`}
+        onPress={() => { done.current(); onGoPlant?.(); }} style={styles.banner}>
+        <Icon name="star" size={18} color="#F1D49C" />
+        <View style={styles.copy}>
+          <Text accessibilityLiveRegion="polite" style={styles.title}>あなたのひとこまが、庭の光になったよ。</Text>
+          <Text style={styles.link}>ひかりの庭へ</Text>
+        </View>
+        <Icon name="chevron-right" size={16} color="#F1D49C" />
+      </Pressable>
     </View>
-  );
+  </View>;
 }
-
 const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, zIndex: 50 },
-  particleOrigin: {
-    position: 'absolute', bottom: SH * 0.32, left: 0, right: 0,
-    alignItems: 'center',
-  },
-  particle: { position: 'absolute', backgroundColor: colors.primary },
-  bannerWrap: {
-    position: 'absolute',
-    top: SH * 0.12,
-    left: space.xl,
-    right: space.xl,
-    alignItems: 'center',
-  },
-  banner: {
-    backgroundColor: colors.card,
-    ...border.hairline,
-    borderRadius: radius.lg,
-    paddingHorizontal: space.xl,
-    paddingVertical: space.lg,
-    alignItems: 'center',
-    gap: space.sm,
-    maxWidth: Math.min(360, SW - space.xxl * 2),
-    ...elevation.raised,
-  },
-  bannerFlow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  bannerText: { ...typography.calloutStrong, color: colors.foreground, textAlign: 'center' },
-  bannerLinkRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
-  bannerLink: { ...typography.micro, color: colors.mutedForeground },
+  particle: { position: 'absolute', borderRadius: 10, backgroundColor: '#FFE4A0', shadowColor: '#FFD479', shadowRadius: 6, shadowOpacity: 0.8, shadowOffset: { width: 0, height: 0 } },
+  bannerWrap: { position: 'absolute', alignItems: 'center' },
+  banner: { maxWidth: 370, minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: '#B39978', backgroundColor: '#443445F2' },
+  copy: { flexShrink: 1, gap: 3 },
+  title: { fontSize: 12, lineHeight: 18, color: '#FFF1D9' },
+  link: { fontSize: 11, color: '#D8BDCE' },
 });

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Mascot } from '@/components/Mascot';
+import { Mascot, StaticMascot } from '@/components/Mascot';
 import { useApp } from '@/contexts/AppContext';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { Song, Difficulty, RhythmMode, PlayResult, starRating } from '@/utils/rhythm/types';
@@ -21,6 +21,7 @@ import { PressScale } from '@/components/ui/PressScale';
 import { SONGS } from '@/utils/rhythm/songs';
 import { getChart } from '@/utils/rhythm/charts';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
+import { useAppActivity } from '@/components/room/useRoomActivity';
 import { TapBeatGame } from './TapBeatGame';
 import { RhythmJumpGame } from './RhythmJumpGame';
 import { RhythmSwipeGame } from './RhythmSwipeGame';
@@ -65,10 +66,11 @@ interface Props {
   onClose: () => void;
   onBackToList?: () => void;
   rewardLabel?: string | null;
+  earnedPoints?: number | null;
   onPlayingChange?: (playing: boolean) => void;
 }
 
-export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, onPlayingChange }: Props) {
+export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, earnedPoints, onPlayingChange }: Props) {
   const [step, setStep] = useState<Step>('song');
   const [song, setSong] = useState<Song | null>(null);
   const [mode, setMode] = useState<RhythmMode>('tap');
@@ -79,6 +81,12 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
   const mascotStage = getMascotStage(progress.level);
   const preview = useSongClock();
   const previewIdRef = useRef<string | null>(null);
+  const previewRequest = useRef(0);
+  const [previewStatus, setPreviewStatus] = useState<'idle' | 'loading' | 'playing'>('idle');
+  const [previewError, setPreviewError] = useState(false);
+  const { active, reduceMotion } = useAppActivity();
+  const activeRef = useRef(active); activeRef.current = active;
+  const [interrupted, setInterrupted] = useState(false);
 
   useEffect(() => { onPlayingChange?.(step === 'playing'); }, [step]);
 
@@ -91,15 +99,44 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
   const selectSong = useCallback(async (s: Song) => {
     setSong(s);
     if (previewIdRef.current === s.id) return;
+    const request = ++previewRequest.current;
     previewIdRef.current = s.id;
-    await preview.load(s.audio, { volume: 0.45, positionMillis: Math.floor(s.duration * 0.35 * 1000) });
-    if (previewIdRef.current === s.id) await preview.play();
+    setPreviewStatus('loading'); setPreviewError(false);
+    try {
+      await preview.load(s.audio, { volume: 0.45, positionMillis: Math.floor(s.duration * 0.35 * 1000) });
+      if (request !== previewRequest.current) return;
+      preview.setOnFinish(() => {
+        if (request !== previewRequest.current) return;
+        previewIdRef.current = null;
+        setPreviewStatus('idle');
+      });
+      const played = await preview.play();
+      if (request !== previewRequest.current) return;
+      if (!played) throw new Error('Preview could not start');
+      setPreviewStatus('playing');
+    } catch {
+      if (request !== previewRequest.current) return;
+      previewIdRef.current = null;
+      void preview.unload();
+      setPreviewStatus('idle'); setPreviewError(true);
+    }
   }, [preview]);
 
   const stopPreview = useCallback(() => {
+    previewRequest.current++;
     previewIdRef.current = null;
+    setPreviewStatus('idle'); setPreviewError(false);
     preview.unload();
   }, [preview]);
+
+  useEffect(() => {
+    if (active) return;
+    stopPreview();
+    if (step === 'playing') {
+      setInterrupted(true);
+      setStep('difficulty');
+    }
+  }, [active, step, stopPreview]);
 
   useEffect(() => () => { stopPreview(); }, []);
 
@@ -109,6 +146,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
   );
 
   const handleFinish = useCallback((r: PlayResult) => {
+    if (!activeRef.current) return;
     setResult(r);
     setStep('result');
     onResult(r);
@@ -129,7 +167,10 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
           <PressScale
             key={s.id}
             onPress={() => selectSong(s)}
-            accessibilityState={{ selected: song?.id === s.id }}
+            accessibilityRole="radio"
+            accessibilityLabel={s.title}
+            accessibilityHint={`${s.mood}、${fmtTime(s.duration)}。選ぶと試聴します`}
+            accessibilityState={{ checked: song?.id === s.id }}
             style={[st.songCard, song?.id === s.id && st.songCardSel]}
           >
             {/* 曲の色は左端の細い帯だけで示す */}
@@ -141,9 +182,10 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
                 {s.mood}・{fmtTime(s.duration)}・BPM {Math.round(s.bpm)}
               </Text>
             </View>
-            {song?.id === s.id && <Text style={st.songPlaying}>試聴中</Text>}
+            {song?.id === s.id && <Text style={st.songPlaying}>{previewStatus === 'playing' ? '試聴中' : previewStatus === 'loading' ? '読込中' : '選択中'}</Text>}
           </PressScale>
         ))}
+        {previewError && <Text accessibilityRole="alert" style={st.previewError}>試聴できませんでした。同じ曲を選ぶと再試行できます。</Text>}
         <Button
           label="つぎへ"
           disabled={!song}
@@ -164,6 +206,10 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
             key={m.id}
             style={[st.modeCard, mode === m.id && m.ready && st.modeCardSel, !m.ready && st.modeCardLocked]}
             disabled={!m.ready}
+            accessibilityRole="radio"
+            accessibilityLabel={m.title}
+            accessibilityHint={m.desc}
+            accessibilityState={{ checked: mode === m.id, disabled: !m.ready }}
             onPress={() => setMode(m.id)}
           >
             <Icon
@@ -190,6 +236,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
     return (
       <ScrollView style={st.scroll} contentContainerStyle={st.body}>
         <Text style={st.stepTitle}>むずかしさをえらぼう</Text>
+        {interrupted && <Text accessibilityRole="alert" style={st.subTitle}>演奏を中断しました。もう一度はじめられます。</Text>}
         <Text style={st.subTitle}>{song?.title} / {MODES.find(m => m.id === mode)?.title}</Text>
         {DIFFS.map(d => {
           const c = song ? getChart(song.id, mode, d.id) : null;
@@ -197,7 +244,10 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
             <PressScale
               key={d.id}
               style={[st.diffCard, { borderColor: d.color }, difficulty === d.id && { backgroundColor: d.color + '18' }]}
-              accessibilityState={{ selected: difficulty === d.id }}
+              accessibilityRole="radio"
+              accessibilityLabel={d.label}
+              accessibilityHint={d.desc}
+              accessibilityState={{ checked: difficulty === d.id }}
               onPress={() => setDifficulty(d.id)}
             >
               <Text style={[st.diffLabel, { color: d.color }]}>{d.label}</Text>
@@ -208,7 +258,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
         {rewardLabel ? <Text style={st.rewardHint}>{rewardLabel}</Text> : null}
         <ButtonRow>
           <Button label="もどる" variant="outline" onPress={() => setStep('mode')} />
-          <Button label="START" icon="play" onPress={() => setStep('playing')} style={st.grow} />
+          <Button label="START" icon="play" onPress={() => { setInterrupted(false); setStep('playing'); }} style={st.grow} />
         </ButtonRow>
       </ScrollView>
     );
@@ -264,40 +314,35 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
           </>
         )}
         <Text style={st.starsLabel}>今日のリズム</Text>
-        <View style={st.starRow}>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Icon
-              key={i}
-              name="star"
-              size={iconSize.lg}
-              color={i < stars ? colors.primary : colors.border}
-            />
-          ))}
+        <View accessible accessibilityRole="image" accessibilityLabel={`今日のリズム、5段階中${stars}`}>
+          <View style={st.starRow} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Icon
+                key={i}
+                name="star"
+                size={iconSize.lg}
+                color={i < stars ? colors.primary : colors.border}
+              />
+            ))}
+          </View>
         </View>
-        <Text style={st.refreshTag}>今日のリフレッシュ +1</Text>
-        {(() => {
-          // YOKIポイント(MiniGameModal.resultToReward と同じルール)
-          const fp = stars >= 4 ? 3 : stars === 3 ? 2 : 1;
-          return (
-            <View style={st.energyRow}>
-              <View style={st.energyChip}>
-                <Icon name="coffee" size={iconSize.xs} color={colors.foreground} />
-                <Text style={[st.energyChipTxt, { color: colors.foreground }]}>
-                  YOKIポイント +{fp}
-                </Text>
-              </View>
-            </View>
-          );
-        })()}
-        <View style={st.resultMascotRow}>
-          <Mascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />
+        {earnedPoints != null && earnedPoints > 0 ? (
+          <View style={st.energyRow}><View style={st.energyChip}>
+            <Icon name="coffee" size={iconSize.xs} color={colors.foreground} />
+            <Text style={[st.energyChipTxt, { color: colors.foreground }]}>YOKIポイント +{earnedPoints}</Text>
+          </View></View>
+        ) : null}
+        <View style={st.resultMascotRow} testID={reduceMotion || !active ? 'rhythm-result-static' : 'rhythm-result-animated'}>
+          {reduceMotion || !active
+            ? <StaticMascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />
+            : <Mascot stage={mascotStage} mood={stars >= 4 ? 'excited' : 'happy'} size={64} />}
           <View style={[st.commentBubble, st.commentBubbleInline]}>
             <Text style={st.commentTxt}>{characterComment(result, mode)}</Text>
           </View>
         </View>
         {/* 循環の導線: YOKIポイント → ごはんをあげる(ホームへ) */}
         <Button
-          label="YOKIポイントでごはんをあげよう"
+          label="部屋に戻って、ひと休み"
           icon="coffee"
           variant="secondary"
           fullWidth
@@ -313,7 +358,8 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, o
 
 const st = StyleSheet.create({
   scroll: { flex: 1 },
-  body: { padding: space.xl, gap: space.sm, alignItems: 'stretch' },
+  body: { padding: space.xl, gap: space.sm, alignItems: 'stretch', width: '100%', maxWidth: 600, alignSelf: 'center' },
+  previewError: { ...typography.caption, color: colors.danger },
   stepTitle: { ...typography.heading, color: colors.foreground, textAlign: 'center' },
   grow: { flex: 1 },
   listBack: {

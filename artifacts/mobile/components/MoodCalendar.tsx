@@ -232,7 +232,7 @@ export function MoodCalendar({ records }: Props) {
 
             <View style={styles.detailRow}>
               <Icon name="moon" size={16} color={colors.subtleForeground} />
-              <Text style={styles.detailRowText}>睡眠 {selected.sleep}時間</Text>
+              <Text style={styles.detailRowText}>睡眠 {selected.sleepRecorded === false ? '未入力' : `${selected.sleep}時間`}</Text>
             </View>
 
             {selected.behaviors.length > 0 && (

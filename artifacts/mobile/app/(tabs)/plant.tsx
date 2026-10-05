@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, ImageBackground } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
-  type SharedValue,
+  cancelAnimation, type SharedValue,
   useSharedValue, useAnimatedStyle, withRepeat, withSequence,
   withTiming, withSpring, withDelay, FadeInUp, FadeOut, Easing,
 } from 'react-native-reanimated';
@@ -15,10 +15,13 @@ import { Icon, iconSize } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
 import { CosmicBackground } from '@/components/CosmicBackground';
 import { useApp } from '@/contexts/AppContext';
-import { Mascot } from '@/components/Mascot';
+import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { getChargeGlowStrength } from '@/utils/lightEnergy';
 
+import { useRoomActivity } from '@/components/room/useRoomActivity';
+
+const MotionContext = React.createContext(false);
 const easeInOutSine = Easing.inOut(Easing.sin);
 const SCENE_BG = require('@/assets/images/plant/energy-garden-night.png');
 const ENERGY_NEON = '#39FF14';
@@ -36,10 +39,13 @@ function LightMotes({ chargeGlow, targetGlow }: { chargeGlow: SharedValue<number
 }
 
 function Mote({ index, chargeGlow }: { index: number; chargeGlow: SharedValue<number> }) {
+  const motion = useContext(MotionContext);
   const p = useSharedValue(0);
   useEffect(() => {
+    if (!motion) return;
     p.value = withDelay(index * 620, withRepeat(withTiming(1, { duration: 3400 + (index * 200), easing: Easing.out(Easing.quad) }), -1, false));
-  }, []);
+    return () => { cancelAnimation(p); };
+  }, [motion]);
   const st = useAnimatedStyle(() => {
     const t = p.value;
     return {
@@ -60,10 +66,13 @@ function Mote({ index, chargeGlow }: { index: number; chargeGlow: SharedValue<nu
 }
 
 function CharacterAura({ genki }: { genki: number }) {
+  const motion = useContext(MotionContext);
   const o = useSharedValue(0.5);
   useEffect(() => {
+    if (!motion) return;
     o.value = withRepeat(withSequence(withTiming(1, { duration: 1500, easing: easeInOutSine }), withTiming(0.5, { duration: 1500, easing: easeInOutSine })), -1, false);
-  }, []);
+    return () => { cancelAnimation(o); };
+  }, [motion]);
   const strength = 0.25 + (genki / 100) * 0.75;
   const st = useAnimatedStyle(() => ({
     opacity: strength * (0.4 + o.value * 0.4),
@@ -102,7 +111,7 @@ function PowerCable({ chargeGlow }: { chargeGlow: SharedValue<number> }) {
           <Circle cx="65.2" cy="78" r="1.15" fill={ENERGY_NEON} />
         </G>
       </Svg>
-      <CableLights chargeGlow={chargeGlow} />
+      {useContext(MotionContext) && <CableLights chargeGlow={chargeGlow} />}
     </View>
   );
 }
@@ -118,10 +127,13 @@ function CableLights({ chargeGlow }: { chargeGlow: SharedValue<number> }) {
 }
 
 function CableLight({ index, chargeGlow }: { index: number; chargeGlow: SharedValue<number> }) {
+  const motion = useContext(MotionContext);
   const p = useSharedValue(0);
   useEffect(() => {
+    if (!motion) return;
     p.value = withDelay(index * 400, withRepeat(withTiming(1, { duration: 1600, easing: Easing.linear }), -1, false));
-  }, []);
+    return () => { cancelAnimation(p); };
+  }, [motion]);
 
   const st = useAnimatedStyle(() => {
     const t = p.value;
@@ -155,9 +167,11 @@ function CableLight({ index, chargeGlow }: { index: number; chargeGlow: SharedVa
 }
 
 function CrystalTank({ energy, chargeGlow }: { energy: number; chargeGlow: SharedValue<number> }) {
+  const motion = useContext(MotionContext);
   const float = useSharedValue(0);
   const liquid = useSharedValue(0);
   useEffect(() => {
+    if (!motion) return;
     float.value = withRepeat(
       withSequence(
         withTiming(-2, { duration: 1900, easing: easeInOutSine }),
@@ -170,7 +184,8 @@ function CrystalTank({ energy, chargeGlow }: { energy: number; chargeGlow: Share
         withTiming(0, { duration: 2300, easing: easeInOutSine }),
       ), -1, true,
     );
-  }, []);
+    return () => { cancelAnimation(float); cancelAnimation(liquid); };
+  }, [motion]);
 
   const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: float.value }] }));
   const liquidStyle = useAnimatedStyle(() => ({
@@ -185,13 +200,13 @@ function CrystalTank({ energy, chargeGlow }: { energy: number; chargeGlow: Share
     shadowOpacity: 0.16 + chargeGlow.value * 0.36,
     shadowRadius: 6 + chargeGlow.value * 7,
   }));
-  const fillLevel = Math.min(92, 6 + Math.min(energy, 100) * 0.86);
+  const fillLevel = Math.max(0, Math.min(92, energy * 0.92));
 
   return (
     <Animated.View style={[s.tankWrap, floatStyle]} pointerEvents="none">
       <View style={s.tankStatus}>
         <Text style={s.tankStatusLabel}>チャージ</Text>
-        <Text style={s.tankValue}>{energy} ENERGY</Text>
+        <Text style={s.tankValue}>{energy} ひかり</Text>
       </View>
       <Animated.View style={[s.tankGlass, glassGlowStyle]}>
         <Animated.View style={[s.tankLiquid, liquidStyle, { height: `${fillLevel}%` }]}>
@@ -209,195 +224,54 @@ function CrystalTank({ energy, chargeGlow }: { energy: number; chargeGlow: Share
 
 export default function EnergyChargeScreen() {
   const insets = useSafeAreaInsets();
-  const { lightEnergy, powerPlant, convertStoredEnergy, exchangeEcoPoints, progress } = useApp();
-
-  const [converting, setConverting] = useState(false);
-  const [exchanging, setExchanging] = useState(false);
-  const [convertedMsg, setConvertedMsg] = useState<string | null>(null);
-  const [exchangedMsg, setExchangedMsg] = useState<string | null>(null);
-
-  const convertedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const exTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (convertedTimerRef.current) clearTimeout(convertedTimerRef.current);
-    if (exTimerRef.current) clearTimeout(exTimerRef.current);
-  }, []);
-
-  const genki = lightEnergy.genki;
-  const exchangeableEnergy = Math.floor(lightEnergy.storedEnergy);
-  const chargeGlowTarget = getChargeGlowStrength(exchangeableEnergy);
-  const chargeGlow = useSharedValue(chargeGlowTarget);
+  const { active, reduceMotion } = useRoomActivity();
+  const motion = active && !reduceMotion;
+  const { lightEnergy, powerPlant, receiveGardenReward, progress, getTodayRecord } = useApp();
+  const [busy, setBusy] = useState(false);
+  const lock = useRef(false);
+  const [message, setMessage] = useState('');
+  const [sceneWidth, setSceneWidth] = useState(350);
+  const energy = Math.floor(lightEnergy.storedEnergy);
+  const reward = energy + powerPlant.ecoPoints;
+  const chargeGlow = useSharedValue(lightEnergy.genki / 100);
   useEffect(() => {
-    chargeGlow.value = withTiming(chargeGlowTarget, { duration: 900, easing: easeInOutSine });
-  }, [chargeGlowTarget]);
-  const mascotStage = getMascotStage(progress.level);
-
-  const topPad = Platform.OS === 'web' ? space.xl : insets.top;
-  const convertScale = useSharedValue(1);
-  const convertStyle = useAnimatedStyle(() => ({ transform: [{ scale: convertScale.value }] }));
-
-  const handleConvert = async () => {
-    if (converting || exchangeableEnergy <= 0) return;
-    setConverting(true);
-    convertScale.value = withSequence(withSpring(0.94, { damping: 8, stiffness: 400 }), withSpring(1, { damping: 10, stiffness: 200 }));
+    chargeGlow.value = motion ? withTiming(lightEnergy.genki / 100, { duration: 900 }) : lightEnergy.genki / 100;
+    return () => cancelAnimation(chargeGlow);
+  }, [lightEnergy.genki, motion, chargeGlow]);
+  const receive = async () => {
+    if (lock.current || reward <= 0) return;
+    lock.current = true; setBusy(true); setMessage('');
     try {
-      const { converted } = await convertStoredEnergy();
-      if (converted > 0) {
-        setConvertedMsg(`${converted} エネルギーを交換しました`);
-        if (convertedTimerRef.current) clearTimeout(convertedTimerRef.current);
-        convertedTimerRef.current = setTimeout(() => setConvertedMsg(null), 3000);
-      }
-    } finally {
-      setConverting(false);
-    }
+      const { received } = await receiveGardenReward();
+      setMessage(received > 0 ? `${received}ポイント。次のおやつに使おう。` : '受け取り状況を確認しました。');
+    } catch { setMessage('保存が完了しませんでした。もう一度押すと、受け取り状況を確認して再開します。'); }
+    finally { lock.current = false; setBusy(false); }
   };
-
-  const handleExchange = async () => {
-    if (exchanging || powerPlant.ecoPoints <= 0) return;
-    setExchanging(true);
-    try {
-      const { exchanged } = await exchangeEcoPoints(powerPlant.ecoPoints);
-      if (exchanged > 0) {
-        setExchangedMsg(`YOKIポイントを受け取りました`);
-        if (exTimerRef.current) clearTimeout(exTimerRef.current);
-        exTimerRef.current = setTimeout(() => setExchangedMsg(null), 3600);
-      }
-    } finally {
-      setExchanging(false);
-    }
-  };
-
-  return (
-    <View style={s.flex}>
-      <CosmicBackground />
-      <ScrollView
-        contentContainerStyle={[s.content, { paddingTop: topPad + space.lg, paddingBottom: (Platform.OS === 'web' ? space.xxl : insets.bottom) + control.height + space.xl }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={s.heading}>
-          <View style={s.titleRow}>
-            <View style={s.titleMark}><Icon name="star" size={iconSize.sm} color={ENERGY_NEON_DEEP} /></View>
-            <Text style={s.title}>エネルギーチャージ</Text>
-          </View>
-          <Text style={s.subtitle}>たまったエネルギーをYOKIポイントに交換できます</Text>
-        </View>
-
-        {/* 魔法の庭園シーン */}
-        <View style={s.sceneFrame}>
-          <View style={s.sceneInner}>
-            <ImageBackground
-              source={SCENE_BG}
-              style={StyleSheet.absoluteFill as any}
-              imageStyle={{ width: '100%', height: '100%' }}
-              resizeMode="cover"
-            />
-
-            <LightMotes chargeGlow={chargeGlow} targetGlow={chargeGlowTarget} />
-
-            <View style={s.mascotWrap} pointerEvents="none">
-              <View style={s.mascotStand}>
-                <CharacterAura genki={genki} />
-                <Mascot stage={mascotStage} mood={genki >= 60 ? 'excited' : 'happy'} size={120} idleBehavior="normal" />
-              </View>
-            </View>
-            <PowerCable chargeGlow={chargeGlow} />
-            <CrystalTank energy={exchangeableEnergy} chargeGlow={chargeGlow} />
-          </View>
-        </View>
-
-        <View style={[s.card, s.statsCard]}>
-          <View style={s.statsRow}>
-            <View style={s.statCell}>
-              <Text style={s.statHead}>本日のエネルギー</Text>
-              <Text style={s.statValue}>+{lightEnergy.todayEnergy}</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statHead}>チャージ量</Text>
-              <Text style={s.statValue}>{exchangeableEnergy}</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statHead}>元気度</Text>
-              <Text style={s.statValue}>{genki}%</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statHead}>受け取り可能</Text>
-              <Text style={s.statValue}>{powerPlant.ecoPoints}</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={[s.card, s.actionCard]}>
-          <View style={s.cardHeader}>
-            <Text style={s.cardTitle}>YOKIポイント交換</Text>
-          </View>
-          <Text style={s.hint}>蓄えたエネルギーを交換して、YOKIポイントとして受け取ろう</Text>
-
-          <View style={s.conversionRow}>
-            <View style={s.conversionValue}>
-              <View style={s.conversionIcon}><Icon name="zap" size={iconSize.sm} color={ENERGY_NEON_DEEP} /></View>
-              <View><Text style={s.conversionNumber}>{exchangeableEnergy}</Text><Text style={s.conversionLabel}>ENERGY</Text></View>
-            </View>
-            <Icon name="chevrons-right" size={iconSize.md} color="#E8A2C4" />
-            <View style={s.conversionValue}>
-              <View style={[s.conversionIcon, s.giftIcon]}><Icon name="gift" size={iconSize.sm} color="#F05A91" /></View>
-              <View><Text style={s.conversionNumber}>{exchangeableEnergy}</Text><Text style={s.conversionLabel}>交換待ち</Text></View>
-            </View>
-          </View>
-
-          {convertedMsg && (
-            <Animated.View entering={FadeInUp.springify().damping(10)} exiting={FadeOut} style={s.banner}>
-              <Text style={s.bannerText}>{convertedMsg}</Text>
-            </Animated.View>
-          )}
-
-          <Animated.View style={convertStyle}>
-            <Button
-              label={exchangeableEnergy > 0 ? `${exchangeableEnergy} エネルギーを交換する` : 'チャージがたまったら交換できるよ'}
-              icon="refresh-cw"
-              onPress={handleConvert}
-              disabled={converting || exchangeableEnergy <= 0}
-              loading={converting}
-              fullWidth
-            />
-          </Animated.View>
-        </View>
-
-        <View style={s.rewardSection}>
-          <View style={s.cardHeader}>
-            <Text style={s.cardTitle}>YOKIポイントに受け取る</Text>
-            <View style={s.ecoBadge}>
-              <Icon name="gift" size={iconSize.xs} color={colors.success} />
-              <Text style={s.ecoBadgeText}>{powerPlant.ecoPoints} pt</Text>
-            </View>
-          </View>
-          <Text style={s.hint}>受け取ったYOKIポイントは、ごはんやショップのアイテムに使えます</Text>
-
-          {exchangedMsg && (
-            <Animated.View entering={FadeInUp.springify().damping(10)} exiting={FadeOut} style={s.banner}>
-              <Text style={s.bannerText}>{exchangedMsg}</Text>
-            </Animated.View>
-          )}
-
-          <Button
-            label={powerPlant.ecoPoints > 0 ? `${powerPlant.ecoPoints} YOKIポイントを受け取る` : 'エネルギーを交換すると受け取れるよ'}
-            icon="coffee"
-            variant="secondary"
-            onPress={handleExchange}
-            disabled={exchanging || powerPlant.ecoPoints <= 0}
-            loading={exchanging}
-            fullWidth
-          />
-          <PressScale onPress={() => router.push('/(tabs)')} style={s.feedLinkBtn}>
-            <Text style={s.feedLinkText}>ホームでごはんをあげにいく</Text>
-            <Icon name="arrow-right" size={iconSize.sm} color={colors.primary} />
-          </PressScale>
-        </View>
-      </ScrollView>
+  const stage = getMascotStage(progress.level);
+  const mood = (getTodayRecord()?.mood ?? 3) <= 2 ? 'sleepy' : 'happy';
+  return <MotionContext.Provider value={motion}>
+    <View style={{ flex: 1, backgroundColor: '#251F3B', paddingTop: insets.top, paddingBottom: Platform.OS === 'web' ? 84 : 49 + insets.bottom }}>
+      <View style={{ paddingHorizontal: 22, paddingVertical: 16 }}>
+        <Text style={{ color: '#FFF3DF', fontSize: 22, fontWeight: '600' }}>ひかりの庭</Text>
+        <Text style={{ color: '#CDBFD9', fontSize: 12, marginTop: 6 }}>あなたの今日が、この子のひかりになる。</Text>
+      </View>
+      <View testID="energy-garden" accessibilityLabel={`蓄電池に${energy}のひかり`} style={{ flex: 1, overflow: 'hidden' }} onLayout={event => setSceneWidth(event.nativeEvent.layout.width)}>
+        <ImageBackground source={SCENE_BG} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        {motion && <LightMotes chargeGlow={chargeGlow} targetGlow={lightEnergy.genki / 100} />}
+        <View style={s.mascotWrap} pointerEvents="none"><View style={s.mascotStand}>
+          {motion && <CharacterAura genki={lightEnergy.genki} />}
+          {motion ? <Mascot stage={stage} mood={mood} size={Math.min(160, sceneWidth * 0.34)} preferStatic /> : <StaticMascot stage={stage} mood={mood} size={Math.min(160, sceneWidth * 0.34)} />}
+        </View></View>
+        <PowerCable chargeGlow={chargeGlow} />
+        <CrystalTank energy={energy} chargeGlow={chargeGlow} />
+      </View>
+      <View style={{ paddingHorizontal: 22, paddingVertical: 16, gap: 10 }}>
+        <Text accessibilityLiveRegion="polite" style={{ color: '#E7DDEB', fontSize: 12, textAlign: 'center', lineHeight: 18 }}>{message || 'たまったひかりを、ごはんや暮らしのポイントに。'}</Text>
+        <Button testID="energy-receive" label={reward > 0 ? `${reward} YOKIポイントを受け取る` : 'ひかりは、ゆっくり育っています'} disabled={busy || reward <= 0} loading={busy} onPress={receive} fullWidth />
+        <PressScale onPress={() => router.push('/(tabs)')} style={{ alignItems: 'center', minHeight: 44, justifyContent: 'center' }}><Text style={{ color: '#CEBDDC', fontSize: 12 }}>部屋に帰る</Text></PressScale>
+      </View>
     </View>
-  );
+  </MotionContext.Provider>;
 }
 
 const s = StyleSheet.create({

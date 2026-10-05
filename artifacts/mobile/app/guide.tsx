@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { backToRoom } from '@/utils/backToRoom';
 import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { SkyBackground } from '@/components/SkyBackground';
 import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
@@ -70,10 +71,11 @@ export default function GuideScreen() {
       >
         <View style={styles.headerRow}>
           <PressScale
-            onPress={() => router.back()}
+            onPress={() => backToRoom(router)}
             hitSlop={space.md}
             style={styles.backBtn}
             accessibilityLabel="戻る"
+            accessibilityRole="button"
           >
             <Icon name="chevron-left" size={iconSize.md} color={colors.foreground} />
           </PressScale>
@@ -112,15 +114,17 @@ export default function GuideScreen() {
         <Section icon="home" title="ホーム">
           <P>あなたの相棒(キャラクター)が住んでいる場所です。毎日の記録やチェックを続けると、キャラクターが元気になり、光があふれてきます。</P>
           <Bullet label="ごはん">YOKIポイントを使ってキャラクターにごはんをあげると、満腹度が上がって元気になります。</Bullet>
-          <Bullet label="なでる">キャラクターをタップしてなでてあげましょう。</Bullet>
+          <Bullet label="話す・ふれる">キャラクターをタップすると会話が開きます。長押しすると持ち上げて、部屋の中で動かせます。</Bullet>
+          <Bullet label="部屋の道具">ノートから記録、音楽プレイヤーから音ゲー、本棚からアルバムを開けます。ベッドでは相棒がひと休みします。</Bullet>
+          <Bullet label="暮らしを整える">部屋のメニューから、模様替え、お店、プロフィール設定を開けます。購入済みの家具や花は何度でも選び直せます。</Bullet>
           <Hint>まずは1日1回、顔を見に来るだけでOKです。</Hint>
         </Section>
 
         {/* きろく */}
-        <Section icon="edit-3" title="きろく(記録タブ)">
-          <P>気分・チェック・できごとを記録する場所です。短い一言でも十分。記録するたびに光エネルギーが増えます。</P>
-          <Bullet label="チェック">今日の心の状態をかんたんな質問で確認。達成ごとにYOKIポイント +2、全完了で +10。</Bullet>
-          <Bullet label="気分きろく">今日あったことや気持ちを書き留めましょう。記録すると +5pt。</Bullet>
+        <Section icon="edit-3" title="部屋のノートで記録">
+          <P>今日の気分と、できたことを短く記録できます。詳しく残したい日は詳細な記録も開けます。</P>
+          <Bullet label="チェック">自分で選んだ日々の行動をチェック。各項目の初回達成でYOKIポイント +2、全完了で +10。同じ日のやり直しで報酬は増えません。</Bullet>
+          <Bullet label="気分きろく">その日の最初の記録で +5pt。同じ日の内容は更新でき、ポイントや光エネルギーを重複して受け取ることはありません。</Bullet>
           <Hint>毎日同じ時間帯にやると、変化に気づきやすくなります。</Hint>
         </Section>
 
@@ -131,21 +135,23 @@ export default function GuideScreen() {
         </Section>
 
         {/* 成長 */}
-        <Section icon="trending-up" title="成長">
-          <P>続けた分だけレベルやバッジが増え、気分の推移もグラフやカレンダーで振り返れます。</P>
+        <Section icon="trending-up" title="アルバム">
+          <P>部屋の本棚か「アルバム」タブから、出会った相棒や思い出を振り返れます。「記録と成長をくわしく見る」を開くと、レベルやバッジ、気分の推移、月のレポートも確認できます。</P>
         </Section>
 
         {/* エネルギーチャージ */}
         <Section icon="zap" title="エネルギーチャージ">
           <P>キャラクターの元気が光となり、魔法の庭園でエネルギーとしてチャージされる幻想的な場所です。</P>
-          <Bullet label="変換">蓄まったエネルギーを交換して、YOKIポイントとして受け取れます。</Bullet>
+          <Bullet label="受け取る">庭園に蓄まったエネルギーをYOKIポイントとして受け取れます。</Bullet>
           <Bullet label="使い道">YOKIポイントは、ごはんやショップの着せ替え・背景・ボイスに使えます。</Bullet>
           <Hint>元気(キャラクターのコンディション)が高いほど、庭園が明るく輝きエネルギーのチャージ量も増えます。</Hint>
         </Section>
 
         {/* ミニゲーム */}
         <Section icon="music" title="ミニゲーム">
-          <P>ホームから遊べるリズムゲームです。結果に応じてYOKIポイントが貯まります(星4つ以上で +3pt)。光エネルギーは増えませんが、キャラクターとの絆が深まります。</P>
+          <P>部屋の音楽プレイヤーから「ふたりの音楽室」を開きます。4曲と5つのモードから選んで遊べます。結果に応じて1〜3 YOKIポイントを受け取れ、光エネルギーは増えません。</P>
+          <Hint>その時間帯のポイントを受け取り終えても、練習として何度でも遊べます。</Hint>
+          <P>気分に合わせて曲や難しさを選んでみましょう。</P>
         </Section>
 
         {/* プロフィール */}
@@ -161,7 +167,7 @@ export default function GuideScreen() {
             ・AIの分析のメインは、あくまであなたの実際の記録です。プロフィールは「味付け」程度。{'\n'}
             ・未入力や「回答しない」の項目は、AIに一切渡されません。{'\n'}
             ・これらの情報がAI以外の用途に使われることはありません。{'\n'}
-            ・プロフィールはいつでも変更できます(成長タブ右上の人型アイコン →「プロフィールを編集」)。
+            ・プロフィールはいつでも変更できます(部屋のメニュー →「プロフィール・話しかけ設定」)。
           </Hint>
         </Section>
 
@@ -173,7 +179,7 @@ export default function GuideScreen() {
             <>
               <P>ログインなしでも記録はこの端末内に保存されます。ログインすると自動でクラウドにも同期され、機種変更しても同じアカウントでデータを戻せます。</P>
               <Bullet label="アカウント削除">
-                成長タブ右上の人型アイコン →「アカウントを削除」から、認証情報と保存データを完全に削除できます。
+                ログイン中は、アルバム右上の人型アイコン →「アカウントを削除」から、認証情報と保存データを完全に削除できます。
               </Bullet>
             </>
           )}
@@ -204,7 +210,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerSpacer: { width: control.icon },
-  title: { ...typography.title, color: colors.foreground },
+  title: { ...typography.title, color: colors.foreground, flex: 1, textAlign: 'center' },
   subtitle: { ...typography.callout, color: colors.mutedForeground },
 
   card: {
@@ -218,9 +224,9 @@ const styles = StyleSheet.create({
   sectionTitle: { ...typography.subhead, color: colors.foreground, flex: 1 },
   body: { ...typography.body, color: colors.foreground },
   hint: { ...typography.caption, color: colors.mutedForeground, lineHeight: 20 },
-  bulletRow: { flexDirection: 'row', gap: space.sm, alignItems: 'flex-start' },
-  bulletLabel: { ...typography.calloutStrong, color: colors.primaryOnSoft, minWidth: 104 },
-  bulletBody: { ...typography.callout, flex: 1, color: colors.foreground },
+  bulletRow: { gap: space.xs },
+  bulletLabel: { ...typography.calloutStrong, color: colors.primaryOnSoft },
+  bulletBody: { ...typography.callout, color: colors.foreground },
   flowBox: {
     backgroundColor: colors.backgroundSunken,
     ...border.hairline,

@@ -17,6 +17,7 @@ function renderPressScale(platform, props) {
     createElement: (type, attributes, ...children) => ({ type, props: { ...attributes, children } }),
     useRef: (current) => ({ current }),
     useCallback: (callback) => callback,
+    useEffect: () => {},
   };
   const imports = {
     react: { ...react, default: react },
@@ -30,6 +31,7 @@ function renderPressScale(platform, props) {
       },
     },
     '@/constants/theme': { control: { pressScale: 0.97 } },
+    '@/utils/useReducedMotion': { useReducedMotion: () => false },
   };
   const module = { exports: {} };
   const code = ts.transpileModule(source, {

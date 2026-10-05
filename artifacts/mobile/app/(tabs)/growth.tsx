@@ -1,3 +1,4 @@
+import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { reloadAppAsync } from 'expo';
@@ -15,7 +16,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { CenterDialog } from '@/components/ui/BottomSheet';
 import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
-import { SkyBackground } from '@/components/SkyBackground';
+import { useRoomActivity } from '@/components/room/useRoomActivity';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
@@ -33,7 +34,7 @@ import { DEX_IMAGES } from '@/components/dex/dexAssets';
 import { CharacterDexModal } from '@/components/dex/CharacterDexModal';
 import type { CharacterKey } from '@/utils/mascotUtils';
 import { charsMetByLevel } from '@/utils/encounters';
-import { getTodayDate } from '@/utils/dateUtils';
+import { getTodayDate, getLast7Days } from '@/utils/dateUtils';
 import { Analytics } from '@/utils/analytics';
 import { PressScale } from '@/components/ui/PressScale';
 
@@ -62,18 +63,21 @@ export default function GrowthScreen() {
   const insets = useSafeAreaInsets();
   const { progress, records, unlockedBadges, growth, markGrowthSeen, encounters } = useApp();
   const [dexChar, setDexChar] = useState<CharacterKey | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const { active } = useRoomActivity();
   // 成長表示を見た記録(控えめメッセージは次回以降消える)
   const grownSinceSeen = growth.growthSize - growth.lastSeenSize >= 0.005;
   useEffect(() => {
+    if (!active) return;
     const t = setTimeout(() => { markGrowthSeen(); }, 3000);
     return () => clearTimeout(t);
-  }, [growth.growthSize]);
+  }, [active, growth.growthSize, markGrowthSeen]);
   const { user, isSignedIn, logout, deleteAccount } = useAuth();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const isIOSGuestOnly = Platform.OS === 'ios';
+  const isIOSGuestOnly = !ACCOUNT_ENABLED;
 
   const handleLogout = async () => {
     setShowLogout(false);
@@ -104,12 +108,14 @@ export default function GrowthScreen() {
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
   const xpInLevel = progress.experience % XP_PER_LEVEL;
-  const last7 = records.slice(-7);
+  const weekDates = new Set(getLast7Days());
+  const last7 = records.filter(record => weekDates.has(record.date));
   const avgMood = last7.length > 0
     ? (last7.reduce((s, r) => s + r.mood, 0) / last7.length).toFixed(1)
     : '--';
-  const avgSleep = last7.length > 0
-    ? (last7.reduce((s, r) => s + r.sleep, 0) / last7.length).toFixed(1)
+  const sleepRecords = last7.filter(r => r.sleepRecorded !== false);
+  const avgSleep = sleepRecords.length > 0
+    ? (sleepRecords.reduce((s, r) => s + r.sleep, 0) / sleepRecords.length).toFixed(1)
     : '--';
 
   // ─── 今月の積み重ね(日ごとの活動カウント)と月間ふりかえり ───
@@ -152,8 +158,7 @@ export default function GrowthScreen() {
   const dexList = encounters.list.filter((e) => metNow.has(e.charKey));
 
   return (
-    <View style={styles.flex}>
-      <SkyBackground />
+    <View style={[styles.flex, { backgroundColor: '#F8F4EF' }]} testID="album-screen">
 
       <ScrollView
         style={styles.flex}
@@ -170,8 +175,8 @@ export default function GrowthScreen() {
         <FadeIn delay={0}>
           <View style={styles.titleRow}>
             <View style={styles.titleCopy}>
-              <Text style={styles.title}>メンタルの成長</Text>
-              <Text style={styles.subtitle}>あなたの積み重ねを見える化</Text>
+              <Text style={styles.title}>ふたりのアルバム</Text>
+              <Text style={styles.subtitle}>一緒に過ごした日と、出会った仲間</Text>
             </View>
             <PressScale
               style={styles.accountBtn}
@@ -293,6 +298,117 @@ export default function GrowthScreen() {
           />
         </CenterDialog>
 
+        {/* キャラの成長(はじめ vs 今)。進化に合わせて画像・名前も変わる */}
+        <FadeIn delay={360}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{currentChar.name}の成長</Text>
+            <View style={styles.eggCompareRow}>
+              <View style={styles.eggCompareItem}>
+                <View style={styles.eggImgBox}>
+                  <Image source={CHAR_IMG} style={{ width: 64 * firstGrowth, height: 64 * firstGrowth }} resizeMode="contain" />
+                </View>
+                <Text style={styles.eggCompareLabel}>はじめの頃</Text>
+                <Text style={styles.eggComparePct}>{growthPct(firstGrowth)}</Text>
+              </View>
+              <Icon name="arrow-right" size={16} color={colors.subtleForeground} />
+              <View style={styles.eggCompareItem}>
+                <View style={styles.eggImgBox}>
+                  <Image source={CHAR_IMG} style={{ width: 64 * growth.growthSize, height: 64 * growth.growthSize }} resizeMode="contain" />
+                </View>
+                <Text style={styles.eggCompareLabelNow}>いま</Text>
+                <Text style={styles.eggComparePctNow}>{growthPct(growth.growthSize)}</Text>
+              </View>
+            </View>
+            <Text style={styles.growthNote}>
+              {hasGrown ? '一緒にすごした時間がぼくの成長になったよ' : 'これから少しずつ大きくなっていくよ'}
+            </Text>
+          </View>
+        </FadeIn>
+
+        {/* マイヒストリー */}
+        {growth.history.length > 1 && (
+          <FadeIn delay={380}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>マイヒストリー</Text>
+              <View style={styles.historyRow}>
+                {[0, 14, 29, 59]
+                  .map((offset) => growth.history[Math.min(offset, growth.history.length - 1)])
+                  .filter((snap, i, arr) => snap && arr.findIndex((s) => s?.date === snap.date) === i)
+                  .map((snap, i) => (
+                    <View key={snap.date} style={styles.historyItem}>
+                      <Image
+                        source={CHAR_IMG}
+                        style={{ width: 34 * snap.growthSize, height: 34 * snap.growthSize, opacity: 0.6 + i * 0.13 }}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.historyDay}>
+                        {i === 0 ? 'はじめの日' : `${snap.date.slice(5).replace('-', '/')}`}
+                      </Text>
+                      <Text style={styles.historyPct}>{growthPct(snap.growthSize)}</Text>
+                    </View>
+                  ))}
+              </View>
+            </View>
+          </FadeIn>
+        )}
+
+        {/* キャラクター図鑑: 出会った仲間だけが並ぶ(未登場キャラは表示しない) */}
+        <FadeIn delay={370}>
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>キャラクター図鑑</Text>
+              <Text style={styles.badgeCount}>出会った仲間 {dexList.length}</Text>
+            </View>
+            {dexList.length === 0 ? (
+              <Text style={styles.growthNote}>仲間と出会うと、ここに記録されていくよ</Text>
+            ) : (
+              <View style={styles.dexGrid}>
+                {dexList.map((e) => {
+                  const p = DEX_PROFILES[e.charKey];
+                  const isCurrent = e.charKey === currentChar.key;
+                  return (
+                    <PressScale
+                      key={e.charKey}
+                      testID={`album-character-${e.charKey}`}
+                      style={[styles.dexCell, isCurrent && styles.dexCellCurrent]}
+                      onPress={() => setDexChar(e.charKey)}
+                    >
+                      <Image source={DEX_IMAGES[e.charKey]} style={styles.dexImg} resizeMode="contain" />
+                      <Text style={styles.dexName}>{p.name}</Text>
+                      <Text style={styles.dexMet}>
+                        {isCurrent ? 'いまのパートナー' : e.metDate.slice(5).replace('-', '/') + ' 出会い'}
+                      </Text>
+                    </PressScale>
+                  );
+                })}
+              </View>
+            )}
+            {/* この子たちについて(世界観カード) */}
+            <Text style={styles.dexAboutTitle}>この子たちについて</Text>
+            <View style={styles.worldList}>
+              {WORLD_CARDS.map((c, i) => (
+                <View key={c.title} style={styles.worldCard}>
+                  <Icon name={c.icon} size={iconSize.md} color={colors.primaryOnSoft} />
+                  <View style={styles.worldCopy}>
+                    <Text style={styles.worldTitle}>{c.title}</Text>
+                    <Text style={styles.worldText}>{c.text}</Text>
+                  </View>
+                  {i < WORLD_CARDS.length - 1 && (
+                    <Icon name="chevron-down" size={14} color={colors.subtleForeground} />
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        </FadeIn>
+
+        <PressScale onPress={() => setShowDetails(value => !value)}
+          accessibilityRole="button" accessibilityState={{ expanded: showDetails }}
+          testID="album-details-toggle" style={styles.detailsToggle}>
+          <Text style={[styles.dexAboutTitle, { flex: 1 }]}>{showDetails ? '記録と成長の詳細を閉じる' : '記録と成長をくわしく見る'}</Text>
+          <Icon name={showDetails ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primaryOnSoft} />
+        </PressScale>
+        {showDetails && <View testID="album-details" style={{ gap: space.lg }}>
         {/* Level Card */}
         <FadeIn delay={100}>
           <View style={styles.card}>
@@ -393,7 +509,7 @@ export default function GrowthScreen() {
               ] as { icon: IconName; value: string | number; label: string }[]).map((stat) => (
                 <View key={stat.label} style={styles.summaryItem}>
                   <Icon name={stat.icon} size={iconSize.md} color={colors.primaryOnSoft} />
-                  <Text style={styles.summaryValue}>{stat.value}</Text>
+                  <Text testID={`weekly-${stat.icon}`} style={styles.summaryValue}>{stat.value}</Text>
                   <Text style={styles.summaryLabel}>{stat.label}</Text>
                 </View>
               ))}
@@ -446,109 +562,6 @@ export default function GrowthScreen() {
           </View>
         </FadeIn>
 
-        {/* キャラの成長(はじめ vs 今)。進化に合わせて画像・名前も変わる */}
-        <FadeIn delay={360}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{currentChar.name}の成長</Text>
-            <View style={styles.eggCompareRow}>
-              <View style={styles.eggCompareItem}>
-                <View style={styles.eggImgBox}>
-                  <Image source={CHAR_IMG} style={{ width: 64 * firstGrowth, height: 64 * firstGrowth }} resizeMode="contain" />
-                </View>
-                <Text style={styles.eggCompareLabel}>はじめの頃</Text>
-                <Text style={styles.eggComparePct}>{growthPct(firstGrowth)}</Text>
-              </View>
-              <Icon name="arrow-right" size={16} color={colors.subtleForeground} />
-              <View style={styles.eggCompareItem}>
-                <View style={styles.eggImgBox}>
-                  <Image source={CHAR_IMG} style={{ width: 64 * growth.growthSize, height: 64 * growth.growthSize }} resizeMode="contain" />
-                </View>
-                <Text style={styles.eggCompareLabelNow}>いま</Text>
-                <Text style={styles.eggComparePctNow}>{growthPct(growth.growthSize)}</Text>
-              </View>
-            </View>
-            <Text style={styles.growthNote}>
-              {hasGrown ? '一緒にすごした時間がぼくの成長になったよ' : 'これから少しずつ大きくなっていくよ'}
-            </Text>
-          </View>
-        </FadeIn>
-
-        {/* マイヒストリー */}
-        {growth.history.length > 1 && (
-          <FadeIn delay={380}>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>マイヒストリー</Text>
-              <View style={styles.historyRow}>
-                {[0, 14, 29, 59]
-                  .map((offset) => growth.history[Math.min(offset, growth.history.length - 1)])
-                  .filter((snap, i, arr) => snap && arr.findIndex((s) => s?.date === snap.date) === i)
-                  .map((snap, i) => (
-                    <View key={snap.date} style={styles.historyItem}>
-                      <Image
-                        source={CHAR_IMG}
-                        style={{ width: 34 * snap.growthSize, height: 34 * snap.growthSize, opacity: 0.6 + i * 0.13 }}
-                        resizeMode="contain"
-                      />
-                      <Text style={styles.historyDay}>
-                        {i === 0 ? 'はじめの日' : `${snap.date.slice(5).replace('-', '/')}`}
-                      </Text>
-                      <Text style={styles.historyPct}>{growthPct(snap.growthSize)}</Text>
-                    </View>
-                  ))}
-              </View>
-            </View>
-          </FadeIn>
-        )}
-
-        {/* キャラクター図鑑: 出会った仲間だけが並ぶ(未登場キャラは表示しない) */}
-        <FadeIn delay={370}>
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>キャラクター図鑑</Text>
-              <Text style={styles.badgeCount}>出会った仲間 {dexList.length}</Text>
-            </View>
-            {dexList.length === 0 ? (
-              <Text style={styles.growthNote}>仲間と出会うと、ここに記録されていくよ</Text>
-            ) : (
-              <View style={styles.dexGrid}>
-                {dexList.map((e) => {
-                  const p = DEX_PROFILES[e.charKey];
-                  const isCurrent = e.charKey === currentChar.key;
-                  return (
-                    <PressScale
-                      key={e.charKey}
-                      style={[styles.dexCell, isCurrent && styles.dexCellCurrent]}
-                      onPress={() => setDexChar(e.charKey)}
-                    >
-                      <Image source={DEX_IMAGES[e.charKey]} style={styles.dexImg} resizeMode="contain" />
-                      <Text style={styles.dexName}>{p.name}</Text>
-                      <Text style={styles.dexMet}>
-                        {isCurrent ? 'いまのパートナー' : e.metDate.slice(5).replace('-', '/') + ' 出会い'}
-                      </Text>
-                    </PressScale>
-                  );
-                })}
-              </View>
-            )}
-            {/* この子たちについて(世界観カード) */}
-            <Text style={styles.dexAboutTitle}>この子たちについて</Text>
-            <View style={styles.worldList}>
-              {WORLD_CARDS.map((c, i) => (
-                <View key={c.title} style={styles.worldCard}>
-                  <Icon name={c.icon} size={iconSize.md} color={colors.primaryOnSoft} />
-                  <View style={styles.worldCopy}>
-                    <Text style={styles.worldTitle}>{c.title}</Text>
-                    <Text style={styles.worldText}>{c.text}</Text>
-                  </View>
-                  {i < WORLD_CARDS.length - 1 && (
-                    <Icon name="chevron-down" size={14} color={colors.subtleForeground} />
-                  )}
-                </View>
-              ))}
-            </View>
-          </View>
-        </FadeIn>
-
         {/* Monthly Mood Calendar */}
         <FadeIn delay={350}>
           <MoodCalendar records={records} />
@@ -574,6 +587,7 @@ export default function GrowthScreen() {
             </View>
           </View>
         </FadeIn>
+        </View>}
       </ScrollView>
 
       {/* キャラ詳細(図鑑) */}
@@ -592,11 +606,12 @@ export default function GrowthScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: screenPadding, gap: space.lg },
+  detailsToggle: { minHeight: 48, padding: space.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
 
   /* 見出し */
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   titleCopy: { flex: 1 },
-  title: { ...typography.display, color: colors.foreground },
+  title: { ...typography.heading, color: '#4B3C52' },
   subtitle: { ...typography.caption, color: colors.mutedForeground, marginTop: space.xs },
   accountBtn: {
     width: control.icon,
@@ -612,11 +627,11 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     ...border.hairline,
-    borderRadius: radius.lg,
+    borderRadius: radius.md,
     padding: space.lg,
     gap: space.lg,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardHeader: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: { ...typography.subhead, color: colors.foreground },
   divider: { height: border.width, backgroundColor: colors.border },
 
