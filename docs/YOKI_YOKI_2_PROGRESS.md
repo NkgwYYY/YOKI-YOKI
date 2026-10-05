@@ -1,4 +1,44 @@
-# YOKI YOKI 2.0 — implementation progress
+# YOKI YOKI — 3.0 active / 2.0 history
+
+## ACTIVE: YOKI YOKI 3.0 (2026-10-05 JST)
+
+The user explicitly requested a full 3.0 redesign and removal of game access. This section supersedes the old 2.0 next-action/no-HOME-rebuild instructions below. The full user-supplied brief is retained in the conversation attachment and is not published to this public repository. Branch: `codex/yoki-yoki-3-world`.
+
+| 3.0 phase | Status | Evidence / remaining work |
+| --- | --- | --- |
+| 0 AUDIT | COMPLETE | Fresh main fetch; inspected working tree, architecture/data/assets, freshly exported and rendered HOME/record/energy/album; before screenshots under docs/qa/yoki-v3/before |
+| 1 PRODUCT DESIGN | COMPLETE | Core loop, data preservation, no-game scope, accessible explicit actions documented |
+| 2 VISUAL DIRECTION | COMPLETE | Cottage/terrace/forest composition, foreground tank garden, time and character direction documented; final visuals still need review |
+| 3 FOUNDATION | COMPLETE (local QA) | Presentation-only time/scene geometry, shared dock spacing, no game access; original data/transactions retained |
+| 4 HOME | COMPLETE (local QA) | Day/night full-bleed cottage, grounded original mascot, hints and safe hit areas; 320×568 / 390×844 / 820×1180 / 844×390 browser checks |
+| 5 CHARACTER LIFE | COMPLETE (local QA) | Greeting/petting/lift/drop/bed/meal staging verified; one food debit, paused routines, reduced motion |
+| 6 DAILY RECORD | COMPLETE (local QA) | One primary quick entry, landscape two-column form, save→resident/light→garden, same-day no repeated gain, reload preservation |
+| 7 ENERGY WORLD | IN PROGRESS | Recompose scene around grounded character, cable and liquid tank |
+| 8 CHARACTER BOOK | NOT STARTED | Existing data retained; visual redesign pending |
+| 9 POLISH | NOT STARTED | Cross-screen final visual/interaction review |
+| 10 QA | NOT STARTED | Fresh complete flow, typecheck/export, responsive and motion tests; physical iPad unavailable |
+
+Starting commit: `2d2d6e2b3882bd81f1c0722977dddd7c93a23fce`. Main: `f99bf9ff3d2a9887ec88afc1321209402a2a6278` (2026-09-23 08:08:02 JST). No unfinished source edits; unrelated binary differences and prior generated exports excluded. The user's Replit main merge/build results were supplied as a screenshot; its unpushed conflict-resolution edits cannot be assumed present here. Reconcile them before release. The previous 2.0 draft PR must not be treated as the 3.0 release.
+
+Audit validation: fresh Web export PASS; local guest browser inspection reported no page errors. This is browser evidence, not physical/native certification. New illustration production underway; original character art untouched. Preserve 2.0 history below for data/implementation context.
+
+## Resume 2026-10-05 — interrupted 3.0 source recovered
+
+Fetched origin; main remains `f99bf9ff3d2a`, remote 3.0 branch is at `2d2d6e2`. Local design commit `fdc19ce` and uncommitted HOME/life/navigation code survived; they had not reached GitHub. Resuming those changes, not rebuilding the completed audit. Initial mobile typecheck found four invalid Image pointerEvents props; moving them to non-interactive View wrappers. Unrelated MP3/MP4/PNG differences and old build outputs remain excluded. This recovered source is now locally validated; it is not released.
+
+
+## 3.0 HOME/life/record checkpoint — 2026-10-05
+- Corrected RN Image intrinsic-size overflow after actual render: explicit image frame dimensions align the scene, furniture hotspots and resident feet. Fixed horizontal controls overlapping the resident, bowl-food placement, and landscape record save falling below the visible sheet.
+- Direct mobile typecheck PASS; all 261 unit/regression tests PASS (including 4 new world/time/path invariants). Expo Web/iOS/Android export PASS; latest subsequent edit only adjusts HOME landscape footer left positioning, verified in a fresh Web export. Export is a JS/assets bundle, not a signed native build.
+- `tests/world.browser.cjs`: tap/pet/lift/drop; bed→meal; pause behind sheet; one food debit; food cleanup; record→light→garden; same-day update; three tabs; four viewports; no obstructed hotspot centres; reduced motion; saved reload. No page errors. Japanese QA font installed only in test environment.
+- Visual evidence: `docs/qa/yoki-v3/home/`. PNG-to-JPEG source encoding keeps 1024×1536 dimensions and reduces the two backgrounds from 6.28 MB to 1.77 MB; character artwork is unchanged. Remaining: authenticated account round-trip and actual native/device gestures, safe areas, screen readers and profiling.
+- Subjective HOME review after screenshot-driven fixes /100: WORLD 85, CHARACTER 82, VISUAL 85, DEPTH 84, UX 83, EMOTION 81, YOKI YOKI 82. These are development judgments, not user acceptance or native certification. Before/after evidence and known bounds are retained.
+- Publication scope: automatic approval review rejected publishing the complete user-provided brief. The detailed design/audit document was also rejected. Both documents are excluded, including from published commit ancestry; source changes, implementation progress and QA evidence continue to be saved.
+- Next earliest phase: 7 ENERGY WORLD. Preserve recoverable `receiveGardenReward`; rebuild composition and transparent tank, then test true empty/full levels, one receipt, reload, responsive and reduced-motion views. Phase 8 book and phases 9–10 remain open.
+
+---
+
+# YOKI YOKI 2.0 — archived implementation progress
 
 ## Resume checkpoint
 - Started: 2026-09-28; source main: `f99bf9ff3d2a9887ec88afc1321209402a2a6278` (2026-09-22 23:08:02 UTC).

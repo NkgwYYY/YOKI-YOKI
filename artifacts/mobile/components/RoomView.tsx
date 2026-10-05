@@ -12,7 +12,6 @@ export { GrassTexture } from './room/LegacyFurniture';
 const ART = {
   background: require('@/assets/images/room/room-night.jpg'),
   desk: require('@/assets/images/room/writing-desk.png'),
-  music: require('@/assets/images/room/record-player.png'),
   meal: require('@/assets/images/room/milk.png'),
   plant: require('@/assets/images/room/plant.png'),
 };
@@ -48,7 +47,6 @@ export function RoomView(props: Props) {
         {props.hints && <Text style={[s.label, { bottom: 0 }]}>ひと休み</Text>}
       </Pressable>
       {object('record', '今日の記録', ART.desk, 0.24, 0.85, 0.39, props.onRecord)}
-      {object('music', '音楽であそぶ', ART.music, 0.81, 0.75, 0.25, props.onPlay)}
       {object('meal', 'ごはん', ART.meal, 0.79, 0.90, 0.19, props.onFeed)}
       {props.customization.flower !== 'none'
         ? <View pointerEvents="none" style={{ position: 'absolute', left: width * 0.25, top: height * 0.40, zIndex: 520 }}>

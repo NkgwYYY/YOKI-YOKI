@@ -13,7 +13,7 @@ import { BerryIcon, AppleIcon, CandyIcon, CakeFoodIcon, RamenIcon, SpecialFoodIc
 interface FeedModalProps {
   visible: boolean;
   onClose: () => void;
-  onFed?: () => void;
+  onFed?: (foodId: string) => void;
 }
 
 function getFoodIllustration(id: string) {
@@ -143,7 +143,7 @@ export function FeedModal({ visible, onClose, onFed }: FeedModalProps) {
       const result = await feedMascot(foodId);
       if (!mounted.current) return;
       if (result.success) {
-        if (onFed) { onFed(); return; }
+        if (onFed) { onFed(foodId); return; }
         setIsEating(true);
         timers.current.push(setTimeout(() => setIsEating(false), 800));
       }
@@ -193,7 +193,7 @@ export function FeedModal({ visible, onClose, onFed }: FeedModalProps) {
 
       <View style={modalStyles.hint}>
         <Icon name="info" size={iconSize.xs} color={colors.subtleForeground} />
-        <Text style={modalStyles.hintText}>YOKIポイントは記録やミニゲームで貯まるよ</Text>
+        <Text style={modalStyles.hintText}>今日の記録や、ひかりの庭で受け取ったポイントを使えるよ</Text>
       </View>
 
       <FeedToast message={toast.message} visible={toast.visible} />

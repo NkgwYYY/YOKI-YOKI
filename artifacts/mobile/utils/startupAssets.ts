@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 
 const STARTUP_IMAGE_MODULES: ImageSourcePropType[] = [
-  require('@/assets/images/room/room-night.jpg'),
+  require('@/assets/images/world/home-day.jpg'),
+  require('@/assets/images/world/home-night.jpg'),
   require('@/assets/images/yoki_logo.png'),
   require('@/assets/images/egg/normal.png'),
   require('@/assets/images/egg/happy.png'),

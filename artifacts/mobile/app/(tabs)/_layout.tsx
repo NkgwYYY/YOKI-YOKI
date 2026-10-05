@@ -1,111 +1,44 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Redirect, Tabs } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { homePalette, typography } from '@/constants/theme';
+import { homePalette } from '@/constants/theme';
 import { NewFriendModal } from '@/components/dex/NewFriendModal';
 import { LightFlowHost } from '@/components/LightFlowHost';
-import { Icon, iconSize } from '@/components/ui/Icon';
+import { Icon } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getTabBarHeight } from '@/utils/tabLayout';
+
+type DockProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
+function WorldDock({state, navigation}: DockProps) {
+  const insets = useSafeAreaInsets();
+  const places = [{name: 'index', label: 'おうち', icon: 'home'}, {name: 'plant', label: 'ひかり', icon: 'zap'}, {name: 'growth', label: '思い出', icon: 'book-open'}] as const;
+  return <View pointerEvents="box-none" style={{position: 'absolute', bottom: Math.max(12, insets.bottom), left: 16, right: 16, alignItems: 'center'}}>
+    <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 30, backgroundColor: '#243932F0', borderWidth: 1, borderColor: '#C9D0AC45'}}>
+      {places.map(place => {
+        const route = state.routes.find(r => r.name === place.name);
+        if (!route) return null;
+        const selected = state.routes[state.index].key === route.key;
+        return <Pressable key={route.key} accessibilityRole="tab" accessibilityLabel={place.label} accessibilityState={{selected}}
+          onPress={() => {const event = navigation.emit({type: 'tabPress', target: route.key, canPreventDefault: true}); if (!selected && !event.defaultPrevented) navigation.navigate(route.name, route.params);}}
+          onLongPress={() => navigation.emit({type: 'tabLongPress', target: route.key})}
+          style={({pressed}) => ({flex: 1, minHeight: 48, borderRadius: 25, alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: selected ? '#EFF0D61A' : 'transparent', opacity: pressed ? 0.7 : 1})}>
+          <Icon name={place.icon} size={20} color={selected ? '#F8E5B4' : '#B9C7B9'} />
+          <Text style={{fontSize: 10, color: selected ? '#F8E5B4' : '#B9C7B9'}}>{place.label}</Text>
+        </Pressable>;
+      })}
+    </View>
+  </View>;
+}
 
 function ClassicTabLayout() {
-  const insets = useSafeAreaInsets();
-  const isIOS = Platform.OS === 'ios';
-  const isWeb = Platform.OS === 'web';
-
-  return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#F0D6B6',
-        tabBarInactiveTintColor: homePalette.navInactive,
-        headerShown: false,
-        tabBarLabelStyle: typography.micro,
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          // 面の区切りは上端の 1px だけ。影は敷かない。
-          backgroundColor: isIOS ? 'transparent' : homePalette.navBackground,
-          borderTopWidth: 1,
-          borderTopColor: homePalette.navBorder,
-          elevation: 0,
-          height: getTabBarHeight(Platform.OS, insets.bottom),
-        },
-        tabBarBackground: () =>
-          isIOS ? (
-            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
-          ) : isWeb ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: homePalette.navBackground }]} />
-          ) : null,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: '部屋',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="house" tintColor={color} size={24} />
-            ) : (
-              <Icon name="home" size={iconSize.lg} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="record"
-        options={{
-          title: '記録', href: null,
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="pencil" tintColor={color} size={24} />
-            ) : (
-              <Icon name="edit-3" size={iconSize.lg} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: 'チャット', href: null,
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="bubble.left.and.bubble.right" tintColor={color} size={24} />
-            ) : (
-              <Icon name="message-circle" size={iconSize.lg} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="growth"
-        options={{
-          title: 'アルバム',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="chart.line.uptrend.xyaxis" tintColor={color} size={24} />
-            ) : (
-              <Icon name="trending-up" size={iconSize.lg} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="plant"
-        options={{
-          title: 'ひかりの庭',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="sparkles" tintColor={color} size={24} />
-            ) : (
-              <Icon name="star" size={iconSize.lg} color={color} />
-            ),
-        }}
-      />
-    </Tabs>
-  );
+  return <Tabs tabBar={props => <WorldDock {...props} />} screenOptions={{headerShown: false}}>
+    <Tabs.Screen name="index" options={{title: 'おうち'}} />
+    <Tabs.Screen name="plant" options={{title: 'ひかり'}} />
+    <Tabs.Screen name="growth" options={{title: '思い出'}} />
+    <Tabs.Screen name="record" options={{title: '今日の記録', href: null}} />
+    <Tabs.Screen name="chat" options={{title: 'おはなし', href: null}} />
+  </Tabs>;
 }
 
 export default function TabLayout() {
