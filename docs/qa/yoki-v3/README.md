@@ -27,6 +27,7 @@ export YOKI_QA_SCREENSHOTS=/tmp/yoki-v3-screenshots
 node artifacts/mobile/tests/world.browser.cjs
 node artifacts/mobile/tests/worldJourney.browser.cjs
 node artifacts/mobile/tests/feedAccessibility.browser.cjs
+node artifacts/mobile/tests/residentGestures.browser.cjs
 ```
 
 Run those browser commands from the repository root. Each starts and closes its own local static server and browser; fixtures seed local storage. Use a Japanese-capable system font to inspect typography. The optional `YOKI_QA_CHROMIUM_BUNDLE` points to the `@sparticuz/chromium` module when that environment requires its launch arguments; no app dependency is added.
@@ -41,3 +42,9 @@ Run those browser commands from the repository root. Each starts and closes its 
 - Food journal-write failure leaves the balance unchanged; retry debits once; disabled controls and keyboard operation passed.
 
 Remaining: actual native device/runtime checks (including the previously reported iPad interaction issue), VoiceOver/TalkBack, native keyboard/safe areas/gestures/performance, real authenticated synchronization and the existing signed-release pipeline. Chat tests do not certify production AI behavior. Earlier 2.0 rhythm-entry browser scripts describe retired navigation and are not the 3.0 entry-point regression suite. Archived rhythm source/data remain preserved.
+
+## Interruption follow-up — 2026-10-06
+
+The fresh Web build initially could not resolve `babel-preset-expo` from the mobile Babel config. It is now a direct dev dependency using the already-locked version, with no transitive upgrades. A fresh Web/iOS/Android export passed after the dependency declaration and resident fix.
+
+`residentGestures.browser.cjs` reproduced a real interaction defect: grabbing again before a landing finished restarted autonomous walking during the new hold. The fixed component invalidates superseded landing callbacks, stops the old motion and ignores release events after background cleanup. The browser touch-event regression verifies stationary long holds after immediate re-grab, touch cancellation, background/return and usable record/chat controls. It also captures the resulting screen when `YOKI_QA_SCREENSHOTS` is set. This is additional browser evidence, not native OS gesture certification.

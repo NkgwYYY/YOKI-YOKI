@@ -36,6 +36,7 @@ export function RoomResident(props: Props) {
   const touchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const taps = useRef({count: 0, at: 0});
   const gestureActive = useRef(false);
+  const gestureGeneration = useRef(0);
   const lifted = useRef(false);
   const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const start = useRef(initial);
@@ -97,7 +98,7 @@ export function RoomResident(props: Props) {
       lift.setValue(0); squash.setValue(0); shine.setValue(0);
       gestureActive.current = false; lifted.current = false; setHeld(false); setHappy(false); setInteracting(false);
     }
-    return () => { clearTimeout(holdTimer.current); clearTimeout(touchTimer.current); position.stopAnimation(); lift.stopAnimation(); squash.stopAnimation(); shine.stopAnimation(); };
+    return () => { gestureGeneration.current++; clearTimeout(holdTimer.current); clearTimeout(touchTimer.current); position.stopAnimation(); lift.stopAnimation(); squash.stopAnimation(); shine.stopAnimation(); };
   }, [active, position, lift, squash, shine]);
 
   const responder = useMemo(() => {
@@ -106,6 +107,9 @@ export function RoomResident(props: Props) {
     let travel = 0;
     let previousX = 0;
     const release = (cancelled: boolean) => {
+      // Native cancellation/background cleanup may already have ended this touch.
+      if (!gestureActive.current) return;
+      const generation = gestureGeneration.current;
       clearTimeout(holdTimer.current);
       gestureActive.current = false;
       const wasLifted = lifted.current;
@@ -119,6 +123,7 @@ export function RoomResident(props: Props) {
       // A bed is a routine-only destination; dropping always returns to clear floor.
       position.setValue((latest.current.world ? safeWorldPoint : safeRoomPoint)(foot.current));
       const land = () => {
+        if (generation !== gestureGeneration.current || !latest.current.active) return;
         setHeld(false); setInteracting(false);
         if (!cancelled) latest.current.onInteract?.('land');
         if (!latest.current.active || latest.current.reduceMotion) return;
@@ -131,6 +136,10 @@ export function RoomResident(props: Props) {
     return PanResponder.create({
       onStartShouldSetPanResponder: () => latest.current.active,
       onPanResponderGrant: () => {
+        // A previous landing must never end a newly started hold or restart its routine.
+        gestureGeneration.current++;
+        lift.stopAnimation(); squash.stopAnimation();
+        lift.setValue(0); squash.setValue(0); setHeld(false);
         moved = false; stroked = false; travel = 0; previousX = 0; setInteracting(true);
         gestureActive.current = true; lifted.current = false;
         position.stopAnimation(); start.current = foot.current;
