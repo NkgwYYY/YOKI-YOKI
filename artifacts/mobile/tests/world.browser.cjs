@@ -32,7 +32,7 @@ async function seed(page) {
   const errors=[];
   const shot=async(page,name)=>{if(out){fs.mkdirSync(out,{recursive:true});await page.screenshot({path:path.join(out,name+'.jpg'),quality:90});}};
   const open=async(viewport,night=false,reducedMotion='no-preference')=>{
-    const page=await browser.newPage({viewport,locale:'ja-JP',timezoneId:'Asia/Tokyo',reducedMotion});
+    const page=await browser.newPage({viewport,locale:'ja-JP',timezoneId:'Asia/Tokyo',hasTouch:true,reducedMotion});
     page.on('pageerror',e=>errors.push(e.message));
     await page.clock.install({time: new Date(night?'2026-10-05T21:00:00+09:00':'2026-10-05T09:00:00+09:00')});
     await seed(page);
@@ -108,13 +108,17 @@ async function seed(page) {
       const before=await p.getByTestId('room-resident').getAttribute('style');
       await p.getByTestId('room-bed').click();await p.waitForTimeout(600);
       assert.equal(await p.getByTestId('room-resident').getAttribute('style'),before);
-      await p.getByTestId('home-daily-record').click();await p.getByTestId('quick-mood-3').click();
-      await inBounds(p,'quick-record-save');await shot(p,'record-'+name);await p.getByTestId('quick-record-save').click();
+      await p.getByTestId('room-meal').tap();await p.getByText('きのみ',{exact:true}).tap();
+      await p.getByTestId('world-food-offering').waitFor();await p.getByTestId('world-food-offering').waitFor({state:'hidden'});
+      await p.getByTestId('home-chat').tap();await p.getByText('少し、お話しする',{exact:true}).waitFor();
+      await p.getByLabel('閉じる',{exact:true}).last().tap();
+      await p.getByTestId('home-daily-record').tap();await p.getByTestId('quick-mood-3').tap();
+      await inBounds(p,'quick-record-save');await shot(p,'record-'+name);await p.getByTestId('quick-record-save').tap();
       await p.getByTestId('light-flow-feedback').waitFor();
       assert.equal(await p.getByTestId('light-flow-particle').count(),0);
       await p.reload();await p.getByTestId('room-scene').waitFor();await p.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
       assert.equal(await p.getByTestId('light-flow-feedback').count(),0);
-      await p.close();console.log(`PASS ${name}: reachable controls, static motion, short record, saved reload`);
+      await p.close();console.log(`PASS ${name}: reachable controls, touch feeding/chat/record, static motion, saved reload`);
     }
     assert.deepEqual(errors,[]);console.log('PASS no page errors');
   } finally {await browser.close();server.close();}

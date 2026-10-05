@@ -14,7 +14,7 @@ function WorldDock({state, navigation}: DockProps) {
   const insets = useSafeAreaInsets();
   const places = [{name: 'index', label: 'おうち', icon: 'home'}, {name: 'plant', label: 'ひかり', icon: 'zap'}, {name: 'growth', label: '思い出', icon: 'book-open'}] as const;
   return <View pointerEvents="box-none" style={{position: 'absolute', bottom: Math.max(12, insets.bottom), left: 16, right: 16, alignItems: 'center'}}>
-    <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 30, backgroundColor: '#243932F0', borderWidth: 1, borderColor: '#C9D0AC45'}}>
+    <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 30, backgroundColor: '#243932', borderWidth: 1, borderColor: '#C9D0AC45'}}>
       {places.map(place => {
         const route = state.routes.find(r => r.name === place.name);
         if (!route) return null;

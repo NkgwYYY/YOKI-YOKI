@@ -8,15 +8,26 @@ The user explicitly requested a full 3.0 redesign and removal of game access. Th
 | --- | --- | --- |
 | 0 AUDIT | COMPLETE | Fresh main fetch; inspected working tree, architecture/data/assets, freshly exported and rendered HOME/record/energy/album; before screenshots under docs/qa/yoki-v3/before |
 | 1 PRODUCT DESIGN | COMPLETE | Core loop, data preservation, no-game scope, accessible explicit actions documented |
-| 2 VISUAL DIRECTION | COMPLETE | Cottage/terrace/forest composition, foreground tank garden, time and character direction documented; final visuals still need review |
+| 2 VISUAL DIRECTION | COMPLETE | Cottage/terrace/forest composition, foreground tank garden and original character direction implemented; local rendered review recorded below |
 | 3 FOUNDATION | COMPLETE (local QA) | Presentation-only time/scene geometry, shared dock spacing, no game access; original data/transactions retained |
 | 4 HOME | COMPLETE (local QA) | Day/night full-bleed cottage, grounded original mascot, hints and safe hit areas; 320×568 / 390×844 / 820×1180 / 844×390 browser checks |
 | 5 CHARACTER LIFE | COMPLETE (local QA) | Greeting/petting/lift/drop/bed/meal staging verified; one food debit, paused routines, reduced motion |
 | 6 DAILY RECORD | COMPLETE (local QA) | One primary quick entry, landscape two-column form, save→resident/light→garden, same-day no repeated gain, reload preservation |
 | 7 ENERGY WORLD | COMPLETE (local QA) | Full-scene garden, grounded cord, cylindrical transparent tank; 0/50/100/250 display, one receipt/reload, motion pause and four viewport checks |
 | 8 CHARACTER BOOK | COMPLETE (local QA) | Paper album with original portraits, encountered-only friends/dates and excerpts from saved records; details remain optional; browser interaction and preservation checks passed |
-| 9 POLISH | IN PROGRESS | Reviewed garden/book screenshots; compact wording and opaque dock improve readability; final cross-screen touch pass underway |
-| 10 QA | IN PROGRESS | 264 unit tests and current mobile/Web checks passed; final all-platform export and touch regression underway; native/device/account QA still unverified |
+| 9 POLISH | COMPLETE (local QA) | Inspected final HOME/record/garden/book renders; compact wording and opaque dock; portrait/tablet/landscape touch flows passed |
+| 10 QA | PARTIAL — local checks complete | 264 tests, workspace/mobile typechecks, API build, Web/iOS/Android export and browser flows passed; native/device/account QA remains unverified |
+
+## Local validation checkpoint — 2026-10-05 21:20 JST
+
+- GitHub saved PHASE 7 as `a2968b7516af1e431ccc05aa5dc13419d5823cbb` and PHASE 8 as `d5f99ff2f95271d6a4e2a57a24ec9a13ce1dcaaa`. Fetched both and verified the remote tree exactly matches the local source checkpoint. Main remains `f99bf9ff3d2a9887ec88afc1321209402a2a6278`.
+- Completed the PHASE 9 local pass: made the floating dock opaque so scrolling album text does not show through; shortened the empty-book caption. Original character artwork and all storage/balance rules remain intact.
+- Final mobile typecheck and 264 unit/regression tests PASS. Shared libraries, API server, character-lab and item-admin typechecks PASS; API server bundle PASS. Final Expo Web, iOS and Android exports PASS. These are compiled JS/assets bundles, not signed native builds.
+- `world.browser.cjs` PASS against the final export: greeting/petting/hold/drop/bed/meal, one food debit, record→light→garden, same-day update, pause/reduced motion and reload. Actual browser touchscreen taps exercised food/chat/record at 320×568, 820×1180, 844×390 and 390×844 night. No page errors. Chat verification opens/closes the conversation sheet; it does not send a production AI request.
+- `worldJourney.browser.cjs` PASS against the same export: empty/half/full/overflow tank, one receipt and restart preservation, foreground/motion cleanup, encountered-only book, actual saved excerpts, detail disclosure, unchanged source records and monthly-report navigation at four viewports. `feedAccessibility.browser.cjs` PASS at 320×480: keyboard action, insufficient-points disabled state, injected journal-write failure/retry, exactly one debit and reload.
+- Inspected final screenshots, including small HOME, landscape HOME/record/garden and populated/empty book. Selected synthetic guest evidence is in `docs/qa/yoki-v3/final/`; reproducible commands and scope are in `docs/qa/yoki-v3/README.md`.
+- No interrupted 3.0 source implementation remains in PHASE 3–9. Next earliest incomplete phase is PHASE 10: native device/runtime gestures, safe areas, keyboard, accessibility and performance; authenticated record/balance/inventory/chat round-trip. Browser tablet sizing does not replace iPad verification. The user does not own an iPad; do not ask them to repeat unavailable hardware checks or mark them passed.
+- Before integration/release, reconcile the user's unpushed Replit conflict resolutions with this branch and use the existing release configuration. No main merge, deployment, DB push or signed release was performed. Unrelated existing binary differences and old export directories remain excluded. Resume by fetching main/work branch and reading this section; do not restart completed features.
 
 ## Latest resume — 2026-10-05 20:56 JST
 
@@ -26,7 +37,7 @@ The user explicitly requested a full 3.0 redesign and removal of game access. Th
 - PHASE 8: MemoryBook prioritizes an original-art portrait, actual encounter dates and three latest real saved moments. Never invents visits or exposes future characters. Moved numerical growth comparison/history behind the existing details disclosure; retained existing character modal, account controls, statistics and monthly report. Corrected the new report link to the existing /monthly-report route during typecheck. Four-viewport browser checks covered empty/populated book, character detail, hidden future character, history order, details toggle, unchanged source records and report navigation.
 - 264 unit tests PASS, including tank-boundary and read-only memory selection tests. Mobile typecheck and shared-library build/typecheck PASS. Fresh Web export and API bundle build PASS. Latest full iOS/Android bundle validation is being refreshed after these screen changes.
 - Subjective screenshot review /100 (WORLD/CHARACTER/VISUAL/DEPTH/UX/EMOTION/YOKI): garden 84/82/83/82/85/81/87; book 81/84/84/80/84/85/84. These are development assessments, not user acceptance or native certification.
-- Next: finish PHASE 9/10 local cross-screen/touch checks, record final build results, and publish the garden/book checkpoint. Native iPad/iPhone/Android operation, accessibility/performance and authenticated synchronization remain unverified; no main merge, deployment, DB push or signed app release has been performed.
+- This resume's PHASE 7/8 work and final local checks are complete; see the newer validation checkpoint above. Native iPad/iPhone/Android operation, accessibility/performance and authenticated synchronization remain unverified; no main merge, deployment, DB push or signed app release has been performed.
 
 
 Starting commit: `2d2d6e2b3882bd81f1c0722977dddd7c93a23fce`. Main: `f99bf9ff3d2a9887ec88afc1321209402a2a6278` (2026-09-23 08:08:02 JST). At the initial audit there were no unfinished source edits; unrelated binary differences and prior generated exports excluded. The user's Replit main merge/build results were supplied as a screenshot; its unpushed conflict-resolution edits cannot be assumed present here. Reconcile them before release. The previous 2.0 draft PR must not be treated as the 3.0 release.
