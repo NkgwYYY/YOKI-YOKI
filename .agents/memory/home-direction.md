@@ -1,7 +1,15 @@
 ---
 name: YOKI YOKI home direction
-description: Durable visual and interaction rules for the mobile app home screen.
+description: The former grass-scene direction is historical; the user intentionally adopted the room concept.
 ---
+
+The former no-room/grass-scene direction below is historical, not a constraint on the current room concept. Do not revert the imported room experience merely to satisfy the older scene rules.
+
+**Why:** On 2026-10-05, the user explicitly requested integration of the room implementation from their GitHub branch, superseding the previous home composition.
+
+**How to apply:** Use the integrated room experience as the starting point for future home changes. Preserve existing safety and data protections independently of visual changes.
+
+## Historical grass-scene guidance (superseded)
 
 Keep the home as one seamless scene: a light lavender upper background with pale-pink image grass at the character's feet. The grass must fill the lower area edge-to-edge and meet the bottom navigation without side or bottom gaps, but stay low enough that its central crest does not cover the character. The character always renders above the grass and sits lightly on that central crest. Overlay the four main actions on the hill rather than placing them below it. Do not place a translucent capsule or aura behind the character, or a flat-color panel behind the main actions. Furniture and flowers appear only after purchase. The main actions stay visible below the character within one screen.
 
