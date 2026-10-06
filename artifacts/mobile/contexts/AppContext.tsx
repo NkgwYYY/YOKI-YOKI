@@ -639,16 +639,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const data = Object.fromEntries(Object.entries(received).filter(([key]) => allowed.includes(key)));
         const backup = source === 'cloud' && wasGuestRef.current;
         const snapshot = backup ? await mergeGuestWithCloud(data) : data;
-        await AsyncStorage.transaction(() => {
-          if (!isCurrent()) throw new Error('Account changed');
-          return {
-            entries: Object.entries(snapshot).map(([key, value]): [string, string] =>
-              [key, typeof value === 'string' ? value : JSON.stringify(value)]),
-            result: undefined,
-          };
-        });
-        if (!isCurrent()) throw new Error('Account changed');
-        if (!backup && !(KEYS.PROFILE in data)) await AsyncStorage.removeItem(KEYS.PROFILE);
+        await AsyncStorage.replaceSnapshot(Object.fromEntries(Object.entries(snapshot).map(([key, value]) =>
+          [key, typeof value === 'string' ? value : JSON.stringify(value)])), isCurrent);
         if (!isCurrent() || !await loadAll(isCurrent)) throw new Error('Account data could not be loaded');
         wasGuestRef.current = false;
         return { backup };
@@ -779,7 +771,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         assertCurrent();
       }
 
-      if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
+      setInactivityHours(lastOpenedStr ? computeInactivityHours(lastOpenedStr) : 0);
       await AsyncStorage.setItem(KEYS.LAST_OPENED, new Date().toISOString());
       assertCurrent();
 
@@ -797,15 +789,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         assertCurrent();
       }
 
-      if (progressStr) setProgress(JSON.parse(progressStr));
-      if (recordsStr)  setRecords(JSON.parse(recordsStr));
-      if (badgesStr)   setUnlockedBadges(JSON.parse(badgesStr));
-      if (nameStr)     setMascotNameState(nameStr);
-      if (feedStr) {
-        const parsed = JSON.parse(feedStr);
-        feedStateRef.current = parsed;
-        setFeedState(parsed);
-      }
+      setProgress(progressStr ? JSON.parse(progressStr) : defaultProgress);
+      setRecords(recordsStr ? JSON.parse(recordsStr) : []);
+      setUnlockedBadges(badgesStr ? JSON.parse(badgesStr) : []);
+      setMascotNameState(nameStr ?? '');
+      const loadedFeed = feedStr ? JSON.parse(feedStr) : defaultFeedState;
+      feedStateRef.current = loadedFeed;
+      setFeedState(loadedFeed);
+      setNewlyUnlockedBadge(null);
+      setNewEncounters([]);
       setMiniGameState(resolveMiniGameState(miniGameStr ? JSON.parse(miniGameStr) : null));
       if (profileStr) {
         try { setProfile(JSON.parse(profileStr)); } catch { setProfile(null); }

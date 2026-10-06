@@ -97,3 +97,40 @@ test('interrupted deletion can be retried without clearing unrelated account dat
   await f.open().clearAll();
   assert.deepEqual([...f.data], [['other-account', 'keep']]);
 });
+
+test('complete snapshot replaces present keys and removes absent keys without touching outboxes', async () => {
+  const f = fixture(); f.data.set('other-account-outbox', 'keep');
+  await f.open().replaceSnapshot({ feed: '{"points":7}' });
+  assert.deepEqual([...f.data], [['feed', '{"points":7}'], ['other-account-outbox', 'keep']]);
+});
+for (const failAt of [1, 2, 3, 4, 5]) test(`snapshot interruption ${failAt}: restart recovers removals and writes together`, async () => {
+  const f = fixture(failAt); f.data.set('other-account-outbox', 'keep');
+  await assert.rejects(f.open().replaceSnapshot({ feed: '{"points":7}' }));
+  if (failAt === 1) assert.deepEqual(read(f.data), initial);
+  else {
+    await f.open().recover();
+    assert.equal(f.data.has('energy'), false); assert.equal(f.data.has('plant'), false);
+    assert.equal(f.data.get('feed'), '{"points":7}'); assert.equal(f.data.has('journal'), false);
+  }
+  assert.equal(f.data.get('other-account-outbox'), 'keep');
+});
+test('empty account snapshot removes all managed keys', async () => {
+  const f = fixture(); await f.open().replaceSnapshot({}); assert.equal(f.data.size, 0);
+});
+test('a superseded account cannot prepare a replacement journal', async () => {
+  const f = fixture(); await assert.rejects(f.open().replaceSnapshot({}, () => false));
+  assert.deepEqual(read(f.data), initial); assert.equal(f.data.has('journal'), false);
+});
+test('foreign keys and non-string snapshot values are rejected before mutation', async () => {
+  for (const snapshot of [{ foreign: 'overwrite' }, { feed: null }, { feed: undefined }]) {
+    const f = fixture(); await assert.rejects(f.open().replaceSnapshot(snapshot));
+    assert.deepEqual(read(f.data), initial); assert.equal(f.data.has('journal'), false);
+  }
+});
+test('version 1 nulls and version 2 foreign removals remain invalid and preserved', async () => {
+  for (const journal of [{ version: 1, entries: [['feed', null]] }, { version: 2, entries: [['foreign', null]] }]) {
+    const f = fixture(); const raw = JSON.stringify(journal); f.data.set('journal', raw);
+    await assert.rejects(f.open().recover()); assert.equal(f.data.get('journal'), raw);
+    assert.deepEqual(read(f.data), initial);
+  }
+});

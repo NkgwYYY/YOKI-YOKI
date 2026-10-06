@@ -81,3 +81,13 @@ node artifacts/mobile/tests/accountLifecycle.browser.cjs
 `final/account-logout-retry.jpg` and `final/account-reopen-retry.jpg` show the inspected local harness with synthetic account data. They demonstrate readable retry feedback, not production authentication or native screen-reader behavior. Deletion spans backend, local storage and Clerk; the tests do not certify a distributed transaction, in-flight server mutations or real identity-provider transitions. Shared local-cache isolation across accounts also remains unverified. Live-account/native/release gates remain open.
 
 The final full export also passed `worldJourney.browser.cjs` at 320×568, 390×844, 820×1180 and 844×390: actual tank values, one reward receipt and reload, HOME return, encountered-only album, unchanged records and report navigation, with no page errors.
+
+## Account snapshot follow-up — 2026-10-06
+
+`cloudSync.browser.cjs` initially failed when switching directly to a signed-in account with only a profile in its cloud snapshot: the preceding account's record remained in memory/storage. Hydration now replaces every managed app key, including removal of absent keys, and loadAll restores defaults for absent state. The local recovery journal accepts a version 2 format for removals; existing version 1 balance transactions remain unchanged and readable. Other accounts' outboxes and unrelated storage keys are excluded.
+
+The extended browser flow passes after an injected removal failure and retry, verifies zero records/points and default name/progress, and confirms the next upload contains no previous records or inventory. The inspected `final/sync-account-switch.jpg` shows the synthetic local harness. All 328 mobile tests, mobile typecheck and fresh Web/iOS/Android exports pass. Ten new storage checks cover complete/empty replacement, interruption at each persistence step, stale identity and invalid keys/values/journals.
+
+This covers direct signed-in snapshot hydration, not account → guest → account ownership, all other local caches, live Clerk transitions or native execution. Those remain release gates; no production account or database was used.
+
+The final exported `world.browser.cjs` also passed HOME interactions, meal debit, record/light/garden flow, same-day update, reduced motion and four-viewport touch/reload checks including night, with no page errors. The final HOME and small-phone record sheet were visually inspected after these storage changes.

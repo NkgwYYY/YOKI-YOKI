@@ -29,6 +29,8 @@ const entry = `import React from 'react'; import {createRoot} from 'react-dom/cl
       <Text style={{fontSize:21, color:'#34352E'}}>アカウント同期・ローカル検証</Text>
       <CloudSyncStatus state={app.cloudSyncState} onRetry={app.retryCloudSync}/>
       <Text testID="saved-name">{app.mascotName}</Text>
+      <Text testID="saved-record-count">保存された記録：{app.records.length}件</Text>
+      <Text testID="saved-points">ごはんポイント：{app.feedState.points}</Text>
       <Button label="記録を保存する" disabled={!app.cloudSynced || app.isLoading}
         onPress={() => app.saveRecord(4, 0, [], 'ローカル検証の記録', {sleepRecorded:false})}/>
       <Button label="名前を変更する" disabled={!app.cloudSynced || app.isLoading}
@@ -51,7 +53,8 @@ const entry = `import React from 'react'; import {createRoot} from 'react-dom/cl
       build.onResolve({ filter: /^@\/components\/ui\/Icon$/ }, () => ({ path: 'icons', namespace: 'fixture' }));
       build.onLoad({ filter: /.*/, namespace: 'fixture' }, ({ path: name }) => ({ resolveDir: mobile, loader: 'tsx', contents:
         name === 'auth' ? auth : name === 'storage' ? `export default {
-          getItem: async k => localStorage.getItem(k), removeItem: async k => localStorage.removeItem(k),
+          getItem: async k => localStorage.getItem(k),
+          removeItem: async k => { if(k === window.qaFailRemoveKey) throw Error('Injected removal failure'); localStorage.removeItem(k); },
           setItem: async (k,v) => { if(k === window.qaFailKey) throw Error('Injected storage failure'); localStorage.setItem(k,v); }
         };` : name === 'icons' ? 'export const Icon=()=>null; export const iconSize={md:18,sm:16};'
           : 'export const notificationAsync=async()=>{}; export const impactAsync=async()=>{}; export const selectionAsync=async()=>{}; export const NotificationFeedbackType={Success:1}; export const ImpactFeedbackStyle={Light:1};' }));
@@ -74,7 +77,9 @@ const entry = `import React from 'react'; import {createRoot} from 'react-dom/cl
       const request = route.request();
       if (request.method() === 'GET') {
         pulls++;
-        await route.fulfill({ json: mode === 'invalid-pull' ? { data: [] } : { data: {
+        await route.fulfill({ json: mode === 'invalid-pull' ? { data: [] } : mode === 'sparse-pull' ? { data: {
+          '@mentore/profile_v1': { nickname: '別のアカウント', ageRange: '回答しない', gender: '回答しない' },
+        } } : { data: {
           '@mentore/profile_v1': { nickname: '検証', ageRange: '回答しない', gender: '回答しない' },
           '@mentore/records_v2': [], '@mentore/mascot_name_v1': '相棒',
           '@yoki/balance_journal_v1': 'must never be applied',
@@ -135,6 +140,31 @@ const entry = `import React from 'react'; import {createRoot} from 'react-dom/cl
     assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('@mentore/records_v2'))), unsent);
     assert.deepEqual(sent.at(-1)['@mentore/records_v2'], unsent);
     console.log('PASS unacknowledged records survive app restart and an intervening account');
+    // A sparse account must not inherit the preceding account's omitted keys.
+    mode = 'sparse-pull';
+    await page.evaluate(() => {
+      localStorage.setItem('@mentore/shop_state_v2', '{"inventory":["previous-account-item"]}');
+      window.qaFailRemoveKey = '@mentore/records_v2';
+      window.qaAuth('account-c');
+    });
+    await page.getByTestId('cloud-sync-retry').waitFor();
+    assert.equal(await page.evaluate(() => window.qaApp.cloudSynced), false);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('@yoki/balance_journal_v1')).version), 2);
+    await page.evaluate(() => { window.qaFailRemoveKey = null; });
+    await page.getByTestId('cloud-sync-retry').tap();
+    await page.waitForFunction(() => window.qaApp.cloudSynced && window.qaApp.profile?.nickname === '別のアカウント');
+    assert.deepEqual(await page.evaluate(() => window.qaApp.records), []);
+    assert.equal(await page.evaluate(() => window.qaApp.feedState.points), 0);
+    assert.equal(await page.evaluate(() => window.qaApp.mascotName), '');
+    assert.equal(await page.evaluate(() => window.qaApp.progress.totalDays), 0);
+    assert.equal(await page.evaluate(() => localStorage.getItem('@mentore/shop_state_v2')), null);
+    assert.equal(await page.evaluate(() => localStorage.getItem('@mentore/records_v2')), null);
+    if (process.env.YOKI_QA_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.YOKI_QA_SCREENSHOTS, 'sync-account-switch.jpg'), quality: 90 });
+    await page.getByRole('button', { name: '名前を変更する', exact: true }).tap();
+    await page.getByText('クラウドへの同期が完了しています。', { exact: true }).waitFor();
+    assert.equal('@mentore/records_v2' in sent.at(-1), false);
+    assert.equal('@mentore/shop_state_v2' in sent.at(-1), false);
+    console.log('PASS sparse account clears preceding records/points/name/inventory in storage and memory before editing');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
