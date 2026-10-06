@@ -5,7 +5,7 @@ import {
   userItemEquipment,
   userItemInventory,
 } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../lib/auth";
 
 const syncRouter = Router();
@@ -29,8 +29,8 @@ syncRouter.get("/sync", requireAuth, async (req: AuthRequest, res) => {
 syncRouter.put("/sync", requireAuth, async (req: AuthRequest, res) => {
   try {
     const userId = req.userId!;
-    const { data } = req.body as { data: Record<string, unknown> };
-    if (!data || typeof data !== "object") {
+    const data: unknown = req.body?.data;
+    if (!data || typeof data !== "object" || Array.isArray(data) || Object.values(data).some(value => value === null)) {
       res.status(400).json({ error: "不正なデータです" });
       return;
     }
@@ -41,22 +41,14 @@ syncRouter.put("/sync", requireAuth, async (req: AuthRequest, res) => {
       return;
     }
 
-    for (const [key, value] of entries) {
-      const existing = await db
-        .select({ id: userData.id })
-        .from(userData)
-        .where(and(eq(userData.userId, userId), eq(userData.key, key)))
-        .limit(1);
-
-      if (existing.length > 0) {
-        await db
-          .update(userData)
-          .set({ value: value as any, updatedAt: new Date() })
-          .where(and(eq(userData.userId, userId), eq(userData.key, key)));
-      } else {
-        await db.insert(userData).values({ userId, key, value: value as any });
-      }
-    }
+    // One PostgreSQL statement is atomic for the complete snapshot. The existing
+    // unique (user_id, key) index also resolves concurrent first-write races.
+    await db.insert(userData)
+      .values(entries.map(([key, value]) => ({ userId, key, value })))
+      .onConflictDoUpdate({
+        target: [userData.userId, userData.key],
+        set: { value: sql`excluded.value`, updatedAt: new Date() },
+      });
 
     res.json({ ok: true });
   } catch {

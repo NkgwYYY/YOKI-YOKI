@@ -1,3 +1,4 @@
+import { CloudSyncStatus } from '@/components/account/CloudSyncStatus';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -61,7 +62,7 @@ function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
 
 export default function GrowthScreen() {
   const insets = useSafeAreaInsets();
-  const { progress, records, unlockedBadges, growth, markGrowthSeen, encounters, mascotName } = useApp();
+  const { progress, records, unlockedBadges, growth, markGrowthSeen, encounters, mascotName, cloudSyncState, retryCloudSync } = useApp();
   const [dexChar, setDexChar] = useState<CharacterKey | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const { active } = useRoomActivity();
@@ -224,6 +225,7 @@ export default function GrowthScreen() {
               </>
             )
           )}
+          {isSignedIn && !isIOSGuestOnly ? <CloudSyncStatus state={cloudSyncState} onRetry={retryCloudSync} /> : null}
           <Button
             label="プロフィールを編集"
             variant="outline"

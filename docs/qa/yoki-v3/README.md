@@ -1,6 +1,6 @@
 # YOKI YOKI 3.0 — local QA evidence
 
-All screenshots use synthetic local guest data and original app character artwork. They contain no signed-in account or real diary data. `before/` records the previous implementation; `home/` records the first validated 3.0 HOME checkpoint; `final/` records the final garden/book pass. Browser viewport emulation is not a native device test.
+All screenshots use synthetic local data and original app character artwork. They contain no signed-in account or real diary data. `before/` records the previous implementation; `home/` records the first validated 3.0 HOME checkpoint; `final/` records the final garden/book pass. Browser viewport emulation is not a native device test.
 
 ## Repeat after installing the repository's locked dependencies
 
@@ -48,3 +48,19 @@ Remaining: actual native device/runtime checks (including the previously reporte
 The fresh Web build initially could not resolve `babel-preset-expo` from the mobile Babel config. It is now a direct dev dependency using the already-locked version, with no transitive upgrades. A fresh Web/iOS/Android export passed after the dependency declaration and resident fix.
 
 `residentGestures.browser.cjs` reproduced a real interaction defect: grabbing again before a landing finished restarted autonomous walking during the new hold. The fixed component invalidates superseded landing callbacks, stops the old motion and ignores release events after background cleanup. The browser touch-event regression verifies stationary long holds after immediate re-grab, touch cancellation, background/return and usable record/chat controls. It also captures the resulting screen when `YOKI_QA_SCREENSHOTS` is set. This is additional browser evidence, not native OS gesture certification.
+
+## Synchronization follow-up — 2026-10-06
+
+`cloudSync.test.mjs` covers HTTP/envelope/ack failures, hung token/request/body deadlines, cancellation, stale sessions, latest-snapshot retry, ordered uploads, guest-backup acknowledgement and journal recovery. The 288 mobile tests passed. `cloudSync.browser.cjs` bundles the real AppProvider, journal, status component and record operation with explicit synthetic auth/storage adapters; it operates retry by browser touch. It never invokes Clerk or a production API. `final/sync-upload-retry.jpg` shows that local harness and is labeled accordingly. The full exported HOME/record/garden/book flow also passed at four viewports after these changes.
+
+The API suite uses the real Express sync route and Drizzle schema against isolated PGlite, with a test authentication adapter. A late database constraint failure leaves the entire earlier snapshot intact; concurrent first writes, retries and account separation pass. This does not certify live Clerk middleware or hosted Postgres connectivity.
+
+```sh
+# Temporary QA tooling only; no app dependency or production database required.
+npm install --prefix /tmp/yoki-qa --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.3.14
+NODE_PATH=/tmp/yoki-qa/node_modules YOKI_QA_PGLITE=/tmp/yoki-qa/node_modules/@electric-sql/pglite/dist/index.js node --test artifacts/api-server/tests/sync.test.mjs
+# Use the browser variables above; this harness builds itself with the repo's esbuild.
+node artifacts/mobile/tests/cloudSync.browser.cjs
+```
+
+Next: verify unacknowledged uploads across app restart. This checkpoint only certifies retry within a session. Native/device/account release gates above remain open.

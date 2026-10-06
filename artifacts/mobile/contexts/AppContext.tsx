@@ -1,3 +1,5 @@
+import { APP_STORAGE_KEYS as KEYS } from '@/utils/appStorageKeys';
+import { createCloudSyncSession, createCloudSyncTransport, INITIAL_CLOUD_SYNC_STATE, type CloudSyncState } from '@/utils/cloudSync';
 import { mergeEncounterHistory } from '@/utils/mergeEncounters';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
@@ -60,7 +62,6 @@ import type { CharacterKey } from '@/utils/mascotUtils';
 import {
   clearHomeCommentCache,
   DEFAULT_HOME_COMMENT_PREFERENCES,
-  HOME_COMMENT_PREFERENCES_KEY,
   resolveHomeCommentPreferences,
   type HomeCommentPreferences,
 } from '@/utils/homeComment';
@@ -160,28 +161,6 @@ export interface CompanionState {
 
 export const EGG_COMPANION_COST = COMPANION_PRICE;
 
-const KEYS = {
-  PROGRESS: '@mentore/progress_v2',
-  RECORDS: '@mentore/records_v2',
-  CHECKED_STATE: '@mentore/checked_state_v2',
-  CUSTOM_ITEMS: '@mentore/custom_items_v2',       // legacy – used for migration only
-  CHECKLIST_ITEMS: '@mentore/checklist_items_v3', // unified items list (default + custom)
-  BADGES: '@mentore/badges_v2',
-  MASCOT_NAME: '@mentore/mascot_name_v1',
-  FEED_STATE: '@mentore/feed_state_v1',
-  LAST_OPENED: '@mentore/last_opened_v1',
-  MINI_GAME: '@mentore/mini_game_v1',
-  PROFILE: '@mentore/profile_v1',
-  GROWTH: '@mentore/growth_v1',
-  LIGHT_ENERGY: '@mentore/light_energy_v1',
-  POWER_PLANT: '@mentore/power_plant_v1',
-  ENCOUNTERS: '@mentore/encounters_v1',
-  ROOM_CUSTOMIZATION: '@mentore/room_customization_v1',
-  COMPANIONS: '@mentore/companions_v1',
-  SHOP_STATE: '@mentore/shop_state_v2',
-  HOME_COMMENT_PREFERENCES: HOME_COMMENT_PREFERENCES_KEY,
-};
-
 /** Compute current satiety based on elapsed time since last feed */
 export function computeCurrentSatiety(feedState: FeedState): number {
   if (!feedState.lastFeedTime) return 50;
@@ -217,9 +196,10 @@ interface AppContextType {
   homeCommentPreferences: HomeCommentPreferences;
   /** True once the post-login cloud pull has finished (safe to decide onboarding) */
   cloudSynced: boolean;
-  /** True while signed-in account data is being pulled from the cloud */
+  cloudSyncState: CloudSyncState;
+  /** True while signed-in account data is being downloaded or uploaded */
   isCloudSyncing: boolean;
-  /** Retry a failed post-login cloud pull without authorizing onboarding */
+  /** Retry the failed direction: initial download or latest local upload. */
   retryCloudSync: () => void;
   saveProfile: (profile: UserProfile) => Promise<void>;
   saveHomeCommentPreferences: (preferences: HomeCommentPreferences) => Promise<void>;
@@ -303,11 +283,12 @@ const defaultCompanionState: CompanionState = { extraEggs: 0 };
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, getToken } = useAuth();
+  const { isSignedIn, getToken, user, isLoading: authLoading } = useAuth();
+  const accountId = isSignedIn ? user?.id ?? null : null;
+  const accountIdRef = useRef(accountId);
+  accountIdRef.current = accountId;
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
-  const signedInRef = useRef(isSignedIn);
-  useEffect(() => { signedInRef.current = isSignedIn; }, [isSignedIn]);
 
   const [progress, setProgress] = useState<UserProgress>(defaultProgress);
   const [records, setRecords] = useState<DailyRecord[]>([]);
@@ -323,9 +304,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [homeCommentPreferences, setHomeCommentPreferences] =
     useState<HomeCommentPreferences>(DEFAULT_HOME_COMMENT_PREFERENCES);
-  const [cloudSynced, setCloudSynced] = useState(false);
-  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
-  const [cloudSyncAttempt, setCloudSyncAttempt] = useState(0);
+  const [cloudSyncState, setCloudSyncState] = useState<CloudSyncState>(INITIAL_CLOUD_SYNC_STATE);
+  const cloudSynced = cloudSyncState.ready;
+  const isCloudSyncing = cloudSyncState.phase !== 'idle';
+  const cloudSessionRef = useRef<ReturnType<typeof createCloudSyncSession> | null>(null);
   // The first authenticated transition may be a guest upgrading to an account.
   // Keep this separate from Clerk state so local data can be merged before pull.
   const wasGuestRef = useRef(false);
@@ -438,7 +420,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 誤登録・偽の「新しい仲間」演出につながるためスキップする
   useEffect(() => {
     if (!encountersLoadedRef.current || isLoading) return;
-    if (pullingRef.current) return;
     if (isSignedIn && !cloudSynced) return;
     // アカウントに履歴があるか(既存ユーザーの遡り登録判定に使う)
     const hasHistory = progress.totalDays > 0 || progress.experience > 0 || progress.level > 1;
@@ -546,54 +527,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const currentSatiety = computeCurrentSatiety(feedState);
 
   // ─── Cloud sync helpers ───────────────────────────────────────────────
-  // Blocks pushes while the initial post-login pull is running, so a quick
-  // user action right after sign-in can't overwrite cloud data.
-  const pullingRef = useRef(false);
-
-  // push を直列化するチェーン。並走した push が古いスナップショットで
-  // 新しいクラウド状態を上書きしないよう、常に「前の push 完了後に
-  // スナップショットを取る」順序を保証する
-  const pushChainRef = useRef<Promise<void>>(Promise.resolve());
-
-  const pushDataToCloud = useCallback(async () => {
-    if (!signedInRef.current || pullingRef.current) return;
-    const run = async () => {
-      if (!signedInRef.current || pullingRef.current) return;
-      const t = await getTokenRef.current();
-      if (!t) return;
-      try {
-        const keys = Object.values(KEYS);
-        const values = await Promise.all(keys.map((k) => AsyncStorage.getItem(k)));
-        const data: Record<string, unknown> = {};
-        keys.forEach((k, i) => {
-          if (values[i] !== null) {
-            try { data[k] = JSON.parse(values[i]!); } catch { data[k] = values[i]; }
-          }
-        });
-        await fetch(`${API_BASE}/sync`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-          body: JSON.stringify({ data }),
-        });
-      } catch { /* fire-and-forget */ }
-    };
-    const next = pushChainRef.current.then(run, run);
-    pushChainRef.current = next;
-    await next;
+  const readCloudSnapshot = useCallback(async () => {
+    const keys = Object.values(KEYS);
+    const values = await Promise.all(keys.map(k => AsyncStorage.getItem(k)));
+    const data: Record<string, unknown> = {};
+    keys.forEach((k, i) => {
+      if (values[i] !== null) {
+        try { data[k] = JSON.parse(values[i]!); } catch { data[k] = values[i]; }
+      }
+    });
+    return data;
   }, []);
 
-  const pullDataFromCloud = useCallback(async (): Promise<{ ok: boolean; data: Record<string, unknown> }> => {
-    if (!signedInRef.current) return { ok: false, data: {} };
-    const t = await getTokenRef.current();
-    if (!t) return { ok: false, data: {} };
-    try {
-      const res = await fetch(`${API_BASE}/sync`, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
-      if (!res.ok) return { ok: false, data: {} };
-      const { data } = await res.json() as { data: Record<string, unknown> };
-      return { ok: true, data };
-    } catch { return { ok: false, data: {} }; }
+  const pushDataToCloud = useCallback(async () => {
+    await cloudSessionRef.current?.push();
+  }, []);
+  const retryCloudSync = useCallback(() => {
+    void cloudSessionRef.current?.retry();
   }, []);
 
   const mergeGuestWithCloud = useCallback(async (cloudData: Record<string, unknown>) => {
@@ -645,9 +595,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         placements: { ...(cloud.placements ?? {}), ...(local.placements ?? {}) },
       };
     }
-    await Promise.all(Object.entries(merged).map(([k, v]) =>
-      AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
-    ));
+    return merged;
   }, []);
 
   // ─── Load all data from local storage (+ cloud on login) ─────────────
@@ -655,61 +603,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadAll();
   }, []);
 
-  // When the user logs in, pull cloud data and reload
-  const prevSignedIn = useRef(false);
-  const handledCloudSyncAttempt = useRef(0);
-  const retryCloudSync = useCallback(() => {
-    setCloudSyncAttempt((attempt) => attempt + 1);
-  }, []);
-
+  // Wait for local recovery and auth resolution; each identity owns its requests.
   useEffect(() => {
-    const shouldPull =
-      isSignedIn &&
-      (!prevSignedIn.current || handledCloudSyncAttempt.current !== cloudSyncAttempt);
-    if (shouldPull) {
-      prevSignedIn.current = true;
-      handledCloudSyncAttempt.current = cloudSyncAttempt;
-      (async () => {
-        pullingRef.current = true;
-        setIsCloudSyncing(true);
-        let ok = false;
-        let mergedGuestData = false;
-        try {
-          const pulled = await pullDataFromCloud();
-          ok = pulled.ok;
-          if (ok && wasGuestRef.current) {
-            await mergeGuestWithCloud(pulled.data);
-            mergedGuestData = true;
-          } else if (ok) {
-            await Promise.all(
-              Object.entries(pulled.data).map(([k, v]) =>
-                AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
-              )
-            );
-            if (!(KEYS.PROFILE in pulled.data)) await AsyncStorage.removeItem(KEYS.PROFILE);
-          }
-          await loadAll();
-        } finally {
-          pullingRef.current = false;
-          setIsCloudSyncing(false);
-          // Only mark synced when the pull actually succeeded, so a failed
-          // pull can't send an existing user (with a cloud profile) to onboarding
-          if (ok) setCloudSynced(true);
-          if (ok && mergedGuestData) {
-            await pushDataToCloud();
-            Analytics.guestDataBackedUp();
-          }
-        }
-      })();
+    if (isLoading || authLoading) return;
+    setCloudSyncState(INITIAL_CLOUD_SYNC_STATE);
+    if (!accountId) {
+      if (!isSignedIn) wasGuestRef.current = true;
+      return;
     }
-    if (!isSignedIn) {
-      prevSignedIn.current = false;
-      handledCloudSyncAttempt.current = cloudSyncAttempt;
-      setCloudSynced(false);
-      setIsCloudSyncing(false);
-      if (!isLoading) wasGuestRef.current = true;
-    }
-  }, [isSignedIn, isLoading, pullDataFromCloud, mergeGuestWithCloud, cloudSyncAttempt]);
+    const transport = createCloudSyncTransport({
+      url: `${API_BASE}/sync`, getToken: () => getTokenRef.current(),
+    });
+    const session = createCloudSyncSession({
+      ...transport,
+      isCurrent: () => accountIdRef.current === accountId,
+      read: readCloudSnapshot,
+      onState: setCloudSyncState,
+      onGuestBackup: () => Analytics.guestDataBackedUp(),
+      apply: async (received, isCurrent) => {
+        // A cloud response cannot write auth tokens, journals or unrelated keys.
+        const allowed: readonly string[] = Object.values(KEYS);
+        const data = Object.fromEntries(Object.entries(received).filter(([key]) => allowed.includes(key)));
+        const backup = wasGuestRef.current;
+        const snapshot = backup ? await mergeGuestWithCloud(data) : data;
+        await AsyncStorage.transaction(() => {
+          if (!isCurrent()) throw new Error('Account changed');
+          return {
+            entries: Object.entries(snapshot).map(([key, value]): [string, string] =>
+              [key, typeof value === 'string' ? value : JSON.stringify(value)]),
+            result: undefined,
+          };
+        });
+        if (!isCurrent()) throw new Error('Account changed');
+        if (!backup && !(KEYS.PROFILE in data)) await AsyncStorage.removeItem(KEYS.PROFILE);
+        if (!isCurrent() || !await loadAll()) throw new Error('Account data could not be loaded');
+        wasGuestRef.current = false;
+        return { backup };
+      },
+    });
+    cloudSessionRef.current = session;
+    void session.initialize();
+    return () => {
+      session.dispose();
+      if (cloudSessionRef.current === session) cloudSessionRef.current = null;
+    };
+  }, [accountId, isSignedIn, authLoading, isLoading, readCloudSnapshot, mergeGuestWithCloud]);
 
   const buildFreshCheckedState = (items: ChecklistItemDef[]): CheckedState => {
     const today = getTodayDate();
@@ -884,8 +822,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
       }
       setStorageError(null);
+      return true;
     } catch {
       setStorageError('保存データを読み込めませんでした。データを保ったまま、もう一度読み込みます。');
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -1132,6 +1072,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         profile,
         homeCommentPreferences,
         cloudSynced,
+        cloudSyncState,
         isCloudSyncing,
         retryCloudSync,
         saveProfile,
@@ -1153,7 +1094,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markGrowthSeen,
         lightEnergy,
         storageError,
-        retryStorageRecovery: loadAll,
+        retryStorageRecovery: async () => { await loadAll(); },
         receiveGardenReward,
         lightGainEvent,
         holdLightFlow,

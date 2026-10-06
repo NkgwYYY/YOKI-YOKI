@@ -16,7 +16,17 @@ The user explicitly requested a full 3.0 redesign and removal of game access. Th
 | 7 ENERGY WORLD | COMPLETE (local QA) | Full-scene garden, grounded cord, cylindrical transparent tank; 0/50/100/250 display, one receipt/reload, motion pause and four viewport checks |
 | 8 CHARACTER BOOK | COMPLETE (local QA) | Paper album with original portraits, encountered-only friends/dates and excerpts from saved records; details remain optional; browser interaction and preservation checks passed |
 | 9 POLISH | COMPLETE (local QA) | Inspected final HOME/record/garden/book renders; compact wording and opaque dock; portrait/tablet/landscape touch flows passed |
-| 10 QA | PARTIAL — local checks complete | 264 tests, workspace/mobile typechecks, API build, Web/iOS/Android export and browser flows passed; native/device/account QA remains unverified |
+| 10 QA | PARTIAL — synchronization QA in progress | 288 mobile tests + 7 isolated API checks, typechecks/build/exports and browser flows passed; durable unsent-data, live account and native/device QA remain |
+
+## Resume — 2026-10-06 12:00 JST (sync checkpoint)
+
+- Fetched main `f99bf9ff3d2a9887ec88afc1321209402a2a6278` and development `a43d98c146cf622a92e39a86316017486c5c4e60` again; development is 0 ahead / 0 behind. No unfinished source changes. Three unrelated asset differences and four old export folders are preserved/excluded.
+- PHASE 0–9 remains complete to the recorded local QA standard. Continuing PHASE 10 from the synchronization investigation: failed uploads currently ignore HTTP status, malformed pull envelopes can pass, hydration errors may still mark sync ready, and server writes are separate per-key statements.
+- Implemented `utils/cloudSync.ts`: a 15-second deadline includes token acquisition and response-body reads; HTTP/envelope/acknowledgement validation, per-session cancellation, serialized uploads and directional retry. Failed initial pull/hydration keeps onboarding and signed-in editing gated; failed upload retries the latest local snapshot without a fresh pull. Account settings show upload failure/retry, and guest-backup analytics fire only after server acknowledgement.
+- Cloud hydration now uses the existing local recovery journal for the complete allowed-key snapshot; foreign keys cannot write auth/journal state. `appStorageKeys.ts` centralizes the unchanged key names. Server `routes/sync.ts` uses one atomic PostgreSQL batch upsert with the existing unique index; malformed bodies fail before writes. No DB migration.
+- Validation PASS: 288 mobile unit/regression tests (24 added), mobile/shared/API typechecks, API bundle and Web/iOS/Android exports. The actual API route + Drizzle schema passed 7 isolated PGlite tests, including a late DB constraint failure rollback, concurrent first writes, idempotent retry and account separation (test auth adapter, not Clerk verification).
+- Browser PASS: actual AppProvider/status UI with synthetic auth/network/storage adapters; malformed response preserves profile, actual record save survives HTTP 500, touch retry sends latest edits without GET, interrupted hydration remains gated and recovers. Full exported `world.browser.cjs` also passed four viewport flows and reload, with no page errors; visually inspected HOME and landscape record. `docs/qa/yoki-v3/final/sync-upload-retry.jpg` is explicitly a local harness, not a production account screenshot.
+- Next concrete QA: check failed upload followed by app restart, plus session switching. The current retry state is session-local; durable unsent-data behavior has not yet been certified. Live Clerk, native/device and signed-release gates remain open; do not merge/release or redo PHASE 3–9.
 
 ## Resume — 2026-10-06 06:32 JST
 

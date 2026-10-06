@@ -56,13 +56,13 @@ export default function TabLayout() {
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
-    if (!isSignedIn || profile || cloudSynced) {
+    if (!isSignedIn || cloudSynced) {
       setCloudWaitExpired(false);
       return;
     }
     const timer = setTimeout(() => setCloudWaitExpired(true), 5000);
     return () => clearTimeout(timer);
-  }, [isSignedIn, profile, cloudSynced, retryAttempt]);
+  }, [isSignedIn, cloudSynced, retryAttempt]);
 
   const handleRetry = () => {
     setCloudWaitExpired(false);
@@ -81,8 +81,8 @@ export default function TabLayout() {
     </Pressable>
   </View>;
   if (!isSignedIn && !profile) return <Redirect href="/onboarding" />;
-  if (isSignedIn && !profile && !cloudSynced && !cloudWaitExpired) return null;
-  if (isSignedIn && !profile && !cloudSynced) {
+  if (isSignedIn && !cloudSynced && !cloudWaitExpired) return null;
+  if (isSignedIn && !cloudSynced) {
     return (
       <View style={styles.syncGate}>
         {isCloudSyncing ? (
@@ -95,7 +95,7 @@ export default function TabLayout() {
           <>
             <Text style={styles.syncTitle}>データを確認できませんでした</Text>
             <Text style={styles.syncMessage}>
-              通信環境を確認して、もう一度お試しください。端末やクラウドのデータは変更されません。
+              通信環境を確認して、もう一度お試しください。確認が済むまで、新しい記録の編集はお待ちください。
             </Text>
             <Pressable
               accessibilityRole="button"

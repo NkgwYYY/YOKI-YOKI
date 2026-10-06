@@ -1,3 +1,4 @@
+import { APP_STORAGE_KEYS } from './appStorageKeys';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { DailyRecord } from '@/contexts/AppContext';
 import {
@@ -8,7 +9,7 @@ import {
 
 const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
 const HOME_COMMENT_KEY = '@mentore/home_comment_v1';
-export const HOME_COMMENT_PREFERENCES_KEY = '@mentore/home_comment_preferences_v1';
+export const HOME_COMMENT_PREFERENCES_KEY = APP_STORAGE_KEYS.HOME_COMMENT_PREFERENCES;
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
 export type HomeCommentFrequency = 'daily' | 'after_record' | 'quiet' | 'off';
