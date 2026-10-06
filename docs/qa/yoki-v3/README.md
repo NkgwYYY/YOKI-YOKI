@@ -63,4 +63,6 @@ NODE_PATH=/tmp/yoki-qa/node_modules YOKI_QA_PGLITE=/tmp/yoki-qa/node_modules/@el
 node artifacts/mobile/tests/cloudSync.browser.cjs
 ```
 
-Next: verify unacknowledged uploads across app restart. This checkpoint only certifies retry within a session. Native/device/account release gates above remain open.
+The subsequent restart scenario initially failed: a cloud pull replaced an unacknowledged record after reload. The account-scoped local outbox fixes this; the same browser scenario now passes after reloading and visiting a different account before returning. Pending data is sent before a pull, and an older acknowledgement cannot erase a newer staged snapshot. Outbox corruption/write failure, offline restart and queued edits are covered by unit tests. Four tests execute the actual tab gate and verify that cached profiles cannot bypass failed initial sync. Total: 303 mobile tests plus the 7 isolated API checks above.
+
+These tests certify synthetic failure/retry/restart behavior, not live identity-provider integration or a new multi-device conflict policy. Native/device/account release gates above remain open.

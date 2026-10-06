@@ -59,12 +59,17 @@ export function createCloudSyncTransport(options: {
 /** One signed-in session. Upload retries never pull over unacknowledged local edits. */
 export function createCloudSyncSession(options: {
   pull: (signal: AbortSignal) => Promise<CloudData>;
-  apply: (data: CloudData, isCurrent: () => boolean) => Promise<{ backup: boolean }>;
+  apply: (data: CloudData, isCurrent: () => boolean, source: 'cloud' | 'outbox') => Promise<{ backup: boolean }>;
   read: () => Promise<CloudData>;
   push: (data: CloudData, signal: AbortSignal) => Promise<void>;
   onState: (state: CloudSyncState) => void;
   isCurrent: () => boolean;
   onGuestBackup?: () => void;
+  pending?: {
+    stage: () => Promise<void>;
+    read: () => Promise<{ data: CloudData; receipt: string } | null>;
+    acknowledge: (receipt: string) => Promise<void>;
+  };
 }) {
   let state = { ...INITIAL_CLOUD_SYNC_STATE };
   let disposed = false;
@@ -83,13 +88,19 @@ export function createCloudSyncSession(options: {
     tail = next;
     return next;
   };
-  const upload = async () => {
+  const upload = async (staged?: Promise<boolean>) => {
     if (!current() || !state.ready) return false;
     publish({ ...state, phase: 'push', error: null });
     try {
-      const data = await options.read();
+      if (staged && !await staged) throw new Error('Could not preserve pending upload');
+      if (options.pending && !staged) await options.pending.stage();
+      const pending = await options.pending?.read();
+      const data = options.pending ? pending?.data : await options.read();
       if (!current()) return false;
-      await options.push(data, controller.signal);
+      // An earlier queued request may already have acknowledged this snapshot.
+      if (data) await options.push(data, controller.signal);
+      if (!current()) return false;
+      if (pending) await options.pending!.acknowledge(pending.receipt);
       if (!current()) return false;
       publish({ ...state, phase: 'idle', error: null });
       if (guestBackupPending) {
@@ -108,9 +119,22 @@ export function createCloudSyncSession(options: {
       if (!current() || state.ready) return false;
       publish({ ready: false, phase: 'pull', error: null });
       try {
+        const pending = await options.pending?.read();
+        if (!current()) return false;
+        if (pending) {
+          // Validate the account by uploading its unacknowledged snapshot before
+          // any pull could replace it with an older cloud copy on app restart.
+          await options.push(pending.data, controller.signal);
+          if (!current()) return false;
+          await options.apply(pending.data, current, 'outbox');
+          if (!current()) return false;
+          await options.pending!.acknowledge(pending.receipt);
+          publish({ ready: true, phase: 'idle', error: null });
+          return true;
+        }
         const data = await options.pull(controller.signal);
         if (!current()) return false;
-        const result = await options.apply(data, current);
+        const result = await options.apply(data, current, 'cloud');
         if (!current()) return false;
         guestBackupPending = result.backup;
         publish({ ready: true, phase: 'idle', error: null });
@@ -122,7 +146,13 @@ export function createCloudSyncSession(options: {
     }).finally(() => { initializing = null; });
     return initializing;
   };
-  const push = () => current() && state.ready ? enqueue(upload) : Promise.resolve(false);
+  const push = () => {
+    if (!current() || !state.ready) return Promise.resolve(false);
+    // Persist edits without waiting for an older network request to finish.
+    // Attach a rejection handler immediately even when uploads are queued.
+    const staged = options.pending?.stage().then(() => true, () => false);
+    return enqueue(() => upload(staged));
+  };
   return {
     initialize, push,
     retry: () => state.ready ? push() : initialize(),

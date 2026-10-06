@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useCallback } from 'react';
 import { useAuth as useClerkAuth, useUser } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { cloudOutboxKey } from '@/utils/cloudOutbox';
 
 export const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -84,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await clerkUser.delete();
 
     const localKeys = await AsyncStorage.getAllKeys();
-    const appKeys = localKeys.filter((key) => key.startsWith('@mentore/'));
+    const appKeys = localKeys.filter((key) => key.startsWith('@mentore/') || key === cloudOutboxKey(clerkUser.id));
     if (appKeys.length > 0) {
       await AsyncStorage.multiRemove(appKeys);
     }

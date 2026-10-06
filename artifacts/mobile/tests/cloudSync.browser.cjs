@@ -122,6 +122,19 @@ const entry = `import React from 'react'; import {createRoot} from 'react-dom/cl
     await page.waitForFunction(() => window.qaApp.cloudSynced);
     assert.equal(await page.evaluate(() => localStorage.getItem('@yoki/balance_journal_v1')), null);
     console.log('PASS interrupted multi-key hydration remains gated and recovers on retry');
+    mode = 'upload-fail'; await page.getByRole('button', { name: '記録を保存する', exact: true }).tap();
+    await page.getByTestId('cloud-sync-retry').waitFor();
+    const unsent = await page.evaluate(() => JSON.parse(localStorage.getItem('@mentore/records_v2')));
+    assert.equal(unsent.length, 1);
+    // The authenticated fixture restarts as account-a; its failed upload must be
+    // retained independently while another account's data is visible locally.
+    mode = 'ready'; await page.reload();
+    await page.waitForFunction(() => window.qaApp?.cloudSynced);
+    await page.evaluate(() => window.qaAuth('account-b'));
+    await page.waitForFunction(() => window.qaApp.cloudSynced && window.qaApp.records.length === 1);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('@mentore/records_v2'))), unsent);
+    assert.deepEqual(sent.at(-1)['@mentore/records_v2'], unsent);
+    console.log('PASS unacknowledged records survive app restart and an intervening account');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

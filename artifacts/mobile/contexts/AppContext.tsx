@@ -1,4 +1,5 @@
 import { APP_STORAGE_KEYS as KEYS } from '@/utils/appStorageKeys';
+import { createCloudOutbox } from '@/utils/cloudOutbox';
 import { createCloudSyncSession, createCloudSyncTransport, INITIAL_CLOUD_SYNC_STATE, type CloudSyncState } from '@/utils/cloudSync';
 import { mergeEncounterHistory } from '@/utils/mergeEncounters';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
@@ -281,6 +282,7 @@ const defaultRoomCustomization: RoomCustomization = {
 const defaultCompanionState: CompanionState = { extraEggs: 0 };
 
 const AppContext = createContext<AppContextType | null>(null);
+const cloudOutbox = createCloudOutbox(AsyncStorage);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const { isSignedIn, getToken, user, isLoading: authLoading } = useAuth();
@@ -305,7 +307,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [homeCommentPreferences, setHomeCommentPreferences] =
     useState<HomeCommentPreferences>(DEFAULT_HOME_COMMENT_PREFERENCES);
   const [cloudSyncState, setCloudSyncState] = useState<CloudSyncState>(INITIAL_CLOUD_SYNC_STATE);
-  const cloudSynced = cloudSyncState.ready;
+  const cloudSyncAccountRef = useRef<string | null>(null);
+  const cloudSynced = cloudSyncState.ready && accountId !== null && cloudSyncAccountRef.current === accountId;
   const isCloudSyncing = cloudSyncState.phase !== 'idle';
   const cloudSessionRef = useRef<ReturnType<typeof createCloudSyncSession> | null>(null);
   // The first authenticated transition may be a guest upgrading to an account.
@@ -606,6 +609,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Wait for local recovery and auth resolution; each identity owns its requests.
   useEffect(() => {
     if (isLoading || authLoading) return;
+    cloudSyncAccountRef.current = accountId;
     setCloudSyncState(INITIAL_CLOUD_SYNC_STATE);
     if (!accountId) {
       if (!isSignedIn) wasGuestRef.current = true;
@@ -620,11 +624,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       read: readCloudSnapshot,
       onState: setCloudSyncState,
       onGuestBackup: () => Analytics.guestDataBackedUp(),
-      apply: async (received, isCurrent) => {
+      pending: {
+        stage: () => cloudOutbox.stage(accountId, async () => {
+          const snapshot = await readCloudSnapshot();
+          if (accountIdRef.current !== accountId) throw new Error('Account changed');
+          return snapshot;
+        }),
+        read: () => cloudOutbox.read(accountId),
+        acknowledge: receipt => cloudOutbox.acknowledge(accountId, receipt),
+      },
+      apply: async (received, isCurrent, source) => {
         // A cloud response cannot write auth tokens, journals or unrelated keys.
         const allowed: readonly string[] = Object.values(KEYS);
         const data = Object.fromEntries(Object.entries(received).filter(([key]) => allowed.includes(key)));
-        const backup = wasGuestRef.current;
+        const backup = source === 'cloud' && wasGuestRef.current;
         const snapshot = backup ? await mergeGuestWithCloud(data) : data;
         await AsyncStorage.transaction(() => {
           if (!isCurrent()) throw new Error('Account changed');
@@ -636,7 +649,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         });
         if (!isCurrent()) throw new Error('Account changed');
         if (!backup && !(KEYS.PROFILE in data)) await AsyncStorage.removeItem(KEYS.PROFILE);
-        if (!isCurrent() || !await loadAll()) throw new Error('Account data could not be loaded');
+        if (!isCurrent() || !await loadAll(isCurrent)) throw new Error('Account data could not be loaded');
         wasGuestRef.current = false;
         return { backup };
       },
@@ -658,9 +671,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
-  const loadAll = async () => {
+  const loadAll = async (isCurrent: () => boolean = () => true) => {
+    const assertCurrent = () => { if (!isCurrent()) throw new Error('Account changed'); };
     try {
       await AsyncStorage.recover();
+      assertCurrent();
       const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr, homeCommentPreferencesStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
@@ -682,6 +697,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.COMPANIONS),
           AsyncStorage.getItem(KEYS.HOME_COMMENT_PREFERENCES),
         ]);
+      assertCurrent();
 
       // ── サイズ成長: 保存値を読み、経過時間ぶんの成長を適用 ──
       {
@@ -694,6 +710,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const updated = applyGrowth(g);
         setGrowth(updated);
         await AsyncStorage.setItem(KEYS.GROWTH, JSON.stringify(updated));
+        assertCurrent();
       }
 
       // ── 光エネルギー: 保存値を読み、日付が変わっていたら日次値をリセット ──
@@ -707,6 +724,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         lightEnergyRef.current = resolved;
         setLightEnergy(resolved);
         await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(resolved));
+        assertCurrent();
       }
 
       // ── 発電所: 保存値を安全に読み込む ──
@@ -748,6 +766,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
         setRoomCustomization(resolved);
         await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(resolved));
+        assertCurrent();
       }
 
       // ── 追加のたまご: 保存値を安全に読み込む ──
@@ -757,10 +776,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const resolved: CompanionState = { extraEggs: Math.max(0, Math.min(1, Math.floor(parsed.extraEggs ?? 0))) };
         setCompanionState(resolved);
         await AsyncStorage.setItem(KEYS.COMPANIONS, JSON.stringify(resolved));
+        assertCurrent();
       }
 
       if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
       await AsyncStorage.setItem(KEYS.LAST_OPENED, new Date().toISOString());
+      assertCurrent();
 
       const today = getTodayDate();
 
@@ -773,6 +794,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const legacyCustom: ChecklistItemDef[] = legacyCustomStr ? JSON.parse(legacyCustomStr) : [];
         loadedItems = [...DEFAULT_CHECKLIST_ITEMS, ...legacyCustom];
         await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(loadedItems));
+        assertCurrent();
       }
 
       if (progressStr) setProgress(JSON.parse(progressStr));
@@ -811,23 +833,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             : state;
           setCheckedState(merged);
           if (missingIds.length > 0) await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(merged));
+          assertCurrent();
         } else {
           const fresh = buildFreshCheckedState(loadedItems);
           setCheckedState(fresh);
           await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
+          assertCurrent();
         }
       } else {
         const fresh = buildFreshCheckedState(loadedItems);
         setCheckedState(fresh);
         await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
+        assertCurrent();
       }
       setStorageError(null);
       return true;
     } catch {
-      setStorageError('保存データを読み込めませんでした。データを保ったまま、もう一度読み込みます。');
+      if (isCurrent()) setStorageError('保存データを読み込めませんでした。データを保ったまま、もう一度読み込みます。');
       return false;
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) setIsLoading(false);
     }
   };
 
