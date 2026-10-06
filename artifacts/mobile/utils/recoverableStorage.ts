@@ -58,7 +58,10 @@ export function createRecoverableStorage(storage: Storage, journalKey: string, a
     }),
     /** Explicit account deletion: wait for earlier writes, discard recovery and
      * remove every managed key. Do not replay data the user asked to delete. */
-    clearAll: (additionalKeys: readonly string[] = []) => exclusive(async () => {
+    clearAll: (additionalKeys: readonly string[] = [], isCurrent: () => boolean = () => true) => exclusive(async () => {
+      // Check inside the queue: another account may have become active while
+      // this deletion waited for an earlier write. Never clear that new cache.
+      if (!isCurrent()) throw new Error('Account changed');
       for (const key of new Set([journalKey, ...allowedKeys, ...additionalKeys])) {
         await storage.removeItem(key);
       }

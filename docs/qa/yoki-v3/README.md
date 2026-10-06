@@ -122,3 +122,21 @@ node artifacts/mobile/tests/cloudSync.browser.cjs
 All 353 mobile tests and 15 isolated API tests passed. Mobile/shared/API/landing typechecks, API build and final Web/iOS/Android exports passed. Existing account-dialog and cloud ownership/restart browser checks passed. Full exported world.browser.cjs passed the four-viewport HOME/record/garden flows and reload, with no page errors. Inspected HOME/landscape record and the small-screen account UI; `final/account-delete-confirm.jpg` and `final/account-deletion-complete-retry.jpg` show the actual dialogs in a local synthetic harness. The second screen is reached only after confirmed server deletion.
 
 PGlite exercises real SQL/schema/routes but not separate hosted DB connections or Clerk JWT validation. The per-account lock must be used by all deployed writers; mixed old/new API workers are not certified. Deletion remains retryable coordination across separate systems, not a distributed transaction. Native/device/live identity transitions, auxiliary caches and Replit/release reconciliation remain open. No release or main merge.
+
+
+## SDK identity transition follow-up — 2026-10-06
+
+Fourteen new actual-AuthProvider regressions failed before the fix. Auth/user/session disagreement and delayed tokens are now gated; getToken uses a captured Clerk SessionResource, logout names its initiating session, and deletion checks its scope before request, after acknowledgement and inside the shared storage cleanup queue. A -> loading -> A does not revive earlier callbacks. Different accounts cannot share a pending deletion promise.
+
+All 371 mobile tests (18 new), mobile typecheck and fresh Web/iOS/Android exports passed. Server code was not changed; the preceding 15 isolated API checks remain applicable. Existing accountDeletion.browser.cjs and accountLifecycle.browser.cjs passed with coherent synthetic session resources.
+
+```sh
+# Browser variables are listed above; this harness needs no app export.
+node artifacts/mobile/tests/authTransition.browser.cjs
+```
+
+The new harness runs real AuthProvider/AppProvider and storage/sync code with synthetic Clerk hooks that change independently. It checks no requests/writes while identities disagree, correct captured-session token selection even before React receives a global SDK switch, rejection of late tokens, account B storage/ownership preservation after account A's delayed DELETE, and explicit session-specific logout. No page errors. `final/auth-transition-preserved.jpg` is inspected local/synthetic evidence, not live Clerk or production-data evidence.
+
+These checks cover the managed AppContext snapshot. Chat, insight and home-comment raw caches remain a separate ownership task and must not be silently added to cloud sync. Live authentication/service transitions, native execution and Replit integration are still release gates.
+
+The final exported world.browser.cjs also passed HOME gestures/meal, record→light→garden, same-day reward preservation and four-viewport touch/reload including night, with no page errors. HOME and landscape record were visually inspected after the authentication changes.

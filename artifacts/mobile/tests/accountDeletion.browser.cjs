@@ -25,8 +25,8 @@ const mobile = path.resolve(__dirname, '..');
     alias:{'react-native':'react-native-web'},
     plugins:[{name:'deletion-fixtures',setup(build){
       const fixtures={
-        '@clerk/expo': `const getToken=async()=>'synthetic-token'; const user={id:'account-a',delete:async()=>{window.qaIdentityDeletes++;if(window.qaIdentityFail)throw Error('identity unavailable');}};
-          export const useAuth=()=>({isLoaded:true,isSignedIn:true,getToken,signOut:async()=>{}}); export const useUser=()=>({user});`,
+        '@clerk/expo': `export const useSession=()=>({session:{id:'session-a',user:{id:'account-a'},getToken:async()=>'synthetic-token'}}); const getToken=async()=>'synthetic-token'; const user={id:'account-a',delete:async()=>{window.qaIdentityDeletes++;if(window.qaIdentityFail)throw Error('identity unavailable');}};
+          export const useAuth=()=>({isLoaded:true,isSignedIn:true,userId:"account-a",sessionId:"session-a",getToken,signOut:async()=>{}}); export const useUser=()=>({user});`,
         '@react-native-async-storage/async-storage': `export default {getItem:async k=>localStorage.getItem(k),getAllKeys:async()=>Object.keys(localStorage),
           setItem:async(k,v)=>localStorage.setItem(k,v),removeItem:async k=>{if(k===window.qaFailKey)throw Error('disk unavailable');localStorage.removeItem(k);}};`,
         'expo-haptics':'export const notificationAsync=async()=>{};export const impactAsync=async()=>{};export const selectionAsync=async()=>{};export const NotificationFeedbackType={Success:1};export const ImpactFeedbackStyle={Light:1};',

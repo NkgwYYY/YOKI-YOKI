@@ -15,7 +15,7 @@ const mobile = path.resolve(__dirname, '..');
     alias: { 'react-native': 'react-native-web' },
     plugins: [{ name: 'account-fixtures', setup(build) {
       const fixtures = {
-        '@clerk/expo': `export const useAuth=()=>({isLoaded:true,isSignedIn:true,getToken:async()=>'synthetic-token',
+        '@clerk/expo': `export const useSession=()=>({session:{id:'session-a',user:{id:'account-a'},getToken:async()=>'synthetic-token'}}); export const useAuth=()=>({isLoaded:true,isSignedIn:true,userId:"account-a",sessionId:"session-a",getToken:async()=>'synthetic-token',
           signOut:async()=>{window.qaLogouts++; if(window.qaLogoutFail)throw Error('offline');}});
           export const useUser=()=>({user:{id:'account-a',primaryEmailAddress:{emailAddress:'local-test@example.invalid'},
             delete:async()=>{window.qaIdentityDeletes++;}}});`,

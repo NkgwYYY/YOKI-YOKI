@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useCallback, useRef } from 'react';
-import { useAuth as useClerkAuth, useUser } from '@clerk/expo';
+import React, { createContext, useContext, useCallback, useEffect, useRef } from 'react';
+import { useAuth as useClerkAuth, useUser, useSession } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cloudOutboxKey } from '@/utils/cloudOutbox';
 import { balanceStorage } from '@/utils/balanceStorage';
@@ -48,41 +48,66 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { isLoaded, isSignedIn, getToken: clerkGetToken, signOut } = useClerkAuth();
+  const { isLoaded, isSignedIn, userId, sessionId, signOut } = useClerkAuth();
   const { user: clerkUser } = useUser();
+  const { session: clerkSession } = useSession();
+  const isLoading = !isLoaded || isSignedIn === undefined || (!!isSignedIn && (
+    !userId || !sessionId || clerkUser?.id !== userId || clerkSession?.id !== sessionId || clerkSession?.user.id !== userId
+  ));
+  const sessionKey = !isLoading && isSignedIn ? JSON.stringify([userId, sessionId]) : null;
+  const scopeRef = useRef({ key: sessionKey });
+  // A new object invalidates old operations even for A -> loading -> A.
+  if (scopeRef.current.key !== sessionKey) scopeRef.current = { key: sessionKey };
+  const scope = scopeRef.current;
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const isCurrent = useCallback(() => mounted.current && scope.key !== null && scopeRef.current === scope
+    && clerkSession?.id === sessionId && clerkSession?.user.id === userId,
+  [scope, clerkSession, sessionId, userId]);
 
   const getToken = useCallback(async () => {
     try {
-      return await clerkGetToken();
+      if (!isCurrent() || !clerkSession) return null;
+      // useAuth().getToken reads the SDK's global active session at call time.
+      // Use the captured resource so an SDK switch before React renders cannot
+      // send this account's snapshot with the next account's credentials.
+      const token = await clerkSession.getToken();
+      return isCurrent() ? token : null;
     } catch {
       return null;
     }
-  }, [clerkGetToken]);
+  }, [clerkSession, isCurrent]);
 
   const logout = useCallback(async () => {
     try {
-      await signOut();
+      if (!isCurrent() || !sessionId) throw new Error('Session changed');
+      await signOut({ sessionId });
     } catch {
       throw new Error('ログアウトできませんでした。通信環境を確認して、もう一度お試しください。');
     }
-  }, [signOut]);
+  }, [signOut, sessionId, isCurrent]);
 
-  const deletionRef = useRef<Promise<void> | null>(null);
+  const deletionRef = useRef<{ scope: typeof scope; promise: Promise<void> } | null>(null);
   const deleteAccount = useCallback(() => {
-    if (deletionRef.current) return deletionRef.current;
+    if (!isCurrent()) return Promise.reject(new Error('アカウントの切り替え中です。もう一度お試しください。'));
+    if (deletionRef.current) return deletionRef.current.scope === scope
+      ? deletionRef.current.promise
+      : Promise.reject(new Error('前のアカウントの処理中です。少し待って、もう一度お試しください。'));
     const run = async () => {
       if (!clerkUser) throw new Error('削除するアカウントが見つかりません');
       let serverDeleted = false;
       notifyAccountDeletion({ accountId: clerkUser.id, phase: 'start' });
       try {
-        const transport = createCloudSyncTransport({ url: `${API_BASE}/account`, getToken: clerkGetToken });
+        const transport = createCloudSyncTransport({ url: `${API_BASE}/account`, getToken });
         await transport.deleteAccount(new AbortController().signal);
         serverDeleted = true;
+        if (!isCurrent()) throw new Error('Session changed');
         const localKeys = await AsyncStorage.getAllKeys();
         const appKeys = localKeys.filter(key => key.startsWith('@mentore/') || key === cloudOutboxKey(clerkUser.id) || key === accountCacheKey(clerkUser.id));
         // Keep the identity available for retry if local cleanup fails. The journal
         // must be discarded too, otherwise recovery can restore deleted records.
-        await balanceStorage.clearAll(appKeys);
+        await balanceStorage.clearAll(appKeys, isCurrent);
+        if (!isCurrent()) throw new Error('Session changed');
         await clerkUser.delete();
       } finally {
         notifyAccountDeletion({ accountId: clerkUser.id, phase: 'finish', serverDeleted });
@@ -91,11 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const pending = run().catch(() => {
       throw new Error('削除を完了できませんでした。通信環境を確認して、もう一度お試しください。');
     }).finally(() => { deletionRef.current = null; });
-    deletionRef.current = pending;
+    deletionRef.current = { scope, promise: pending };
     return pending;
-  }, [clerkGetToken, clerkUser]);
+  }, [getToken, clerkUser, isCurrent, scope]);
 
-  const user: AuthUser | null = clerkUser
+  const user: AuthUser | null = !isLoading && isSignedIn && clerkUser
     ? {
         id: clerkUser.id,
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
@@ -107,7 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         isSignedIn: !!isSignedIn,
         user,
-        isLoading: !isLoaded || (!!isSignedIn && !clerkUser),
+        isLoading,
         getToken,
         logout,
         deleteAccount,

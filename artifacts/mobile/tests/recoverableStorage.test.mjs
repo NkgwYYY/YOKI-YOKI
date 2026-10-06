@@ -134,3 +134,15 @@ test('version 1 nulls and version 2 foreign removals remain invalid and preserve
     assert.deepEqual(read(f.data), initial);
   }
 });
+
+test('queued deletion rechecks its identity before removing any new-account data', async () => {
+  const data=new Map([['records','account-a']]);let release,entered;
+  const blocked=new Promise(resolve=>{release=resolve;});const started=new Promise(resolve=>{entered=resolve;});
+  let current=true;
+  const storage=createRecoverableStorage({getItem:async key=>data.get(key)??null,
+    setItem:async(key,value)=>{entered();await blocked;data.set(key,value);},removeItem:async key=>data.delete(key)},'journal',['records']);
+  const write=storage.setItem('records','account-b');await started;
+  const deletion=storage.clearAll([],()=>current);current=false;release();
+  await write;await assert.rejects(deletion,/Account changed/);
+  assert.equal(data.get('records'),'account-b');
+});
