@@ -77,6 +77,26 @@ function session(overrides = {}) {
     pulls: () => pulls, applied: () => applied, backedUp: () => backedUp };
 }
 
+for (const failMerged of [false, true]) test(`pending account data merges a new guest and acknowledges its upload (failure=${failMerged})`, async () => {
+  let local = { account: 'pending' }, pending = { data: local, receipt: 'original' }, fail = failMerged;
+  const uploads = [];
+  const stage = async () => { pending = { data: { ...local }, receipt: JSON.stringify(local) }; };
+  const f = session({
+    apply: async data => { local = { ...data, guest: 'new record' }; await stage(); return { backup: true }; },
+    read: async () => local,
+    push: async data => { uploads.push({ ...data }); if (fail && data.guest) throw Error('offline'); },
+    pending: { stage, read: async () => pending, acknowledge: async receipt => { if (pending?.receipt === receipt) pending = null; } },
+  });
+  assert.equal(await f.sync.initialize(), !failMerged);
+  assert.deepEqual(uploads, [{ account: 'pending' }, { account: 'pending', guest: 'new record' }]);
+  assert.equal(f.pulls(), 0);
+  if (failMerged) {
+    assert.equal(f.backedUp(), 0); assert.equal(pending.data.guest, 'new record');
+    assert.equal(f.states.at(-1).error, 'push'); fail = false; assert.equal(await f.sync.retry(), true);
+  }
+  assert.equal(pending, null); assert.equal(f.backedUp(), 1);
+});
+
 test('failed pull stays gated and blocks uploads; retry applies the cloud once', async () => {
   let fail = true;
   const f = session({ pull: async () => { if (fail) throw Error('offline'); return { record: 'cloud' }; } });

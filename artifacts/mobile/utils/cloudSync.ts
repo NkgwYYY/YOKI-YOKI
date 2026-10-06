@@ -127,11 +127,12 @@ export function createCloudSyncSession(options: {
           // any pull could replace it with an older cloud copy on app restart.
           await options.push(pending.data, controller.signal);
           if (!current()) return false;
-          await options.apply(pending.data, current, 'outbox');
+          const result = await options.apply(pending.data, current, 'outbox');
           if (!current()) return false;
           await options.pending!.acknowledge(pending.receipt);
+          guestBackupPending = result.backup;
           publish({ ready: true, phase: 'idle', error: null });
-          return true;
+          return result.backup ? await upload() : true;
         }
         const data = await options.pull(controller.signal);
         if (!current()) return false;

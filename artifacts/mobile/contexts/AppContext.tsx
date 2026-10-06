@@ -1,5 +1,6 @@
 import { APP_STORAGE_KEYS as KEYS } from '@/utils/appStorageKeys';
 import { createCloudOutbox } from '@/utils/cloudOutbox';
+import { createAccountOwnership, encodeDataOwner, LOCAL_DATA_OWNER_KEY } from '@/utils/accountOwnership';
 import { createCloudSyncSession, createCloudSyncTransport, INITIAL_CLOUD_SYNC_STATE, type CloudSyncState } from '@/utils/cloudSync';
 import { mergeEncounterHistory } from '@/utils/mergeEncounters';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
@@ -283,6 +284,7 @@ const defaultCompanionState: CompanionState = { extraEggs: 0 };
 
 const AppContext = createContext<AppContextType | null>(null);
 const cloudOutbox = createCloudOutbox(AsyncStorage);
+const accountOwnership = createAccountOwnership(AsyncStorage, Object.values(KEYS));
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const { isSignedIn, getToken, user, isLoading: authLoading } = useAuth();
@@ -298,6 +300,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [checklistItems, setChecklistItems] = useState<ChecklistItemDef[]>(DEFAULT_CHECKLIST_ITEMS);
   const [unlockedBadges, setUnlockedBadges] = useState<UnlockedBadge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [localScope, setLocalScope] = useState<{ accountId: string | null; ready: boolean } | null>(null);
+  const [scopeRetry, setScopeRetry] = useState(0);
+  const scopeCurrent = !authLoading && localScope?.accountId === accountId;
+  const localScopeReady = scopeCurrent && localScope?.ready === true;
+  const appLoading = isLoading || !scopeCurrent;
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<string | null>(null);
   const [mascotName, setMascotNameState] = useState('');
   const [feedState, setFeedState] = useState<FeedState>(defaultFeedState);
@@ -308,16 +315,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     useState<HomeCommentPreferences>(DEFAULT_HOME_COMMENT_PREFERENCES);
   const [cloudSyncState, setCloudSyncState] = useState<CloudSyncState>(INITIAL_CLOUD_SYNC_STATE);
   const cloudSyncAccountRef = useRef<string | null>(null);
-  const cloudSynced = cloudSyncState.ready && accountId !== null && cloudSyncAccountRef.current === accountId;
+  const cloudSynced = localScopeReady && cloudSyncState.ready && accountId !== null && cloudSyncAccountRef.current === accountId;
   const isCloudSyncing = cloudSyncState.phase !== 'idle';
   const cloudSessionRef = useRef<ReturnType<typeof createCloudSyncSession> | null>(null);
-  // The first authenticated transition may be a guest upgrading to an account.
-  // Keep this separate from Clerk state so local data can be merged before pull.
-  const wasGuestRef = useRef(false);
   // マスコットは進化しても同一個体なので characterId は固定 'mascot'
   const [growth, setGrowth] = useState<GrowthRecord>(() => createGrowthRecord('mascot'));
   const [lightEnergy, setLightEnergy] = useState<LightEnergyState>(() => createLightEnergyState(getTodayDate()));
   const [storageError, setStorageError] = useState<string | null>(null);
+  const dataReady = !appLoading && !storageError && localScopeReady && (!isSignedIn || cloudSynced);
   const feedStateRef = useRef<FeedState>(defaultFeedState);
   // 非同期処理の並走でも付与が失われないよう、最新値を ref でも保持する
   const lightEnergyRef = useRef(lightEnergy);
@@ -367,18 +372,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // 前日のまま表示されないよう、1分ごとに日付ロールオーバーとチャージを精算する
   useEffect(() => {
     const timer = setInterval(() => {
-      if (!isLoading) settleElapsedEnergy().catch(() => {});
+      if (dataReady) settleElapsedEnergy().catch(() => {});
     }, 60_000);
     return () => clearInterval(timer);
-  }, [settleElapsedEnergy, isLoading]);
+  }, [settleElapsedEnergy, dataReady]);
 
   // バックグラウンドから戻った瞬間にも、閉じていた時間のチャージ分を反映する
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && !isLoading) settleElapsedEnergy().catch(() => {});
+      if (state === 'active' && dataReady) settleElapsedEnergy().catch(() => {});
     });
     return () => subscription.remove();
-  }, [settleElapsedEnergy, isLoading]);
+  }, [settleElapsedEnergy, dataReady]);
 
   // ユーザー操作による獲得イベント(循環演出はこれだけを根拠に発火する。
   // クラウドpullや読込による数値変動では発火しない)
@@ -422,7 +427,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ロード完了前(defaultProgress)や、ログイン済みでクラウド取得が終わる前は
   // 誤登録・偽の「新しい仲間」演出につながるためスキップする
   useEffect(() => {
-    if (!encountersLoadedRef.current || isLoading) return;
+    if (!encountersLoadedRef.current || !dataReady) return;
     if (isSignedIn && !cloudSynced) return;
     // アカウントに履歴があるか(既存ユーザーの遡り登録判定に使う)
     const hasHistory = progress.totalDays > 0 || progress.experience > 0 || progress.level > 1;
@@ -436,7 +441,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (newlyMet.length > 0) {
       setNewEncounters((prev) => [...prev, ...newlyMet.filter((k) => !prev.includes(k))]);
     }
-  }, [progress.level, isLoading, isSignedIn, cloudSynced]);
+  }, [progress.level, dataReady, isSignedIn, cloudSynced]);
 
   /** 「新しい仲間が生まれました!」演出を1件消化する */
   const dismissNewEncounter = useCallback(() => {
@@ -603,18 +608,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ─── Load all data from local storage (+ cloud on login) ─────────────
   useEffect(() => {
-    loadAll();
-  }, []);
+    if (authLoading || (isSignedIn && !accountId)) return;
+    let active = true;
+    const isCurrent = () => active && accountIdRef.current === accountId;
+    setIsLoading(true);
+    void (async () => {
+      try {
+        await accountOwnership.prepare(accountId, isCurrent);
+        if (!isCurrent()) return;
+        const loaded = await loadAll(isCurrent);
+        if (isCurrent()) setLocalScope({ accountId, ready: loaded });
+      } catch {
+        if (isCurrent()) {
+          setStorageError('保存データの持ち主を確認できませんでした。データを保ったまま、もう一度読み込みます。');
+          setLocalScope({ accountId, ready: false });
+          setIsLoading(false);
+        }
+      }
+    })();
+    return () => { active = false; };
+  }, [accountId, authLoading, isSignedIn, scopeRetry]);
 
   // Wait for local recovery and auth resolution; each identity owns its requests.
   useEffect(() => {
-    if (isLoading || authLoading) return;
+    if (isLoading || authLoading || !localScopeReady) return;
     cloudSyncAccountRef.current = accountId;
     setCloudSyncState(INITIAL_CLOUD_SYNC_STATE);
-    if (!accountId) {
-      if (!isSignedIn) wasGuestRef.current = true;
-      return;
-    }
+    if (!accountId) return;
     const transport = createCloudSyncTransport({
       url: `${API_BASE}/sync`, getToken: () => getTokenRef.current(),
     });
@@ -633,16 +653,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         read: () => cloudOutbox.read(accountId),
         acknowledge: receipt => cloudOutbox.acknowledge(accountId, receipt),
       },
-      apply: async (received, isCurrent, source) => {
+      apply: async (received, isCurrent) => {
         // A cloud response cannot write auth tokens, journals or unrelated keys.
         const allowed: readonly string[] = Object.values(KEYS);
         const data = Object.fromEntries(Object.entries(received).filter(([key]) => allowed.includes(key)));
-        const backup = source === 'cloud' && wasGuestRef.current;
+        const backup = await accountOwnership.isGuest();
         const snapshot = backup ? await mergeGuestWithCloud(data) : data;
-        await AsyncStorage.replaceSnapshot(Object.fromEntries(Object.entries(snapshot).map(([key, value]) =>
-          [key, typeof value === 'string' ? value : JSON.stringify(value)])), isCurrent);
+        if (!isCurrent()) throw new Error('Account changed');
+        // Guest transfer must survive a restart before the first upload/ack.
+        if (backup) await cloudOutbox.stage(accountId, async () => {
+          if (!isCurrent()) throw new Error('Account changed');
+          return snapshot;
+        });
+        await AsyncStorage.replaceSnapshot({
+          ...Object.fromEntries(Object.entries(snapshot).map(([key, value]) =>
+            [key, typeof value === 'string' ? value : JSON.stringify(value)])),
+          [LOCAL_DATA_OWNER_KEY]: encodeDataOwner(accountId),
+        }, isCurrent);
         if (!isCurrent() || !await loadAll(isCurrent)) throw new Error('Account data could not be loaded');
-        wasGuestRef.current = false;
         return { backup };
       },
     });
@@ -652,7 +680,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       session.dispose();
       if (cloudSessionRef.current === session) cloudSessionRef.current = null;
     };
-  }, [accountId, isSignedIn, authLoading, isLoading, readCloudSnapshot, mergeGuestWithCloud]);
+  }, [accountId, isSignedIn, authLoading, isLoading, localScopeReady, readCloudSnapshot, mergeGuestWithCloud]);
 
   const buildFreshCheckedState = (items: ChecklistItemDef[]): CheckedState => {
     const today = getTodayDate();
@@ -850,7 +878,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── サイズ成長: 1時間ごとに経過時間ぶんを再計算(時間ベース。開いた回数は無関係) ──
   useEffect(() => {
-    if (isLoading) return;
+    if (!dataReady) return;
     const timer = setInterval(() => {
       setGrowth((prev) => {
         const next = applyGrowth(prev);
@@ -861,7 +889,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
     }, 3_600_000);
     return () => clearInterval(timer);
-  }, [isLoading]);
+  }, [dataReady]);
 
   const markGrowthSeen = useCallback(async () => {
     setGrowth((prev) => {
@@ -1076,7 +1104,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         checkedState,
         checklistItems,
         unlockedBadges,
-        isLoading,
+        isLoading: appLoading,
         newlyUnlockedBadge,
         mascotName,
         feedState,
@@ -1111,7 +1139,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         markGrowthSeen,
         lightEnergy,
         storageError,
-        retryStorageRecovery: async () => { await loadAll(); },
+        retryStorageRecovery: async () => {
+          if (!localScopeReady) setScopeRetry(value => value + 1);
+          else await loadAll(() => accountIdRef.current === accountId);
+        },
         receiveGardenReward,
         lightGainEvent,
         holdLightFlow,

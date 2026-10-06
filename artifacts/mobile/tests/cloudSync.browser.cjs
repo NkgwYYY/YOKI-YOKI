@@ -11,7 +11,9 @@ const auth = `import React from 'react';
   export const API_BASE = location.origin + '/api';
   export const useAuth = () => React.useContext(Auth);
   export function TestAuth({children}) {
-    const [id, setId] = React.useState('account-a');
+    const [id, setId] = React.useState(() => {
+      const start = localStorage.getItem('qa-start-auth'); return start === 'guest' ? null : start || 'account-a';
+    });
     window.qaAuth = setId;
     return <Auth.Provider value={{ isSignedIn: !!id, user: id ? {id} : null, isLoading: false,
       getToken: async () => id, logout: async () => setId(null) }}>{children}</Auth.Provider>;
@@ -19,22 +21,26 @@ const auth = `import React from 'react';
 const entry = `import React from 'react'; import {createRoot} from 'react-dom/client';
   import {View, Text} from 'react-native';
   import {AppProvider, useApp} from './contexts/AppContext';
-  import {TestAuth} from './contexts/AuthContext';
+  import {TestAuth, useAuth} from './contexts/AuthContext';
   import {CloudSyncStatus} from './components/account/CloudSyncStatus';
   import {Button} from './components/ui/Button';
   function Probe() {
     const app = useApp();
+    const auth = useAuth();
     window.qaApp = app;
     return <View style={{padding:24, gap:20, maxWidth:440, margin:'auto', backgroundColor:'#F7F3EA'}}>
       <Text style={{fontSize:21, color:'#34352E'}}>アカウント同期・ローカル検証</Text>
-      <CloudSyncStatus state={app.cloudSyncState} onRetry={app.retryCloudSync}/>
+      <Text>利用中：{auth.isSignedIn ? 'アカウント' : 'ゲスト'}</Text>
+      {auth.isSignedIn ? <CloudSyncStatus state={app.cloudSyncState} onRetry={app.retryCloudSync}/> : null}
       <Text testID="saved-name">{app.mascotName}</Text>
       <Text testID="saved-record-count">保存された記録：{app.records.length}件</Text>
       <Text testID="saved-points">ごはんポイント：{app.feedState.points}</Text>
-      <Button label="記録を保存する" disabled={!app.cloudSynced || app.isLoading}
-        onPress={() => app.saveRecord(4, 0, [], 'ローカル検証の記録', {sleepRecorded:false})}/>
-      <Button label="名前を変更する" disabled={!app.cloudSynced || app.isLoading}
+      <Button label="記録を保存する" disabled={(auth.isSignedIn && !app.cloudSynced) || app.isLoading || !!app.storageError}
+        onPress={() => app.saveRecord(4, 0, [], window.qaRecordNote || 'ローカル検証の記録', {sleepRecorded:false})}/>
+      <Button label="名前を変更する" disabled={(auth.isSignedIn && !app.cloudSynced) || app.isLoading || !!app.storageError}
         onPress={() => app.setMascotName('新しい相棒')}/>
+      <Button label="ログアウト" disabled={!auth.isSignedIn || app.isLoading} onPress={auth.logout}/>
+      <Button label="保存データを再確認する" disabled={app.isLoading} onPress={app.retryStorageRecovery}/>
       <Text testID="storage-error">{app.storageError || ''}</Text>
       <Text style={{fontSize:12}}>認証と通信は検証用の代替です。実アカウントの確認結果ではありません。</Text>
     </View>;
@@ -83,6 +89,7 @@ const entry = `import React from 'react'; import {createRoot} from 'react-dom/cl
           '@mentore/profile_v1': { nickname: '検証', ageRange: '回答しない', gender: '回答しない' },
           '@mentore/records_v2': [], '@mentore/mascot_name_v1': '相棒',
           '@yoki/balance_journal_v1': 'must never be applied',
+          '@yoki/local_data_owner_v1': { version: 1, accountId: null },
         } } });
       } else {
         sent.push(request.postDataJSON().data);
@@ -97,6 +104,7 @@ const entry = `import React from 'react'; import {createRoot} from 'react-dom/cl
     mode = 'ready'; await page.getByTestId('cloud-sync-retry').tap();
     await page.waitForFunction(() => window.qaApp.cloudSynced);
     assert.equal(await page.evaluate(() => localStorage.getItem('@yoki/balance_journal_v1')), null);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('@yoki/local_data_owner_v1')).accountId), 'account-a');
     await page.getByTestId('saved-name').filter({ hasText: '相棒' }).waitFor();
     console.log('PASS malformed initial pull retains saved profile; retry hydrates and ignores foreign keys');
 
@@ -165,6 +173,60 @@ const entry = `import React from 'react'; import {createRoot} from 'react-dom/cl
     assert.equal('@mentore/records_v2' in sent.at(-1), false);
     assert.equal('@mentore/shop_state_v2' in sent.at(-1), false);
     console.log('PASS sparse account clears preceding records/points/name/inventory in storage and memory before editing');
+    await page.getByRole('button', { name: '記録を保存する', exact: true }).tap();
+    await page.getByText('クラウドへの同期が完了しています。', { exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => window.qaApp.records.length), 1);
+    await page.evaluate(() => { window.qaFailKey = '@yoki/detached_account_v1/account-c'; });
+    await page.getByRole('button', { name: 'ログアウト', exact: true }).tap();
+    await page.getByTestId('storage-error').filter({ hasText: '持ち主を確認できませんでした' }).waitFor();
+    assert.equal(await page.getByRole('button', { name: '記録を保存する', exact: true }).getAttribute('aria-disabled'), 'true');
+    await page.evaluate(() => { window.qaFailKey = null; });
+    await page.getByRole('button', { name: '保存データを再確認する', exact: true }).tap();
+    await page.waitForFunction(() => !window.qaApp.isLoading && !window.qaApp.cloudSynced);
+    assert.deepEqual(await page.evaluate(() => window.qaApp.records), []);
+    assert.equal(await page.evaluate(() => window.qaApp.profile), null);
+    assert.equal(await page.evaluate(() => window.qaApp.feedState.points), 0);
+    console.log('PASS logout prepares a fresh guest without preceding account records');
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('@yoki/detached_account_v1/account-c'))).accountId, 'account-c');
+    await page.evaluate(() => { window.qaRecordNote = 'ゲストだけの記録'; });
+    await page.getByRole('button', { name: '記録を保存する', exact: true }).tap();
+    await page.waitForFunction(() => window.qaApp.records[0]?.notes === 'ゲストだけの記録');
+    if (process.env.YOKI_QA_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.YOKI_QA_SCREENSHOTS, 'sync-guest-owned.jpg'), quality: 90 });
+    mode = 'upload-fail';
+    await page.evaluate(() => { localStorage.setItem('qa-start-auth', 'account-d'); window.qaAuth('account-d'); });
+    await page.getByTestId('cloud-sync-retry').waitFor();
+    assert.equal(sent.at(-1)['@mentore/records_v2'].length, 1);
+    assert.equal(sent.at(-1)['@mentore/records_v2'][0].notes, 'ゲストだけの記録');
+    assert.equal(Object.keys(sent.at(-1)).some(key => key.startsWith('@yoki/')), false);
+    mode = 'ready'; await page.reload();
+    await page.waitForFunction(() => window.qaApp?.cloudSynced && !window.qaApp.isLoading);
+    assert.equal(await page.evaluate(() => window.qaApp.records[0]?.notes), 'ゲストだけの記録');
+    assert.equal(await page.evaluate(() => localStorage.getItem('@yoki/cloud_outbox_v1/account-d')), null);
+    console.log('PASS only genuine guest data transfers; failed transfer upload survives restart without metadata leakage');
+
+    mode = 'upload-fail'; await page.evaluate(() => { window.qaRecordNote = 'アカウントの未送信記録'; });
+    await page.getByRole('button', { name: '記録を保存する', exact: true }).tap();
+    await page.getByTestId('cloud-sync-retry').waitFor();
+    await page.getByRole('button', { name: 'ログアウト', exact: true }).tap();
+    await page.waitForFunction(() => !window.qaApp.isLoading && window.qaApp.records.length === 0);
+    await page.evaluate(() => { window.qaRecordNote = '再ログイン前のゲスト記録'; });
+    await page.getByRole('button', { name: '記録を保存する', exact: true }).tap();
+    await page.waitForFunction(() => window.qaApp.records[0]?.notes === '再ログイン前のゲスト記録');
+    mode = 'ready'; await page.evaluate(() => window.qaAuth('account-d'));
+    await page.waitForFunction(() => window.qaApp.cloudSynced && window.qaApp.cloudSyncState.phase === 'idle');
+    assert.deepEqual(sent.at(-1)['@mentore/records_v2'].map(record => record.notes).sort(), ['アカウントの未送信記録', '再ログイン前のゲスト記録'].sort());
+    assert.equal(await page.evaluate(() => localStorage.getItem('@yoki/cloud_outbox_v1/account-d')), null);
+    console.log('PASS returning to an account combines its pending upload with newly written guest data');
+
+    // Session expiry across an app restart must prepare the same fresh guest.
+    await page.evaluate(() => { localStorage.setItem('qa-start-auth', 'guest'); });
+    await page.reload(); await page.waitForFunction(() => window.qaApp && !window.qaApp.isLoading);
+    assert.deepEqual(await page.evaluate(() => window.qaApp.records), []);
+    assert.equal(await page.evaluate(() => window.qaApp.profile), null);
+    mode = 'sparse-pull'; await page.evaluate(() => window.qaAuth('account-e'));
+    await page.waitForFunction(() => window.qaApp.cloudSynced);
+    assert.deepEqual(await page.evaluate(() => window.qaApp.records), []);
+    console.log('PASS signed-out restart does not transfer the previous account again');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); server.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

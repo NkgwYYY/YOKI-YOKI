@@ -91,3 +91,13 @@ The extended browser flow passes after an injected removal failure and retry, ve
 This covers direct signed-in snapshot hydration, not account → guest → account ownership, all other local caches, live Clerk transitions or native execution. Those remain release gates; no production account or database was used.
 
 The final exported `world.browser.cjs` also passed HOME interactions, meal debit, record/light/garden flow, same-day update, reduced motion and four-viewport touch/reload checks including night, with no page errors. The final HOME and small-phone record sheet were visually inspected after these storage changes.
+
+## Guest ownership follow-up — 2026-10-06
+
+The browser regression initially failed because account records survived logout and were treated as guest data. A local owner marker now travels with the recoverable managed snapshot. Logout/session expiry preserves a detached account copy and opens a fresh guest; that copy is not automatically uploaded/merged. Genuine guest data is preserved in the account outbox before transfer, including when the account already has an unacknowledged upload. Account deletion clears only its own detached copy.
+
+All 344 mobile tests and mobile typecheck passed. New checks cover legacy-data retention, ownership corruption, stale callers, each detach persistence interruption, pending account plus new guest data, unresolved signed-in identity and detached-cache deletion. The actual-provider browser flow verifies failed detachment blocks editing until retry, logout/restart, guest-only transfer, transfer upload failure/restart, merging the returning account's pending data and rejection of cloud ownership metadata. No production identity or database is used.
+
+Legacy unmarked data is preserved under its first resolved identity; tests cannot prove its earlier ownership. These checks cover the managed AppContext cache, not all auxiliary caches or live authentication. Native/device/live-service and release gates remain open.
+
+Fresh Web/iOS/Android exports, the actual account-dialog regression and final exported `world.browser.cjs` passed after these changes. HOME gestures, meal debit, record/light/garden, same-day update, four-viewport touch/reload and night checks produced no page errors. HOME, landscape record and `final/sync-guest-owned.jpg` were visually inspected; the last image explicitly shows the synthetic local harness.
