@@ -66,3 +66,18 @@ node artifacts/mobile/tests/cloudSync.browser.cjs
 The subsequent restart scenario initially failed: a cloud pull replaced an unacknowledged record after reload. The account-scoped local outbox fixes this; the same browser scenario now passes after reloading and visiting a different account before returning. Pending data is sent before a pull, and an older acknowledgement cannot erase a newer staged snapshot. Outbox corruption/write failure, offline restart and queued edits are covered by unit tests. Four tests execute the actual tab gate and verify that cached profiles cannot bypass failed initial sync. Total: 303 mobile tests plus the 7 isolated API checks above.
 
 These tests certify synthetic failure/retry/restart behavior, not live identity-provider integration or a new multi-device conflict policy. Native/device/account release gates above remain open.
+
+## Account-operation follow-up — 2026-10-06
+
+The new actual-provider tests first reproduced 8 failures before the fix. Logout errors now remain visible; deletion requires a valid server acknowledgement, clears the recovery journal through the shared storage queue and retains the identity for retry if local cleanup fails. Concurrent delete calls share one operation. A failed app reopen after successful deletion retries only reopening.
+
+All 318 mobile tests, mobile typecheck and fresh Web/iOS/Android exports passed. The 7 preceding isolated API checks remain applicable because the server did not change. `accountLifecycle.browser.cjs` runs the actual AuthProvider, GrowthScreen account dialogs and storage/transport code with explicit synthetic Clerk, network, router, reload and storage adapters; unrelated album/chart rendering is stubbed. No production account or server is contacted. At 320×480, browser touch verified logout failure/retry, pending deletion controls, invalid acknowledgement, cleanup failure and successful-deletion/reopen retry without duplicate deletion. There were no page errors.
+
+```sh
+# Use the browser variables above; no app export is required for this harness.
+node artifacts/mobile/tests/accountLifecycle.browser.cjs
+```
+
+`final/account-logout-retry.jpg` and `final/account-reopen-retry.jpg` show the inspected local harness with synthetic account data. They demonstrate readable retry feedback, not production authentication or native screen-reader behavior. Deletion spans backend, local storage and Clerk; the tests do not certify a distributed transaction, in-flight server mutations or real identity-provider transitions. Shared local-cache isolation across accounts also remains unverified. Live-account/native/release gates remain open.
+
+The final full export also passed `worldJourney.browser.cjs` at 320×568, 390×844, 820×1180 and 844×390: actual tank values, one reward receipt and reload, HOME return, encountered-only album, unchanged records and report navigation, with no page errors.

@@ -1,7 +1,7 @@
 import { CloudSyncStatus } from '@/components/account/CloudSyncStatus';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
-import React, { useEffect, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { reloadAppAsync } from 'expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -78,31 +78,57 @@ export default function GrowthScreen() {
   const [showLogout, setShowLogout] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [accountDeleted, setAccountDeleted] = useState(false);
+  const accountDeletedRef = useRef(false);
+  const accountBusyRef = useRef(false);
   const isIOSGuestOnly = !ACCOUNT_ENABLED;
 
   const handleLogout = async () => {
-    setShowLogout(false);
-    await logout();
-    router.replace(isIOSGuestOnly ? '/(tabs)' : '/login');
+    if (accountBusyRef.current) return;
+    accountBusyRef.current = true;
+    setLoggingOut(true);
+    setLogoutError(null);
+    try {
+      await logout();
+      setShowLogout(false);
+      router.replace(isIOSGuestOnly ? '/(tabs)' : '/login');
+    } catch {
+      setLogoutError('ログアウトできませんでした。通信環境を確認して、もう一度お試しください。');
+    } finally {
+      accountBusyRef.current = false;
+      setLoggingOut(false);
+    }
   };
 
   const confirmDeleteAccount = () => {
+    if (accountBusyRef.current) return;
+    setDeleteError(null);
     setShowLogout(false);
     setShowDeleteConfirm(true);
   };
 
   const handleDeleteAccount = async () => {
+    if (accountBusyRef.current) return;
+    accountBusyRef.current = true;
     setDeletingAccount(true);
+    setDeleteError(null);
     try {
-      await deleteAccount();
-      setShowDeleteConfirm(false);
+      if (!accountDeletedRef.current) {
+        await deleteAccount();
+        accountDeletedRef.current = true;
+        setAccountDeleted(true);
+      }
       await reloadAppAsync();
-    } catch (error) {
-      Alert.alert(
-        '削除できませんでした',
-        error instanceof Error ? error.message : '時間をおいてもう一度お試しください',
-      );
+      setShowDeleteConfirm(false);
+    } catch {
+      setDeleteError(accountDeletedRef.current
+        ? '削除は完了しています。画面を更新できませんでした。もう一度お試しください。'
+        : '削除を完了できませんでした。通信環境を確認して、もう一度お試しください。');
     } finally {
+      accountBusyRef.current = false;
       setDeletingAccount(false);
     }
   };
@@ -181,7 +207,7 @@ export default function GrowthScreen() {
             </View>
             <PressScale
               style={styles.accountBtn}
-              onPress={() => setShowLogout(true)}
+              onPress={() => { setLogoutError(null); setShowLogout(true); }}
               hitSlop={space.sm}
               accessibilityLabel={isIOSGuestOnly ? 'プロフィールと使い方' : 'アカウント'}
             >
@@ -191,7 +217,7 @@ export default function GrowthScreen() {
         </FadeIn>
 
         {/* アカウント */}
-        <CenterDialog visible={showLogout} onClose={() => setShowLogout(false)}>
+        <CenterDialog visible={showLogout} onClose={() => { if (!accountBusyRef.current) setShowLogout(false); }}>
           <View style={styles.dialogHead}>
             <Icon name="user" size={32} color={colors.primary} />
             <Text style={styles.dialogTitle}>
@@ -228,6 +254,7 @@ export default function GrowthScreen() {
           {isSignedIn && !isIOSGuestOnly ? <CloudSyncStatus state={cloudSyncState} onRetry={retryCloudSync} /> : null}
           <Button
             label="プロフィールを編集"
+            disabled={loggingOut}
             variant="outline"
             onPress={() => {
               setShowLogout(false);
@@ -237,6 +264,7 @@ export default function GrowthScreen() {
           />
           <Button
             label="使い方ガイド"
+            disabled={loggingOut}
             variant="outline"
             onPress={() => {
               setShowLogout(false);
@@ -246,13 +274,14 @@ export default function GrowthScreen() {
           />
           {isSignedIn && !isIOSGuestOnly && (
             <>
-              <PressScale onPress={handleLogout} style={styles.logoutBtn}>
+              {logoutError ? <Text accessibilityRole="alert" style={styles.accountError}>{logoutError}</Text> : null}
+              <PressScale onPress={handleLogout} disabled={loggingOut} accessibilityLabel={loggingOut ? 'ログアウトしています…' : 'ログアウト'} style={styles.logoutBtn}>
                 <Icon name="log-out" size={16} color={colors.danger} />
-                <Text style={styles.logoutBtnText}>ログアウト</Text>
+                <Text style={styles.logoutBtnText}>{loggingOut ? 'ログアウトしています…' : 'ログアウト'}</Text>
               </PressScale>
               <PressScale
                 onPress={confirmDeleteAccount}
-                disabled={deletingAccount}
+                disabled={deletingAccount || loggingOut}
                 testID="delete-account-button"
                 accessibilityLabel="アカウントを完全に削除"
                 style={styles.deleteAccountBtn}
@@ -264,40 +293,41 @@ export default function GrowthScreen() {
               </PressScale>
             </>
           )}
-          <Button label="キャンセル" variant="ghost" onPress={() => setShowLogout(false)} />
+          <Button label="キャンセル" variant="ghost" disabled={loggingOut} onPress={() => setShowLogout(false)} />
         </CenterDialog>
 
         <CenterDialog
           visible={showDeleteConfirm}
           onClose={() => {
-            if (!deletingAccount) setShowDeleteConfirm(false);
+            if (!deletingAccount && !accountDeleted) setShowDeleteConfirm(false);
           }}
         >
           <View style={styles.dialogHead}>
             <Icon name="trash-2" size={32} color={colors.danger} />
-            <Text style={styles.dialogTitle}>アカウントを削除</Text>
+            <Text style={styles.dialogTitle}>{accountDeleted ? '削除が完了しました' : 'アカウントを削除'}</Text>
           </View>
           <Text style={styles.dialogBody}>
-            記録、進捗、所持アイテム、ログイン情報を含むすべてのデータを完全に削除します。
+            {accountDeleted ? 'アプリを開き直すと、新しくはじめられます。' : '記録、進捗、所持アイテム、ログイン情報を含むすべてのデータを完全に削除します。'}
           </Text>
-          <Text style={styles.deleteConfirmWarning}>
+          {!accountDeleted && <Text style={styles.deleteConfirmWarning}>
             この操作は取り消せません。
-          </Text>
+          </Text>}
+          {deleteError ? <Text accessibilityRole="alert" style={styles.accountError}>{deleteError}</Text> : null}
           <Button
-            label={deletingAccount ? '削除しています…' : '完全に削除する'}
+            label={accountDeleted ? 'アプリを開き直す' : deletingAccount ? '削除しています…' : '完全に削除する'}
             onPress={handleDeleteAccount}
             loading={deletingAccount}
             disabled={deletingAccount}
-            icon="trash-2"
+            icon={accountDeleted ? 'refresh-cw' : 'trash-2'}
             testID="confirm-delete-account-button"
-            style={styles.deleteConfirmButton}
+            style={accountDeleted ? undefined : styles.deleteConfirmButton}
           />
-          <Button
+          {!accountDeleted && <Button
             label="キャンセル"
             variant="ghost"
             disabled={deletingAccount}
             onPress={() => setShowDeleteConfirm(false)}
-          />
+          />}
         </CenterDialog>
 
         <MemoryBook current={currentChar.key} name={mascotName||'よっきー'} totalDays={progress.totalDays}
@@ -735,6 +765,7 @@ const styles = StyleSheet.create({
   dialogSub: { ...typography.caption, color: colors.mutedForeground },
   dialogBody: { ...typography.callout, color: colors.mutedForeground },
   dialogNote: { ...typography.caption, color: colors.subtleForeground },
+  accountError: { ...typography.callout, color: colors.danger },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',

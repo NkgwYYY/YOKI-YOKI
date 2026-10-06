@@ -39,6 +39,13 @@ export function createRecoverableStorage(storage: Storage, journalKey: string, a
     setItem: (key: string, value: string) => run(() => storage.setItem(key, value)),
     removeItem: (key: string) => run(() => storage.removeItem(key)),
     recover: () => exclusive(recover),
+    /** Explicit account deletion: wait for earlier writes, discard recovery and
+     * remove every managed key. Do not replay data the user asked to delete. */
+    clearAll: (additionalKeys: readonly string[] = []) => exclusive(async () => {
+      for (const key of new Set([journalKey, ...allowedKeys, ...additionalKeys])) {
+        await storage.removeItem(key);
+      }
+    }),
     transaction: <T>(build: (values: Record<string, string | null>) => { entries: StorageEntry[]; result: T }) => run(async () => {
       const values = Object.fromEntries(await Promise.all(allowedKeys.map(async key => [key, await storage.getItem(key)])));
       const { entries, result } = build(values);

@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useCallback } from 'react';
+import React, { createContext, useContext, useCallback, useRef } from 'react';
 import { useAuth as useClerkAuth, useUser } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cloudOutboxKey } from '@/utils/cloudOutbox';
+import { balanceStorage } from '@/utils/balanceStorage';
+import { createCloudSyncTransport } from '@/utils/cloudSync';
 
 export const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -59,36 +61,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signOut();
     } catch {
-      // ignore
+      throw new Error('ログアウトできませんでした。通信環境を確認して、もう一度お試しください。');
     }
   }, [signOut]);
 
-  const deleteAccount = useCallback(async () => {
-    if (!clerkUser) {
-      throw new Error('削除するアカウントが見つかりません');
-    }
-
-    const token = await clerkGetToken();
-    if (!token) {
-      throw new Error('認証を確認できませんでした。もう一度ログインしてください');
-    }
-
-    const response = await fetch(`${API_BASE}/account`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) {
-      const body = await response.json().catch(() => null) as { error?: string } | null;
-      throw new Error(body?.error || '保存データを削除できませんでした');
-    }
-
-    await clerkUser.delete();
-
-    const localKeys = await AsyncStorage.getAllKeys();
-    const appKeys = localKeys.filter((key) => key.startsWith('@mentore/') || key === cloudOutboxKey(clerkUser.id));
-    if (appKeys.length > 0) {
-      await AsyncStorage.multiRemove(appKeys);
-    }
+  const deletionRef = useRef<Promise<void> | null>(null);
+  const deleteAccount = useCallback(() => {
+    if (deletionRef.current) return deletionRef.current;
+    const run = async () => {
+      if (!clerkUser) throw new Error('削除するアカウントが見つかりません');
+      const transport = createCloudSyncTransport({ url: `${API_BASE}/account`, getToken: clerkGetToken });
+      await transport.deleteAccount(new AbortController().signal);
+      const localKeys = await AsyncStorage.getAllKeys();
+      const appKeys = localKeys.filter(key => key.startsWith('@mentore/') || key === cloudOutboxKey(clerkUser.id));
+      // Keep the identity available for retry if local cleanup fails. The journal
+      // must be discarded too, otherwise recovery can restore deleted records.
+      await balanceStorage.clearAll(appKeys);
+      await clerkUser.delete();
+    };
+    const pending = run().catch(() => {
+      throw new Error('削除を完了できませんでした。通信環境を確認して、もう一度お試しください。');
+    }).finally(() => { deletionRef.current = null; });
+    deletionRef.current = pending;
+    return pending;
   }, [clerkGetToken, clerkUser]);
 
   const user: AuthUser | null = clerkUser

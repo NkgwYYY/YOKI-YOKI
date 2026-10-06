@@ -72,3 +72,28 @@ test('malformed journal stays intact and cannot write an unrelated key',async()=
   assert.equal(f.data.has('profile'),false);
   assert.deepEqual(read(f.data),initial);
 });
+test('explicit deletion discards even an unreadable journal without restoring its data', async () => {
+  const f = fixture(); f.data.set('journal', 'broken'); f.data.set('unrelated', 'keep');
+  await f.open().clearAll();
+  assert.deepEqual([...f.data], [['unrelated', 'keep']]);
+  await f.open().recover(); assert.equal(f.data.has('feed'), false);
+});
+test('deletion waits for an earlier queued write before clearing managed keys', async () => {
+  const data = new Map([['foreign', 'keep']]); let release, started;
+  const entered = new Promise(resolve => { started = resolve; });
+  const delay = new Promise(resolve => { release = resolve; });
+  const store = createRecoverableStorage({
+    getItem: async key => data.get(key) ?? null,
+    setItem: async (key, value) => { started(); await delay; data.set(key, value); },
+    removeItem: async key => data.delete(key),
+  }, 'journal', ['records']);
+  const write = store.setItem('records', 'old data'); await entered;
+  const clear = store.clearAll(); release(); await Promise.all([write, clear]);
+  assert.deepEqual([...data], [['foreign', 'keep']]);
+});
+test('interrupted deletion can be retried without clearing unrelated account data', async () => {
+  const f = fixture(2); f.data.set('other-account', 'keep');
+  await assert.rejects(f.open().clearAll());
+  await f.open().clearAll();
+  assert.deepEqual([...f.data], [['other-account', 'keep']]);
+});

@@ -19,7 +19,7 @@ export function createCloudSyncTransport(options: {
   fetcher?: typeof fetch;
   timeoutMs?: number;
 }) {
-  const request = async (method: 'GET' | 'PUT', signal: AbortSignal, data?: CloudData) => {
+  const request = async (method: 'GET' | 'PUT' | 'DELETE', signal: AbortSignal, data?: CloudData) => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let cancel = () => {};
@@ -53,6 +53,7 @@ export function createCloudSyncTransport(options: {
   return {
     pull: (signal: AbortSignal) => request('GET', signal),
     push: async (data: CloudData, signal: AbortSignal) => { await request('PUT', signal, data); },
+    deleteAccount: async (signal: AbortSignal) => { await request('DELETE', signal); },
   };
 }
 
