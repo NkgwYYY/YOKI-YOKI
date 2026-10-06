@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TextInput,
   FlatList, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PRIVATE_CACHE_KEYS, type PrivateCache } from '@/utils/privateCache';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getTabBarHeight } from '@/utils/tabLayout';
 import { localDateKey, normalizeStoredMessage, type Message, type Citation } from '@/utils/chatHistory';
@@ -191,18 +191,18 @@ const chipStyles = StyleSheet.create({
   text: { ...typography.label, color: colors.foreground },
 });
 
-const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
+const CHAT_HISTORY_KEY = PRIVATE_CACHE_KEYS.CHAT;
 const MAX_STORED = 60;
 const MAX_CONTEXT = 20;
-// Keep reads, writes and deletion ordered, including across screen remounts.
-let historyQueue: Promise<unknown> = Promise.resolve();
-function queueHistory<T>(operation: () => Promise<T>): Promise<T> {
-  const result = historyQueue.then(operation, operation);
-  historyQueue = result.catch(() => {});
-  return result;
-}
 
 export default function ChatScreen() {
+  const { privateCache } = useApp();
+  // Remount on every resolved identity lifetime; no prior messages/input flash
+  // while the next account's cache is loading.
+  return privateCache ? <ScopedChatScreen key={privateCache.id} cache={privateCache} /> : null;
+}
+
+function ScopedChatScreen({ cache }: { cache: PrivateCache }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tabBarHeight = getTabBarHeight(Platform.OS, insets.bottom);
@@ -236,6 +236,13 @@ export default function ChatScreen() {
   const request = useRef<AbortController | null>(null);
   const restTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<FlatList>(null);
+  const mounted = useRef(true);
+  const isCurrent = useCallback(() => mounted.current && cache.isCurrent(), [cache]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; request.current?.abort(); request.current = null;
+      if (restTimer.current) clearTimeout(restTimer.current); };
+  }, []);
 
   useFocusEffect(useCallback(() => () => {
     if (request.current) {
@@ -249,11 +256,12 @@ export default function ChatScreen() {
   }, []));
 
   const loadHistory = async () => {
-      if (loadBusy.current) return;
+      if (loadBusy.current || !isCurrent()) return;
       loadBusy.current = true;
       setLoadError(false);
       try {
-        const raw = await queueHistory(() => AsyncStorage.getItem(CHAT_HISTORY_KEY));
+        const raw = await cache.getItem(CHAT_HISTORY_KEY);
+        if (!isCurrent()) return;
         if (raw) {
           const parsed: unknown = JSON.parse(raw);
           if (!Array.isArray(parsed)) throw new Error('Invalid history');
@@ -268,7 +276,7 @@ export default function ChatScreen() {
           }
         }
         setHistoryLoaded(true);
-      } catch { setLoadError(true); }
+      } catch { if (isCurrent()) setLoadError(true); }
       finally { loadBusy.current = false; }
   };
 
@@ -279,10 +287,10 @@ export default function ChatScreen() {
   const persistHistory = useCallback((serialized: string) => {
     const version = ++saveVersion.current;
     lastScheduled.current = serialized;
-    return queueHistory(() => AsyncStorage.setItem(CHAT_HISTORY_KEY, serialized))
-      .then(() => { if (saveVersion.current === version) setSaveError(false); })
-      .catch(() => { if (saveVersion.current === version) setSaveError(true); });
-  }, []);
+    return cache.setItem(CHAT_HISTORY_KEY, serialized)
+      .then(() => { if (isCurrent() && saveVersion.current === version) setSaveError(false); })
+      .catch(() => { if (isCurrent() && saveVersion.current === version) setSaveError(true); });
+  }, [cache, isCurrent]);
 
   useEffect(() => {
     if (!historyLoaded) return;
@@ -296,24 +304,25 @@ export default function ChatScreen() {
   }, []);
 
   const clearHistory = useCallback(async () => {
-    if (request.current || clearBusy.current || !historyLoaded) return;
+    if (request.current || clearBusy.current || !historyLoaded || !isCurrent()) return;
     clearBusy.current = true;
     setClearing(true);
     try {
-      await queueHistory(() => AsyncStorage.removeItem(CHAT_HISTORY_KEY));
+      await cache.removeItem(CHAT_HISTORY_KEY);
+      if (!isCurrent()) return;
       ++saveVersion.current;
       lastScheduled.current = '[]';
       setSaveError(false);
       setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ` }]);
       setSendError(false);
       setHistoryError(false);
-    } catch { setHistoryError(true); }
-    finally { clearBusy.current = false; setClearing(false); }
-  }, [displayName, historyLoaded]);
+    } catch { if (isCurrent()) setHistoryError(true); }
+    finally { clearBusy.current = false; if (isCurrent()) setClearing(false); }
+  }, [displayName, historyLoaded, cache, isCurrent]);
 
   const sendMessage = useCallback(async (text?: string, retry = false) => {
     const msg = (text ?? input).trim();
-    if ((!retry && !msg) || request.current || clearBusy.current || !historyLoaded) return;
+    if ((!retry && !msg) || request.current || clearBusy.current || !historyLoaded || !isCurrent()) return;
     const controller = new AbortController();
     request.current = controller;
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -368,7 +377,7 @@ export default function ChatScreen() {
       if (!res.ok) throw new Error('Chat request failed');
       const data = await res.json();
       if (typeof data?.content !== 'string' || !data.content.trim()) throw new Error('Invalid chat response');
-      if (request.current !== controller) return;
+      if (request.current !== controller || !isCurrent()) return;
       const validCitations = Array.isArray(data.citations) ? data.citations.filter((item: any) =>
         typeof item?.title === 'string' && typeof item?.url === 'string' && /^https:\/\//i.test(item.url)) : [];
       const citations = validCitations.length
@@ -386,16 +395,16 @@ export default function ChatScreen() {
         restTimer.current = setTimeout(() => setShowRestEvent(true), 1200);
       }
     } catch {
-      if (request.current === controller) setSendError(true);
+      if (request.current === controller && isCurrent()) setSendError(true);
     } finally {
       clearTimeout(timeout);
-      if (request.current === controller) {
+      if (request.current === controller && isCurrent()) {
         request.current = null;
         setIsLoading(false);
         scrollToBottom();
       }
     }
-  }, [input, historyLoaded, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom]);
+  }, [input, historyLoaded, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom, isCurrent]);
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
 

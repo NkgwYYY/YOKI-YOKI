@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PRIVATE_CACHE_KEYS, type PrivateCache } from '@/utils/privateCache';
 import { colors, radius, space, typography } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -12,7 +12,7 @@ import { getTodayDate } from '@/utils/dateUtils';
 import { readInsights, type Insight } from '@/utils/insightData';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
-const STORAGE_KEY = '@mentore/insight_v1';
+const STORAGE_KEY = PRIVATE_CACHE_KEYS.INSIGHT;
 
 interface CachedInsight {
   date: string;
@@ -20,6 +20,11 @@ interface CachedInsight {
 }
 
 export function InsightCard() {
+  const { privateCache } = useApp();
+  return privateCache ? <ScopedInsightCard key={privateCache.id} cache={privateCache} /> : null;
+}
+
+function ScopedInsightCard({ cache }: { cache: PrivateCache }) {
   const { records, progress, checkedState, unlockedBadges, mascotName, profile } = useApp();
   const { getToken } = useAuth();
 
@@ -31,23 +36,25 @@ export function InsightCard() {
   const requested = useRef(false);
   const mounted = useRef(true);
   const pendingCache = useRef<CachedInsight | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const isCurrent = () => mounted.current && cache.isCurrent();
 
   const saveCache = async () => {
-    if (!pendingCache.current) return;
+    if (!pendingCache.current || !isCurrent()) return;
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pendingCache.current));
-      if (mounted.current) setCacheFailed(false);
-    } catch { if (mounted.current) setCacheFailed(true); }
+      await cache.setItem(STORAGE_KEY, JSON.stringify(pendingCache.current));
+      if (isCurrent()) setCacheFailed(false);
+    } catch { if (isCurrent()) setCacheFailed(true); }
   };
 
   const retryCache = async () => {
-    if (busy.current) return;
+    if (busy.current || !isCurrent()) return;
     busy.current = true;
     setLoading(true);
     try { await saveCache(); }
     finally {
       busy.current = false;
-      if (mounted.current) setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 
@@ -56,20 +63,20 @@ export function InsightCard() {
     mounted.current = true;
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await cache.getItem(STORAGE_KEY);
         if (!raw) return;
         const cached = JSON.parse(raw) as CachedInsight;
         const valid = readInsights(cached?.insights);
-        if (mounted.current && !requested.current && cached?.date === getTodayDate() && valid) {
+        if (isCurrent() && !requested.current && cached?.date === getTodayDate() && valid) {
           setInsights(valid);
         }
       } catch {}
     })();
-    return () => { mounted.current = false; };
+    return () => { mounted.current = false; request.current?.abort(); };
   }, []);
 
   const generate = async () => {
-    if (busy.current) return;
+    if (busy.current || !isCurrent()) return;
     busy.current = true;
     requested.current = true;
     setLoading(true);
@@ -103,8 +110,12 @@ export function InsightCard() {
         badgeCount: unlockedBadges.length,
       };
       const token = await getToken();
+      if (!isCurrent()) return;
+      const controller = new AbortController();
+      request.current = controller;
       const res = await fetch(`${API_BASE}/insight`, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -115,16 +126,16 @@ export function InsightCard() {
       const data = await res.json();
       const valid = readInsights(data?.insights);
       if (!valid) throw new Error('Invalid insights');
-      if (!mounted.current) return;
+      if (!isCurrent()) return;
       setInsights(valid);
       // A cache write failure must not discard a valid response or request AI again.
       pendingCache.current = { date: getTodayDate(), insights: valid };
       await saveCache();
     } catch {
-      if (mounted.current) setError(true);
+      if (isCurrent()) setError(true);
     } finally {
       busy.current = false;
-      if (mounted.current) setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 

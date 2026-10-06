@@ -1,3 +1,5 @@
+import { privateCacheStorage } from '@/utils/privateCacheStorage';
+import type { PrivateCache } from '@/utils/privateCache';
 import { APP_STORAGE_KEYS as KEYS } from '@/utils/appStorageKeys';
 import { createCloudOutbox } from '@/utils/cloudOutbox';
 import { subscribeAccountDeletion } from '@/utils/accountDeletion';
@@ -178,6 +180,7 @@ export function computeInactivityHours(lastOpenedAt: string): number {
 }
 
 interface AppContextType {
+  privateCache: PrivateCache | null;
   progress: UserProgress;
   records: DailyRecord[];
   checkedState: CheckedState;
@@ -292,6 +295,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const accountId = isSignedIn ? user?.id ?? null : null;
   const accountIdRef = useRef(accountId);
   accountIdRef.current = accountId;
+  const identityRef = useRef({ accountId, authLoading });
+  if (identityRef.current.accountId !== accountId || identityRef.current.authLoading !== authLoading) {
+    identityRef.current = { accountId, authLoading };
+  }
+  const identity = identityRef.current;
+  const [privateScope, setPrivateScope] = useState<PrivateCache | null>(null);
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
 
@@ -351,6 +360,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [lightEnergy, setLightEnergy] = useState<LightEnergyState>(() => createLightEnergyState(getTodayDate()));
   const [storageError, setStorageError] = useState<string | null>(null);
   const dataReady = !deletionPaused && !appLoading && !storageError && localScopeReady && (!isSignedIn || cloudSynced);
+  const privateCache = dataReady && privateScope?.isCurrent() ? privateScope : null;
   const feedStateRef = useRef<FeedState>(defaultFeedState);
   // 非同期処理の並走でも付与が失われないよう、最新値を ref でも保持する
   const lightEnergyRef = useRef(lightEnergy);
@@ -638,14 +648,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (authLoading || (isSignedIn && !accountId)) return;
     let active = true;
-    const isCurrent = () => active && accountIdRef.current === accountId && (!accountId || deletingAccountRef.current !== accountId);
+    const isCurrent = () => active && identityRef.current === identity && (!accountId || deletingAccountRef.current !== accountId);
     setIsLoading(true);
     void (async () => {
       try {
+        // Migrate legacy private values under the OLD owner before changing it.
+        await AsyncStorage.recover();
+        const cache = await privateCacheStorage.open(accountId, isCurrent);
         await accountOwnership.prepare(accountId, isCurrent);
         if (!isCurrent()) return;
         const loaded = await loadAll(isCurrent);
-        if (isCurrent()) setLocalScope({ accountId, ready: loaded });
+        if (isCurrent()) {
+          setPrivateScope(cache);
+          setLocalScope({ accountId, ready: loaded });
+        }
       } catch {
         if (isCurrent()) {
           setStorageError('保存データの持ち主を確認できませんでした。データを保ったまま、もう一度読み込みます。');
@@ -1062,11 +1078,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const commentInputsChanged =
       resolved.frequency !== homeCommentPreferences.frequency ||
       resolved.includeRecentChat !== homeCommentPreferences.includeRecentChat;
-    if (commentInputsChanged) await clearHomeCommentCache();
+    if (commentInputsChanged) {
+      if (!privateCache) throw new Error('Account data is not ready');
+      await clearHomeCommentCache(privateCache);
+    }
     await AsyncStorage.setItem(KEYS.HOME_COMMENT_PREFERENCES, JSON.stringify(resolved));
     setHomeCommentPreferences(resolved);
     void pushDataToCloud().catch(() => {});
-  }, [homeCommentPreferences, pushDataToCloud]);
+  }, [homeCommentPreferences, pushDataToCloud, privateCache]);
 
   const setMascotName = useCallback(async (name: string) => {
     await AsyncStorage.setItem(KEYS.MASCOT_NAME, name);
@@ -1127,6 +1146,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
+        privateCache,
         progress,
         records,
         checkedState,

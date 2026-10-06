@@ -140,3 +140,25 @@ The new harness runs real AuthProvider/AppProvider and storage/sync code with sy
 These checks cover the managed AppContext snapshot. Chat, insight and home-comment raw caches remain a separate ownership task and must not be silently added to cloud sync. Live authentication/service transitions, native execution and Replit integration are still release gates.
 
 The final exported world.browser.cjs also passed HOME gestures/meal, record→light→garden, same-day reward preservation and four-viewport touch/reload including night, with no page errors. HOME and landscape record were visually inspected after the authentication changes.
+
+
+## Private local cache ownership — 2026-10-06
+
+Chat, insight and HOME-comment caches now use local account/guest envelopes, outside the managed cloud allowlist. Migration preserves existing bytes under the recorded previous owner before AppContext changes ownership. Unmarked legacy values follow the first resolved identity; historical authorship cannot be reconstructed. An interrupted migration rolls forward its recorded owner; corrupt/conflicting caches stay intact and block loading. Guest conversations remain separate from account conversations, including after signing in and returning to guest.
+
+A single private queue serializes writes and account deletion. Scope-bound readers/writers reject expired identities, and the actual chat/insight UI remounts per scope. Deletion writes a content-free account tombstone after server acknowledgement, preserving other accounts and guest data. The in-app guide describes device-only storage. No chat content was added to cloud sync.
+
+```sh
+node --test artifacts/mobile/tests/*.test.mjs
+# Browser environment variables are listed above. No export needed for this harness:
+node artifacts/mobile/tests/privateCache.browser.cjs
+# Against a fresh YOKI_QA_EXPORT (actual app export):
+node artifacts/mobile/tests/chatStorage.browser.cjs
+node artifacts/mobile/tests/chatRecovery.browser.cjs
+node artifacts/mobile/tests/chatPopulated.browser.cjs
+node artifacts/mobile/tests/insight.browser.cjs
+```
+
+392 unit/regression tests, mobile typecheck and fresh Web/iOS/Android JS/assets exports passed. No API changes in this checkpoint. The new browser harness uses actual AuthProvider/AppProvider, chat, InsightCard and HOME-comment utility, with synthetic SDK/network/native-art adapters. It checks A/B/guest isolation and restart, old-identity response rejection, account deletion during a pending HOME comment, guest preservation and no private keys in a real managed upload. The synthetic chat render was visually inspected locally. Its image is excluded from publication after automatic approval review rejected the image upload (content/sensitivity and image-sharing authorization were not established). The harness can reproduce this evidence locally; it is not live account validation.
+
+Actual exported chat tests passed load failure/save retry/delete retry, HTTP/malformed reply/cancellation, and 120 legacy messages displayed as latest 60 without truncating stored history at 320×568 and 844×390. Insight cache failure retains the valid result, retries storage without another AI request, and restores on same-day reload. Existing cloudSync/authTransition/accountDeletion browser checks passed, as did the full world flow at four viewport sizes including night. Original-art HOME and landscape record were visually reviewed; no page errors. Real native runtime and live authentication/hosted DB are still unverified; no main merge, production deploy or signed release.

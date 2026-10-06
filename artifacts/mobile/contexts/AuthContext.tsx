@@ -1,3 +1,4 @@
+import { privateCacheStorage } from '@/utils/privateCacheStorage';
 import React, { createContext, useContext, useCallback, useEffect, useRef } from 'react';
 import { useAuth as useClerkAuth, useUser, useSession } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -101,6 +102,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const transport = createCloudSyncTransport({ url: `${API_BASE}/account`, getToken });
         await transport.deleteAccount(new AbortController().signal);
         serverDeleted = true;
+        if (!isCurrent()) throw new Error('Session changed');
+        // Finish legacy migration before shared-key cleanup, then serialize
+        // private deletion after pending writes. Other identities stay intact.
+        await privateCacheStorage.deleteAccount(clerkUser.id, isCurrent);
         if (!isCurrent()) throw new Error('Session changed');
         const localKeys = await AsyncStorage.getAllKeys();
         const appKeys = localKeys.filter(key => key.startsWith('@mentore/') || key === cloudOutboxKey(clerkUser.id) || key === accountCacheKey(clerkUser.id));

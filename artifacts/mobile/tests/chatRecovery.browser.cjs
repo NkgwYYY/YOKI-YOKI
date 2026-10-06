@@ -41,7 +41,7 @@ const server=http.createServer((req,res)=>{
     await page.getByRole('button',{name:'部屋へ戻る'}).click();
     release();await page.getByTestId('room-scene').waitFor();
     assert.deepEqual(errors,[]);
-    const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/chat_history_v1')));
+    const stored=await page.evaluate(()=>JSON.parse(JSON.parse(localStorage.getItem('@yoki/private_cache_v1/guest')).data['@mentore/chat_history_v1']));
     assert.equal(stored.filter(m=>m.role==='assistant').length,1,'late response after leaving is ignored');
     console.log('PASS HTTP/malformed response retry, same user context, valid reply with invalid citations, cancellation on room return; mocked API only');
   }finally{await browser.close();server.close();}

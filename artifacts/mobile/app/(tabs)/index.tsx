@@ -32,7 +32,7 @@ export default function HomeScreen() {
   const { active, reduceMotion } = useRoomActivity();
   const time = useWorldTime(active);
   const { progress, growth, mascotName, setMascotName, roomCustomization, companionState,
-    getTodayRecord, getCompletedCount, getTotalCheckCount, homeCommentPreferences } = useApp();
+    getTodayRecord, getCompletedCount, getTotalCheckCount, homeCommentPreferences, privateCache } = useApp();
   const { items, shopState } = useItems();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [hints, setHints] = useState(false);
@@ -43,7 +43,8 @@ export default function HomeScreen() {
   const [food, setFood] = useState<string | null>(null);
   const [speech, setSpeech] = useState('');
   const speechTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [message, setMessage] = useState('おかえり。今日は、どんな一日だった？');
+  const [comment, setComment] = useState<{ scope: typeof privateCache; text: string } | null>(null);
+  const message = comment?.scope === privateCache && privateCache?.isCurrent() ? comment.text : 'おかえり。今日は、どんな一日だった？';
   const [nameError, setNameError] = useState('');
   const [savingName, setSavingName] = useState(false);
   const nameBusy = useRef(false);
@@ -65,13 +66,13 @@ export default function HomeScreen() {
   };
   useEffect(() => { let alive = true; AsyncStorage.getItem(HINT_KEY).then(value => { if (alive) setHints(value === 'show'); }).catch(() => {}); return () => { alive = false; clearTimeout(speechTimer.current); }; }, []);
   useEffect(() => {
-    if (!active || sheet !== 'chat') return;
+    if (!active || sheet !== 'chat' || !privateCache) return;
     let alive = true;
     getHomeComment({ date: getTodayDate(), mascotName: mascotName || 'よっきー', record: today,
-      completed: getCompletedCount(), total: getTotalCheckCount(), preferences: homeCommentPreferences })
-      .then(value => { if (alive && value) setMessage(value); }).catch(() => {});
+      completed: getCompletedCount(), total: getTotalCheckCount(), preferences: homeCommentPreferences }, privateCache)
+      .then(value => { if (alive && privateCache.isCurrent() && value) setComment({ scope: privateCache, text: value }); }).catch(() => {});
     return () => { alive = false; };
-  }, [active, sheet, today, mascotName, homeCommentPreferences, getCompletedCount, getTotalCheckCount]);
+  }, [active, sheet, today, mascotName, homeCommentPreferences, getCompletedCount, getTotalCheckCount, privateCache]);
   useEffect(() => {
     if (!active) { soundGeneration.current++; soundRef.current?.unloadAsync().catch(() => {}); soundRef.current = null; }
     return () => { soundGeneration.current++; soundRef.current?.unloadAsync().catch(() => {}); soundRef.current = null; };

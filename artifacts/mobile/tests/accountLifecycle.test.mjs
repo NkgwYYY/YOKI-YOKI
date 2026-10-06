@@ -8,6 +8,7 @@ import { notifyAccountDeletion, subscribeAccountDeletion } from '../utils/accoun
 import { cloudOutboxKey } from '../utils/cloudOutbox.ts';
 import { createCloudSyncTransport } from '../utils/cloudSync.ts';
 import { createRecoverableStorage } from '../utils/recoverableStorage.ts';
+import { createPrivateCacheStore, privateCacheKey } from '../utils/privateCache.ts';
 import { APP_STORAGE_KEYS } from '../utils/appStorageKeys.ts';
 import { accountCacheKey, LOCAL_DATA_OWNER_KEY } from '../utils/accountOwnership.ts';
 
@@ -33,6 +34,7 @@ function fixture({ body = { ok: true }, status = 200, failLogout = false, failId
     multiRemove: async keys => { if (failStorage) throw Error('disk unavailable'); for (const key of keys) { events.push('remove:' + key); data.delete(key); } },
   };
   const balanceStorage = createRecoverableStorage(raw, JOURNAL, [...Object.values(APP_STORAGE_KEYS), LOCAL_DATA_OWNER_KEY]);
+  const privateCacheStorage = createPrivateCacheStore(raw, LOCAL_DATA_OWNER_KEY);
   const exports = {};
   const refs = []; let cursor = 0;
   const hooks = { ...React, useEffect: () => {}, useCallback: fn => fn, useRef: initial => refs[cursor++] ||= { current: initial } };
@@ -45,6 +47,7 @@ function fixture({ body = { ok: true }, status = 200, failLogout = false, failId
       useUser: () => ({ user: !sdk.profileId ? null : { id: sdk.profileId, delete: async () => { events.push('identity'); if (failIdentity) throw Error('identity failed'); } } }),
     };
     if (name === '@react-native-async-storage/async-storage') return raw;
+    if (name.endsWith('/privateCacheStorage')) return { privateCacheStorage };
     if (name.endsWith('/accountDeletion')) return { notifyAccountDeletion };
     if (name.endsWith('/cloudOutbox')) return { cloudOutboxKey };
     if (name.endsWith('/accountOwnership')) return { accountCacheKey };
@@ -193,4 +196,18 @@ test('a new account cannot share the preceding account deletion promise', async 
   const b=f.render({userId:'account-b',sessionId:'session-b',profileId:'account-b'});
   await assert.rejects(b.deleteAccount(),/前のアカウント/);assert.equal(calls,1);
   release.resolve();await assert.rejects(a);await b.deleteAccount();assert.equal(calls,2);
+});
+
+test('account deletion clears only its private envelope and discards a corrupt balance journal', async () => {
+  const f = fixture();
+  f.data.set(JOURNAL, 'corrupt interrupted balance journal');
+  f.data.set(LOCAL_DATA_OWNER_KEY, JSON.stringify({ version: 1, accountId: 'account-a' }));
+  f.data.set('@mentore/chat_history_v1', 'legacy private chat');
+  f.data.set(privateCacheKey('account-b'), JSON.stringify({version:1,accountId:'account-b',data:{'@mentore/chat_history_v1':'other account'}}));
+  f.data.set(privateCacheKey(null), JSON.stringify({version:1,accountId:null,data:{'@mentore/chat_history_v1':'guest'}}));
+  await f.operations.deleteAccount();
+  assert.deepEqual(JSON.parse(f.data.get(privateCacheKey('account-a'))),{version:1,accountId:'account-a',data:{},deleted:true});
+  assert.equal(f.data.has('@mentore/chat_history_v1'),false); assert.equal(f.data.has(JOURNAL),false);
+  assert.ok(f.data.get(privateCacheKey('account-b')).includes('other account'));
+  assert.ok(f.data.get(privateCacheKey(null)).includes('guest'));
 });

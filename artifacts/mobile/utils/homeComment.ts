@@ -1,5 +1,5 @@
 import { APP_STORAGE_KEYS } from './appStorageKeys';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PRIVATE_CACHE_KEYS, type PrivateCache } from './privateCache';
 import type { DailyRecord } from '@/contexts/AppContext';
 import {
   buildHomeCommentCacheSource,
@@ -7,8 +7,8 @@ import {
   type HomeCommentTimeOfDay,
 } from '@/utils/homeCommentTiming';
 
-const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
-const HOME_COMMENT_KEY = '@mentore/home_comment_v1';
+const CHAT_HISTORY_KEY = PRIVATE_CACHE_KEYS.CHAT;
+const HOME_COMMENT_KEY = PRIVATE_CACHE_KEYS.HOME_COMMENT;
 export const HOME_COMMENT_PREFERENCES_KEY = APP_STORAGE_KEYS.HOME_COMMENT_PREFERENCES;
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -60,8 +60,8 @@ export function resolveHomeCommentPreferences(value: unknown): HomeCommentPrefer
   };
 }
 
-export async function clearHomeCommentCache(): Promise<void> {
-  await AsyncStorage.removeItem(HOME_COMMENT_KEY);
+export async function clearHomeCommentCache(cache: PrivateCache): Promise<void> {
+  await cache.removeItem(HOME_COMMENT_KEY);
 }
 
 interface StoredChatMessage {
@@ -104,9 +104,9 @@ function buildRecordContext(record: DailyRecord | undefined, completed: number, 
   return lines.join('\n');
 }
 
-async function loadRecentChat(): Promise<string> {
+async function loadRecentChat(cache: PrivateCache): Promise<string> {
   try {
-    const raw = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
+    const raw = await cache.getItem(CHAT_HISTORY_KEY);
     if (!raw) return '';
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return '';
@@ -161,7 +161,8 @@ export async function getHomeComment(params: {
   completed: number;
   total: number;
   preferences?: HomeCommentPreferences;
-}): Promise<string> {
+}, cache: PrivateCache): Promise<string> {
+  if (!cache.isCurrent()) return '';
   const preferences = resolveHomeCommentPreferences(params.preferences);
   if (preferences.frequency === 'off') return '';
   if (preferences.frequency === 'after_record' && !params.record && params.completed === 0) return '';
@@ -171,7 +172,7 @@ export async function getHomeComment(params: {
   }
 
   const context = buildRecordContext(params.record, params.completed, params.total);
-  const recentChat = preferences.includeRecentChat ? await loadRecentChat() : '';
+  const recentChat = preferences.includeRecentChat ? await loadRecentChat(cache) : '';
   const timeOfDay = getHomeCommentTimeOfDay();
   const source = buildHomeCommentCacheSource({
     date: params.date,
@@ -187,7 +188,7 @@ export async function getHomeComment(params: {
   );
 
   try {
-    const raw = await AsyncStorage.getItem(HOME_COMMENT_KEY);
+    const raw = await cache.getItem(HOME_COMMENT_KEY);
     if (raw) {
       const cached = JSON.parse(raw) as CachedHomeComment;
       if (cached.date === params.date && cached.fingerprint === fingerprint && cached.comment) {
@@ -198,6 +199,7 @@ export async function getHomeComment(params: {
     // Generate a fresh comment when the local cache cannot be read.
   }
 
+  if (!cache.isCurrent()) return '';
   let comment = '';
   try {
     const response = await fetch(`${API_BASE}/home-comment`, {
@@ -218,11 +220,12 @@ export async function getHomeComment(params: {
     // The local fallback below keeps the character conversational offline.
   }
 
+  if (!cache.isCurrent()) return '';
   if (!comment) comment = fallbackComment(params.record, params.completed, timeOfDay);
-  await AsyncStorage.setItem(HOME_COMMENT_KEY, JSON.stringify({
+  await cache.setItem(HOME_COMMENT_KEY, JSON.stringify({
     date: params.date,
     fingerprint,
     comment,
   } satisfies CachedHomeComment)).catch(() => {});
-  return comment;
+  return cache.isCurrent() ? comment : '';
 }

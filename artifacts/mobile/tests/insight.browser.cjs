@@ -26,7 +26,7 @@ const server=http.createServer((req,res)=>{
       }
       const original=Storage.prototype.setItem;
       Storage.prototype.setItem=function(key,value){
-        if(key==='@mentore/insight_v1'&&localStorage.getItem('qa-fail-insight'))throw new DOMException('QA disk full','QuotaExceededError');
+        if(key==='@yoki/private_cache_v1/guest'&&localStorage.getItem('qa-fail-insight'))throw new DOMException('QA disk full','QuotaExceededError');
         return original.call(this,key,value);
       };
     });
@@ -51,8 +51,8 @@ const server=http.createServer((req,res)=>{
     await page.evaluate(()=>localStorage.removeItem('qa-fail-insight'));
     await page.getByRole('button',{name:'保存をもう一度試す',exact:true}).click();
     await page.getByText('一歩を残せたね',{exact:true}).waitFor();
-    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/insight_v1')).insights[0]?.title==='一歩を残せたね');
-    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/insight_v1')).date),'2026-10-02');
+    await page.waitForFunction(()=>JSON.parse(JSON.parse(localStorage.getItem('@yoki/private_cache_v1/guest')).data['@mentore/insight_v1']).insights[0]?.title==='一歩を残せたね');
+    assert.equal(await page.evaluate(()=>JSON.parse(JSON.parse(localStorage.getItem('@yoki/private_cache_v1/guest')).data['@mentore/insight_v1']).date),'2026-10-02');
     await open();await page.getByText('一歩を残せたね',{exact:true}).waitFor();
     assert.equal(calls,2,'cache retry and same local-day reload do not request AI');assert.deepEqual(errors,[]);
     console.log('PASS corrupt cache, invalid API retry, cache-write warning with retained result, Japanese local-day cache and reload; all API responses mocked');
