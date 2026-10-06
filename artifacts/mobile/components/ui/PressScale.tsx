@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Animated,
-  Pressable,
   Platform,
+  Pressable,
   type StyleProp,
   type ViewStyle,
   type AccessibilityRole,
@@ -71,6 +71,34 @@ export function PressScale({
     [scale, reduceMotion, disabled],
   );
 
+  const resolvedAccessibilityState = {
+    ...accessibilityState,
+    disabled: !!disabled || accessibilityState?.disabled === true,
+  };
+
+  // Keep the iOS responder unanimated while release-device hit testing is
+  // being verified. Browser/contract checks do not establish UIKit behavior.
+  if (Platform.OS === 'ios') {
+    return (
+      <Pressable
+        testID={testID}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={delayLongPress}
+        disabled={disabled}
+        hitSlop={hitSlop}
+        pointerEvents={pointerEvents}
+        accessibilityRole={accessibilityRole}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={resolvedAccessibilityState}
+        style={style}
+      >
+        {children}
+      </Pressable>
+    );
+  }
+
   return (
     <AnimatedPressable
       testID={testID}
@@ -85,7 +113,7 @@ export function PressScale({
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
-      accessibilityState={{ ...accessibilityState, disabled: !!disabled || accessibilityState?.disabled === true }}
+      accessibilityState={resolvedAccessibilityState}
       {...(Platform.OS === 'web' ? { 'aria-expanded': accessibilityState?.expanded, 'aria-checked': accessibilityState?.checked } : {})}
       style={[style, { transform: [{ scale }] }]}
     >

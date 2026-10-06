@@ -10,7 +10,9 @@ const server=http.createServer((req,res)=>{
 });
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
- const browser=await chromium.launch({executablePath:process.env.YOKI_QA_BROWSER,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
+ let args=['--no-sandbox','--disable-dev-shm-usage','--disable-gpu'];
+ if(process.env.YOKI_QA_CHROMIUM_BUNDLE)args=(await import(process.env.YOKI_QA_CHROMIUM_BUNDLE)).default.args.filter(arg=>arg!=='--single-process');
+ const browser=await chromium.launch({executablePath:process.env.YOKI_QA_BROWSER,headless:true,args});
  try{
   const page=await browser.newPage({viewport:{width:390,height:844},reducedMotion:'reduce'}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
