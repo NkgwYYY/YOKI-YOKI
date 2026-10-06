@@ -230,3 +230,28 @@ node artifacts/mobile/tests/authStartup.browser.cjs
 420 mobile tests, mobile typecheck and the full production bundle build pass. The browser test uses the real compiled app and installed SDK, blocks all external traffic, then tests both failed and pending SDK requests. It touches the reload button, checks portrait/landscape reachability and preserved synthetic storage, and asserts no private-data API calls, local app-data writes, guest onboarding or page errors. Small and landscape recovery screenshots were visually reviewed and remain local. Expected SDK network-error logging is not suppressed or counted as a successful identity connection. A successful live session and hosted DB round-trip are still unverified; no release or deployment is implied.
 
 A separate fresh guest Web export also passed the full world suite through the actual production server: HOME gestures and meal, record/light/garden, same-day balance preservation, small/tablet/landscape/night touch and reload, with no page errors. Small HOME and the record sheet were visually reviewed. The current production build's native asset delivery was checked again in that same harness: all 112 files for each platform matched the runtime hashes. None of these browser viewport checks certifies a native device.
+
+## Authentication proxy HTTP integration — 2026-10-06
+
+The previous API integration did not exercise `/api/__clerk`. The actual Express/proxy middleware against a local upstream reproduced five failures before correction: multi-hop `x-forwarded-proto` built an invalid proxy URL, connection-reset errors used a chunked response reflecting the query string, and requests stalled indefinitely before headers, during buffered bodies or with continuously arriving partial data. No causal claim is made about the hosted environment's earlier timeout.
+
+The proxy now has a 12-second overall deadline, first-hop protocol normalization, length-delimited empty gateway errors and per-request cleanup/cancellation. Once headers have been sent, an upstream failure aborts the partial response instead of appending text. Existing success bytes, cookies, body/query forwarding, activation settings and Clerk authentication headers remain intact. The target cannot be changed by production environment variables or client input.
+
+`tests/fixtures/clerkProxyServer.mjs` compiles the actual middleware and runs the installed Express/proxy package over real local HTTP sockets. Only the upstream target, synthetic server key and timer duration are test substitutes. All 38 API checks pass, including 16 new proxy cases; API typecheck and bundle build pass. Tests cover compression/length fidelity, raw form POST/query, forwarding metadata, reset/truncation, header/body/drip deadlines, client cancellation, subsequent recovery, known-length streaming, HEAD/204/304 and inactive configurations. They assert the production timer is 12,000ms while shortening its wait in the fixture.
+
+```sh
+node --test artifacts/api-server/tests/clerkProxy.test.mjs
+# For the entire isolated API suite, also set NODE_PATH/YOKI_QA_PGLITE as above.
+node node_modules/typescript/bin/tsc -p artifacts/api-server/tsconfig.json --noEmit
+node artifacts/api-server/build.mjs
+# Export from artifacts/mobile, into a separate directory:
+CI=1 EXPO_OFFLINE=1 EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 NODE_ENV=production \
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_Y2xlcmsueW9raS5pbnZhbGlkJA== \
+EXPO_PUBLIC_DOMAIN=yoki-yoki.replit.app \
+EXPO_PUBLIC_CLERK_PROXY_URL=https://yoki-yoki.replit.app/api/__clerk \
+node node_modules/expo/bin/cli export --clear --platform web --output-dir /tmp/yoki-proxy-web
+# From the repository root, with the browser tool variables described above:
+YOKI_QA_PROXY_EXPORT=/tmp/yoki-proxy-web node artifacts/mobile/tests/authProxy.browser.cjs
+```
+
+That browser test serves the actual exported app and installed Clerk SDK, routes only the configured proxy requests to the real local proxy, and blocks all other external traffic. The localhost fixture adds a local-origin CORS header; production app/proxy are configured for the same domain. Both a reset and timeout return the expected bounded/framed gateway response, show the existing recovery screen and allow touch reload without rewriting once-seeded record data or entering guest onboarding. The small recovery screen was visually inspected. The SDK's exact expected `failed_to_load_clerk_js` error may be reported; other app errors fail QA. The harness was corrected for pending-route cancellation during teardown, and final completed runs pass. No live account, hosted DB, native device, production deployment or release is certified by this test.
