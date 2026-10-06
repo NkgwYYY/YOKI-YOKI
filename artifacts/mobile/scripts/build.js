@@ -5,11 +5,14 @@ const { spawn } = require('child_process');
 const { Readable } = require('stream');
 const { pipeline } = require('stream/promises');
 const { getReleaseDomain } = require('./releaseDomain.cjs');
+const { packageNativeAssets } = require('./nativeAssets.cjs');
 
 let metroProcess = null;
 let metroPort = null;
 
 const projectRoot = path.resolve(__dirname, '..');
+const staticBuild = path.resolve(projectRoot, process.env.STATIC_BUILD_DIR || 'static-build');
+const expoCli = require.resolve('expo/bin/cli');
 
 function findWorkspaceRoot(startDir) {
   let dir = startDir;
@@ -56,8 +59,14 @@ function getDeploymentDomain() {
 function prepareDirectories(timestamp) {
   console.log('Preparing build directories...');
 
-  const staticBuild = path.join(projectRoot, 'static-build');
+  if (staticBuild === projectRoot || projectRoot.startsWith(staticBuild + path.sep)) {
+    throw new Error('Build output cannot contain project sources');
+  }
   if (fs.existsSync(staticBuild)) {
+    if (process.env.STATIC_BUILD_DIR && fs.readdirSync(staticBuild).length &&
+        !fs.existsSync(path.join(staticBuild, '.yoki-build-output'))) {
+      throw new Error('Custom build output must be empty or an existing YOKI build directory');
+    }
     fs.rmSync(staticBuild, { recursive: true });
   }
 
@@ -72,6 +81,7 @@ function prepareDirectories(timestamp) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
+  fs.writeFileSync(path.join(staticBuild, '.yoki-build-output'), timestamp);
   console.log('Build:', timestamp);
 }
 
@@ -166,10 +176,9 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
   }
 
   metroProcess = spawn(
-    'pnpm',
+    process.execPath,
     [
-      'exec',
-      'expo',
+      expoCli,
       'start',
       '--no-dev',
       '--minify',
@@ -248,7 +257,7 @@ async function downloadFile(url, outputPath) {
   }
 }
 
-async function downloadBundle(platform, timestamp) {
+function nativeEntryUrl(platform, extension) {
   const entryPath = path.resolve(
     projectRoot,
     'node_modules',
@@ -256,15 +265,19 @@ async function downloadBundle(platform, timestamp) {
     'entry',
   );
   const bundlePath = path.relative(workspaceRoot, entryPath);
-  const url = new URL(`${getMetroOrigin()}/${bundlePath}.bundle`);
+  const url = new URL(`${getMetroOrigin()}/${bundlePath}.${extension}`);
   url.searchParams.set('platform', platform);
   url.searchParams.set('dev', 'false');
   url.searchParams.set('hot', 'false');
   url.searchParams.set('lazy', 'false');
   url.searchParams.set('minify', 'true');
+  return url;
+}
 
+async function downloadBundle(platform, timestamp) {
+  const url = nativeEntryUrl(platform, 'bundle');
   const output = path.join(
-    'static-build',
+    staticBuild,
     timestamp,
     '_expo',
     'static',
@@ -330,182 +343,27 @@ async function downloadBundlesAndManifests(timestamp) {
   }
 }
 
-function extractAssets(timestamp) {
-  const staticBuild = path.join(projectRoot, 'static-build');
-  const bundles = {
-    ios: fs.readFileSync(
-      path.join(
-        staticBuild,
-        timestamp,
-        '_expo',
-        'static',
-        'js',
-        'ios',
-        'bundle.js',
-      ),
-      'utf-8',
-    ),
-    android: fs.readFileSync(
-      path.join(
-        staticBuild,
-        timestamp,
-        '_expo',
-        'static',
-        'js',
-        'android',
-        'bundle.js',
-      ),
-      'utf-8',
-    ),
-  };
-
-  const assetsMap = new Map();
-  const assetPattern =
-    /httpServerLocation:"([^"]+)"[^}]*hash:"([^"]+)"[^}]*name:"([^"]+)"[^}]*type:"([^"]+)"/g;
-
-  const extractFromBundle = (bundle, platform) => {
-    for (const match of bundle.matchAll(assetPattern)) {
-      const originalPath = match[1];
-      const filename = match[3] + '.' + match[4];
-
-      const tempUrl = new URL(`${getMetroOrigin()}${originalPath}`);
-      const unstablePath = tempUrl.searchParams.get('unstable_path');
-
-      if (!unstablePath) {
-        throw new Error(`Asset missing unstable_path: ${originalPath}`);
-      }
-
-      const decodedPath = decodeURIComponent(unstablePath);
-      const key = path.posix.join(decodedPath, filename);
-
-      if (!assetsMap.has(key)) {
-        const asset = {
-          url: path.posix.join('/', decodedPath, filename),
-          originalPath: originalPath,
-          filename: filename,
-          relativePath: decodedPath,
-          hash: match[2],
-          platforms: new Set(),
-        };
-
-        assetsMap.set(key, asset);
-      }
-      assetsMap.get(key).platforms.add(platform);
-    }
-  };
-
-  extractFromBundle(bundles.ios, 'ios');
-  extractFromBundle(bundles.android, 'android');
-
-  return Array.from(assetsMap.values());
-}
-
-async function downloadAssets(assets, timestamp) {
-  if (assets.length === 0) {
-    return 0;
+async function packageAssets(timestamp, baseUrl) {
+  const hashesByPlatform = {};
+  for (const platform of ['ios', 'android']) {
+    const response = await fetch(nativeEntryUrl(platform, 'assets'), {
+      signal: AbortSignal.timeout(300_000),
+    });
+    if (!response.ok) throw new Error(`Asset metadata failed for ${platform}: HTTP ${response.status}`);
+    const assets = await response.json();
+    const bundlePath = path.join(staticBuild, timestamp, '_expo', 'static', 'js', platform, 'bundle.js');
+    const result = packageNativeAssets({
+      bundle: fs.readFileSync(bundlePath, 'utf8'), assets, platform,
+      outputRoot: staticBuild, buildId: timestamp, publicUrl: baseUrl + basePath, workspaceRoot,
+    });
+    fs.writeFileSync(bundlePath, result.bundle);
+    hashesByPlatform[platform] = result.hashes;
+    console.log(`Packaged ${result.fileCount} exact ${platform} asset files (all selected scales)`);
   }
-
-  console.log('Copying assets...');
-  let successCount = 0;
-  const failures = [];
-
-  const downloadPromises = assets.map(async (asset) => {
-    const tempUrl = new URL(`${getMetroOrigin()}${asset.originalPath}`);
-    const unstablePath = tempUrl.searchParams.get('unstable_path');
-
-    if (!unstablePath) {
-      throw new Error(`Asset missing unstable_path: ${asset.originalPath}`);
-    }
-
-    const decodedPath = decodeURIComponent(unstablePath);
-
-    const outputDir = path.join(
-      projectRoot,
-      'static-build',
-      timestamp,
-      '_expo',
-      'static',
-      'js',
-      asset.relativePath,
-    );
-    fs.mkdirSync(outputDir, { recursive: true });
-    const output = path.join(outputDir, asset.filename);
-
-    try {
-      const candidates = [
-        path.join(projectRoot, decodedPath, asset.filename),
-        path.join(workspaceRoot, decodedPath, asset.filename),
-      ];
-      const found = candidates.find((p) => fs.existsSync(p));
-      if (!found) {
-        throw new Error(`Asset not found on disk: ${asset.filename}`);
-      }
-      fs.copyFileSync(found, output);
-      successCount++;
-    } catch (error) {
-      failures.push({
-        filename: asset.filename,
-        error: error.message,
-        url: asset.originalPath,
-      });
-    }
-  });
-
-  await Promise.all(downloadPromises);
-
-  if (failures.length > 0) {
-    const errorMsg =
-      `Failed to download ${failures.length} asset(s):\n` +
-      failures
-        .map((f) => `  - ${f.filename}: ${f.error} (${f.url})`)
-        .join('\n');
-    exitWithError(errorMsg);
-  }
-
-  console.log(`Copied ${successCount} assets`);
-  return successCount;
+  return hashesByPlatform;
 }
 
-function updateBundleUrls(timestamp, baseUrl) {
-  const updateForPlatform = (platform) => {
-    const bundlePath = path.join(
-      projectRoot,
-      'static-build',
-      timestamp,
-      '_expo',
-      'static',
-      'js',
-      platform,
-      'bundle.js',
-    );
-    let bundle = fs.readFileSync(bundlePath, 'utf-8');
-
-    bundle = bundle.replace(
-      /httpServerLocation:"(\/[^"]+)"/g,
-      (_match, capturedPath) => {
-        const tempUrl = new URL(`${getMetroOrigin()}${capturedPath}`);
-        const unstablePath = tempUrl.searchParams.get('unstable_path');
-
-        if (!unstablePath) {
-          throw new Error(
-            `Asset missing unstable_path in bundle: ${capturedPath}`,
-          );
-        }
-
-        const decodedPath = decodeURIComponent(unstablePath);
-        return `httpServerLocation:"${baseUrl}${basePath}/${timestamp}/_expo/static/js/${decodedPath}"`;
-      },
-    );
-
-    fs.writeFileSync(bundlePath, bundle);
-  };
-
-  updateForPlatform('ios');
-  updateForPlatform('android');
-  console.log('Updated bundle URLs');
-}
-
-function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
+function updateManifests(manifests, timestamp, baseUrl, hashesByPlatform) {
   const updateForPlatform = (platform, manifest) => {
     if (!manifest.launchAsset || !manifest.extra) {
       exitWithError(`Malformed manifest for ${platform}`);
@@ -529,15 +387,14 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
         const hash = asset.hash;
         if (!hash) return;
 
-        const assetInfo = assetsByHash.get(hash);
-        if (!assetInfo) return;
-
-        asset.url = `${baseUrl}${basePath}/${timestamp}/_expo/static/js/${assetInfo.relativePath}/${assetInfo.filename}`;
+        const assetUrl = hashesByPlatform[platform].get(hash);
+        if (!assetUrl) throw new Error(`Manifest asset is missing for ${platform}`);
+        asset.url = assetUrl;
       });
     }
 
     fs.writeFileSync(
-      path.join(projectRoot, 'static-build', platform, 'manifest.json'),
+      path.join(staticBuild, platform, 'manifest.json'),
       JSON.stringify(manifest, null, 2),
     );
   };
@@ -549,13 +406,13 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
 
 async function buildWeb(domain) {
   return new Promise((resolve, reject) => {
-    const webBuildDir = path.join(projectRoot, 'static-build', 'web');
+    const webBuildDir = path.join(staticBuild, 'web');
     fs.mkdirSync(webBuildDir, { recursive: true });
 
     console.log('Building web version...');
     const proc = spawn(
-      'pnpm',
-      ['exec', 'expo', 'export', '--platform', 'web', '--output-dir', webBuildDir],
+      process.execPath,
+      [expoCli, 'export', '--platform', 'web', '--output-dir', webBuildDir],
       {
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd: projectRoot,
@@ -673,25 +530,10 @@ async function main() {
   const manifests = await Promise.race([downloadPromise, timeoutPromise]);
 
   console.log('Processing assets...');
-  const assets = extractAssets(timestamp);
-  console.log('Found', assets.length, 'unique asset(s)');
-
-  const assetsByHash = new Map();
-  for (const asset of assets) {
-    assetsByHash.set(asset.hash, {
-      relativePath: asset.relativePath,
-      filename: asset.filename,
-    });
-  }
-
-  const assetCount = await downloadAssets(assets, timestamp);
-
-  if (assetCount > 0) {
-    updateBundleUrls(timestamp, baseUrl);
-  }
+  const hashesByPlatform = await packageAssets(timestamp, baseUrl);
 
   console.log('Updating manifests and creating landing page...');
-  updateManifests(manifests, timestamp, baseUrl, assetsByHash);
+  updateManifests(manifests, timestamp, baseUrl, hashesByPlatform);
 
   console.log('Build complete! Deploy to:', baseUrl);
 

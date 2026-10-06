@@ -25,7 +25,8 @@ async function seed(page) {
   });
 }
 (async()=>{
-  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  if (!process.env.YOKI_QA_ORIGIN) await new Promise(r=>server.listen(0,'127.0.0.1',r));
+  const origin = process.env.YOKI_QA_ORIGIN || 'http://127.0.0.1:'+server.address().port;
   let args = ['--no-sandbox','--disable-dev-shm-usage','--disable-gpu'];
   if (process.env.YOKI_QA_CHROMIUM_BUNDLE) args = (await import(process.env.YOKI_QA_CHROMIUM_BUNDLE)).default.args.filter(arg=>arg!=='--single-process');
   const browser = await chromium.launch({executablePath:process.env.YOKI_QA_BROWSER,headless:true,args});
@@ -36,7 +37,7 @@ async function seed(page) {
     page.on('pageerror',e=>errors.push(e.message));
     await page.clock.install({time: new Date(night?'2026-10-05T21:00:00+09:00':'2026-10-05T09:00:00+09:00')});
     await seed(page);
-    await page.goto('http://127.0.0.1:'+server.address().port);
+    await page.goto(origin);
     await page.getByTestId('room-scene').waitFor({state:'visible',timeout:30000});
     await page.getByText('Loading...', {exact:true}).waitFor({state:'hidden'});
     await page.waitForTimeout(500);

@@ -187,3 +187,23 @@ node artifacts/mobile/tests/world.browser.cjs
 The browser integration uses real AuthProvider/AppProvider/InsightCard and actual HTTP responses from that app. Its SDK session delivery is synthetic. It verifies guest on-device results and refreshed counts, storage retry/reload, no private payload without a token, a server-rejected expired token, malformed AI results, timeout and retry, valid AI storage retry without another generation, managed record→HTTP→SQL→readback and exclusion of private caches from sync. Small guest and landscape limit renders were visually inspected locally. The private-cache browser regression also passes with the new analysis mode.
 
 404 mobile tests, 22 isolated API tests, mobile/API typechecks, API build and Web/iOS/Android JS/assets exports passed. These are not signed native builds. The initially running world-flow attempt lost its index.html during a simultaneous re-export; its result was discarded. The fixed-export rerun passed the complete HOME/record/light/garden touch flow, same-day rewards, four viewport sizes/reload and night, with no page errors; HOME and landscape record were visually reviewed. Serve the completed export without rewriting that directory during testing. Images remain local under the preceding publication restriction. Live Clerk/Replit proxy/AI/hosted DB, native runtime and release reconciliation remain unverified.
+
+## Production asset delivery — 2026-10-06
+
+The actual deployment server initially returned Web HTML (HTTP 200) for an existing Japanese/space-named image, a missing density variant and a missing native bundle. The build also guessed unsuffixed asset filenames, omitting Retina/platform variants. This was outside the earlier Expo-export helper-server coverage.
+
+`scripts/build.js` now reads Metro's exact asset file/scale metadata. `scripts/nativeAssets.cjs` copies every runtime-selected scale into separate platform directories, preserves source bytes, rewrites bundle locations and validates missing/conflicting assets. The first actual build exposed the difference between Metro's raw query paths and Expo's encoded bundle paths; the normalization fix is covered by a regression. `server/serve.js` decodes paths and distinguishes missing resources from application routes.
+
+The normal production command remains `node artifacts/mobile/scripts/build.js`. For a local build check, use an isolated `STATIC_BUILD_DIR`, a syntactically valid test-only Clerk publishable key and the configured production host. This compiles public configuration into local files; it neither authenticates a real user nor deploys. Do not use a production secret or overwrite a running export. The same `STATIC_BUILD_DIR` selects the output for `server/serve.js`.
+
+```sh
+node --test artifacts/mobile/tests/*.test.mjs
+# After the production build finishes, using the browser variables above:
+YOKI_QA_NATIVE_BUILD=/absolute/path/to/completed-production-build \
+YOKI_QA_EXPORT=/absolute/path/to/completed-local-only-web-export \
+node artifacts/mobile/tests/productionDelivery.browser.cjs
+```
+
+414 mobile tests and mobile typecheck passed. The real production build completed Web/iOS/Android JS packaging in an isolated directory without modifying tracked old static outputs. Each native platform's generated manifest and bundle were fetched from the real server; all 112 files from 100 descriptors, including 12 higher-density files, matched the byte hashes used by Expo. The configured Web entry and asset headers/deep links were checked too. The offline manifest-artwork warning does not constitute a native startup pass; application asset HTTP coverage was independently verified.
+
+The server then served the completed local-only export of the same app source for the full world interaction suite: HOME reactions/meal, one debit, record/light/garden, same-day reward preservation, small/tablet/landscape/night touch and reload. All passed with no page errors. Original-art HOME, landscape record and the light garden were visually inspected; new images remain local. Native execution, real account startup and Replit release integration are still separate gates. Read-only public-host checks returned health 200 and the older September 22 iOS manifest; no live write, deployment, signing or release was performed.
