@@ -207,3 +207,26 @@ node artifacts/mobile/tests/productionDelivery.browser.cjs
 414 mobile tests and mobile typecheck passed. The real production build completed Web/iOS/Android JS packaging in an isolated directory without modifying tracked old static outputs. Each native platform's generated manifest and bundle were fetched from the real server; all 112 files from 100 descriptors, including 12 higher-density files, matched the byte hashes used by Expo. The configured Web entry and asset headers/deep links were checked too. The offline manifest-artwork warning does not constitute a native startup pass; application asset HTTP coverage was independently verified.
 
 The server then served the completed local-only export of the same app source for the full world interaction suite: HOME reactions/meal, one debit, record/light/garden, same-day reward preservation, small/tablet/landscape/night touch and reload. All passed with no page errors. Original-art HOME, landscape record and the light garden were visually inspected; new images remain local. Native execution, real account startup and Replit release integration are still separate gates. Read-only public-host checks returned health 200 and the older September 22 iOS manifest; no live write, deployment, signing or release was performed.
+
+## Configured Web startup recovery — 2026-10-06
+
+The previous production Web build reused an earlier guest export's Metro transforms: its bundle had no configured Clerk publishable key and included an undefined API-domain URL, although native bundles had the current settings. Re-exporting the unchanged source with `--clear` inlined the intended key/domain. The production build now uses that flag for Web export and native Metro startup. The test below asserts the compiled configuration before opening the app; merely setting build-process environment variables is not sufficient evidence.
+
+That clean, configured baseline reproduced another failure with the actual installed Clerk SDK: a network failure changed its status to error, at which point both root ClerkLoading/ClerkLoaded controls disappeared and the app was blank. AuthStartupGate now keeps unresolved identity behind an explicit loading/recovery screen, with a 15-second wait limit and an operable reload button. It does not initialize the app data providers or silently become a guest. Reload failure/hang, duplicate taps, late completion and unmount are covered by six component regressions.
+
+```sh
+# Build with the synthetic clerk.yoki.invalid publishable key only. These
+# commands do not contact an account or publish the resulting files.
+CI=1 EXPO_OFFLINE=1 EXPO_NO_DOTENV=1 EXPO_NO_TELEMETRY=1 NODE_ENV=production \
+NATIVE_BUNDLE_PUBLIC_DOMAIN=yoki-yoki.replit.app \
+CLERK_PUBLISHABLE_KEY=pk_test_Y2xlcmsueW9raS5pbnZhbGlkJA== \
+STATIC_BUILD_DIR=/tmp/yoki-auth-build \
+node artifacts/mobile/scripts/build.js
+# Use the browser tool paths described above. The test starts the real server:
+YOKI_QA_NATIVE_BUILD=/tmp/yoki-auth-build \
+node artifacts/mobile/tests/authStartup.browser.cjs
+```
+
+420 mobile tests, mobile typecheck and the full production bundle build pass. The browser test uses the real compiled app and installed SDK, blocks all external traffic, then tests both failed and pending SDK requests. It touches the reload button, checks portrait/landscape reachability and preserved synthetic storage, and asserts no private-data API calls, local app-data writes, guest onboarding or page errors. Small and landscape recovery screenshots were visually reviewed and remain local. Expected SDK network-error logging is not suppressed or counted as a successful identity connection. A successful live session and hosted DB round-trip are still unverified; no release or deployment is implied.
+
+A separate fresh guest Web export also passed the full world suite through the actual production server: HOME gestures and meal, record/light/garden, same-day balance preservation, small/tablet/landscape/night touch and reload, with no page errors. Small HOME and the record sheet were visually reviewed. The current production build's native asset delivery was checked again in that same harness: all 112 files for each platform matched the runtime hashes. None of these browser viewport checks certifies a native device.

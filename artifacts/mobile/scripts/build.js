@@ -180,6 +180,7 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     [
       expoCli,
       'start',
+      '--clear',
       '--no-dev',
       '--minify',
       '--localhost',
@@ -412,7 +413,9 @@ async function buildWeb(domain) {
     console.log('Building web version...');
     const proc = spawn(
       process.execPath,
-      [expoCli, 'export', '--platform', 'web', '--output-dir', webBuildDir],
+      // Expo inlines EXPO_PUBLIC_* into cached transforms. A release build must
+      // not inherit local-only keys/domains from an earlier development export.
+      [expoCli, 'export', '--clear', '--platform', 'web', '--output-dir', webBuildDir],
       {
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd: projectRoot,
