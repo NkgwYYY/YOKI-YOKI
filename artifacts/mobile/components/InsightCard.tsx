@@ -9,28 +9,33 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileToContext } from '@/utils/profileContext';
 import { getTodayDate } from '@/utils/dateUtils';
-import { readInsights, type Insight } from '@/utils/insightData';
+import { readInsights, buildLocalInsights, requestInsights, InsightRequestError, type Insight } from '@/utils/insightData';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const STORAGE_KEY = PRIVATE_CACHE_KEYS.INSIGHT;
 
 interface CachedInsight {
   date: string;
+  source?: 'local' | 'ai';
+  revision?: string;
   insights: Insight[];
 }
 
 export function InsightCard() {
-  const { privateCache } = useApp();
-  return privateCache ? <ScopedInsightCard key={privateCache.id} cache={privateCache} /> : null;
+  const { privateCache, records } = useApp();
+  const { isSignedIn } = useAuth();
+  const revision = isSignedIn ? '' : JSON.stringify(buildLocalInsights(records, getTodayDate()));
+  return privateCache ? <ScopedInsightCard key={`${privateCache.id}:${isSignedIn}:${revision}`} cache={privateCache} local={!isSignedIn} revision={revision} /> : null;
 }
 
-function ScopedInsightCard({ cache }: { cache: PrivateCache }) {
+function ScopedInsightCard({ cache, local, revision }: { cache: PrivateCache; local: boolean; revision: string }) {
   const { records, progress, checkedState, unlockedBadges, mascotName, profile } = useApp();
   const { getToken } = useAuth();
+  const displayName = mascotName.trim() || '相棒';
 
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [cacheFailed, setCacheFailed] = useState(false);
   const busy = useRef(false);
   const requested = useRef(false);
@@ -67,7 +72,8 @@ function ScopedInsightCard({ cache }: { cache: PrivateCache }) {
         if (!raw) return;
         const cached = JSON.parse(raw) as CachedInsight;
         const valid = readInsights(cached?.insights);
-        if (isCurrent() && !requested.current && cached?.date === getTodayDate() && valid) {
+        if (isCurrent() && !requested.current && cached?.date === getTodayDate() && valid
+          && (local ? cached.source === 'local' && cached.revision === revision : cached.source !== 'local')) {
           setInsights(valid);
         }
       } catch {}
@@ -80,11 +86,19 @@ function ScopedInsightCard({ cache }: { cache: PrivateCache }) {
     busy.current = true;
     requested.current = true;
     setLoading(true);
-    setError(false);
+    setError(null);
     setCacheFailed(false);
     try {
+      if (local) {
+        const valid = buildLocalInsights(records, getTodayDate());
+        if (!valid.length) throw new Error('No dated records');
+        setInsights(valid);
+        pendingCache.current = { date: getTodayDate(), source: 'local', revision, insights: valid };
+        await saveCache();
+        return;
+      }
       const payload = {
-        mascotName,
+        mascotName: displayName,
         profile: profileToContext(profile),
         records: records.slice(-365).map(r => ({
           date: r.date,
@@ -109,30 +123,22 @@ function ScopedInsightCard({ cache }: { cache: PrivateCache }) {
         },
         badgeCount: unlockedBadges.length,
       };
-      const token = await getToken();
-      if (!isCurrent()) return;
       const controller = new AbortController();
       request.current = controller;
-      const res = await fetch(`${API_BASE}/insight`, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error('bad status');
-      const data = await res.json();
-      const valid = readInsights(data?.insights);
-      if (!valid) throw new Error('Invalid insights');
+      const valid = await requestInsights({ url: `${API_BASE}/insight`, payload, getToken, isCurrent, signal: controller.signal });
       if (!isCurrent()) return;
       setInsights(valid);
       // A cache write failure must not discard a valid response or request AI again.
-      pendingCache.current = { date: getTodayDate(), insights: valid };
+      pendingCache.current = { date: getTodayDate(), source: 'ai', insights: valid };
       await saveCache();
-    } catch {
-      if (isCurrent()) setError(true);
+    } catch (failure) {
+      if (isCurrent()) {
+        const kind = failure instanceof InsightRequestError ? failure.kind : 'network';
+        setError(kind === 'auth' ? 'ログイン状態を確認できませんでした。通信環境を確認して、もう一度お試しください。'
+          : kind === 'limit' ? 'AIのきづきの利用回数が上限に達しました。時間をおいて、またお試しください。'
+          : kind === 'timeout' ? '返事を待つ時間が長くなったため中断しました。もう一度お試しください。'
+          : 'うまく見つけられなかった…少し待ってもう一度試してね');
+      }
     } finally {
       busy.current = false;
       if (isCurrent()) setLoading(false);
@@ -146,8 +152,8 @@ function ScopedInsightCard({ cache }: { cache: PrivateCache }) {
       <View style={styles.titleWrap}>
         <IconBadge name="activity" />
         <View style={styles.titleCopy}>
-          <Text style={styles.title}>{mascotName}のきづき</Text>
-          <Text style={styles.subtitle}>あなたが気づいていない頑張り、見つけるよ</Text>
+          <Text style={styles.title}>{local ? '記録のふりかえり' : `${displayName}のきづき`}</Text>
+          <Text style={styles.subtitle}>{local ? 'この端末に残した、最近30日分の記録から' : 'あなたが気づいていない頑張り、見つけるよ'}</Text>
         </View>
       </View>
 
@@ -162,25 +168,25 @@ function ScopedInsightCard({ cache }: { cache: PrivateCache }) {
               </View>
             </View>
           ))}
-          <Text style={styles.note}>明日になると、また新しい発見を探せるよ</Text>
+          <Text style={styles.note}>{local ? '記録の件数を端末で集計しています。AIには送信していません。' : '明日になると、また新しい発見を探せるよ'}</Text>
           {cacheFailed && <Text accessibilityRole="alert" style={styles.errorText}>この結果を端末に保存できませんでした。画面を閉じる前に確認してください。</Text>}
           {cacheFailed && <Button label="保存をもう一度試す" onPress={retryCache} loading={loading} variant="outline" />}
         </View>
       ) : !hasData ? (
         <Text style={styles.emptyText}>
-          記録がたまると、{mascotName}があなたのすごいところを見つけられるよ。まずは今日の気分を記録してみよう！
+          記録がたまると、{displayName}があなたのすごいところを見つけられるよ。まずは今日の気分を記録してみよう！
         </Text>
       ) : (
         <>
           <Button
-            label={loading ? '記録をじっくり見てる…' : 'すごいところを見つけてもらう'}
+            label={local ? (loading ? '記録をふりかえっています…' : '記録をふりかえる') : (loading ? '記録をじっくり見てる…' : 'すごいところを見つけてもらう')}
             onPress={generate}
             loading={loading}
             icon="activity"
           />
           {error && (
             <Text accessibilityRole="alert" style={styles.errorText}>
-              うまく見つけられなかった…少し待ってもう一度試してね
+              {error}
             </Text>
           )}
         </>

@@ -162,3 +162,28 @@ node artifacts/mobile/tests/insight.browser.cjs
 392 unit/regression tests, mobile typecheck and fresh Web/iOS/Android JS/assets exports passed. No API changes in this checkpoint. The new browser harness uses actual AuthProvider/AppProvider, chat, InsightCard and HOME-comment utility, with synthetic SDK/network/native-art adapters. It checks A/B/guest isolation and restart, old-identity response rejection, account deletion during a pending HOME comment, guest preservation and no private keys in a real managed upload. The synthetic chat render was visually inspected locally. Its image is excluded from publication after automatic approval review rejected the image upload (content/sensitivity and image-sharing authorization were not established). The harness can reproduce this evidence locally; it is not live account validation.
 
 Actual exported chat tests passed load failure/save retry/delete retry, HTTP/malformed reply/cancellation, and 120 legacy messages displayed as latest 60 without truncating stored history at 320×568 and 844×390. Insight cache failure retains the valid result, retries storage without another AI request, and restores on same-day reload. Existing cloudSync/authTransition/accountDeletion browser checks passed, as did the full world flow at four viewport sizes including night. Original-art HOME and landscape record were visually reviewed; no page errors. Real native runtime and live authentication/hosted DB are still unverified; no main merge, production deploy or signed release.
+
+
+## Real HTTP/authentication integration — 2026-10-06
+
+The earlier insight browser fixture incorrectly allowed guest AI calls. Actual POST /insight requires login and has a per-user daily limit. Guests now receive a clearly labeled on-device reflection from up to 30 unique saved days, with no AI transmission or personality/health inference. Signed-in AI analysis retains the existing authentication requirement. Missing tokens, expired sessions, rate limits and a 15-second deadline covering token/headers/body have explicit recovery states. The local and AI cache types are distinct, and new record counts invalidate the local summary.
+
+A new actual-route regression failed before correcting malformed AI handling: object-shaped result collections reached an internal error, and object fields could become display strings. The server now returns 502 for invalid collections/text instead of accepting them. No authentication, rate-limit, model, schema or balance policy was changed.
+
+```sh
+node --test artifacts/mobile/tests/*.test.mjs
+NODE_PATH=/tmp/yoki-v3/qa/node_modules \
+YOKI_QA_PGLITE=/tmp/yoki-v3/qa/node_modules/@electric-sql/pglite/dist/index.js \
+node --test artifacts/api-server/tests/*.test.mjs
+# Use the browser variables above PLUS the same NODE_PATH/YOKI_QA_PGLITE:
+node artifacts/mobile/tests/insightIntegration.browser.cjs
+# Finish exporting before serving a fixed YOKI_QA_EXPORT directory:
+node artifacts/mobile/tests/insight.browser.cjs
+node artifacts/mobile/tests/world.browser.cjs
+```
+
+`api-server/tests/fixtures/authenticatedServer.mjs` boots the actual Express app and installed Clerk verifier against generated, memory-only RSA test keys, real routes and an isolated PGlite schema. AI vendor output is a deterministic substitute. It rejects missing/malformed/expired/future/wrong-signature tokens, tests subject-scoped rows against spoofed body IDs, per-user limits and the deletion fence. External fetches are prohibited and counted. No real secret or production data is needed or published.
+
+The browser integration uses real AuthProvider/AppProvider/InsightCard and actual HTTP responses from that app. Its SDK session delivery is synthetic. It verifies guest on-device results and refreshed counts, storage retry/reload, no private payload without a token, a server-rejected expired token, malformed AI results, timeout and retry, valid AI storage retry without another generation, managed record→HTTP→SQL→readback and exclusion of private caches from sync. Small guest and landscape limit renders were visually inspected locally. The private-cache browser regression also passes with the new analysis mode.
+
+404 mobile tests, 22 isolated API tests, mobile/API typechecks, API build and Web/iOS/Android JS/assets exports passed. These are not signed native builds. The initially running world-flow attempt lost its index.html during a simultaneous re-export; its result was discarded. The fixed-export rerun passed the complete HOME/record/light/garden touch flow, same-day rewards, four viewport sizes/reload and night, with no page errors; HOME and landscape record were visually reviewed. Serve the completed export without rewriting that directory during testing. Images remain local under the preceding publication restriction. Live Clerk/Replit proxy/AI/hosted DB, native runtime and release reconciliation remain unverified.

@@ -240,20 +240,26 @@ ${recordLines || "（記録なし）"}
       res.status(502).json({ error: "bad ai response" });
       return;
     }
-    let parsed: { insights?: { emoji?: string; title?: string; body?: string }[] };
+    let parsed: { insights?: unknown } | null;
     try {
       parsed = JSON.parse(raw.slice(start, end + 1));
     } catch {
       res.status(502).json({ error: "bad ai response" });
       return;
     }
-    const insights = (parsed.insights ?? [])
-      .filter((i) => i.title && i.body)
+    const candidates = parsed?.insights;
+    if (!Array.isArray(candidates) || !candidates.every(i => i && typeof i === 'object'
+      && typeof i.title === 'string' && i.title.trim()
+      && typeof i.body === 'string' && i.body.trim())) {
+      res.status(502).json({ error: "bad ai response" });
+      return;
+    }
+    const insights = candidates
       .slice(0, 3)
       .map((i) => ({
-        emoji: i.emoji || "✨",
-        title: String(i.title),
-        body: String(i.body),
+        emoji: typeof i.emoji === 'string' && i.emoji.trim() ? i.emoji.trim() : "✨",
+        title: i.title.trim(),
+        body: i.body.trim(),
       }));
 
     if (insights.length === 0) {
