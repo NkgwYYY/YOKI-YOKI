@@ -7,6 +7,7 @@ import { LightFlowHost } from '@/components/LightFlowHost';
 import { Icon } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { AccountDeletionGate } from '@/components/account/AccountDeletionGate';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type DockProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -46,6 +47,7 @@ export default function TabLayout() {
   const {
     profile,
     cloudSynced,
+    cloudSyncState,
     isCloudSyncing,
     retryCloudSync,
     isLoading: appLoading,
@@ -72,7 +74,9 @@ export default function TabLayout() {
 
   // The root navigator stays mounted, but the tabs and their frame-driven home
   // animations must not mount until startup state determines they are allowed.
-  if (authLoading || appLoading) return null;
+  if (authLoading) return null;
+  if (isSignedIn && cloudSyncState.error === 'deleted') return <AccountDeletionGate />;
+  if (appLoading) return null;
   if (storageError) return <View style={styles.syncGate}>
     <Text style={styles.syncTitle}>保存データを確認しています</Text>
     <Text accessibilityRole="alert" style={styles.syncMessage}>{storageError}</Text>

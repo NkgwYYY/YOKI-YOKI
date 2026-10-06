@@ -7,7 +7,7 @@ import React from 'react';
 const code = ts.transpileModule(fs.readFileSync(new URL('../app/(tabs)/_layout.tsx', import.meta.url), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, esModuleInterop: true },
 }).outputText;
-function render({ signedIn = true, profile = { nickname: 'cached' }, ready = false, busy = false, storageError = null } = {}) {
+function render({ signedIn = true, profile = { nickname: 'cached' }, ready = false, busy = false, storageError = null, deleted = false } = {}) {
   let retries = 0;
   const hooks = { ...React, useEffect: () => {}, useState: initial => [typeof initial === 'boolean' ? true : initial, () => {}] };
   const exports = {};
@@ -15,8 +15,9 @@ function render({ signedIn = true, profile = { nickname: 'cached' }, ready = fal
     if (name === 'react') return hooks;
     if (name === 'react-native') return { ActivityIndicator: 'Spinner', Pressable: 'Button', Text: 'Text', View: 'View', Platform: { OS: 'web' }, StyleSheet: { create: value => value } };
     if (name === 'expo-router') return { Redirect: 'Redirect', Tabs: 'Tabs' };
+    if (name.endsWith('/AccountDeletionGate')) return { AccountDeletionGate: 'DeletionGate' };
     if (name.endsWith('/theme')) return { homePalette: {} };
-    if (name.endsWith('/AppContext')) return { useApp: () => ({ profile, cloudSynced: ready, isCloudSyncing: busy, isLoading: false, storageError, retryCloudSync: () => retries++ }) };
+    if (name.endsWith('/AppContext')) return { useApp: () => ({ profile, cloudSynced: ready, cloudSyncState: { error: deleted ? 'deleted' : null }, isCloudSyncing: busy, isLoading: false, storageError, retryCloudSync: () => retries++ }) };
     if (name.endsWith('/AuthContext')) return { useAuth: () => ({ isSignedIn: signedIn, isLoading: false }) };
     return {};
   }, exports);
@@ -44,4 +45,9 @@ test('only confirmed empty cloud data authorizes signed-in onboarding', () => {
 test('guest mode and ready accounts retain access to the existing tabs', () => {
   assert.equal(render({ signedIn: false }).tree.type, React.Fragment);
   assert.equal(render({ ready: true }).tree.type, React.Fragment);
+});
+
+
+test('deleted accounts get completion retry before onboarding or storage recovery', () => {
+  assert.equal(render({ deleted: true, profile: null, storageError: 'disk unavailable' }).tree.type, 'DeletionGate');
 });

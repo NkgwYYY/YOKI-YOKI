@@ -6,7 +6,9 @@ import type { CloudSyncState } from '@/utils/cloudSync';
 
 export function CloudSyncStatus({ state, onRetry }: { state: CloudSyncState; onRetry: () => void }) {
   const busy = state.phase !== 'idle';
-  const message = busy
+  const message = state.error === 'deleted'
+    ? 'このアカウントのデータは削除されています。アカウントの削除を完了してください。'
+    : busy
     ? state.phase === 'pull' ? 'アカウントデータを確認しています…' : 'クラウドに保存しています…'
     : state.error === 'push'
       ? '端末には保存されています。クラウドへの保存をもう一度お試しください。'
@@ -19,7 +21,7 @@ export function CloudSyncStatus({ state, onRetry }: { state: CloudSyncState; onR
         {busy ? <ActivityIndicator size="small" color={colors.primary} /> : null}
         <Text accessibilityLiveRegion="polite" style={styles.message}>{message}</Text>
       </View>
-      {state.error && !busy ? (
+      {state.error && state.error !== 'deleted' && !busy ? (
         <Button label="同期をもう一度試す" variant="outline" onPress={onRetry} testID="cloud-sync-retry" />
       ) : null}
     </View>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createCloudSyncTransport, createCloudSyncSession } from '../utils/cloudSync.ts';
+import { createCloudSyncTransport, createCloudSyncSession, AccountDeletedError } from '../utils/cloudSync.ts';
 import { createRecoverableStorage } from '../utils/recoverableStorage.ts';
 import { APP_STORAGE_KEYS as KEYS } from '../utils/appStorageKeys.ts';
 
@@ -171,4 +171,24 @@ test('cloud hydration journal recovers the whole snapshot after an interrupted w
   const restarted = createRecoverableStorage(storage, journal, Object.values(KEYS));
   assert.equal(await restarted.getItem(KEYS.RECORDS), 'new records');
   assert.equal(await restarted.getItem(KEYS.PROFILE), 'new profile'); assert.equal(map.has(journal), false);
+});
+
+
+for (const method of ['pull', 'push']) test(`confirmed deleted account terminates ${method} and cannot retry synchronization`, async () => {
+  const api = transport(async () => response({ code: 'ACCOUNT_DELETED' }, 410));
+  const f = session({ [method]: method === 'pull' ? api.pull : api.push });
+  await f.sync.initialize();
+  if (method === 'push') await f.sync.push();
+  assert.deepEqual(f.states.at(-1), { ready: false, phase: 'idle', error: 'deleted' });
+  const states = f.states.length;
+  assert.equal(await f.sync.retry(), false); assert.equal(await f.sync.push(), false);
+  assert.equal(f.states.length, states);
+});
+test('only a recognized 410 response is terminal; unknown 410 and matching 500 remain retryable', async () => {
+  for (const [body, status] of [[{code:'OTHER'},410], [{code:'ACCOUNT_DELETED'},500]]) {
+    await assert.rejects(transport(async () => response(body, status)).pull(signal()), error => !(error instanceof AccountDeletedError));
+  }
+});
+test('hung 410 error bodies remain bounded by the transport deadline', async () => {
+  await assert.rejects(transport(async () => ({ ok:false, status:410, json:()=>new Promise(()=>{}) })).pull(signal()), /timed out/);
 });

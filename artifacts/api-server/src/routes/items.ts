@@ -12,6 +12,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { getAuth } from "@clerk/express";
 import { requireAuth, type AuthRequest } from "../lib/auth";
 
+import { withAccountTransaction, respondToDeletedAccount, type AccountTransaction } from '../lib/accountTransaction';
+
 const itemRouter = Router();
 const FEED_STATE_KEY = "@mentore/feed_state_v1";
 const itemCategories = ["accessory", "background", "voice"] as const;
@@ -182,12 +184,12 @@ function parseItem(input: unknown, requireId: boolean): {
   };
 }
 
-async function shopState(userId: string, catalog: Item[]) {
+async function shopState(tx: AccountTransaction, userId: string, catalog: Item[]) {
   const [inventory, equipment, wallet] = await Promise.all([
-    db.select({ itemId: userItemInventory.itemId }).from(userItemInventory)
+    tx.select({ itemId: userItemInventory.itemId }).from(userItemInventory)
       .where(eq(userItemInventory.userId, userId)),
-    db.select().from(userItemEquipment).where(eq(userItemEquipment.userId, userId)),
-    db.select({ value: userData.value }).from(userData)
+    tx.select().from(userItemEquipment).where(eq(userItemEquipment.userId, userId)),
+    tx.select({ value: userData.value }).from(userData)
       .where(and(eq(userData.userId, userId), eq(userData.key, FEED_STATE_KEY))).limit(1),
   ]);
   const equipped: Record<EquipCategory, string | null> = {
@@ -216,8 +218,9 @@ itemRouter.get("/items", async (req: AuthRequest, res) => {
     const catalog = (await db.select().from(items).where(eq(items.isActive, true)))
       .filter((item) => item.category !== "food");
     const userId = getAuth(req)?.userId;
-    res.json({ items: catalog.map(toItem), ...(userId ? { state: await shopState(userId, catalog) } : {}) });
+    res.json({ items: catalog.map(toItem), ...(userId ? { state: await withAccountTransaction(userId, tx => shopState(tx, userId, catalog)) } : {}) });
   } catch (error) {
+    if (respondToDeletedAccount(error, res)) return;
     req.log.error({ err: error }, "Could not load items");
     res.status(500).json({ error: "アイテムを読み込めませんでした" });
   }
@@ -230,7 +233,7 @@ itemRouter.post("/shop/buy", requireAuth, async (req: AuthRequest, res) => {
   }
   try {
     const userId = req.userId!;
-    await db.transaction(async (tx) => {
+    await withAccountTransaction(userId, async (tx) => {
       // The wallet row serializes purchases for a user and protects its points.
       const walletRows = await tx.execute<{ id: number; value: unknown }>(
         sql`SELECT id, value FROM user_data WHERE user_id = ${userId} AND key = ${FEED_STATE_KEY} FOR UPDATE`,
@@ -254,8 +257,9 @@ itemRouter.post("/shop/buy", requireAuth, async (req: AuthRequest, res) => {
     });
     const catalog = (await db.select().from(items).where(eq(items.isActive, true)))
       .filter((item) => item.category !== "food");
-    res.json({ state: await shopState(userId, catalog) });
+    res.json({ state: await withAccountTransaction(userId, tx => shopState(tx, userId, catalog)) });
   } catch (error) {
+    if (respondToDeletedAccount(error, res)) return;
     if (error instanceof ShopError) { res.status(error.status).json({ error: error.message }); return; }
     req.log.error({ err: error }, "Could not buy item");
     res.status(500).json({ error: "購入に失敗しました" });
@@ -272,7 +276,7 @@ itemRouter.post("/character/equip", requireAuth, async (req: AuthRequest, res) =
   try {
     const userId = req.userId!;
     const equipCategory = category as EquipCategory;
-    await db.transaction(async (tx) => {
+    await withAccountTransaction(userId, async (tx) => {
       if (typeof itemId === "string") {
         const ownedItem = await tx.select({ id: items.id, category: items.category }).from(userItemInventory)
           .innerJoin(items, eq(userItemInventory.itemId, items.id))
@@ -288,8 +292,9 @@ itemRouter.post("/character/equip", requireAuth, async (req: AuthRequest, res) =
     });
     const catalog = (await db.select().from(items).where(eq(items.isActive, true)))
       .filter((item) => item.category !== "food");
-    res.json({ state: await shopState(userId, catalog) });
+    res.json({ state: await withAccountTransaction(userId, tx => shopState(tx, userId, catalog)) });
   } catch (error) {
+    if (respondToDeletedAccount(error, res)) return;
     if (error instanceof ShopError) { res.status(error.status).json({ error: error.message }); return; }
     req.log.error({ err: error }, "Could not equip item");
     res.status(500).json({ error: "装備の更新に失敗しました" });

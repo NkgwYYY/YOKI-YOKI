@@ -5,6 +5,7 @@ import { cloudOutboxKey } from '@/utils/cloudOutbox';
 import { balanceStorage } from '@/utils/balanceStorage';
 import { createCloudSyncTransport } from '@/utils/cloudSync';
 import { accountCacheKey } from '@/utils/accountOwnership';
+import { notifyAccountDeletion } from '@/utils/accountDeletion';
 
 export const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -71,14 +72,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (deletionRef.current) return deletionRef.current;
     const run = async () => {
       if (!clerkUser) throw new Error('削除するアカウントが見つかりません');
-      const transport = createCloudSyncTransport({ url: `${API_BASE}/account`, getToken: clerkGetToken });
-      await transport.deleteAccount(new AbortController().signal);
-      const localKeys = await AsyncStorage.getAllKeys();
-      const appKeys = localKeys.filter(key => key.startsWith('@mentore/') || key === cloudOutboxKey(clerkUser.id) || key === accountCacheKey(clerkUser.id));
-      // Keep the identity available for retry if local cleanup fails. The journal
-      // must be discarded too, otherwise recovery can restore deleted records.
-      await balanceStorage.clearAll(appKeys);
-      await clerkUser.delete();
+      let serverDeleted = false;
+      notifyAccountDeletion({ accountId: clerkUser.id, phase: 'start' });
+      try {
+        const transport = createCloudSyncTransport({ url: `${API_BASE}/account`, getToken: clerkGetToken });
+        await transport.deleteAccount(new AbortController().signal);
+        serverDeleted = true;
+        const localKeys = await AsyncStorage.getAllKeys();
+        const appKeys = localKeys.filter(key => key.startsWith('@mentore/') || key === cloudOutboxKey(clerkUser.id) || key === accountCacheKey(clerkUser.id));
+        // Keep the identity available for retry if local cleanup fails. The journal
+        // must be discarded too, otherwise recovery can restore deleted records.
+        await balanceStorage.clearAll(appKeys);
+        await clerkUser.delete();
+      } finally {
+        notifyAccountDeletion({ accountId: clerkUser.id, phase: 'finish', serverDeleted });
+      }
     };
     const pending = run().catch(() => {
       throw new Error('削除を完了できませんでした。通信環境を確認して、もう一度お試しください。');

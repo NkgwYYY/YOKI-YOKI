@@ -101,3 +101,24 @@ All 344 mobile tests and mobile typecheck passed. New checks cover legacy-data r
 Legacy unmarked data is preserved under its first resolved identity; tests cannot prove its earlier ownership. These checks cover the managed AppContext cache, not all auxiliary caches or live authentication. Native/device/live-service and release gates remain open.
 
 Fresh Web/iOS/Android exports, the actual account-dialog regression and final exported `world.browser.cjs` passed after these changes. HOME gestures, meal debit, record/light/garden, same-day update, four-viewport touch/reload and night checks produced no page errors. HOME, landscape record and `final/sync-guest-owned.jpg` were visually inspected; the last image explicitly shows the synthetic local harness.
+
+
+## Deletion concurrency follow-up — 2026-10-06
+
+The new `api-server/tests/accountDeletion.test.mjs` reproduced delayed authenticated sync/equipment writes recreating content after deletion. Server routes now share an account-row lock and retain a reserved, non-synchronized deletion fence. Client snapshots cannot overwrite the fence. Deleted accounts receive 410 / ACCOUNT_DELETED; repeated DELETE remains valid for cleanup retry. Record/profile content, inventory and equipment are removed atomically. The account confirmation, guide and privacy page disclose the retained deleted-ID metadata.
+
+`mobile/tests/accountDeletion.browser.cjs` runs the actual AuthProvider, AppProvider, sync/storage code and AccountDeletionGate with synthetic SDK, network, local storage and reload adapters. It verifies pending push/pull cancellation, no late hydration after cleanup, terminal state after identity-service failure, failed DELETE recovery, lost acknowledgement followed by server 410, deleted-account restart and retry/reopen actions at 320×480 and 844×390. Browser heading enlargement is only a layout stress check. No live account, production API or production DB is used.
+
+```sh
+NODE_PATH=/tmp/yoki-v3/qa/node_modules \
+YOKI_QA_PGLITE=/tmp/yoki-v3/qa/node_modules/@electric-sql/pglite/dist/index.js \
+node --test artifacts/api-server/tests/*.test.mjs
+# Use the browser variables above; no export is required for these harnesses.
+node artifacts/mobile/tests/accountDeletion.browser.cjs
+node artifacts/mobile/tests/accountLifecycle.browser.cjs
+node artifacts/mobile/tests/cloudSync.browser.cjs
+```
+
+All 353 mobile tests and 15 isolated API tests passed. Mobile/shared/API/landing typechecks, API build and final Web/iOS/Android exports passed. Existing account-dialog and cloud ownership/restart browser checks passed. Full exported world.browser.cjs passed the four-viewport HOME/record/garden flows and reload, with no page errors. Inspected HOME/landscape record and the small-screen account UI; `final/account-delete-confirm.jpg` and `final/account-deletion-complete-retry.jpg` show the actual dialogs in a local synthetic harness. The second screen is reached only after confirmed server deletion.
+
+PGlite exercises real SQL/schema/routes but not separate hosted DB connections or Clerk JWT validation. The per-account lock must be used by all deployed writers; mixed old/new API workers are not certified. Deletion remains retryable coordination across separate systems, not a distributed transaction. Native/device/live identity transitions, auxiliary caches and Replit/release reconciliation remain open. No release or main merge.

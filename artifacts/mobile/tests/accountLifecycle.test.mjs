@@ -4,6 +4,7 @@ import test from 'node:test';
 import fs from 'node:fs';
 import ts from 'typescript';
 import React from 'react';
+import { notifyAccountDeletion, subscribeAccountDeletion } from '../utils/accountDeletion.ts';
 import { cloudOutboxKey } from '../utils/cloudOutbox.ts';
 import { createCloudSyncTransport } from '../utils/cloudSync.ts';
 import { createRecoverableStorage } from '../utils/recoverableStorage.ts';
@@ -41,6 +42,7 @@ function fixture({ body = { ok: true }, status = 200, failLogout = false, failId
       useUser: () => ({ user: missingUser ? null : { id: 'account-a', delete: async () => { events.push('identity'); if (failIdentity) throw Error('identity failed'); } } }),
     };
     if (name === '@react-native-async-storage/async-storage') return raw;
+    if (name.endsWith('/accountDeletion')) return { notifyAccountDeletion };
     if (name.endsWith('/cloudOutbox')) return { cloudOutboxKey };
     if (name.endsWith('/accountOwnership')) return { accountCacheKey };
     if (name.endsWith('/balanceStorage')) return { balanceStorage, BALANCE_JOURNAL_KEY: JOURNAL };
@@ -106,4 +108,19 @@ test('deletion removes only the deleted account detached cache and the active ow
   assert.equal(f.data.has(accountCacheKey('account-a')), false);
   assert.equal(f.data.has(LOCAL_DATA_OWNER_KEY), false);
   assert.equal(f.data.get(accountCacheKey('account-b')), 'other cache');
+});
+
+
+for (const failedAt of ['server','storage','identity',null]) test(`deletion pauses providers before the request and reports server deletion accurately (${failedAt})`, async () => {
+  const received = [];
+  const stop = subscribeAccountDeletion(event => received.push(event));
+  const f = fixture({ status:failedAt === 'server' ? 500 : 200, failStorage:failedAt === 'storage', failIdentity:failedAt === 'identity',
+    fetcher: async () => {
+      assert.deepEqual(received, [{accountId:'account-a',phase:'start'}]);
+      return response({ok:true}, failedAt === 'server' ? 500 : 200);
+    } });
+  try {
+    if (failedAt) await assert.rejects(f.operations.deleteAccount()); else await f.operations.deleteAccount();
+    assert.deepEqual(received.at(-1), {accountId:'account-a',phase:'finish',serverDeleted:failedAt !== 'server'});
+  } finally { stop(); }
 });

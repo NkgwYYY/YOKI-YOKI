@@ -66,13 +66,13 @@ test('sync API preserves snapshots and account boundaries', async t => {
       const update = { data: { records: ['new'], balance: 31 } };
       for (let i = 0; i < 2; i++) assert.deepEqual(await (await put(update)).json(), { ok: true });
       await put({ data: {} }); assert.deepEqual(await get(), update);
-      assert.equal((await pg.query('SELECT * FROM user_data WHERE user_id = $1', ['account-a'])).rows.length, 2);
+      assert.equal((await pg.query("SELECT * FROM user_data WHERE user_id = $1 AND key NOT LIKE '@yoki/server/%'", ['account-a'])).rows.length, 2);
     });
     await t.test('concurrent first writes leave one consistent snapshot without duplicate keys', async () => {
       const results = await Promise.all(Array.from({ length: 6 }, (_, i) => put({ data: { records: [i], balance: i } }, 'concurrent')));
       assert.ok(results.every(r => r.status === 200));
       const { data } = await get('concurrent'); assert.equal(data.records[0], data.balance);
-      assert.equal((await pg.query('SELECT * FROM user_data WHERE user_id = $1', ['concurrent'])).rows.length, 2);
+      assert.equal((await pg.query("SELECT * FROM user_data WHERE user_id = $1 AND key NOT LIKE '@yoki/server/%'", ['concurrent'])).rows.length, 2);
     });
     await t.test('another account cannot change or retrieve the first account data', async () => {
       await put({ data: { records: ['other'] } }, 'account-b');

@@ -85,6 +85,7 @@ const mobile = path.resolve(__dirname, '..');
 
     await open(); await page.getByTestId('delete-account-button').tap();
     const confirm = page.getByTestId('confirm-delete-account-button');
+    if (process.env.YOKI_QA_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.YOKI_QA_SCREENSHOTS, 'account-delete-confirm.jpg'), quality: 90 });
     await confirm.tap(); await page.getByText('削除しています…', { exact: true }).waitFor();
     assert.equal(await confirm.getAttribute('aria-disabled'), 'true');
     await page.keyboard.press('Escape'); await confirm.waitFor();

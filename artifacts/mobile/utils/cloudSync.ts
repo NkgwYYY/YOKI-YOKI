@@ -2,11 +2,12 @@ export type CloudData = Record<string, unknown>;
 export type CloudSyncState = {
   ready: boolean;
   phase: 'idle' | 'pull' | 'push';
-  error: 'pull' | 'push' | null;
+  error: 'pull' | 'push' | 'deleted' | null;
 };
 
 export const INITIAL_CLOUD_SYNC_STATE: CloudSyncState = { ready: false, phase: 'idle', error: null };
 export const CLOUD_SYNC_TIMEOUT_MS = 15_000;
+export class AccountDeletedError extends Error {}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -37,7 +38,13 @@ export function createCloudSyncTransport(options: {
         headers: { Authorization: `Bearer ${token}`, ...(method === 'PUT' ? { 'Content-Type': 'application/json' } : {}) },
         ...(method === 'PUT' ? { body: JSON.stringify({ data }) } : {}),
       });
-      if (!response.ok) throw new Error('Sync request failed');
+      if (!response.ok) {
+        if (response.status === 410) {
+          const failure: unknown = await response.json();
+          if (isRecord(failure) && failure.code === 'ACCOUNT_DELETED') throw new AccountDeletedError();
+        }
+        throw new Error('Sync request failed');
+      }
       const body: unknown = await response.json();
       if (!isRecord(body)) throw new Error('Invalid sync response');
       if (method === 'GET') {
@@ -109,15 +116,17 @@ export function createCloudSyncSession(options: {
         options.onGuestBackup?.();
       }
       return true;
-    } catch {
-      publish({ ...state, phase: 'idle', error: 'push' });
+    } catch (error) {
+      publish(error instanceof AccountDeletedError
+        ? { ready: false, phase: 'idle', error: 'deleted' }
+        : { ...state, phase: 'idle', error: 'push' });
       return false;
     }
   };
   const initialize = () => {
     if (initializing) return initializing;
     initializing = enqueue(async () => {
-      if (!current() || state.ready) return false;
+      if (!current() || state.ready || state.error === 'deleted') return false;
       publish({ ready: false, phase: 'pull', error: null });
       try {
         const pending = await options.pending?.read();
@@ -141,8 +150,8 @@ export function createCloudSyncSession(options: {
         guestBackupPending = result.backup;
         publish({ ready: true, phase: 'idle', error: null });
         return result.backup ? await upload() : true;
-      } catch {
-        publish({ ready: false, phase: 'idle', error: 'pull' });
+      } catch (error) {
+        publish({ ready: false, phase: 'idle', error: error instanceof AccountDeletedError ? 'deleted' : 'pull' });
         return false;
       }
     }).finally(() => { initializing = null; });

@@ -283,7 +283,7 @@ export default function GrowthScreen() {
                 onPress={confirmDeleteAccount}
                 disabled={deletingAccount || loggingOut}
                 testID="delete-account-button"
-                accessibilityLabel="アカウントを完全に削除"
+                accessibilityLabel="アカウントを削除"
                 style={styles.deleteAccountBtn}
               >
                 <Icon name="trash-2" size={16} color={colors.danger} />
@@ -307,14 +307,14 @@ export default function GrowthScreen() {
             <Text style={styles.dialogTitle}>{accountDeleted ? '削除が完了しました' : 'アカウントを削除'}</Text>
           </View>
           <Text style={styles.dialogBody}>
-            {accountDeleted ? 'アプリを開き直すと、新しくはじめられます。' : '記録、進捗、所持アイテム、ログイン情報を含むすべてのデータを完全に削除します。'}
+            {accountDeleted ? 'アプリを開き直すと、新しくはじめられます。' : 'このアカウントの記録、進捗、所持アイテム、ログイン情報を削除します。削除したデータの復活を防ぐため、削除済みアカウントの識別情報のみサーバーに残ります。'}
           </Text>
           {!accountDeleted && <Text style={styles.deleteConfirmWarning}>
             この操作は取り消せません。
           </Text>}
           {deleteError ? <Text accessibilityRole="alert" style={styles.accountError}>{deleteError}</Text> : null}
           <Button
-            label={accountDeleted ? 'アプリを開き直す' : deletingAccount ? '削除しています…' : '完全に削除する'}
+            label={accountDeleted ? 'アプリを開き直す' : deletingAccount ? '削除しています…' : 'アカウントを削除する'}
             onPress={handleDeleteAccount}
             loading={deletingAccount}
             disabled={deletingAccount}

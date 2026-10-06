@@ -1,5 +1,6 @@
 import { APP_STORAGE_KEYS as KEYS } from '@/utils/appStorageKeys';
 import { createCloudOutbox } from '@/utils/cloudOutbox';
+import { subscribeAccountDeletion } from '@/utils/accountDeletion';
 import { createAccountOwnership, encodeDataOwner, LOCAL_DATA_OWNER_KEY } from '@/utils/accountOwnership';
 import { createCloudSyncSession, createCloudSyncTransport, INITIAL_CLOUD_SYNC_STATE, type CloudSyncState } from '@/utils/cloudSync';
 import { mergeEncounterHistory } from '@/utils/mergeEncounters';
@@ -318,11 +319,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const cloudSynced = localScopeReady && cloudSyncState.ready && accountId !== null && cloudSyncAccountRef.current === accountId;
   const isCloudSyncing = cloudSyncState.phase !== 'idle';
   const cloudSessionRef = useRef<ReturnType<typeof createCloudSyncSession> | null>(null);
+  const deletingAccountRef = useRef<string | null>(null);
+  const [deletionPaused, setDeletionPaused] = useState(false);
+  const [syncRestart, setSyncRestart] = useState(0);
+  useEffect(() => subscribeAccountDeletion(event => {
+    if (event.accountId !== accountIdRef.current) return;
+    if (event.phase === 'start') {
+      deletingAccountRef.current = event.accountId;
+      cloudSessionRef.current?.dispose();
+      cloudSessionRef.current = null;
+      setDeletionPaused(true);
+    } else if (event.serverDeleted) {
+      // Local cleanup or identity deletion can fail after server deletion. Keep
+      // the account closed and offer completion retry instead of fresh onboarding.
+      setCloudSyncState({ ready: false, phase: 'idle', error: 'deleted' });
+    } else {
+      deletingAccountRef.current = null;
+      setDeletionPaused(false);
+      setCloudSyncState(INITIAL_CLOUD_SYNC_STATE);
+      setSyncRestart(value => value + 1);
+    }
+  }), []);
+  useEffect(() => {
+    if (deletingAccountRef.current !== accountId) {
+      deletingAccountRef.current = null;
+      setDeletionPaused(false);
+    }
+  }, [accountId]);
   // マスコットは進化しても同一個体なので characterId は固定 'mascot'
   const [growth, setGrowth] = useState<GrowthRecord>(() => createGrowthRecord('mascot'));
   const [lightEnergy, setLightEnergy] = useState<LightEnergyState>(() => createLightEnergyState(getTodayDate()));
   const [storageError, setStorageError] = useState<string | null>(null);
-  const dataReady = !appLoading && !storageError && localScopeReady && (!isSignedIn || cloudSynced);
+  const dataReady = !deletionPaused && !appLoading && !storageError && localScopeReady && (!isSignedIn || cloudSynced);
   const feedStateRef = useRef<FeedState>(defaultFeedState);
   // 非同期処理の並走でも付与が失われないよう、最新値を ref でも保持する
   const lightEnergyRef = useRef(lightEnergy);
@@ -610,7 +638,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (authLoading || (isSignedIn && !accountId)) return;
     let active = true;
-    const isCurrent = () => active && accountIdRef.current === accountId;
+    const isCurrent = () => active && accountIdRef.current === accountId && (!accountId || deletingAccountRef.current !== accountId);
     setIsLoading(true);
     void (async () => {
       try {
@@ -631,7 +659,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Wait for local recovery and auth resolution; each identity owns its requests.
   useEffect(() => {
-    if (isLoading || authLoading || !localScopeReady) return;
+    if (isLoading || authLoading || !localScopeReady || (accountId && deletingAccountRef.current === accountId)) return;
     cloudSyncAccountRef.current = accountId;
     setCloudSyncState(INITIAL_CLOUD_SYNC_STATE);
     if (!accountId) return;
@@ -640,14 +668,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     const session = createCloudSyncSession({
       ...transport,
-      isCurrent: () => accountIdRef.current === accountId,
+      isCurrent: () => accountIdRef.current === accountId && deletingAccountRef.current !== accountId,
       read: readCloudSnapshot,
       onState: setCloudSyncState,
       onGuestBackup: () => Analytics.guestDataBackedUp(),
       pending: {
         stage: () => cloudOutbox.stage(accountId, async () => {
           const snapshot = await readCloudSnapshot();
-          if (accountIdRef.current !== accountId) throw new Error('Account changed');
+          if (accountIdRef.current !== accountId || deletingAccountRef.current === accountId) throw new Error('Account changed');
           return snapshot;
         }),
         read: () => cloudOutbox.read(accountId),
@@ -680,7 +708,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       session.dispose();
       if (cloudSessionRef.current === session) cloudSessionRef.current = null;
     };
-  }, [accountId, isSignedIn, authLoading, isLoading, localScopeReady, readCloudSnapshot, mergeGuestWithCloud]);
+  }, [accountId, isSignedIn, authLoading, isLoading, localScopeReady, readCloudSnapshot, mergeGuestWithCloud, syncRestart]);
 
   const buildFreshCheckedState = (items: ChecklistItemDef[]): CheckedState => {
     const today = getTodayDate();
