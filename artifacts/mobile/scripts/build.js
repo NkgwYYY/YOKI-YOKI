@@ -6,6 +6,7 @@ const { Readable } = require('stream');
 const { pipeline } = require('stream/promises');
 const { getReleaseDomain } = require('./releaseDomain.cjs');
 const { packageNativeAssets } = require('./nativeAssets.cjs');
+const { verifyNativeBuild } = require('./verifyNativeAssets.cjs');
 
 let metroProcess = null;
 let metroPort = null;
@@ -537,6 +538,12 @@ async function main() {
 
   console.log('Updating manifests and creating landing page...');
   updateManifests(manifests, timestamp, baseUrl, hashesByPlatform);
+
+  // Check the emitted bundle's scale/hash references, independently of Metro's
+  // asset listing. Compilation alone must not accept missing Retina files.
+  for (const report of verifyNativeBuild(staticBuild)) {
+    console.log(`Verified ${report.platform}: ${report.files} asset files, ${report.densityVariants} higher-density variants`);
+  }
 
   console.log('Build complete! Deploy to:', baseUrl);
 
