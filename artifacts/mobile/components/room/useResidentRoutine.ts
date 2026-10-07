@@ -2,17 +2,21 @@ import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { Animated, Easing } from 'react-native';
 import type { RoomPoint } from '@/utils/roomGeometry';
 import { chooseResidentActivity, residentSteps, type ResidentPose, type ResidentRequests } from '@/utils/residentRoutine';
+import { worldActivity, worldResidentSteps } from '@/utils/worldGeometry';
+import type { WorldPeriod } from '@/utils/worldTime';
 
 type Props = {
   active: boolean; reduceMotion: boolean; resting: boolean; interacting: boolean;
   meal: number; rest: number; position: Animated.ValueXY; foot: MutableRefObject<RoomPoint>;
+  world?: boolean; period?: WorldPeriod; daySeed?: number; onMealFinished?: () => void;
 };
 
 /** Visual-only routines. Pausing or replaying them can never charge for food a second time. */
-export function useResidentRoutine({ active, reduceMotion, resting, interacting, meal, rest, position, foot }: Props) {
+export function useResidentRoutine({ active, reduceMotion, resting, interacting, meal, rest, position, foot, world, period = 'day', daySeed = 0, onMealFinished }: Props) {
   const [pose, setPose] = useState<ResidentPose>('idle');
   const handled = useRef<ResidentRequests>({ meal: 0, rest: 0 });
   const turn = useRef(0);
+  const mealFinished = useRef(onMealFinished); mealFinished.current = onMealFinished;
   useEffect(() => {
     if (!active || interacting) return;
     let cancelled = false;
@@ -20,16 +24,18 @@ export function useResidentRoutine({ active, reduceMotion, resting, interacting,
     const requests = { meal, rest };
     const run = () => {
       if (cancelled) return;
-      const activity = chooseResidentActivity(requests, handled.current, resting, turn.current);
+      const hasRequest = meal > handled.current.meal || rest > handled.current.rest || resting;
+      const activity = world && !hasRequest ? worldActivity(period, daySeed, turn.current)
+        : chooseResidentActivity(requests, handled.current, resting, turn.current);
       // No unprompted wandering when motion is reduced.
       if (reduceMotion && meal <= handled.current.meal && rest <= handled.current.rest && !resting) {
         setPose('idle'); return;
       }
-      const steps = residentSteps(activity, foot.current, reduceMotion);
+      const steps = world ? worldResidentSteps(activity, foot.current, reduceMotion) : residentSteps(activity, foot.current, reduceMotion);
       const advance = (index: number) => {
         if (cancelled) return;
         if (index === steps.length) {
-          if (activity === 'meal') { handled.current.meal = meal; setPose('idle'); }
+          if (activity === 'meal') { handled.current.meal = meal; setPose('idle'); mealFinished.current?.(); }
           if (activity === 'bed') handled.current.rest = rest;
           turn.current++;
           timer = setTimeout(run, 9000);
@@ -50,6 +56,6 @@ export function useResidentRoutine({ active, reduceMotion, resting, interacting,
     // Returning from a gesture leaves a short calm interval before autonomous movement.
     timer = setTimeout(run, requested ? 350 : 6000);
     return () => { cancelled = true; clearTimeout(timer); position.stopAnimation(); };
-  }, [active, interacting, meal, rest, resting, reduceMotion, position, foot]);
+  }, [active, interacting, meal, rest, resting, reduceMotion, position, foot, world, period, daySeed]);
   return interacting ? 'idle' : pose;
 }

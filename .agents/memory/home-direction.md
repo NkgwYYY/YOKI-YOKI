@@ -1,15 +1,15 @@
 ---
-name: YOKI YOKI home direction
-description: The former grass-scene direction is historical; the user intentionally adopted the room concept.
+name: YOKI YOKI 3.0 home direction
+description: The approved home is WorldHome's forest cottage, with no consumer game entry points.
 ---
 
-The former no-room/grass-scene direction below is historical, not a constraint on the current room concept. Do not revert the imported room experience merely to satisfy the older scene rules.
+Use YOKI YOKI 3.0's WorldHome forest-cottage experience. The old RoomView indoor HOME and its "音楽であそぶ" entry are not the approved 3.0 interface. Keep game entry points out of the consumer navigation.
 
-**Why:** On 2026-10-05, the user explicitly requested integration of the room implementation from their GitHub branch, superseding the previous home composition.
+**Why:** On 2026-10-07, the user explicitly identified the earlier indoor HOME as the old version and requested the 3.0 forest-cottage design from the world branch. This supersedes the room direction adopted on 2026-10-05.
 
-**How to apply:** Use the integrated room experience as the starting point for future home changes. Preserve existing safety and data protections independently of visual changes.
+**How to apply:** Preserve safety/data protections, native touch fixes and icon packaging when integrating world UI. Keep old-screen QA history, but record 3.0 checks separately; old-room screenshots are not proof that 3.0 is loaded.
 
-## Historical grass-scene guidance (superseded)
+## Historical grass-scene guidance (superseded; not constraints on 3.0)
 
 Keep the home as one seamless scene: a light lavender upper background with pale-pink image grass at the character's feet. The grass must fill the lower area edge-to-edge and meet the bottom navigation without side or bottom gaps, but stay low enough that its central crest does not cover the character. The character always renders above the grass and sits lightly on that central crest. Overlay the four main actions on the hill rather than placing them below it. Do not place a translucent capsule or aura behind the character, or a flat-color panel behind the main actions. Furniture and flowers appear only after purchase. The main actions stay visible below the character within one screen.
 

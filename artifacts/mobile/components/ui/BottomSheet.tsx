@@ -26,6 +26,7 @@ export function BottomSheet({
   scroll = true,
   maxHeightRatio = 0.88,
   contentStyle,
+  wide = false,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -35,6 +36,7 @@ export function BottomSheet({
   scroll?: boolean;
   maxHeightRatio?: number;
   contentStyle?: StyleProp<ViewStyle>;
+  wide?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
@@ -44,9 +46,9 @@ export function BottomSheet({
     <Modal visible={visible} transparent animationType={reduceMotion ? 'none' : 'slide'} onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.scrim} onPress={onClose} accessible={false} importantForAccessibility="no-hide-descendants" tabIndex={-1} />
-        <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={[styles.sheet, { maxHeight: `${maxHeightRatio * 100}%` }]}>
+        <View accessibilityViewIsModal onAccessibilityEscape={onClose} style={[styles.sheet, wide && {maxWidth: 760, paddingTop: 8}, { maxHeight: `${maxHeightRatio * 100}%` }]}>
           <View style={styles.handle} />
-          <View style={styles.header}>
+          <View style={[styles.header, wide && {paddingTop: 8}]}>
             <View style={styles.headerCopy}>
               {title ? <Text accessibilityRole="header" style={styles.title}>{title}</Text> : null}
               {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}

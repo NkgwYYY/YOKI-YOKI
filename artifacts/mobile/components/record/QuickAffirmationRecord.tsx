@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/Button';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -16,6 +16,8 @@ const MOODS: { value: number; label: string; icon: IconName }[] = [
 export function QuickAffirmationRecord({ onComplete, onSaveStart, onSaveFailed }: {
   onComplete?: () => void; onSaveStart?: () => void; onSaveFailed?: () => void;
 }) {
+  const {width, height} = useWindowDimensions();
+  const wide = width > height;
   const { getTodayRecord, saveRecord, holdLightFlow } = useApp();
   const today = getTodayRecord();
   const [mood, setMood] = useState<number | null>(today?.mood ?? null);
@@ -48,25 +50,32 @@ export function QuickAffirmationRecord({ onComplete, onSaveStart, onSaveFailed }
     }
   };
   return <View style={s.body}>
+    <View style={[s.fields, wide && s.wideFields]}>
+    <View style={s.field}>
     <Text style={s.question}>いまの気分は？</Text>
     <Text style={s.helper}>どの日も、そのままで大丈夫。</Text>
     <View style={s.moods}>{MOODS.map(option => <Pressable key={option.value} testID={`quick-mood-${option.value}`} accessibilityRole="button" accessibilityState={{ selected: mood === option.value }} accessibilityLabel={`気分：${option.label}`} disabled={saving}
       onPress={() => { setMood(option.value); setSaved(false); }} style={[s.mood, mood === option.value && s.selected]}>
-      <Icon name={option.icon} size={24} color="#786081" /><Text style={s.label}>{option.label}</Text>
+      <Icon name={option.icon} size={24} color="#617457" /><Text style={s.label}>{option.label}</Text>
     </Pressable>)}</View>
+    </View>
+    <View style={s.field}>
     <Text style={s.question}>今日のひとこま <Text style={s.helper}>（選ばなくてもOK）</Text></Text>
     <View style={s.actions}>{QUICK_ACTIONS.map(item => <Pressable key={item.label} accessibilityRole="button" disabled={saving} accessibilityState={{ selected: action === item.label }} onPress={() => setAction(action === item.label ? null : item.label)} style={[s.action, action === item.label && s.selected]}>
-      <Icon name={item.icon} size={16} color="#786081" /><Text style={s.label}>{item.label}</Text>
+      <Icon name={item.icon} size={16} color="#617457" /><Text style={s.label}>{item.label}</Text>
     </Pressable>)}</View>
+    </View>
+    </View>
     {error ? <Text accessibilityRole="alert" style={s.helper}>{error}</Text> : null}
     {saved ? <Text accessibilityLiveRegion="polite" style={s.helper}>今日の気持ち、この子に届いたよ。</Text> : null}
-    <Button testID="quick-record-save" label={saving ? '記録しています…' : today ? '今日の記録を更新' : 'この気持ちを残す'} disabled={mood === null || saving} loading={saving} onPress={save} fullWidth />
+    <Button testID="quick-record-save" label={saving ? '記録しています…' : today ? '今日の記録を更新' : 'この気持ちを残す'} disabled={mood === null || saving} loading={saving} onPress={save} fullWidth size={wide ? 'sm' : 'md'} style={mood !== null && !saving ? {backgroundColor: '#617457'} : undefined} />
   </View>;
 }
 const s = StyleSheet.create({
-  body: { gap: 12 }, question: { fontSize: 16, fontWeight: '600', color: '#4B3C52' },
-  helper: { fontSize: 12, color: '#827287', lineHeight: 18 },
-  moods: { flexDirection: 'row', gap: 5 }, mood: { flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: '#E2D9E3', borderRadius: 14 },
-  label: { fontSize: 11, color: '#5D4D65', textAlign: 'center' }, selected: { backgroundColor: '#EDE2F1', borderColor: '#92749F' },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, action: { flexBasis: '31%', flexGrow: 1, minHeight: 50, borderWidth: 1, borderColor: '#E2D9E3', borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 5 },
+  fields: {gap: 12}, wideFields: {flexDirection: 'row', gap: 22}, field: {flex: 1, gap: 10},
+  body: { gap: 12 }, question: { fontSize: 16, fontWeight: '600', color: '#424B3D' },
+  helper: { fontSize: 12, color: '#73786D', lineHeight: 18 },
+  moods: { flexDirection: 'row', gap: 5 }, mood: { flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: '#DADCCC', borderRadius: 14 },
+  label: { fontSize: 11, color: '#4E5945', textAlign: 'center' }, selected: { backgroundColor: '#E3ECD9', borderColor: '#7F9668' },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 }, action: { flexBasis: '31%', flexGrow: 1, minHeight: 50, borderWidth: 1, borderColor: '#DADCCC', borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 5 },
 });
