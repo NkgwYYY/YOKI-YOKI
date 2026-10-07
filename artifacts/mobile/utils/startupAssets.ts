@@ -17,7 +17,7 @@ const STARTUP_IMAGE_MODULES: ImageSourcePropType[] = [
   require('@/assets/images/characters/odango.png'),
   require('@/assets/images/characters/happa.png'),
   require('@/assets/images/characters/colorful_happa.png'),
-  require('@/assets/images/plant/energy-garden-night.png'),
+  require('@/assets/images/world/light-garden.jpg'),
 ];
 
 let startupImagePromise: Promise<void> | null = null;

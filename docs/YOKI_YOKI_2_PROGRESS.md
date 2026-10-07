@@ -559,3 +559,14 @@ node artifacts/mobile/tests/room.browser.cjs
 - The request guard allowed only necessary anonymous Clerk development-browser initialization and narrowly approved read-only development traffic; the Clerk development `/v1/environment` POST was blocked. No other blocked mutation or page errors were observed, and the UI continued normally. No account/cloud mutation was permitted.
 - Browser report: `.local/verification/yoki-resident-24f5639-20261007T092444Z/browser/report.md`. Screenshot observation IDs: room `9ozq8g`, tap `q3ttt9`, pet `37hst2`, hold `pc5zoy`, landing `kcnp9q`, path/camera `tye8b4`, ground tap `w58j26`, return `5du3d5`. The browser tool cannot export actual JPG files; these observation IDs are the available image evidence.
 - **Still unverified:** physical iPhone/Android touch feel/performance, native builds on devices, screen readers, reduced-motion browser interaction, all-frame trajectory, authenticated/cloud behavior and production behavior. Older RoomView and previous WorldHome QA sections remain unchanged and are not relabeled as this checkpoint's results.
+
+
+## 2026-10-08 Replit preview import of 6f32bdc — in progress
+- Started from clean main e186f69; backup: backup/yoki-before-6f32bdc-20261008. Existing acfcb25 / dfb0dfa / da97d07 / e186f69 history preserved.
+- Applied the scoped mobile difference 24f5639..6f32bdc. No merge or replacement of main history; no dependency or build-script replacement.
+- This Replit branch has no privateCache/AppContext lease API or world.browser.cjs. The record reminder uses a dedicated account-scoped local storage adapter through the existing AuthContext; no legacy chat/cache migration or cloud snapshot change. The absent legacy browser test was not imported; new expansion QA is included.
+- Validation and preview checks pending. No production publish or DB migration.
+
+- Import validation PASS: pnpm run typecheck (shared libraries + all 7 workspace targets); 20 focused tests (world expansion, reminder account isolation/stale read and write rejection/storage failure recovery, world movement, garden energy, resident routine).
+- Isolated Web/iOS/Android JS-and-asset build PASS at /tmp/yoki-preview-6f32bdc-20261008-build. Native asset verification: 114 files and 12 higher-density variants per OS. Existing pnpm exec build startup and icon validation unchanged. Logs: .local/verification/yoki-preview-6f32bdc-20261008/.
+- Live Replit preview starts with a new synthetic guest. Zoom/volume element/map locks and invalid-time validation/settings save/reload checked; remaining live checks are in progress. Native device/performance and production remain unverified.

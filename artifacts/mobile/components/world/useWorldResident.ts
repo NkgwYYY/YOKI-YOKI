@@ -5,7 +5,10 @@ import { WORLD_PLACES, WORLD_TRAIL, worldActivity, worldWalkDuration, worldWalki
 import type { RoomPoint } from '@/utils/roomGeometry';
 import type { WorldPeriod } from '@/utils/worldTime';
 
+import {mapRoute,type WorldMapId} from '@/utils/worldMaps';
+
 type Props = {
+  map: WorldMapId;
   active: boolean; interacting: boolean; reduceMotion: boolean; resting: boolean;
   meal: number; rest: number; period: WorldPeriod; daySeed: number;
   x: SharedValue<number>; y: SharedValue<number>; walking: SharedValue<number>;
@@ -18,7 +21,8 @@ export function useWorldResident(p: Props) {
   const handled = useRef({meal: 0, rest: 0, destination: 0});
   const turn = useRef(0);
   const complete = useRef(p.onMealFinished); complete.current = p.onMealFinished;
-  const {active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination} = p;
+  const {map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination} = p;
+  useEffect(()=>{if(map!=='home')handled.current.rest=rest;setPose('idle');},[map]);
   useEffect(() => {
     if (interacting) setPose('idle');
     if (!active || interacting) return;
@@ -26,7 +30,7 @@ export function useWorldResident(p: Props) {
     let timer: ReturnType<typeof setTimeout>;
     const later = (fn: () => void, delay: number) => {timer = setTimeout(() => {if (alive) fn();}, delay);};
     const walk = (target: RoomPoint, done: () => void) => {
-      const route = worldWalkingRoute({x: x.value, y: y.value}, target);
+      const route = map==='home'?worldWalkingRoute({x:x.value,y:y.value},target):mapRoute(map,{x:x.value,y:y.value},target);
       // Explicit travel is retained with reduced motion, as an immediate reposition.
       if (reduceMotion) {x.value = target.x; y.value = target.y; done(); return;}
       const step = (i: number) => {
@@ -54,6 +58,7 @@ export function useWorldResident(p: Props) {
       // A successful food request always wins; interrupted meals resume once.
       const mealPending = meal > handled.current.meal;
       const restPending = rest > handled.current.rest;
+      if(map!=='home'&&(mealPending||restPending))return; // HOME owns furniture requests.
       if (!mealPending && !restPending && destination && destination.id > handled.current.destination) {
         handled.current.destination = destination.id;
         walk(destination.point, () => {setPose('idle'); later(run, 18000);});
@@ -65,10 +70,10 @@ export function useWorldResident(p: Props) {
         : worldActivity(period, daySeed, turn.current);
       // In daylight the resident also visits the terrace/path without a new screen.
       const stroll = !resting && !mealPending && !restPending && period !== 'night' && turn.current % 3 === 2;
-      const target = stroll ? WORLD_TRAIL.garden.point : WORLD_PLACES[activity];
+      const target = map==='home' ? (stroll ? WORLD_TRAIL.garden.point : WORLD_PLACES[activity]) : {x:turn.current%2?.55:.46,y:turn.current%2?.72:.56};
       const finish = () => {
         if (!alive) return;
-        setPose(stroll ? 'watching' : activity === 'meal' ? 'eating' : activity === 'bed' ? 'sleeping' : activity === 'window' ? 'watching' : 'idle');
+        setPose(map!=='home'?'watching':stroll ? 'watching' : activity === 'meal' ? 'eating' : activity === 'bed' ? 'sleeping' : activity === 'window' ? 'watching' : 'idle');
         later(() => {
           if (activity === 'meal' && !stroll) {handled.current.meal = meal; complete.current?.();}
           if (activity === 'bed' && !stroll) handled.current.rest = rest;
@@ -82,6 +87,6 @@ export function useWorldResident(p: Props) {
     const requested = meal > handled.current.meal || rest > handled.current.rest || (destination && destination.id > handled.current.destination);
     later(run, requested ? 60 : 6500);
     return () => {alive = false; clearTimeout(timer); cancelAnimation(x); cancelAnimation(y); walking.value = 0;};
-  }, [active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination]);
+  }, [map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination]);
   return interacting ? 'idle' : pose;
 }

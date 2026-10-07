@@ -11,6 +11,8 @@ import { Icon, iconSize } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
 import { DEFAULT_HOME_COMMENT_PREFERENCES, type HomeCommentFrequency, type HomeCommentPreferences } from '@/utils/homeComment';
 
+import { RecordPromptSettings } from '@/components/record/RecordPromptSettings';
+
 const FREQUENCY_OPTIONS: { value: HomeCommentFrequency; label: string; description: string }[] = [
   { value: 'daily', label: '毎日', description: 'その日の最初に、ひとこと話します' },
   { value: 'after_record', label: '記録したあと', description: '記録やチェックをした日に話します' },
@@ -95,6 +97,7 @@ export default function ProfileScreen() {
         <Text style={styles.subtitle}>
           いつでも変更できます。AIは参考情報として使い、実際の記録を優先します。
         </Text>
+        <RecordPromptSettings />
         <View style={styles.commentSettings}>
           <View style={styles.settingHeader}>
             <Icon name="message-circle" size={iconSize.sm} color={colors.primary} />
