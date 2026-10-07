@@ -20,6 +20,10 @@ import { QuickAffirmationRecord } from '@/components/record/QuickAffirmationReco
 import { getHomeComment } from '@/utils/homeComment';
 import { getTodayDate } from '@/utils/dateUtils';
 
+import { useRecordPrompt } from '@/contexts/RecordPromptContext';
+import { isRecordPromptDue } from '@/utils/recordPrompt';
+import { DailyRecordInvitation } from '@/components/record/DailyRecordInvitation';
+
 const HINT_KEY = '@yoki/world_hints_v3';
 type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | null;
 export default function HomeScreen() {
@@ -50,6 +54,8 @@ export default function HomeScreen() {
   const nameBusy = useRef(false);
   const nameSession = useRef(0);
   const today = getTodayRecord();
+  const prompt = useRecordPrompt();
+  const invitation = active && !sheet && prompt.ready && isRecordPromptDue(prompt.settings, prompt.now, !!today);
   const soundRef = useRef<Audio.Sound | null>(null);
   const soundGeneration = useRef(0);
   const close = () => { nameSession.current++; setSheet(null); };
@@ -105,12 +111,12 @@ export default function HomeScreen() {
   };
   const interact = (kind: ResidentInteraction) => say({
     greet: 'あ、きてくれた。うれしいな。', pet: 'なでなで、きもちいい。',
-    space: 'くすぐったいよ。ゆっくりで大丈夫。', held: 'ふわっ。そっと、抱っこしてね。', land: 'ぽふっ。ただいま。',
+    space: 'くすぐったいよ。ゆっくりで大丈夫。', held: 'ふわっ。そっと、抱っこしてね。', land: 'ぽふっ。ただいま。', roll:'ころころ。ちょっと、ひなたぼっこ。',
   }[kind]);
   const restTogether = () => {setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <WorldHome level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
@@ -127,10 +133,10 @@ export default function HomeScreen() {
       </View>
     </View>
     <View pointerEvents="box-none" style={[s.footer, {bottom: tabHeight + 12}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
-      <View pointerEvents="none" style={s.speech}>
+      {invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => setSheet('record')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
         <Text style={s.residentName}>{mascotName || 'よっきー'}</Text>
         <Text testID="world-speech" style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{speech || (today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : time.moment)}</Text>
-      </View>
+      </View>}
       <View style={[s.quickActions, wide && {flexDirection: 'column', alignItems: 'center'}]}>
         <Pressable testID="home-daily-record" accessibilityRole="button" accessibilityLabel="今日の記録を開く" onPress={() => setSheet('record')} style={({pressed}) => [s.noteButton, pressed && {opacity: 0.8}]}>
           <Icon name={today ? 'check' : 'edit-3'} size={17} color="#454934" /><Text style={s.noteText}>{today ? '今日の記録' : '今日を、ひとこと'}</Text>
@@ -156,6 +162,7 @@ export default function HomeScreen() {
       {menuRow('shopping-bag', '暮らしのお店', () => { close(); router.push('/shop'); })}
       {menuRow('home', '部屋の模様替え', () => setSheet('atelier'))}
       {menuRow('edit-3', 'なまえをつける', () => { setName(mascotName); setNameError(''); setSheet('name'); })}
+      {menuRow('clock', '記録する時間', () => { close(); router.push('/profile'); })}
       {menuRow('user', 'プロフィール・話しかけ設定', () => { close(); router.push('/profile'); })}
       {menuRow('book-open', '使い方ガイド', () => { close(); router.push('/guide'); })}
     </BottomSheet>}

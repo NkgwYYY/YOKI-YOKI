@@ -7,7 +7,7 @@ import { ROOM_STOPS, safeRoomPoint } from '@/utils/roomGeometry';
 import { useResidentRoutine } from './useResidentRoutine';
 import { safeWorldPoint, WORLD_PLACES } from '@/utils/worldGeometry';
 import type { WorldPeriod } from '@/utils/worldTime';
-export type ResidentInteraction = 'greet' | 'pet' | 'space' | 'held' | 'land';
+export type ResidentInteraction = 'greet' | 'pet' | 'space' | 'held' | 'land' | 'roll';
 
 export type ResidentItem = { id: string; uri: string; x: number; y: number; scale: number };
 type Props = {

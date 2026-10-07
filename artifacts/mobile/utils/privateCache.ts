@@ -1,8 +1,9 @@
-// Local-only AI/chat data. None of these keys belong in a cloud snapshot.
+// Account-scoped, local-only data and device preferences; not cloud snapshots.
 export const PRIVATE_CACHE_KEYS = {
   CHAT: '@mentore/chat_history_v1',
   INSIGHT: '@mentore/insight_v1',
   HOME_COMMENT: '@mentore/home_comment_v1',
+  RECORD_PROMPT: '@yoki/record_prompt_v1',
 } as const;
 export type PrivateCacheKey = typeof PRIVATE_CACHE_KEYS[keyof typeof PRIVATE_CACHE_KEYS];
 export const PRIVATE_CACHE_MIGRATION_KEY = '@yoki/private_cache_migration_v1';

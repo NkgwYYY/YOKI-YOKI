@@ -58,7 +58,9 @@ async function seed(page) {
     assert.equal(await page.getByText('少し、お話しする',{exact:true}).count(),0);
     let b=await resident.boundingBox();
     await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();
-    await page.mouse.move(b.x+b.width/2+48,b.y+b.height/2,{steps:4});await page.mouse.up();
+    // A slow stroke pets; a fast flick now rolls (covered by worldExpansion).
+    for(let dx=12;dx<=48;dx+=12){await page.mouse.move(b.x+b.width/2+dx,b.y+b.height/2);await page.waitForTimeout(70);}
+    await page.mouse.up();
     await speech('なでなで');
     b=await resident.boundingBox();
     await page.mouse.move(b.x+b.width/2,b.y+b.height/2);await page.mouse.down();await page.waitForTimeout(350);
@@ -101,6 +103,8 @@ async function seed(page) {
     for (const [name,width,height,night] of [['small',320,568,false],['tablet',820,1180,false],['wide',844,390,false],['night',390,844,true]]) {
       if (process.env.YOKI_QA_VIEWPORT && name !== process.env.YOKI_QA_VIEWPORT) continue;
       const p=await open({width,height},night,'reduce');
+      // A due invitation intentionally foregrounds daily care. Dismiss it before testing furniture hit targets.
+      if(await p.getByTestId('record-prompt-snooze').count())await p.getByTestId('record-prompt-snooze').tap();
       for(const id of ['room-resident','room-record','room-meal','room-bed','room-album','home-daily-record','home-chat','world-navigation']) {
         await inBounds(p,id);
         assert.ok(await p.getByTestId(id).evaluate(el=>{const b=el.getBoundingClientRect();return el.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}),`${name}: ${id} is obscured`);

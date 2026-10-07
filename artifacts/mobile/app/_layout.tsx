@@ -18,6 +18,7 @@ import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { AuthProvider, GuestAuthProvider, useAuth } from '@/contexts/AuthContext';
+import { RecordPromptProvider } from '@/contexts/RecordPromptContext';
 import { ItemProvider } from '@/contexts/ItemContext';
 import { initAnalytics } from '@/utils/analytics';
 import { StartupLoadingOverlay } from '@/components/StartupLoadingOverlay';
@@ -90,12 +91,12 @@ function RootLayoutNav() {
 function AppContent() {
   return (
     <AppProvider>
-      <ItemProvider>
+      <RecordPromptProvider><ItemProvider>
         <GestureHandlerRootView style={styles.root}>
           <RootLayoutNav />
           <StartupLoadingOverlay />
         </GestureHandlerRootView>
-      </ItemProvider>
+      </ItemProvider></RecordPromptProvider>
     </AppProvider>
   );
 }
