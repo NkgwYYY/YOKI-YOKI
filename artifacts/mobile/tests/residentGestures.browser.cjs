@@ -40,7 +40,7 @@ const server = http.createServer((req, res) => {
     const end = type => client.send('Input.dispatchTouchEvent', { type, touchPoints: [] });
     const held = () => page.waitForFunction(() => document.querySelector('[data-testid="room-resident"]')?.style.zIndex === '999');
     const landed = () => page.waitForFunction(() => document.querySelector('[data-testid="room-resident"]')?.style.zIndex !== '999');
-    const position = () => resident.evaluate(el => ({ left: el.style.left, top: el.style.top }));
+    const position = () => resident.evaluate(el => ({ left: el.style.left, top: el.style.top, transform: el.style.transform }));
 
     await start(); await held();
     await end('touchEnd');

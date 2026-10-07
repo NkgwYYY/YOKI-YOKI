@@ -66,21 +66,26 @@ export function StaticMascot({
   stage,
   mood,
   size,
+  tintColor,
+  blink = false,
 }: {
   stage: MascotStage;
   mood: MascotMood;
   size: number;
+  /** Optional silhouette used by the world renderer for subtle ambient light. */
+  tintColor?: string;
+  blink?: boolean;
 }) {
   const character = getCharacter(stage);
   const source = character.key === 'egg'
-    ? EGG_IMAGES[mood]
+    ? blink ? EGG_BLINK : EGG_IMAGES[mood]
     : CHAR_IMAGES[character.key];
 
   return (
     <View style={{ width: size, height: size }}>
       <Image
         source={source as any}
-        style={{ width: size, height: size }}
+        style={{ width: size, height: size, tintColor }}
         resizeMode="contain"
         fadeDuration={0}
       />
