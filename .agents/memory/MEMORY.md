@@ -1,6 +1,7 @@
 - [Asset sourcing](asset-sourcing.md) — Unsplash/myinstants work via curl; use AI generation for same-character multi-expression photo sets; always expo export + commit after mobile changes.
 - [Mobile static-build serving](mobile-static-build.md) — sync web exports there, and serve native bundles before the web SPA fallback or Hermes receives HTML.
 - [Native release bundle domain](native-release-bundle-domain.md) — App Store bundles must load from the public production domain, never a temporary Replit development URL.
+- [pnpm Expo CLI resolution](pnpm-expo-cli-resolution.md) — Expo build subprocesses need pnpm's shim environment; direct Node invocation can hide installed private-hoisted Babel plugins.
 - [Native startup route gating](native-startup-route-gating.md) — keep the root navigator mounted, but block tabs until state loads; release iOS builds use stable tabs.
 - [Native release verification](native-release-verification.md) — browser touch emulation is not proof of UIKit behavior; require release-device checks before claiming App Review fixes.
 - [Clerk auth migration](clerk-auth-migration.md) — login is Replit-managed Clerk (Google/Apple+email); no custom auth or mail service; providers toggled in Auth pane; dev/prod user stores separate.
