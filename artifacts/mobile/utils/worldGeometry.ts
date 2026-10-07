@@ -47,3 +47,61 @@ export function worldResidentSteps(activity: ResidentActivity, from: RoomPoint, 
   return [...steps, final];
 }
 
+
+/** Clear connected ground, measured against the same illustration (no crossings through furniture/water). */
+export const WORLD_TRAIL = {
+  room: {label: '部屋', point: {x: 0.50, y: 0.47}},
+  terrace: {label: 'テラス', point: {x: 0.51, y: 0.535}},
+  garden: {label: '小道', point: {x: 0.56, y: 0.755}},
+} as const;
+export type WorldDestination = {id: number; point: RoomPoint};
+
+export function worldGroundBounds(y: number) {
+  'worklet';
+  // Centre passage widens onto the lawn, then narrows between the stream and stones.
+  if (y < 0.50) return {left: 0.40, right: 0.61};
+  if (y < 0.56) return {left: 0.40, right: 0.66};
+  if (y < 0.67) return {left: 0.39, right: 0.67};
+  return {left: 0.44, right: 0.66};
+}
+export function worldGroundPoint(point: RoomPoint): RoomPoint {
+  'worklet';
+  const y = Math.max(0.43, Math.min(0.79, point.y));
+  const bounds = worldGroundBounds(y);
+  return {x: Math.max(bounds.left, Math.min(bounds.right, point.x)), y};
+}
+export function isWorldGround(point: RoomPoint) {
+  const safe = worldGroundPoint(point);
+  return Math.abs(safe.x - point.x) < 0.001 && Math.abs(safe.y - point.y) < 0.001;
+}
+/** Feet anchor the perspective, so holding does not make the body grow toward the camera. */
+export function worldResidentScale(y: number) {
+  'worklet';
+  return Math.max(0.82, Math.min(1.20, 0.82 + (y - 0.375) * 0.92));
+}
+export function worldCameraOffset(y: number, height: number, viewportHeight = height, frameTop = 0) {
+  'worklet';
+  const follow = -Math.max(0, Math.min(height * 0.13, (y - 0.56) * height * 0.67));
+  return Math.min(follow, Math.min(0, viewportHeight - 136 - frameTop - y * height));
+}
+/** Deliberate walking speed in scene units; close taps still take time to settle. */
+export function worldWalkDuration(from: RoomPoint, to: RoomPoint) {
+  return Math.max(450, Math.round(Math.hypot(to.x - from.x, (to.y - from.y) * 1.5) * 10500));
+}
+export function worldWalkingRoute(from: RoomPoint, target: RoomPoint): RoomPoint[] {
+  const result: RoomPoint[] = [];
+  let at = from;
+  const add = (point: RoomPoint) => {
+    if (Math.hypot(point.x - at.x, point.y - at.y) > 0.004) {result.push(point); at = point;}
+  };
+  if (from.x > 0.63 && from.y < 0.43) add({x: 0.60, y: 0.435});
+  else if (from.y < 0.43) add({x: 0.43, y: 0.435});
+  // Centre spine stays clear through all corridor-width changes.
+  if (Math.abs(target.y - at.y) > 0.045) {
+    add({x: 0.52, y: Math.max(0.435, at.y)});
+    add({x: 0.52, y: Math.max(0.435, target.y)});
+  }
+  if (target.x > 0.63 && target.y < 0.43) add({x: 0.60, y: 0.435});
+  add(target);
+  return result;
+}
