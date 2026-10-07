@@ -29,7 +29,19 @@ Replitから `yoki-replit-73c7124.zip` を受領し、実際のGitオブジェ�
 
 したがって、候補に同じソースが保存されたことと、元の5件のSHAがGitHubの祖先になったことを混同しない。返送先と公開候補のtreeは内部メモ・審査文書の5ファイルだけ異なり、アプリ・テスト・公開進捗文書は一致する。返送bundleのマニフェストに記録された統合先はReplitの `73c7124` と公開候補の両方を祖先に持つ。Replitに既存の `73c7124` と `113619b09ece26900a46f1e63bfdcd4883d53528` があれば、認証不要で受け取れる。ファイルを丸ごと上書きしたり、mainをresetしたりする必要はない。
 
-## 次の操作：返送ZIPをReplitへ取り込む
+## 優先する次の操作：Node.js版で取り込み・ビルド
+
+2026-10-07、Replitの実行結果は最初の `python3` が見つからず停止した。貼り付け制御文字と末尾の `~` も見られたため、Python・ZIP展開不要の `yoki-yoki-3-import.cjs` を会話で提供した。ファイルをReplitプロジェクトのルートへアップロードし、Shellで次の1行を実行する。プロンプトの `$` や末尾の `~` はコマンドに含めない。
+
+```sh
+node yoki-yoki-3-import.cjs --apply --build
+```
+
+元の5コミットを保った同じ統合先 `3b1493440e9af3b2074240eda6c01af97a5ff783` を使う。新しいコードのマージではなく、検証済み返送bundleをNode.jsで読む代替手段。新たな認証や追加npmパッケージは不要。`--build` は取り込みに成功した後だけ既存設定の `pnpm install --frozen-lockfile` と `pnpm --filter @workspace/mobile run build` を実行し、失敗した場合は止まる。
+
+成功時は `YOKI_IMPORT_AND_BUILD_OK` と表示される。STOPやビルドエラーが出た場合は結果を照合し、reset・force push・未保存変更の削除で合わせない。引数なしなら取り込み用参照へのfetchと検証までで、mainは変更しない。この補足文書の更新で返送先やアプリのソースは変更していない。
+
+## 既存の代替：Pythonが使える環境で返送ZIPを取り込む
 
 会話で渡した `yoki-yoki-3-integrated.zip` をダウンロードしてReplitへアップロードし、同梱の `README_REPLIT.md` に従う。bundleのSHA-256、Gitの前提コミット、統合先tree、Replitと公開候補の祖先関係を検査した後に取り込む。
 
