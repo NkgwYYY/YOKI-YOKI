@@ -18,6 +18,7 @@
 - [Rhythm game geometry](rhythm-game-geometry.md) — calculate visuals and input judgments from one measured local play area, not full-window snapshots.
 - [Runner world coordinates](runner-world-coordinates.md) — bottom-origin world Y must use one shared transform so sprites, effects, and collision geometry stay aligned.
 - [YOKI YOKI home direction](home-direction.md) — 3.0 uses WorldHome's forest cottage with no game entry points; old RoomView and grass-scene directions are historical.
+- [Dependency resolution safety](dependency-resolution-safety.md) — scoped pnpm updates can refresh aliases without fixing the target transitive; inspect the diff and verify resolved versions.
 - [Startup image preloading](startup-image-preloading.md) — preload core images into memory/disk before reveal; web bundled assets expose uri objects and lack Image.resolveAssetSource.
 - [Clerk Expo iOS prebuild](clerk-expo-ios-prebuild.md) — Clerk 4 native iOS builds require its Expo plugin so the iOS 17 target exists before CocoaPods adds ClerkKit SPM products.
 - [App Store screenshot capture](app-store-capture.md) — Expo seeded captures may need a known static filename plus workflow restart; remove seed pages and sync both web builds afterward.

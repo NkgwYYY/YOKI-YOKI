@@ -9,6 +9,14 @@ Use YOKI YOKI 3.0's WorldHome forest-cottage experience. The old RoomView indoor
 
 **How to apply:** Preserve safety/data protections, native touch fixes and icon packaging when integrating world UI. Keep old-screen QA history, but record 3.0 checks separately; old-room screenshots are not proof that 3.0 is loaded.
 
+## Product priority
+
+Daily recording of ordinary experiences is the app's primary purpose: helping with mental recovery. Exploration, growth and the light garden support that purpose rather than replacing it.
+
+**Why:** The user explicitly said: 「このアプリはメンタルケアアプリで日々の当たり前を記録してメンタル回復の手助けをすることがいちばんの目的」. They also positively confirmed the cottage/resident touch direction while describing the camera as too distant.
+
+**How to apply:** Keep daily recording prominent when expanding the world. Preserve the approved natural scene/resident relationship when offering closer views; do not shift the main experience toward game objectives.
+
 ## Historical grass-scene guidance (superseded; not constraints on 3.0)
 
 Keep the home as one seamless scene: a light lavender upper background with pale-pink image grass at the character's feet. The grass must fill the lower area edge-to-edge and meet the bottom navigation without side or bottom gaps, but stay low enough that its central crest does not cover the character. The character always renders above the grass and sits lightly on that central crest. Overlay the four main actions on the hill rather than placing them below it. Do not place a translucent capsule or aura behind the character, or a flat-color panel behind the main actions. Furniture and flowers appear only after purchase. The main actions stay visible below the character within one screen.
