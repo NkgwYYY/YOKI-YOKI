@@ -137,7 +137,7 @@ export function WorldResident(p: Props) {
       rollAge.value=0;
       cancelAnimation(x);cancelAnimation(y);walking.value=0;holding.value=0;touchMode.value=0;lift.value=0;
       runOnJS(setInteracting)(false);
-      runOnJS(p.onBowlingRoll)({x:x.value,y:y.value,vx:Math.max(-1.25,Math.min(1.25,speedX)),vy:Math.max(-1.25,Math.min(1.25,speedY)),layout:'garden',aspect:height/width,radius:size*(stage==='odango'?.45:.33)/width});
+      runOnJS(p.onBowlingRoll)({x:x.value,y:y.value,vx:Math.max(-1.25,Math.min(1.25,speedX)),vy:Math.max(-1.25,Math.min(1.25,speedY)),layout:'garden-long',aspect:height/width,radius:size*(stage==='odango'?.45:.33)/width});
       return;
     }
     cancelAnimation(x);cancelAnimation(y);cancelAnimation(rx);cancelAnimation(ry);cancelAnimation(rz);
@@ -335,9 +335,9 @@ export function WorldResident(p: Props) {
       accessibilityState={{disabled: !active || !!experience || !!food || p.bowlingBusy}}
       accessibilityLabel={`${p.mascotName}にふれる。${activity}`} accessibilityHint="タップでごあいさつ。なでると喜びます。すばやく払うと、ころころ。長押しで抱っこ。2本指で景色を拡大"
       accessibilityActions={[{name: 'activate', label: 'ごあいさつ'}, {name: 'pet', label: 'なでる'}, {name: 'talk', label: 'お話しする'}, {name:'roll',label:'ころがす'}]}
-      onAccessibilityAction={e => {if(!active || experience || food||p.bowlingBusy)return; e.nativeEvent.actionName === 'roll' ? launchRoll(map==='bowling'?.12:.6,map==='bowling'?-.9:.3) : e.nativeEvent.actionName === 'talk' ? p.onChat() : acknowledge(e.nativeEvent.actionName === 'pet' ? 'pet' : 'greet');}}
+      onAccessibilityAction={e => {if(!active || experience || food||p.bowlingBusy)return; e.nativeEvent.actionName === 'roll' ? launchRoll(map==='bowling'?.2:.6,map==='bowling'?-1.1:.3) : e.nativeEvent.actionName === 'talk' ? p.onChat() : acknowledge(e.nativeEvent.actionName === 'pet' ? 'pet' : 'greet');}}
       onAccessibilityTap={() => acknowledge('greet')} tabIndex={active && !experience && !food ? 0 : -1}
-      {...(Platform.OS === 'web' ? {onKeyDown: (e: React.KeyboardEvent) => {if(map==='bowling'&&e.key==='ArrowUp'){e.preventDefault();launchRoll(.12,-.9);}else if(e.key==='ArrowRight'&&!reduceMotion){e.preventDefault();launchRoll(.6,.3);}else if (e.key === 'Enter' || e.key === ' ') {e.preventDefault(); acknowledge('greet');}}} : {})}>
+      {...(Platform.OS === 'web' ? {onKeyDown: (e: React.KeyboardEvent) => {if(map==='bowling'&&e.key==='ArrowUp'){e.preventDefault();launchRoll(.2,-1.1);}else if(e.key==='ArrowRight'&&!reduceMotion){e.preventDefault();launchRoll(.6,.3);}else if (e.key === 'Enter' || e.key === ' ') {e.preventDefault(); acknowledge('greet');}}} : {})}>
       <Animated.View pointerEvents="none" testID="resident-contact-shadow" style={[s.shadow, {height: size * 0.3}, shadow]}>
         <Svg width="100%" height="100%" viewBox="0 0 100 30">
           <Defs><RadialGradient id="residentGround"><Stop offset="0" stopColor="#34251A" stopOpacity="0.52"/><Stop offset="0.45" stopColor="#493525" stopOpacity="0.22"/><Stop offset="1" stopColor="#493525" stopOpacity="0"/></RadialGradient></Defs>

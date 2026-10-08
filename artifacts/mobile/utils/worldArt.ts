@@ -10,7 +10,7 @@ export const OUTDOOR_ART = {
   onsen: require('@/assets/images/world/village-onsen.jpg'),
   village: require('@/assets/images/world/village-neighbors.jpg'),
   ramen: require('@/assets/images/world/village-ramen.jpg'),
-  bowling: require('@/assets/images/world/village-bowling.jpg'),
+  bowling: require('@/assets/images/world/village-bowling-long.jpg'),
 };
 export function worldArt(map: WorldMapId, night = false) { return map === 'home' ? HOME_ART[night ? 'night' : 'day'] : OUTDOOR_ART[map]; }
 const cached = new Map<string, Promise<void>>();

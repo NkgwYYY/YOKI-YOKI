@@ -75,8 +75,16 @@ export function WorldHome(props: Props) {
   useEffect(()=>{view.reset();setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
   useAnimatedReaction(() => ({y: footY.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active}), state => {
     if (!state.active) {cancelAnimation(camera); return;}
-    if (!state.held && !state.cameraTouch && state.zoom < 1.02) camera.value = withTiming(worldCameraOffset(state.y, height, viewportHeight, frameTop), {duration: reduceMotion ? 0 : 350});
-  }, [height, viewportHeight, frameTop, reduceMotion, active]);
+    // Keep both ends of the longer lane in the usual overview on a tall screen.
+    // Compact landscape retains the normal character-follow camera.
+    let offset=worldCameraOffset(state.y,height,viewportHeight,frameTop);
+    if(map==='bowling'&&viewportHeight>=600){
+      const minOffset=insets.top+206-frameTop-height*.29;
+      const maxOffset=viewportHeight-136-frameTop-height*.715;
+      offset=Math.min(maxOffset,Math.max(0,minOffset));
+    }
+    if (!state.held && !state.cameraTouch && state.zoom < 1.02) camera.value = withTiming(offset, {duration: reduceMotion ? 0 : 350});
+  }, [height, viewportHeight, frameTop, reduceMotion, active,map,insets.top]);
 
   const walkTo = (point: {x: number; y: number}) => {
     if (active&&!props.food&&!experience&&!bowling.busy) {pending.current=null;setDestination({id:++destinationId.current,point:mapGroundPoint(map,point)});}
@@ -161,10 +169,14 @@ export function WorldHome(props: Props) {
     <LinearGradient pointerEvents="none" colors={['#15262A75', 'transparent']} style={s.topShade} />
     <LinearGradient pointerEvents="none" colors={['transparent', '#192D2CB8']} style={s.bottomShade} />
     <View style={[s.toolbar,{top:insets.top+126}]} pointerEvents="box-none">
-      <WorldPill testID="world-map-open" icon="map" label={WORLD_MAPS.find(p=>p.id===map)!.name} accessibilityLabel="世界の地図を開く" disabled={!active||bowling.busy} onPress={()=>{steering.value={x:0,y:0};setMapOpen(true);}} style={{maxWidth:260}} />
+      <Pressable testID="world-map-open" accessibilityRole="button" accessibilityLabel="おでかけする。行き先を選ぶ" accessibilityState={{disabled:!active||bowling.busy}} disabled={!active||bowling.busy} onPress={()=>{steering.value={x:0,y:0};setMapOpen(true);}} style={({pressed})=>[s.travelButton,{opacity:(!active||bowling.busy)?0.5:pressed?0.85:1}]}>
+        <Icon name="map" size={24} color="#FFF9F2"/>
+        <View style={{flex:1,gap:3}}><Text numberOfLines={1} style={s.travelTitle}>おでかけする</Text><Text numberOfLines={1} style={s.travelSubtitle}>お店や、ほかの場所へ</Text></View>
+        <Icon name="chevron-right" size={18} color="#FFF9F2"/>
+      </Pressable>
       <WorldPill compact icon="sliders" label="景色の見かた" disabled={!active||bowling.busy} onPress={()=>setViewOpen(true)} />
     </View>
-    {map==='bowling'&&<View pointerEvents="none" testID="world-bowling-status" style={[s.bowlingStatus,{top:insets.top+182}]}><Text accessibilityLiveRegion="polite" style={s.mapCopy}>{bowling.message}</Text></View>}
+    {map==='bowling'&&<View pointerEvents="none" testID="world-bowling-status" style={[s.bowlingStatus,{top:insets.top+202,maxWidth:Math.min(240,Math.max(132,bounds.width*.35))}]}><Text accessibilityLiveRegion="polite" style={s.mapCopy}>{bowling.message}</Text></View>}
     {!experience&&['market','ramen','onsen','lake'].includes(map)&&<View style={[s.placeAction,{bottom:bounds.height<600?172:236}]}>
       <WorldPill testID={map==='ramen'?'village-ramen-menu':map==='market'?'village-market-menu':map==='onsen'?'village-bath':'village-ride'} primary
         label={map==='market'?'お店をのぞく':map==='ramen'?'ラーメンを注文':map==='onsen'?'温泉に入る':'観覧車に乗る'}
@@ -182,7 +194,7 @@ export function WorldHome(props: Props) {
       <Pressable testID="village-portal-ramen" accessibilityRole="button" accessibilityLabel="もふもふラーメンへの道" onPress={()=>enterMap('ramen',true)} style={s.mapRow}><RamenArt size={68}/><View style={{flex:1,gap:5}}><Text style={s.mapName}>もふもふラーメン</Text><Text style={s.mapCopy}>お店で食べる、とっておきの一杯。</Text></View><Icon name="chevron-right" color={worldUI.violet}/></Pressable>
       <WorldPill testID="village-bowling" label="ころころボウリング" icon="circle" onPress={()=>enterMap('bowling',true)}/>
     </BottomSheet>}
-    {mapOpen&&<BottomSheet visible onClose={()=>setMapOpen(false)} title="ふたりの世界">
+    {mapOpen&&<BottomSheet visible onClose={()=>setMapOpen(false)} title="どこへおでかけする？">
       <Text style={s.mapIntro}>行きたい場所を選んで、おでかけ。{ '\n' }お休みしても、開いた場所はそのままです。</Text>
       {WORLD_MAPS.map(place=>{const unlocked=canVisitMap(place.id,props.level);const busy=!!experience||!!props.food||transition.busy;return <Pressable key={place.id} testID={`world-map-${place.id}`} accessibilityRole="button" disabled={!unlocked||busy} accessibilityState={{disabled:!unlocked||busy,selected:map===place.id}} onPress={()=>{if(!unlocked){setMapMessage(`レベル${place.level}で、この場所へおさんぽできます。`);return;}enterMap(place.id,true);}} style={s.mapRow}>
         <Image source={place.id==='home'?HOME_ART.day:OUTDOOR_ART[place.id]} style={s.mapThumb}/><View style={{flex:1,gap:6}}><Text style={s.mapName}>{place.name}{map===place.id?'　・いまここ':''}</Text><Text style={s.mapCopy}>{busy?experience?'ひと休みが終わったら、でかけよう。':'おやつが終わったら、でかけよう。':unlocked?place.description:`レベル${place.level}でひらきます　（いま ${props.level}）`}</Text></View>
@@ -190,15 +202,17 @@ export function WorldHome(props: Props) {
       <Pressable accessibilityRole="button" disabled={!!props.food||!!experience||transition.busy} onPress={()=>{setMapOpen(false);void transition.run('ひかりの庭',props.onGarden);}} style={s.mapRow}><Text style={s.mapName}>ひかりの庭へ</Text></Pressable>
       {!!mapMessage&&<Text accessibilityLiveRegion="polite" style={s.mapCopy}>{mapMessage}</Text>}
     </BottomSheet>}
-    {!!mapMessage&&!mapOpen&&<Pressable accessibilityRole="button" accessibilityLabel="道の案内を閉じる" onPress={()=>setMapMessage('')} style={[s.notice,{top:insets.top+174}]}><Text accessibilityLiveRegion="polite" style={s.trailText}>{mapMessage}　×</Text></Pressable>}
+    {!!mapMessage&&!mapOpen&&<Pressable accessibilityRole="button" accessibilityLabel="道の案内を閉じる" onPress={()=>setMapMessage('')} style={[s.notice,{top:insets.top+202}]}><Text accessibilityLiveRegion="polite" style={s.trailText}>{mapMessage}　×</Text></Pressable>}
     {experience&&<View testID="village-experience" style={[s.experience,{bottom:bounds.height<600?160:210}]}><Text style={s.experienceText}>{experience==='bath'?'ぽかぽか。ここで、ひと休み。':'空から、いつもの世界を眺めよう。'}</Text><Pressable testID="village-experience-exit" accessibilityRole="button" onPress={finishExperience} style={s.exit}><Text style={s.exitText}>{experience==='bath'?'お湯からあがる':'観覧車から降りる'}</Text></Pressable></View>}
     {!props.careInvitation&&!experience&&<View style={{position:'absolute',left:20,bottom:bounds.height<600?170:230}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowling.busy} onStart={()=>{pending.current=null;setDestination(null);}} onStep={(dx,dy)=>walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04})}/></View>}
     {speaker&&<BottomSheet visible title={speaker.name} subtitle="となりの村の住人" onClose={()=>setNeighbor(null)}><View style={{alignItems:'center'}}><VillageResident stage={speaker.stage} size={112} active={props.active} reduceMotion={reduceMotion} scarf={speaker.color}/></View><Text testID="village-dialogue" accessibilityLiveRegion="polite" style={s.dialogue}>{reply||speaker.intro}</Text>{speaker.choices.map(choice=><Pressable key={choice.label} accessibilityRole="button" onPress={()=>setReply(choice.reply)} style={s.mapRow}><Text style={s.mapCopy}>{choice.label}</Text></Pressable>)}<Pressable accessibilityRole="button" onPress={()=>setNeighbor(null)} style={s.exit}><Text style={s.exitText}>またね</Text></Pressable></BottomSheet>}
     {transition.overlay}
-    {props.hints && map!=='bowling' && <Text pointerEvents="none" style={[s.travelHint, {top: insets.top + 182}]}>左の丸で自由に移動。地面でも移動。2本指で拡大。</Text>}
+    {props.hints && map!=='bowling' && <Text pointerEvents="none" style={[s.travelHint, {top: insets.top + 202}]}>左の丸で自由に移動。地面でも移動。2本指で拡大。</Text>}
   </View>;
 }
 const s = StyleSheet.create({
+  travelButton:{flex:1,maxWidth:310,minHeight:64,paddingHorizontal:14,borderRadius:24,borderWidth:1,borderColor:'#D5BDE6',backgroundColor:'#77558D',flexDirection:'row',alignItems:'center',gap:10,shadowColor:'#422752',shadowOpacity:.2,shadowRadius:12,shadowOffset:{width:0,height:4}},
+  travelTitle:{fontSize:17,fontWeight:'700',color:'#FFF9F2'},travelSubtitle:{fontSize:11,lineHeight:16,color:'#F0E5F7'},
   bowlingStatus:{position:'absolute',left:20,right:20,maxWidth:400,padding:12,borderRadius:18,backgroundColor:'#FFF8EDed'},
   toolbar:{position:'absolute',left:20,right:20,flexDirection:'row',gap:8,alignItems:'center'},
   placeAction:{position:'absolute',left:116,right:20,maxWidth:240},

@@ -7,6 +7,7 @@ import {
   bowlingPlayedToday,
   BOWLING_KEY,
   groundRollStep,
+  canStartWorldBowling,
 } from "../utils/bowling.ts";
 import { createRecoverableStorage } from "../utils/recoverableStorage.ts";
 import fs from "node:fs";
@@ -31,6 +32,37 @@ const feed = {
 const today = "2026-10-08",
   input = { aim: 0, power: 0.8 };
 const worldShot=(vx=0,vy=-.9)=>({...input,world:{x:.505,y:.49,vx,vy,aspect:1.5,radius:.045,layout:'garden'}});
+const longShot=(vx=.2,vy=-1.1)=>({...input,world:{x:.455,y:.715,vx,vy,aspect:1.5,radius:.045,layout:'garden-long'}});
+test('long lane needs both aim and speed; a weak throw stops short and an off-angle throw gutters',()=>{
+  const old=simulateBowling(worldShot()),long=simulateBowling(longShot());
+  const distance=frame=>Math.hypot(frame.x-frame.pins[0].x,(frame.y-frame.pins[0].y)*1.5);
+  assert.ok(distance(long.frames[0])>distance(old.frames[0])*2.5);
+  assert.equal(long.pins,10);
+  assert.equal(simulateBowling(longShot(.11,-.6)).pins,0);
+  assert.equal(simulateBowling(longShot(0,-1.1)).pins,0);
+  assert.equal(simulateBowling(longShot(.45,-1.1)).pins,0);
+  const partial=simulateBowling(longShot(.15,-.85));
+  assert.ok(partial.pins>0&&partial.pins<10);
+  for(const result of [long,partial]){
+    assert.equal(result.earned,result.frames.at(-1).pins.filter(p=>p.down).length*5);
+  }
+});
+test('walking or carrying closer to the pins cannot bypass the long-lane start line or spend a throw',()=>{
+  for(const point of [{x:.55,y:.36},{x:.5,y:.64},{x:.8,y:.72}]){
+    assert.equal(canStartWorldBowling(point),false);
+    assert.throws(()=>prepareBowlingPlay({[feedKey]:JSON.stringify(feed)},'too-close',{...longShot(),world:{...longShot().world,...point}},today,feed));
+  }
+  assert.equal(canStartWorldBowling(longShot().world),true);
+});
+test('long-lane receipts remain replayable and keep the same daily grant across reload',()=>{
+  const first=prepareBowlingPlay({[feedKey]:JSON.stringify(feed)},'long',longShot(),today,feed);
+  const values=Object.fromEntries(first.entries),saved=readBowlingState(JSON.parse(values[BOWLING_KEY])).plays[today];
+  assert.equal(saved.world.layout,'garden-long');
+  assert.equal(saved.pins,simulateBowling(saved).pins);
+  assert.equal(saved.earned,simulateBowling(saved).earned);
+  assert.equal(prepareBowlingPlay(values,'long-again',longShot(),today,feed).result.accepted,false);
+  assert.deepEqual(prepareBowlingPlay(values,'long',longShot(),today,feed).entries,[]);
+});
 test('world flick keeps the home trajectory until physical pin contact',()=>{
   const shot=worldShot(),result=simulateBowling(shot);
   let body=shot.world;

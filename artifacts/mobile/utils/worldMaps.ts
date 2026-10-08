@@ -12,7 +12,7 @@ export const WORLD_MAPS = [
 export function canVisitMap(id: WorldMapId, level: number) {return level >= WORLD_MAPS.find(map=>map.id===id)!.level;}
 export function mapGroundBounds(map: WorldMapId, y: number) {
   'worklet';
-  if(map==='bowling')return {minX:.42,maxX:.66,minY:.305,maxY:.79};
+  if(map==='bowling')return {minX:.28,maxX:.74,minY:.305,maxY:.77};
   if(map==='home') {
     if(y<.50)return {minX:.40,maxX:.61,minY:.43,maxY:.79};
     if(y<.56)return {minX:.40,maxX:.66,minY:.43,maxY:.79};
@@ -34,7 +34,7 @@ export function mapGroundPoint(map: WorldMapId, point: {x:number;y:number}) {
 export function isMapGround(map: WorldMapId, point: {x:number;y:number}) {
   'worklet';const p=mapGroundPoint(map,point);return Math.abs(p.x-point.x)<.001&&Math.abs(p.y-point.y)<.001;
 }
-export function mapStart(map: WorldMapId) {return map==='bowling'?{x:.505,y:.49}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.52,y:.56}:{x:.52,y:.61};}
+export function mapStart(map: WorldMapId) {return map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.52,y:.56}:{x:.52,y:.61};}
 export function mapRoute(map: WorldMapId, from:{x:number;y:number}, to:{x:number;y:number}) {
   const target=mapGroundPoint(map,to);
   return [{x:.52,y:from.y},{x:.52,y:target.y},target];

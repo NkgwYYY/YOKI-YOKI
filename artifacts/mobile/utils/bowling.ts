@@ -5,7 +5,7 @@ export const BOWLING_KEY = "@yoki/bowling_v1";
 const FEED_KEY = "@mentore/feed_state_v1";
 export const POINTS_PER_PIN = 5;
 export const BOWLING_DURATION = 3200;
-export type WorldBowlingInput = { x:number; y:number; vx:number; vy:number; aspect:number; radius:number; layout?:'garden' };
+export type WorldBowlingInput = { x:number; y:number; vx:number; vy:number; aspect:number; radius:number; layout?:'garden'|'garden-long' };
 export type BowlingInput = { aim: number; power: number; world?: WorldBowlingInput };
 export type PinPose = { x: number; y: number; rotation: number; down: boolean };
 export type BowlingFrame = { x: number; y: number; pins: PinPose[] };
@@ -36,8 +36,13 @@ export function validateBowlingInput(input: BowlingInput) {
     throw new Error("投げ方を確認できません");
   if(input.world){
     const p=input.world;
-    if(![p.x,p.y,p.vx,p.vy,p.aspect,p.radius].every(Number.isFinite)||p.x<.22||p.x>.78||p.y<.305||p.y>.8||Math.abs(p.vx)>1.25||Math.abs(p.vy)>1.25||p.aspect<1||p.aspect>2||p.radius<.025||p.radius>.09||(p.layout!==undefined&&p.layout!=='garden'))throw new Error("投げ方を確認できません");
+    if(![p.x,p.y,p.vx,p.vy,p.aspect,p.radius].every(Number.isFinite)||p.x<.22||p.x>.78||p.y<.305||p.y>.8||Math.abs(p.vx)>1.25||Math.abs(p.vy)>1.25||p.aspect<1||p.aspect>2||p.radius<.025||p.radius>.09||(p.layout!==undefined&&p.layout!=='garden'&&p.layout!=='garden-long'))throw new Error("投げ方を確認できません");
+    if(p.layout==='garden-long'&&!canStartWorldBowling(p))throw new Error("スタートラインの後ろから投げてね");
   }
+}
+/** Walking or carrying the character to the pins must not shorten the daily throw. */
+export function canStartWorldBowling(p:Pick<WorldBowlingInput,'x'|'y'>){
+  return p.x>=.34&&p.x<=.64&&p.y>=.685&&p.y<=.75;
 }
 /** The same ground motion drives home flicks and the bowling character. */
 export function groundRollStep(state:{x:number;y:number;vx:number;vy:number},dt:number,aspect:number,b:{minX:number;maxX:number;minY:number;maxY:number}) {
@@ -57,7 +62,8 @@ export function worldPinPositions(layout:'garden'|'classic'='garden'){
 }
 /** Normal scene coordinates. Pin contact, scatter and reward share one trajectory. */
 function simulateWorldBowling(input:WorldBowlingInput):BowlingResult {
-  const garden=input.layout==='garden';
+  const longLane=input.layout==='garden-long';
+  const garden=input.layout==='garden'||longLane;
   const pinRadius=garden?.013:.021;
   const pins=worldPinPositions(garden?'garden':'classic').map(p=>({...p,vx:0,vy:0}));
   let ball={...input,hit:false};
@@ -75,8 +81,11 @@ function simulateWorldBowling(input:WorldBowlingInput):BowlingResult {
   };
   for(let i=0;i<=300;i++){
     frames.push({x:ball.x,y:ball.y,pins:pins.map(({x,y,rotation,down})=>({x,y,rotation,down}))});
-    ball={...ball,...groundRollStep(ball,1/60,input.aspect,garden?{minX:.42,maxX:.66,minY:.305,maxY:.79}:{minX:.22,maxX:.78,minY:.43,maxY:.8})};
-    if(garden&&ball.y<.445){
+    ball={...ball,...groundRollStep(ball,1/60,input.aspect,longLane?{minX:.28,maxX:.74,minY:.305,maxY:.77}:garden?{minX:.42,maxX:.66,minY:.305,maxY:.79}:{minX:.22,maxX:.78,minY:.43,maxY:.8})};
+    if(longLane&&ball.y<.665){
+      const depth=.66-ball.y;
+      if(ball.x<.325+depth*.64+.008||ball.x>.594+depth*.17-.008)gutter=true;
+    }else if(garden&&!longLane&&ball.y<.445){
       const depth=.447-ball.y;
       if(ball.x<.423+depth*.64+.008||ball.x>.622+depth*.18-.008)gutter=true;
     }
