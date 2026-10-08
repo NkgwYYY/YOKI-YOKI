@@ -6,6 +6,7 @@ import {
   readBowlingState,
   bowlingPlayedToday,
   BOWLING_KEY,
+  groundRollStep,
 } from "../utils/bowling.ts";
 import { createRecoverableStorage } from "../utils/recoverableStorage.ts";
 import fs from "node:fs";
@@ -29,6 +30,33 @@ const feed = {
 };
 const today = "2026-10-08",
   input = { aim: 0, power: 0.8 };
+const worldShot=(vx=0,vy=-.9)=>({...input,world:{x:.505,y:.49,vx,vy,aspect:1.5,radius:.045,layout:'garden'}});
+test('world flick keeps the home trajectory until physical pin contact',()=>{
+  const shot=worldShot(),result=simulateBowling(shot);
+  let body=shot.world;
+  for(let i=1;i<=8;i++){
+    body=groundRollStep(body,1/60,1.5,{minX:.42,maxX:.66,minY:.305,maxY:.79});
+    assert.equal(result.frames[i].x,body.x);assert.equal(result.frames[i].y,body.y);
+  }
+  assert.equal(result.pins,10);
+  for(const shot of [worldShot(.7),worldShot(0,.6),worldShot(0,-.2)])assert.equal(simulateBowling(shot).pins,0);
+  for(const vx of [-.7,-.3,0,.1,.2,.3,.7]){
+    const result=simulateBowling(worldShot(vx));
+    assert.equal(result.pins,result.frames.at(-1).pins.filter(p=>p.down).length);
+    assert.equal(result.earned,result.pins*5);
+    assert.deepEqual(simulateBowling(worldShot(vx)),result);
+  }
+});
+test('world receipts survive reload, preserve the actual flick, and share the existing daily limit',()=>{
+  const first=prepareBowlingPlay({[feedKey]:JSON.stringify(feed)},'world',worldShot(),today,feed);
+  const values=Object.fromEntries(first.entries);
+  const restored=readBowlingState(JSON.parse(values[BOWLING_KEY]));
+  assert.deepEqual(restored.plays[today].world,worldShot().world);
+  const again=prepareBowlingPlay(values,'new-flick',worldShot(.7),today,feed);
+  assert.equal(again.result.accepted,false);assert.deepEqual(again.entries,[]);
+  assert.equal(again.result.feed.points,feed.points+50);
+  for(const invalid of [{vx:Infinity},{y:-1},{radius:1},{aspect:0}])assert.throws(()=>simulateBowling({...worldShot(),world:{...worldShot().world,...invalid}}));
+});
 function fixture(failAt = Infinity) {
   const data = new Map([[feedKey, JSON.stringify(feed)]]);
   let writes = 0;

@@ -18,8 +18,11 @@ import {rollStep} from '@/utils/residentPhysics';
 import {VolumeResident,hasResidentVolume} from './VolumeResident';
 import {residentSoftScale,residentWalkYaw} from '@/utils/evolvedVolume';
 import { useWorldResident } from './useWorldResident';
+import type {WorldBowlingInput} from '@/utils/bowling';
+import type {WorldBowlingMotion} from './useWorldBowling';
 
 type Props = {
+  bowling:WorldBowlingMotion; bowlingBusy:boolean; onBowlingRoll:(input:WorldBowlingInput)=>void; onBowlingFinished:()=>void;
   footX: SharedValue<number>; steering:SharedValue<{x:number;y:number}>; experience:VillageExperience|null; food:string|null; onPortal:(map:WorldMapId)=>void; onDestinationReached:(id:number)=>void;
   map: WorldMapId; zoom: SharedValue<number>; cameraTouch: SharedValue<number>; cameraGesture: PinchGesture;
   width: number; height: number; stage: MascotStage; growthSize: number; mascotName: string;
@@ -57,7 +60,7 @@ export function WorldResident(p: Props) {
   const volumetric=hasResidentVolume(stage);
   const size = width * 0.135 * Math.max(0.9, Math.min(1.12, p.growthSize));
   useEffect(()=>{const at=mapStart(map);cancelAnimation(x);cancelAnimation(y);rolling.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);x.value=at.x;y.value=at.y;holding.value=0;setInteracting(false);},[map]);
-  const pose = useWorldResident({...p, x, y, walking, interacting:interacting||manual||!!experience});
+  const pose = useWorldResident({...p, x, y, walking, interacting:interacting||manual||!!experience||p.bowlingBusy});
   useAnimatedReaction(()=>Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
   const portals=mapPortals(map);
   const onPortal=p.onPortal;
@@ -128,7 +131,15 @@ export function WorldResident(p: Props) {
   },[active,pose,reduceMotion,rx,ry,rz]);
   const launchRoll=(speedX:number,speedY:number,automatic=false)=>{
     'worklet';
-    if(!available.value||reduceMotion||cameraTouch.value||experience||food)return;
+    if(!available.value||(reduceMotion&&map!=='bowling')||cameraTouch.value||experience||food||p.bowlingBusy)return;
+    if(map==='bowling'){
+      if(automatic)return;
+      rollAge.value=0;
+      cancelAnimation(x);cancelAnimation(y);walking.value=0;holding.value=0;touchMode.value=0;lift.value=0;
+      runOnJS(setInteracting)(false);
+      runOnJS(p.onBowlingRoll)({x:x.value,y:y.value,vx:Math.max(-1.25,Math.min(1.25,speedX)),vy:Math.max(-1.25,Math.min(1.25,speedY)),layout:'garden',aspect:height/width,radius:size*(stage==='odango'?.45:.33)/width});
+      return;
+    }
     cancelAnimation(x);cancelAnimation(y);cancelAnimation(rx);cancelAnimation(ry);cancelAnimation(rz);
     const point=mapGroundPoint(map,{x:x.value,y:y.value});x.value=point.x;y.value=point.y;
     rolling.value=1;rollAge.value=0;idleTime.value=0;vx.value=Math.max(-1.25,Math.min(1.25,speedX));vy.value=Math.max(-1.25,Math.min(1.25,speedY));
@@ -141,10 +152,21 @@ export function WorldResident(p: Props) {
     'worklet';
     if(!available.value||cameraTouch.value)return;
     const dt=Math.min(1/30,(frame.timeSincePreviousFrame??16.67)/1000);
+    if(map==='bowling'&&p.bowling.running.value){
+      const frames=p.bowling.frames.value;
+      rollAge.value+=dt;
+      const index=reduceMotion?frames.length-1:Math.min(frames.length-1,Math.floor(rollAge.value*60));
+      const next=frames[index],radius=size*(stage==='odango'?.45:.33)/width;
+      if(!reduceMotion){if(stage==='odango')ry.value+=(next.x-x.value)/radius;else rz.value+=(next.x-x.value)/radius;rx.value-=(next.y-y.value)*(height/width)/radius;}
+      x.value=next.x;y.value=next.y;p.bowling.index.value=index;
+      if(index===frames.length-1){p.bowling.running.value=false;rollAge.value=0;if(!reduceMotion)settleRotation();runOnJS(p.onBowlingFinished)();}
+      return;
+    }
+    if(p.bowlingBusy)return;
     if(!experience&&!food&&Math.hypot(steering.value.x,steering.value.y)>.05){const next=steerStep(map,{x:x.value,y:y.value},steering.value,dt,height/width);x.value=next.x;y.value=next.y;walking.value=1;idleTime.value=0;return;}
     if(reduceMotion||experience||food)return;
     if(!rolling.value){
-      if(idleAllowed.value&&!walking.value&&!holding.value){idleTime.value+=dt;if(idleTime.value>16&&isMapGround(map,{x:x.value,y:y.value}))launchRoll(.24*Math.cos(daySeed),.19,true);}
+      if(map!=='bowling'&&idleAllowed.value&&!walking.value&&!holding.value){idleTime.value+=dt;if(idleTime.value>16&&isMapGround(map,{x:x.value,y:y.value}))launchRoll(.24*Math.cos(daySeed),.19,true);}
       return;
     }
     const next=rollStep({x:x.value,y:y.value,vx:vx.value,vy:vy.value,hit:false},dt,height/width,map);
@@ -175,7 +197,7 @@ export function WorldResident(p: Props) {
     if(!reduceMotion)settleRotation();
     runOnJS(setInteracting)(false);
   };
-  const hold = Gesture.Pan().enabled(active&&!experience&&!food).maxPointers(1).activateAfterLongPress(240)
+  const hold = Gesture.Pan().enabled(active&&!experience&&!food&&!p.bowlingBusy).maxPointers(1).activateAfterLongPress(240)
     .onBegin(begin)
     .onStart(() => {
       if (!available.value) return;
@@ -210,7 +232,7 @@ export function WorldResident(p: Props) {
         if (success) runOnJS(notify)('land');
       });
     });
-  const stroke = Gesture.Pan().enabled(active&&!experience&&!food).maxPointers(1).minDistance(10)
+  const stroke = Gesture.Pan().enabled(active&&!experience&&!food&&!p.bowlingBusy).maxPointers(1).minDistance(10)
     .onStart(event => {
       cancelAnimation(x); cancelAnimation(y); walking.value = 0;
       touchMode.value = 3; downX.value=event.absoluteX;downY.value=event.absoluteY;petDistance.value=0;strokeVX.value=0;strokeVY.value=0;strokeAt.value=Date.now();
@@ -248,14 +270,14 @@ export function WorldResident(p: Props) {
       if (touchMode.value !== 3) return;
       const fresh=Date.now()-strokeAt.value<140;
       const speedX=fresh?strokeVX.value:0,speedY=fresh?strokeVY.value:0;
-      if(success&&!reduceMotion&&Math.hypot(speedX,speedY)>450){
+      if(success&&(!reduceMotion||map==='bowling')&&Math.hypot(speedX,speedY)>450){
         jelly.value=withSpring(0,SOFT);lean.value=withSpring(0,SOFT);
         launchRoll(speedX/(width*zoom.value)*.65,speedY/(width*zoom.value)*.65);return;
       }
       finishTouch();
       if (success && petDistance.value > 20) runOnJS(notify)('pet');
     });
-  const tap = Gesture.Tap().enabled(active&&!experience&&!food).maxDuration(240).maxDistance(10).onEnd((_event, success) => {
+  const tap = Gesture.Tap().enabled(active&&!experience&&!food&&!p.bowlingBusy).maxDuration(240).maxDistance(10).onEnd((_event, success) => {
     if (!success || !available.value) return;
     finishTouch(); runOnJS(notify)('greet');
   });
@@ -310,12 +332,12 @@ export function WorldResident(p: Props) {
   return <GestureDetector gesture={gesture} touchAction="none">
     <Animated.View testID="room-resident" style={[s.root, {width: size, height: size}, rootStyle]} accessible={!experience} accessibilityRole="button"
       accessibilityElementsHidden={!!experience} importantForAccessibility={experience ? 'no-hide-descendants' : 'auto'} aria-hidden={!!experience}
-      accessibilityState={{disabled: !active || !!experience || !!food}}
+      accessibilityState={{disabled: !active || !!experience || !!food || p.bowlingBusy}}
       accessibilityLabel={`${p.mascotName}にふれる。${activity}`} accessibilityHint="タップでごあいさつ。なでると喜びます。すばやく払うと、ころころ。長押しで抱っこ。2本指で景色を拡大"
       accessibilityActions={[{name: 'activate', label: 'ごあいさつ'}, {name: 'pet', label: 'なでる'}, {name: 'talk', label: 'お話しする'}, {name:'roll',label:'ころがす'}]}
-      onAccessibilityAction={e => {if(!active || experience || food)return; e.nativeEvent.actionName === 'roll' ? launchRoll(.6,.3) : e.nativeEvent.actionName === 'talk' ? p.onChat() : acknowledge(e.nativeEvent.actionName === 'pet' ? 'pet' : 'greet');}}
+      onAccessibilityAction={e => {if(!active || experience || food||p.bowlingBusy)return; e.nativeEvent.actionName === 'roll' ? launchRoll(map==='bowling'?.12:.6,map==='bowling'?-.9:.3) : e.nativeEvent.actionName === 'talk' ? p.onChat() : acknowledge(e.nativeEvent.actionName === 'pet' ? 'pet' : 'greet');}}
       onAccessibilityTap={() => acknowledge('greet')} tabIndex={active && !experience && !food ? 0 : -1}
-      {...(Platform.OS === 'web' ? {onKeyDown: (e: React.KeyboardEvent) => {if(e.key==='ArrowRight'&&!reduceMotion){e.preventDefault();launchRoll(.6,.3);}else if (e.key === 'Enter' || e.key === ' ') {e.preventDefault(); acknowledge('greet');}}} : {})}>
+      {...(Platform.OS === 'web' ? {onKeyDown: (e: React.KeyboardEvent) => {if(map==='bowling'&&e.key==='ArrowUp'){e.preventDefault();launchRoll(.12,-.9);}else if(e.key==='ArrowRight'&&!reduceMotion){e.preventDefault();launchRoll(.6,.3);}else if (e.key === 'Enter' || e.key === ' ') {e.preventDefault(); acknowledge('greet');}}} : {})}>
       <Animated.View pointerEvents="none" testID="resident-contact-shadow" style={[s.shadow, {height: size * 0.3}, shadow]}>
         <Svg width="100%" height="100%" viewBox="0 0 100 30">
           <Defs><RadialGradient id="residentGround"><Stop offset="0" stopColor="#34251A" stopOpacity="0.52"/><Stop offset="0.45" stopColor="#493525" stopOpacity="0.22"/><Stop offset="1" stopColor="#493525" stopOpacity="0"/></RadialGradient></Defs>

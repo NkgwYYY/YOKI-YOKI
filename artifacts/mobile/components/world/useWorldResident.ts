@@ -65,6 +65,7 @@ export function useWorldResident(p: Props) {
         walk(destination.point, () => {handled.current.destination=destination.id;setPose('idle'); arrived.current?.(destination.id); later(run, 18000);});
         return;
       }
+      if(map==='bowling'){setPose('idle');return;}
       if (reduceMotion && !mealPending && !restPending && !resting) {setPose('idle'); return;}
       const activity = mealPending || restPending || resting
         ? chooseResidentActivity({meal, rest}, handled.current, resting, turn.current)

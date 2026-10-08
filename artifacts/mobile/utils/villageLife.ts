@@ -3,7 +3,8 @@ export type Point = { x: number; y: number };
 export type VillageExperience = "bath" | "wheel";
 export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
   home: ["market", "forest"],
-  market: ["home", "village", "lake", "ramen"],
+  market: ["home", "village", "lake", "ramen", "bowling"],
+  bowling: ["market"],
   ramen: ["market"],
   forest: ["home", "onsen"],
   onsen: ["forest", "village"],
@@ -15,7 +16,7 @@ export function mapPortals(map: WorldMapId) {
     to,
     point: mapGroundPoint(
       map,
-      map === "home"
+      map === 'bowling' ? {x:.75,y:.78} : i===4 ? {x:.27,y:.53} : map === "home"
         ? { x: i ? 0.62 : 0.46, y: 0.755 }
         : {
             // Keep the return sign to the right of the fixed left-thumb pad.

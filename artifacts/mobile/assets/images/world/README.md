@@ -44,3 +44,10 @@ Four original 1024×1536 backgrounds generated with the built-in image tool usin
 - `village-lake.jpg`: distant lake and an empty timber promenade; no baked wheel. The brass/wood SVG wheel and upright moving gondolas render separately.
 
 This is layered illustrated scenery with a volumetric egg and interactive objects, not a fully navigable 3D terrain renderer. Bounds, connected paths and level requirements are in `worldMaps.ts` / `villageLife.ts`. No map or activity awards currency or modifies care records.
+# Bowling lodge revision — 2026-10-08
+
+`village-bowling.jpg` is generated with the built-in ImageGen tool using `home-day.jpg` as the edit reference, then encoded as JPEG quality 90 without resizing. The original generated PNG is retained in the current work session. This replaces the rejected flat vector bowling room; use the same WorldHome frame/camera and WorldResident sprite as home. Interactive pins are separate from the background.
+
+Final prompt: Edit the exact home environment into a small whimsical bowling lodge in the same world. Preserve the original camera elevation, isometric/cutaway dollhouse composition, portrait 2:3 framing, building scale, rounded tactile 3D rendering, warm light, pastel greens/lilacs, sky, distant lake/hills, flowers, shrubs, garden path, stream and waterfall. Replace only bedroom furniture/carpet with a single narrow polished wooden lane, lavender benches at the edges, lanterns, flowers/vines and a discreet pin-shaped back-wall sign. Do not zoom or move the camera. No text, UI, scoreboard, characters, balls or actual pins on the lane. Keep the whole scene/garden visible and approach unobstructed; no flat vectors or giant straight-on alley.
+
+Coordinates measured from the generated image: approach `(0.505, 0.49)`; head pin `(0.552, 0.358)`; successive pin rows move `(0.007, -0.012)` toward the back with `0.026` column spacing. These versioned `garden` coordinates drive drawing, physical contact and the persisted score together. Earlier receipts retain their original trajectory and daily-use record.

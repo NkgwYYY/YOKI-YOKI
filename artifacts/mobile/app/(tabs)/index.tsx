@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter,useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
@@ -30,6 +30,7 @@ const HINT_KEY = '@yoki/world_hints_v3';
 type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | null;
 export default function HomeScreen() {
   const router = useRouter();
+  const {place}=useLocalSearchParams<{place?:string}>();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const compact = window.height < 600;
@@ -120,7 +121,7 @@ export default function HomeScreen() {
   const restTogether = () => {setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onGarden={()=>router.push('/(tabs)/plant')} onBowling={()=>router.push('/bowling')} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <WorldHome careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
