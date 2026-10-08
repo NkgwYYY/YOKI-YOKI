@@ -19,7 +19,8 @@ export function prepareWorldArt(map: WorldMapId, night = false): Promise<void> {
   if (!promise) {
     let timer: ReturnType<typeof setTimeout>;
     const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Scene image timed out')), 6000); });
-    promise = Promise.race([Image.prefetch(uri).then(ok => { if (!ok) throw new Error('Scene image unavailable'); }), timeout])
+    // Native resolves a boolean; react-native-web resolves void after successful decoding.
+    promise = Promise.race([Image.prefetch(uri).then(ok => { if (ok === false) throw new Error('Scene image unavailable'); }), timeout])
       .finally(() => clearTimeout(timer)).catch(error => { cached.delete(uri); throw error; });
     cached.set(uri, promise);
   }
