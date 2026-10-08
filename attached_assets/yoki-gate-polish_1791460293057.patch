@@ -1,0 +1,48 @@
+diff --git a/artifacts/mobile/components/world/WorldHome.tsx b/artifacts/mobile/components/world/WorldHome.tsx
+index bdab12a..150e8ed 100644
+--- a/artifacts/mobile/components/world/WorldHome.tsx
++++ b/artifacts/mobile/components/world/WorldHome.tsx
+@@ -26,3 +26,3 @@ import { BathingEgg, VillageNeighbors, VillageResident } from '@/components/vill
+ import { VillageWheel } from '@/components/village/VillageWheel';
+-import { mapPortals,VILLAGERS,type VillagerId,type VillageExperience } from '@/utils/villageLife';
++import { mapPortals,nearbyPortalIndex,VILLAGERS,type VillagerId,type VillageExperience } from '@/utils/villageLife';
+ import {mapGroundPoint} from '@/utils/worldMaps';
+@@ -163,2 +163,3 @@ export function WorldHome(props: Props) {
+   const arrive=(id:number)=>{
++    if(portalTravel.value&&destination?.id===id){const gates=mapPortals(map),gate=nearbyPortalIndex(destination.point,gates);if(gate>=0){enterMap(gates[gate].to);return;}}
+     const next=pending.current;portalTravel.value=false;if(!next||next.id!==id)return;pending.current=null;
+diff --git a/artifacts/mobile/components/world/WorldResident.tsx b/artifacts/mobile/components/world/WorldResident.tsx
+index 3fd7848..b9ccb4b 100644
+--- a/artifacts/mobile/components/world/WorldResident.tsx
++++ b/artifacts/mobile/components/world/WorldResident.tsx
+@@ -70,3 +70,3 @@ export function WorldResident(p: Props) {
+   const onPortal=p.onPortal;
+-  useAnimatedReaction(()=>{if(!available.value||!p.portalTravel.value||experience||food||p.bowlingBusy)return -1;return nearbyPortalIndex({x:x.value,y:y.value},portals);},(index,previous)=>{if(index>=0&&index!==previous){p.portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(x);cancelAnimation(y);walking.value=0;runOnJS(onPortal)(portals[index].to);}},[map,onPortal,experience,food,p.bowlingBusy]);
++  useAnimatedReaction(()=>{if(!available.value||!p.portalTravel.value||experience||food||p.bowlingBusy)return -1;const dir=Math.hypot(steering.value.x,steering.value.y)>.05?steering.value:p.destination?{x:p.destination.point.x-x.value,y:p.destination.point.y-y.value}:null;return dir?nearbyPortalIndex({x:x.value,y:y.value},portals,dir):-1;},(index,previous)=>{if(index>=0&&index!==previous){p.portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(x);cancelAnimation(y);walking.value=0;runOnJS(onPortal)(portals[index].to);}},[map,onPortal,experience,food,p.bowlingBusy,p.destination]);
+   useEffect(()=>{if(pose==='eating'&&active){mealProgress.value=0;mealProgress.value=withTiming(1,{duration:MEAL_DURATION,easing:Easing.linear});}else mealProgress.value=0;return()=>cancelAnimation(mealProgress);},[pose,active,mealProgress]);
+diff --git a/artifacts/mobile/tests/villageLife.test.mjs b/artifacts/mobile/tests/villageLife.test.mjs
+index a5efc72..ce278f5 100644
+--- a/artifacts/mobile/tests/villageLife.test.mjs
++++ b/artifacts/mobile/tests/villageLife.test.mjs
+@@ -134 +134,9 @@ test("ramen is reachable at level one and residents use all four approved forms"
+ });
++
++
++test('walking away from a nearby gate does not retrigger travel',()=>{
++  const gates=mapPortals('home');
++  const near={x:.5,y:.445};
++  assert.equal(nearbyPortalIndex(near,gates,{x:0,y:1}),-1);
++  assert.notEqual(nearbyPortalIndex(near,gates,{x:0,y:-1}),-1);
++});
+diff --git a/artifacts/mobile/utils/villageLife.ts b/artifacts/mobile/utils/villageLife.ts
+index 2fc099f..5d7dc81 100644
+--- a/artifacts/mobile/utils/villageLife.ts
++++ b/artifacts/mobile/utils/villageLife.ts
+@@ -29,5 +29,5 @@ export function mapPortals(map: WorldMapId) {
+ }
+-export function nearbyPortalIndex(point: Point, portals: {point:Point}[]) {
++export function nearbyPortalIndex(point: Point, portals: {point:Point}[], direction?:Point) {
+   'worklet';
+-  return portals.findIndex(portal=>Math.hypot(point.x-portal.point.x,(point.y-portal.point.y)*1.5)<.038);
++  return portals.findIndex(portal=>Math.hypot(point.x-portal.point.x,(point.y-portal.point.y)*1.5)<.038&&(!direction||(portal.point.x-point.x)*direction.x+(portal.point.y-point.y)*direction.y>=0));
+ }

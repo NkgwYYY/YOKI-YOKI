@@ -1,0 +1,92 @@
+diff --git a/artifacts/mobile/components/world/useVillageBgm.ts b/artifacts/mobile/components/world/useVillageBgm.ts
+index fb751d6..120924b 100644
+--- a/artifacts/mobile/components/world/useVillageBgm.ts
++++ b/artifacts/mobile/components/world/useVillageBgm.ts
+@@ -9,6 +9,6 @@ export function useVillageBgm(active:boolean) {
+   useEffect(()=>{
+-    alive.current=true;
+-    void AsyncStorage.getItem(KEY).then(value=>{if(alive.current&&!touched.current)setEnabled(value==='on');}).catch(()=>{});
+-    return()=>{alive.current=false;generation.current++;void sound.current?.unloadAsync();sound.current=null;};
+-  },[]);
++    alive.current=true;touched.current=false;let current=true;
++    void AsyncStorage.getItem(KEY).then(value=>{if(current&&alive.current&&!touched.current)setEnabled(value==='on');}).catch(()=>{});
++    return()=>{current=false;alive.current=false;generation.current++;void sound.current?.unloadAsync();sound.current=null;};
++  },[active]);
+   useEffect(()=>{
+diff --git a/artifacts/mobile/components/world/useVillageBgm.web.ts b/artifacts/mobile/components/world/useVillageBgm.web.ts
+index 5dfd9fe..036ac0f 100644
+--- a/artifacts/mobile/components/world/useVillageBgm.web.ts
++++ b/artifacts/mobile/components/world/useVillageBgm.web.ts
+@@ -24,6 +24,6 @@ export function useVillageBgm(active:boolean) {
+   useEffect(()=>{
+-    alive.current=true;
+-    void AsyncStorage.getItem(KEY).then(value=>{if(alive.current){if(!touched.current)setEnabled(value==='on');setReady(true);}},()=>{if(alive.current)setReady(true);});
+-    return()=>{alive.current=false;generation.current++;player.current?.pause();player.current?.remove();player.current=null;};
+-  },[]);
++    alive.current=true;touched.current=false;let current=true;
++    void AsyncStorage.getItem(KEY).then(value=>{if(current&&alive.current){if(!touched.current)setEnabled(value==='on');setReady(true);}},()=>{if(alive.current)setReady(true);});
++    return()=>{current=false;alive.current=false;generation.current++;player.current?.pause();player.current?.remove();player.current=null;};
++  },[active]);
+   useEffect(()=>{
+diff --git a/docs/YOKI_YOKI_2_PROGRESS.md b/docs/YOKI_YOKI_2_PROGRESS.md
+index f08f460..8a7b298 100644
+--- a/docs/YOKI_YOKI_2_PROGRESS.md
++++ b/docs/YOKI_YOKI_2_PROGRESS.md
+@@ -2,2 +2,26 @@
+ 
++## 最新：村の暮らし・おふろ・清潔度・ゆで卵の仕事（2026-10-08 夜）
++
++この節は、下に残している過去の「最新」節より優先する。今回の追加要望を一連の変更として実装。GitHub main統合・本番再公開・DB pushは行っていない。
++
++- 大きな紫の外出バナーを廃止し、扉マーク＋「おでかけ」の44pxボタンへ。満腹・幸福・清潔の3ゲージを1行に配置。村の地図は道の接続・現在地・開放レベルを表示する。
++- 上下左右のボタン／中央スティックで歩き、道しるべ付近から隣の場所へ移動する。短い操作は一歩進み、移動の指示は自動ころがりを中止。境目から離れる向きの操作で再移動しない。従来の暗転タイムアウト・キャンセル・長い通常画角のボウリングを維持。
++- 市場の暮らし／ごはん、ラーメン、タバコ屋、ゆでたまご屋は店員をタップしてズーム後に入店。「お店をのぞく」は廃止。タバコ屋の屋外喫煙所では一服の描写と幸福度加算。
++- 幸福度：来訪35、日々の記録12、ラーメン6、通常ごはん3、自宅のおふろ4、温泉18、一服2。各行動は1日1回、上限100。来訪が最大。記録・食事と同じ回復可能な保存処理で加算し、連打や再読み込みで重複しない。
++- 「ひかり」タブは「おふろ」に変更。自宅の浴槽・シャワー・タオルのある立体背景と入浴キャラを追加。自宅／温泉とも8秒滞在で幸福と清潔度を反映。繰り返し入っても清潔さは回復し、幸福は重複加算しない。旧エネルギー等の保存データは削除していない。
++- 部屋は12か所に少しずつほこりがたまり、3日で目立つ汚れになる。ほうき20pt、ぞうきん30pt、ロボット掃除機180ptを暮らしのお店で販売。ほうき・ぞうきんを選んで床をこすると通った場所だけきれいになる。ロボットは部屋を自動巡回し清掃、タップで乗車、方向操作で室内を移動、降車できる。所持品・汚れ・ポイントは同一の保存トランザクションで保持。
++- キャラの清潔度：入浴しないまま3日を超えると徐々に低下。部屋のほこりも最大20点ぶん影響し、からだに薄い汚れを描画する。清潔度を押すと理由とおふろへの入口を表示。
++- 「風呂キャン」60ptは購入直後から7日間有効。同期間は入浴由来の汚れを停止し、終了後は通常の3日猶予から再開する。掃除による清潔さは別に保つ。有効期間中の重複購入・残高不足では減算しない。
++- ゆでたまご屋のバイト：鍋に卵を入れ、紫の食べごろ帯で引き上げる。早すぎは生、遅すぎは茹ですぎで0pt。適切なら12pt、絶妙（目標±220ms）なら30pt。鍋ごとに食べごろが変わる。開始時に進行中の鍋を保存し、再起動や画面離脱で時間は巻き戻らない。給与と結果を一緒に保存し、失敗時は同じ引き上げ時刻で再試行する。回数制限は設けていない。
++- BGM：木琴・笛・柔らかな伴奏による31秒のオリジナル曲を作成。既存ゲームの旋律・音源は使用していない。BGMボタンでON/OFF、選択を保存し、非表示では停止。録音済みMP3を使い、ゲーム中の重い音源生成は行わない。曲と背景の制作条件はassets内の説明に記録。
++
++### 今回の確認
++
++- ローカル型チェック、全499テスト成功。購入連打、保存中断後の回復、3日間の汚れ、7日間の風呂キャン、入浴と幸福の重複抑止、給与の二重加算防止、境目から離れる移動を検証。
++- Replitプレビュー（Chrome、375×839）で、地図移動、方向ボタンでホーム→市場、店員タップ入店、入浴＋4、一服＋2、BGMの実再生（paused=false／readyState=4／再生時間進行）、バイトの茹ですぎ0ptと絶妙30ptを確認。
++- 同プレビューのゲストでバイト給与を使いロボット180ptとほうき20ptを購入。残高10pt、掃除機所持の再読み込み保持、乗車・方向移動・降車、ほうき選択と床の掃除モードを確認。ゲストの過去の記録は消去していない。
++- 入浴画面のWebフォーカス復帰で景色がずれる問題を実画面で発見し、背景画像の明示サイズとoverflow:clipで修正。再操作後scrollTop=0、scrollHeight=clientHeight=839を確認。
++- 3日・7日の実時間経過は時計を指定した保存ロジックのテストで検証。iPhone Safari実機のタッチ／音声、ネイティブビルド、実アカウントのクラウド競合は今回未検証。これらを検証済みと扱わない。
++- ローカルのコード到達点：17e4af1（村・幸福・BGM）、36f5294（おふろ・清掃・清潔）、e385006（仕事）、ceb6ed9（移動修正）。Replitは既存976b7e8と独自の認証・保存方式を保ち、差分を適用した。新しい作業を始める際は現在のgit状態を確認する。
++
+ ## 最新：おでかけの暗転停止から復帰（2026-10-08）
+diff --git a/docs/YOKI_YOKI_3_RELEASE_HANDOFF.md b/docs/YOKI_YOKI_3_RELEASE_HANDOFF.md
+index c487c8d..97be0f0 100644
+--- a/docs/YOKI_YOKI_3_RELEASE_HANDOFF.md
++++ b/docs/YOKI_YOKI_3_RELEASE_HANDOFF.md
+@@ -2,2 +2,26 @@
+ 
++## 最新：村の暮らし・おふろ・清潔度・ゆで卵の仕事（2026-10-08 夜）
++
++この節は、下に残している過去の「最新」節より優先する。今回の追加要望を一連の変更として実装。GitHub main統合・本番再公開・DB pushは行っていない。
++
++- 大きな紫の外出バナーを廃止し、扉マーク＋「おでかけ」の44pxボタンへ。満腹・幸福・清潔の3ゲージを1行に配置。村の地図は道の接続・現在地・開放レベルを表示する。
++- 上下左右のボタン／中央スティックで歩き、道しるべ付近から隣の場所へ移動する。短い操作は一歩進み、移動の指示は自動ころがりを中止。境目から離れる向きの操作で再移動しない。従来の暗転タイムアウト・キャンセル・長い通常画角のボウリングを維持。
++- 市場の暮らし／ごはん、ラーメン、タバコ屋、ゆでたまご屋は店員をタップしてズーム後に入店。「お店をのぞく」は廃止。タバコ屋の屋外喫煙所では一服の描写と幸福度加算。
++- 幸福度：来訪35、日々の記録12、ラーメン6、通常ごはん3、自宅のおふろ4、温泉18、一服2。各行動は1日1回、上限100。来訪が最大。記録・食事と同じ回復可能な保存処理で加算し、連打や再読み込みで重複しない。
++- 「ひかり」タブは「おふろ」に変更。自宅の浴槽・シャワー・タオルのある立体背景と入浴キャラを追加。自宅／温泉とも8秒滞在で幸福と清潔度を反映。繰り返し入っても清潔さは回復し、幸福は重複加算しない。旧エネルギー等の保存データは削除していない。
++- 部屋は12か所に少しずつほこりがたまり、3日で目立つ汚れになる。ほうき20pt、ぞうきん30pt、ロボット掃除機180ptを暮らしのお店で販売。ほうき・ぞうきんを選んで床をこすると通った場所だけきれいになる。ロボットは部屋を自動巡回し清掃、タップで乗車、方向操作で室内を移動、降車できる。所持品・汚れ・ポイントは同一の保存トランザクションで保持。
++- キャラの清潔度：入浴しないまま3日を超えると徐々に低下。部屋のほこりも最大20点ぶん影響し、からだに薄い汚れを描画する。清潔度を押すと理由とおふろへの入口を表示。
++- 「風呂キャン」60ptは購入直後から7日間有効。同期間は入浴由来の汚れを停止し、終了後は通常の3日猶予から再開する。掃除による清潔さは別に保つ。有効期間中の重複購入・残高不足では減算しない。
++- ゆでたまご屋のバイト：鍋に卵を入れ、紫の食べごろ帯で引き上げる。早すぎは生、遅すぎは茹ですぎで0pt。適切なら12pt、絶妙（目標±220ms）なら30pt。鍋ごとに食べごろが変わる。開始時に進行中の鍋を保存し、再起動や画面離脱で時間は巻き戻らない。給与と結果を一緒に保存し、失敗時は同じ引き上げ時刻で再試行する。回数制限は設けていない。
++- BGM：木琴・笛・柔らかな伴奏による31秒のオリジナル曲を作成。既存ゲームの旋律・音源は使用していない。BGMボタンでON/OFF、選択を保存し、非表示では停止。録音済みMP3を使い、ゲーム中の重い音源生成は行わない。曲と背景の制作条件はassets内の説明に記録。
++
++### 今回の確認
++
++- ローカル型チェック、全499テスト成功。購入連打、保存中断後の回復、3日間の汚れ、7日間の風呂キャン、入浴と幸福の重複抑止、給与の二重加算防止、境目から離れる移動を検証。
++- Replitプレビュー（Chrome、375×839）で、地図移動、方向ボタンでホーム→市場、店員タップ入店、入浴＋4、一服＋2、BGMの実再生（paused=false／readyState=4／再生時間進行）、バイトの茹ですぎ0ptと絶妙30ptを確認。
++- 同プレビューのゲストでバイト給与を使いロボット180ptとほうき20ptを購入。残高10pt、掃除機所持の再読み込み保持、乗車・方向移動・降車、ほうき選択と床の掃除モードを確認。ゲストの過去の記録は消去していない。
++- 入浴画面のWebフォーカス復帰で景色がずれる問題を実画面で発見し、背景画像の明示サイズとoverflow:clipで修正。再操作後scrollTop=0、scrollHeight=clientHeight=839を確認。
++- 3日・7日の実時間経過は時計を指定した保存ロジックのテストで検証。iPhone Safari実機のタッチ／音声、ネイティブビルド、実アカウントのクラウド競合は今回未検証。これらを検証済みと扱わない。
++- ローカルのコード到達点：17e4af1（村・幸福・BGM）、36f5294（おふろ・清掃・清潔）、e385006（仕事）、ceb6ed9（移動修正）。Replitは既存976b7e8と独自の認証・保存方式を保ち、差分を適用した。新しい作業を始める際は現在のgit状態を確認する。
++
+ ## 最新：おでかけの暗転停止から復帰（2026-10-08）
