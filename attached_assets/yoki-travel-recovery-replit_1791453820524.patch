@@ -1,0 +1,479 @@
+diff --git a/artifacts/mobile/components/world/useSceneTransition.tsx b/artifacts/mobile/components/world/useSceneTransition.tsx
+index fde9dcd..77c9bbb 100644
+--- a/artifacts/mobile/components/world/useSceneTransition.tsx
++++ b/artifacts/mobile/components/world/useSceneTransition.tsx
+@@ -10,12 +10,13 @@ import {
+   Animated,
+   Easing,
+   Modal,
++  Pressable,
+   StyleSheet,
+   Text,
+   View,
+-  useWindowDimensions,
+ } from "react-native";
+ import Svg, { Circle } from "react-native-svg";
++import { performSceneTransition } from "@/utils/sceneTransition";
+ const ACircle = Animated.createAnimatedComponent(Circle);
+ type Transition = {
+   busy: boolean;
+@@ -48,16 +49,30 @@ export function SceneTransitionProvider({
+   children: React.ReactNode;
+ }) {
+   const [reduceMotion, setReduceMotion] = useState(false);
+-  const { width, height } = useWindowDimensions();
++  const [{ width, height }, setBounds] = useState({ width: 1, height: 1 });
+   const progress = useRef(new Animated.Value(0)).current;
+-  const locked = useRef(false),
+-    mounted = useRef(true);
++  const current = useRef<AbortController | null>(null);
++  const frames = useRef(new Set<number>());
+   const [label, setLabel] = useState<string | null>(null);
++  const [canCancel, setCanCancel] = useState(false);
++  const [covered, setCovered] = useState(false);
++  const clearFrames = () => {
++    for (const frame of frames.current) cancelAnimationFrame(frame);
++    frames.current.clear();
++  };
++  const cancel = () => {
++    current.current?.abort();
++    current.current = null;
++    progress.stopAnimation();
++    clearFrames();
++    setLabel(null);
++  };
+   useEffect(() => {
+-    mounted.current = true;
+     return () => {
+-      mounted.current = false;
++      current.current?.abort();
++      current.current = null;
+       progress.stopAnimation();
++      clearFrames();
+     };
+   }, [progress]);
+   const animate = (closed: boolean, reduced: boolean) =>
+@@ -69,10 +84,17 @@ export function SceneTransitionProvider({
+         useNativeDriver: false,
+       }).start(() => resolve());
+     });
+-  const nextFrame = () =>
+-    new Promise<void>((resolve) =>
+-      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+-    );
++  const nextFrame = () => new Promise<void>(resolve => {
++    const first = requestAnimationFrame(() => {
++      frames.current.delete(first);
++      const second = requestAnimationFrame(() => {
++        frames.current.delete(second);
++        resolve();
++      });
++      frames.current.add(second);
++    });
++    frames.current.add(first);
++  });
+   const run = async (
+     name: string,
+     commit: () => void,
+@@ -80,36 +102,43 @@ export function SceneTransitionProvider({
+     reduced: boolean,
+     onError: () => void,
+   ) => {
+-    if (locked.current) return;
+-    locked.current = true;
++    if (current.current) return;
++    const controller = new AbortController();
++    current.current = controller;
+     setReduceMotion(reduced);
+     progress.setValue(0);
++    setCovered(false);
++    setCanCancel(false);
+     setLabel(name);
+-    const ready = Promise.resolve()
+-      .then(prepare)
+-      .then(
+-        () => true,
+-        () => false,
+-      );
++    const cancelTimer = setTimeout(() => {
++      if (current.current === controller) setCanCancel(true);
++    }, 1200);
+     try {
+-      await nextFrame();
+-      if (!mounted.current) return;
+-      await animate(true, reduced);
+-      const ok = await ready;
+-      if (!mounted.current) return;
+-      if (ok) {
+-        commit();
+-        await nextFrame();
+-      } else onError();
+-    } catch {
+-      if (mounted.current) onError();
++      await performSceneTransition({
++        prepare,
++        paint: nextFrame,
++        close: () => animate(true, reduced),
++        cover: () => {
++          progress.stopAnimation();
++          progress.setValue(1);
++          setCovered(true);
++        },
++        commit,
++        onError,
++        open: () => {
++          setCovered(false);
++          return animate(false, reduced);
++        },
++      }, controller.signal);
+     } finally {
+-      if (mounted.current) {
+-        await animate(false, reduced);
+-        if (mounted.current) {
+-          locked.current = false;
+-          setLabel(null);
+-        }
++      clearTimeout(cancelTimer);
++      controller.abort();
++      // An old cancelled trip must never dismiss or unlock a newer one.
++      if (current.current === controller) {
++        current.current = null;
++        progress.stopAnimation();
++        clearFrames();
++        setLabel(null);
+       }
+     }
+   };
+@@ -132,16 +161,24 @@ export function SceneTransitionProvider({
+           visible
+           animationType="none"
+           statusBarTranslucent
+-          onRequestClose={() => {}}
++          onRequestClose={cancel}
+         >
+           <View
+             testID="world-transition"
+             accessibilityViewIsModal
++            onAccessibilityEscape={cancel}
++            onLayout={event => {
++              const { width, height } = event.nativeEvent.layout;
++              if (width > 0 && height > 0) setBounds(previous =>
++                previous.width === width && previous.height === height ? previous : { width, height });
++            }}
+             style={styles.curtain}
+           >
+             <Svg
+-              width={width}
+-              height={height}
++              width="100%"
++              height="100%"
++              viewBox={`0 0 ${width} ${height}`}
++              preserveAspectRatio="none"
+               style={StyleSheet.absoluteFill}
+               accessible={false}
+             >
+@@ -154,6 +191,7 @@ export function SceneTransitionProvider({
+                 fill="none"
+               />
+             </Svg>
++            {covered && <View pointerEvents="none" style={styles.closed} />}
+             <Animated.View style={[styles.content, { opacity: labelOpacity }]}>
+               <ActivityIndicator
+                 color="#D9C5F1"
+@@ -164,6 +202,10 @@ export function SceneTransitionProvider({
+                 {label}
+               </Text>
+             </Animated.View>
++            {canCancel && <Pressable testID="world-transition-cancel" accessibilityRole="button"
++              onPress={cancel} style={styles.cancel}>
++              <Text style={styles.cancelText}>いったん閉じる</Text>
++            </Pressable>}
+           </View>
+         </Modal>
+       )}
+@@ -171,7 +213,11 @@ export function SceneTransitionProvider({
+   );
+ }
+ const styles = StyleSheet.create({
+-  curtain: { flex: 1, alignItems: "center", justifyContent: "center" },
++  curtain: { flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center", overflow: "hidden" },
++  closed: { ...StyleSheet.absoluteFillObject, backgroundColor: "#17121F" },
+   content: { alignItems: "center", gap: 14 },
+   label: { color: "#F4EAFE", fontSize: 14, letterSpacing: 1 },
++  cancel: { position: "absolute", bottom: "18%", minHeight: 48, paddingVertical: 14, paddingHorizontal: 24,
++    borderRadius: 24, backgroundColor: "#F4EAFE" },
++  cancelText: { color: "#493457", fontSize: 14, fontWeight: "600" },
+ });
+diff --git a/artifacts/mobile/tests/sceneTransition.test.mjs b/artifacts/mobile/tests/sceneTransition.test.mjs
+new file mode 100644
+index 0000000..ca22fb8
+--- /dev/null
++++ b/artifacts/mobile/tests/sceneTransition.test.mjs
+@@ -0,0 +1,119 @@
++import assert from 'node:assert/strict';
++import test from 'node:test';
++import fs from 'node:fs';
++import ts from 'typescript';
++
++const code = ts.transpileModule(fs.readFileSync(new URL('../utils/sceneTransition.ts', import.meta.url), 'utf8'), {
++  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
++}).outputText;
++const never = () => new Promise(() => {});
++const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
++function fixture(overrides = {}) {
++  let clock = 0, id = 0;
++  const timers = new Map(), exports = {}, events = [];
++  new Function('exports', 'setTimeout', 'clearTimeout', code)(exports,
++    (callback, ms) => { timers.set(++id, { at: clock + ms, callback }); return id; },
++    timer => timers.delete(timer));
++  const controller = new AbortController();
++  const steps = {
++    prepare: async () => { events.push('prepare'); },
++    paint: async () => { events.push('paint'); },
++    close: async () => { events.push('close'); },
++    cover: () => { events.push('covered'); },
++    commit: () => { events.push('commit'); },
++    open: async () => { events.push('open'); },
++    onError: () => { events.push('error'); },
++    ...overrides,
++  };
++  let done = false;
++  const run = () => exports.performSceneTransition(steps, controller.signal).finally(() => { done = true; });
++  const tick = async ms => {
++    const until = clock + ms;
++    await flush();
++    while (true) {
++      const next = [...timers].filter(([, t]) => t.at <= until).sort((a, b) => a[1].at - b[1].at)[0];
++      if (!next) break;
++      clock = next[1].at;
++      timers.delete(next[0]);
++      next[1].callback();
++      await flush();
++    }
++    clock = until;
++    await flush();
++  };
++  return { events, timers, controller, run, tick, get done() { return done; } };
++}
++
++test('a ready destination commits once, only after full cover, then opens', async () => {
++  const f = fixture();
++  await f.run();
++  assert.deepEqual(f.events, ['prepare', 'paint', 'close', 'covered', 'commit', 'paint', 'open']);
++  assert.equal(f.timers.size, 0);
++});
++
++test('lost frame and animation callbacks cannot keep the scene locked', async () => {
++  const f = fixture({ paint: never, close: never, open: never });
++  const run = f.run();
++  await f.tick(619);
++  assert.ok(!f.events.includes('commit'));
++  await f.tick(1);
++  assert.deepEqual(f.events, ['prepare', 'covered', 'commit']);
++  await f.tick(720);
++  assert.equal(f.done, true);
++  await run;
++  assert.equal(f.timers.size, 0);
++});
++
++test('image loading timeout keeps the current place and opens the curtain', async () => {
++  const f = fixture({ prepare: never });
++  const run = f.run();
++  await f.tick(5999);
++  assert.equal(f.done, false);
++  await f.tick(1);
++  await run;
++  assert.deepEqual(f.events, ['paint', 'close', 'covered', 'error', 'open']);
++  assert.equal(f.timers.size, 0);
++});
++
++for (const prepare of [() => { throw new Error('offline'); }, async () => { throw new Error('decode'); }]) {
++  test('preparation failure never commits and still reopens', async () => {
++    const f = fixture({ prepare });
++    await f.run();
++    assert.ok(!f.events.includes('commit'));
++    assert.deepEqual(f.events.slice(-2), ['error', 'open']);
++    assert.equal(f.timers.size, 0);
++  });
++}
++
++test('cancelling a slow trip prevents its late image from changing a newer scene', async () => {
++  let finishImage;
++  const f = fixture({ prepare: () => new Promise(resolve => { finishImage = resolve; }) });
++  const old = f.run();
++  await f.tick(1200);
++  f.controller.abort();
++  await old;
++  assert.equal(f.timers.size, 0);
++  const next = fixture();
++  await next.run();
++  finishImage();
++  await flush();
++  assert.ok(!f.events.includes('commit'));
++  assert.ok(!f.events.includes('error'));
++  assert.equal(next.events.filter(event => event === 'commit').length, 1);
++});
++
++test('unmount during a missing frame releases every pending wait', async () => {
++  const f = fixture({ paint: never, prepare: never });
++  const run = f.run();
++  f.controller.abort();
++  await run;
++  assert.deepEqual(f.events, []);
++  assert.equal(f.timers.size, 0);
++});
++
++test('a failed commit still opens and releases the transition', async () => {
++  const f = fixture({ commit: () => { throw new Error('route unavailable'); } });
++  await f.run();
++  assert.deepEqual(f.events.slice(-2), ['error', 'open']);
++  assert.equal(f.timers.size, 0);
++});
+diff --git a/artifacts/mobile/utils/sceneTransition.ts b/artifacts/mobile/utils/sceneTransition.ts
+new file mode 100644
+index 0000000..79685c5
+--- /dev/null
++++ b/artifacts/mobile/utils/sceneTransition.ts
+@@ -0,0 +1,62 @@
++type StepResult = 'ready' | 'failed' | 'timeout' | 'cancelled';
++
++/** Neither a lost animation callback nor a suspended frame may lock travel. */
++export function settleSceneStep(
++  task: () => Promise<unknown>,
++  timeoutMs: number,
++  signal: AbortSignal,
++): Promise<StepResult> {
++  if (signal.aborted) return Promise.resolve('cancelled');
++  return new Promise(resolve => {
++    let settled = false;
++    const finish = (result: StepResult) => {
++      if (settled) return;
++      settled = true;
++      clearTimeout(timer);
++      signal.removeEventListener('abort', cancel);
++      resolve(result);
++    };
++    const cancel = () => finish('cancelled');
++    const timer = setTimeout(() => finish('timeout'), timeoutMs);
++    signal.addEventListener('abort', cancel, { once: true });
++    try {
++      Promise.resolve(task()).then(() => finish('ready'), () => finish('failed'));
++    } catch {
++      finish('failed');
++    }
++  });
++}
++
++type SceneSteps = {
++  prepare: () => Promise<unknown>;
++  paint: () => Promise<unknown>;
++  close: () => Promise<unknown>;
++  open: () => Promise<unknown>;
++  cover: () => void;
++  commit: () => void;
++  onError: () => void;
++};
++
++export async function performSceneTransition(steps: SceneSteps, signal: AbortSignal) {
++  // Preparation and closing run together, but only a decoded image may be committed.
++  const ready = settleSceneStep(steps.prepare, 6000, signal);
++  try {
++    await settleSceneStep(steps.paint, 120, signal);
++    if (signal.aborted) return;
++    await settleSceneStep(steps.close, 500, signal);
++    if (signal.aborted) return;
++    steps.cover(); // Snap fully closed even if the animation callback was lost.
++    const result = await ready;
++    if (signal.aborted) return;
++    if (result !== 'ready') {
++      steps.onError();
++      return;
++    }
++    steps.commit();
++    await settleSceneStep(steps.paint, 120, signal);
++  } catch {
++    if (!signal.aborted) steps.onError();
++  } finally {
++    if (!signal.aborted) await settleSceneStep(steps.open, 600, signal);
++  }
++}
+diff --git a/artifacts/mobile/utils/worldArt.ts b/artifacts/mobile/utils/worldArt.ts
+index 0ac7807..d4d4094 100644
+--- a/artifacts/mobile/utils/worldArt.ts
++++ b/artifacts/mobile/utils/worldArt.ts
+@@ -21,7 +21,7 @@ export function prepareWorldArt(map: WorldMapId, night = false): Promise<void> {
+     let timer: ReturnType<typeof setTimeout>;
+     const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Scene image timed out')), 6000); });
+     // Native resolves a boolean; react-native-web resolves void after successful decoding.
+-    promise = Promise.race([Image.prefetch(uri).then(ok => { if (ok === false) throw new Error('Scene image unavailable'); }), timeout])
++    promise = Promise.race([Promise.resolve().then(() => Image.prefetch(uri)).then(ok => { if (ok === false) throw new Error('Scene image unavailable'); }), timeout])
+       .finally(() => clearTimeout(timer)).catch(error => { cached.delete(uri); throw error; });
+     cached.set(uri, promise);
+   }
+diff --git a/artifacts/mobile/tests/worldArt.test.mjs b/artifacts/mobile/tests/worldArt.test.mjs
+new file mode 100644
+--- /dev/null
++++ b/artifacts/mobile/tests/worldArt.test.mjs
+@@ -0,0 +1,62 @@
++import assert from 'node:assert/strict';
++import test from 'node:test';
++import fs from 'node:fs';
++import ts from 'typescript';
++
++const code = ts.transpileModule(fs.readFileSync(new URL('../utils/worldArt.ts', import.meta.url), 'utf8'), {
++  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
++}).outputText;
++function fixture(prefetch) {
++  const exports = {}, timers = new Set();
++  new Function('require', 'exports', 'setTimeout', 'clearTimeout', code)(name => {
++    if (name === 'react-native') return { Image: { prefetch } };
++    if (name === 'expo-asset') return { Asset: { fromModule: uri => ({ uri }) } };
++    if (name.startsWith('@/assets/')) return name;
++    throw Error(name);
++  }, exports, callback => { timers.add(callback); return callback; }, timer => timers.delete(timer));
++  return { prepare: exports.prepareWorldArt, timers };
++}
++for (const success of [true, undefined]) test(`scene accepts ${success === true ? 'native boolean' : 'web void'} success and caches the decoded image`, async () => {
++  let calls = 0;
++  const f = fixture(async () => { calls++; return success; });
++  const first = f.prepare('ramen');
++  assert.equal(f.prepare('ramen'), first);
++  await first;
++  await f.prepare('ramen');
++  assert.equal(calls, 1);
++  assert.equal(f.timers.size, 0);
++});
++test('explicit image failure releases the cache for another travel attempt', async () => {
++  let ok = false;
++  const f = fixture(async () => ok);
++  await assert.rejects(f.prepare('market'), /unavailable/);
++  ok = true;
++  await f.prepare('market');
++  assert.equal(f.timers.size, 0);
++});
++
++test('image timeout releases the cache; a late decode cannot poison the retry', async () => {
++  let complete;
++  let calls = 0;
++  const f = fixture(() => ++calls === 1 ? new Promise(resolve => { complete = resolve; }) : Promise.resolve(true));
++  const first = f.prepare('bowling');
++  await Promise.resolve();
++  const rejected = assert.rejects(first, /timed out/);
++  for (const callback of [...f.timers]) callback();
++  await rejected;
++  await f.prepare('bowling');
++  complete(true);
++  await Promise.resolve();
++  await f.prepare('bowling');
++  assert.equal(calls, 2);
++  assert.equal(f.timers.size, 0);
++});
++
++test('synchronous prefetch errors also clear the timer and allow retry', async () => {
++  let fail = true;
++  const f = fixture(() => { if (fail) throw new Error('offline'); return Promise.resolve(true); });
++  await assert.rejects(f.prepare('bowling'), /offline/);
++  assert.equal(f.timers.size, 0);
++  fail = false;
++  await f.prepare('bowling');
++});
