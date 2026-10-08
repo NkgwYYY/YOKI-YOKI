@@ -10,12 +10,13 @@ import {
   Animated,
   Easing,
   Modal,
+  Pressable,
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
+import { performSceneTransition } from "@/utils/sceneTransition";
 const ACircle = Animated.createAnimatedComponent(Circle);
 type Transition = {
   busy: boolean;
@@ -48,16 +49,30 @@ export function SceneTransitionProvider({
   children: React.ReactNode;
 }) {
   const [reduceMotion, setReduceMotion] = useState(false);
-  const { width, height } = useWindowDimensions();
+  const [{ width, height }, setBounds] = useState({ width: 1, height: 1 });
   const progress = useRef(new Animated.Value(0)).current;
-  const locked = useRef(false),
-    mounted = useRef(true);
+  const current = useRef<AbortController | null>(null);
+  const frames = useRef(new Set<number>());
   const [label, setLabel] = useState<string | null>(null);
+  const [canCancel, setCanCancel] = useState(false);
+  const [covered, setCovered] = useState(false);
+  const clearFrames = () => {
+    for (const frame of frames.current) cancelAnimationFrame(frame);
+    frames.current.clear();
+  };
+  const cancel = () => {
+    current.current?.abort();
+    current.current = null;
+    progress.stopAnimation();
+    clearFrames();
+    setLabel(null);
+  };
   useEffect(() => {
-    mounted.current = true;
     return () => {
-      mounted.current = false;
+      current.current?.abort();
+      current.current = null;
       progress.stopAnimation();
+      clearFrames();
     };
   }, [progress]);
   const animate = (closed: boolean, reduced: boolean) =>
@@ -69,10 +84,17 @@ export function SceneTransitionProvider({
         useNativeDriver: false,
       }).start(() => resolve());
     });
-  const nextFrame = () =>
-    new Promise<void>((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-    );
+  const nextFrame = () => new Promise<void>(resolve => {
+    const first = requestAnimationFrame(() => {
+      frames.current.delete(first);
+      const second = requestAnimationFrame(() => {
+        frames.current.delete(second);
+        resolve();
+      });
+      frames.current.add(second);
+    });
+    frames.current.add(first);
+  });
   const run = async (
     name: string,
     commit: () => void,
@@ -80,36 +102,43 @@ export function SceneTransitionProvider({
     reduced: boolean,
     onError: () => void,
   ) => {
-    if (locked.current) return;
-    locked.current = true;
+    if (current.current) return;
+    const controller = new AbortController();
+    current.current = controller;
     setReduceMotion(reduced);
     progress.setValue(0);
+    setCovered(false);
+    setCanCancel(false);
     setLabel(name);
-    const ready = Promise.resolve()
-      .then(prepare)
-      .then(
-        () => true,
-        () => false,
-      );
+    const cancelTimer = setTimeout(() => {
+      if (current.current === controller) setCanCancel(true);
+    }, 1200);
     try {
-      await nextFrame();
-      if (!mounted.current) return;
-      await animate(true, reduced);
-      const ok = await ready;
-      if (!mounted.current) return;
-      if (ok) {
-        commit();
-        await nextFrame();
-      } else onError();
-    } catch {
-      if (mounted.current) onError();
+      await performSceneTransition({
+        prepare,
+        paint: nextFrame,
+        close: () => animate(true, reduced),
+        cover: () => {
+          progress.stopAnimation();
+          progress.setValue(1);
+          setCovered(true);
+        },
+        commit,
+        onError,
+        open: () => {
+          setCovered(false);
+          return animate(false, reduced);
+        },
+      }, controller.signal);
     } finally {
-      if (mounted.current) {
-        await animate(false, reduced);
-        if (mounted.current) {
-          locked.current = false;
-          setLabel(null);
-        }
+      clearTimeout(cancelTimer);
+      controller.abort();
+      // An old cancelled trip must never dismiss or unlock a newer one.
+      if (current.current === controller) {
+        current.current = null;
+        progress.stopAnimation();
+        clearFrames();
+        setLabel(null);
       }
     }
   };
@@ -132,16 +161,24 @@ export function SceneTransitionProvider({
           visible
           animationType="none"
           statusBarTranslucent
-          onRequestClose={() => {}}
+          onRequestClose={cancel}
         >
           <View
             testID="world-transition"
             accessibilityViewIsModal
+            onAccessibilityEscape={cancel}
+            onLayout={event => {
+              const { width, height } = event.nativeEvent.layout;
+              if (width > 0 && height > 0) setBounds(previous =>
+                previous.width === width && previous.height === height ? previous : { width, height });
+            }}
             style={styles.curtain}
           >
             <Svg
-              width={width}
-              height={height}
+              width="100%"
+              height="100%"
+              viewBox={`0 0 ${width} ${height}`}
+              preserveAspectRatio="none"
               style={StyleSheet.absoluteFill}
               accessible={false}
             >
@@ -154,6 +191,7 @@ export function SceneTransitionProvider({
                 fill="none"
               />
             </Svg>
+            {covered && <View pointerEvents="none" style={styles.closed} />}
             <Animated.View style={[styles.content, { opacity: labelOpacity }]}>
               <ActivityIndicator
                 color="#D9C5F1"
@@ -164,6 +202,10 @@ export function SceneTransitionProvider({
                 {label}
               </Text>
             </Animated.View>
+            {canCancel && <Pressable testID="world-transition-cancel" accessibilityRole="button"
+              onPress={cancel} style={styles.cancel}>
+              <Text style={styles.cancelText}>いったん閉じる</Text>
+            </Pressable>}
           </View>
         </Modal>
       )}
@@ -171,7 +213,11 @@ export function SceneTransitionProvider({
   );
 }
 const styles = StyleSheet.create({
-  curtain: { flex: 1, alignItems: "center", justifyContent: "center" },
+  curtain: { flex: 1, alignSelf: "stretch", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  closed: { ...StyleSheet.absoluteFillObject, backgroundColor: "#17121F" },
   content: { alignItems: "center", gap: 14 },
   label: { color: "#F4EAFE", fontSize: 14, letterSpacing: 1 },
+  cancel: { position: "absolute", bottom: "18%", minHeight: 48, paddingVertical: 14, paddingHorizontal: 24,
+    borderRadius: 24, backgroundColor: "#F4EAFE" },
+  cancelText: { color: "#493457", fontSize: 14, fontWeight: "600" },
 });
