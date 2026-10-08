@@ -46,8 +46,9 @@ function resolveStartupImageUris(): string[] {
 }
 
 async function cacheImage(uri: string): Promise<void> {
-  const requireSuccess = (cached: boolean) => {
-    if (!cached) throw new Error(`画像を読み込めませんでした: ${uri}`);
+  const requireSuccess = (cached: boolean | void) => {
+    // react-native-web resolves void on success; only explicit false is a failure.
+    if (cached === false) throw new Error(`画像を読み込めませんでした: ${uri}`);
   };
   // Either cache is sufficient; a stalled backend must not hide the other's success.
   await Promise.any([
