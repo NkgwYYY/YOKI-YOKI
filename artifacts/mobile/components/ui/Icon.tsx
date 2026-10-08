@@ -1,6 +1,7 @@
-import React from 'react';
-import { StyleSheet, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
+import { Asset } from 'expo-asset';
 import { colors, control, radius } from '@/constants/theme';
 
 /**
@@ -27,6 +28,41 @@ export const iconSize = {
   xl: 28,
 } as const;
 
+const webFontFamily = 'YokiFeather';
+let webFontReady = false;
+let webFontLoad: Promise<void> | undefined;
+
+function WebIcon({ name, size, color, style }: {
+  name: IconName; size: number; color: string; style?: StyleProp<TextStyle>;
+}) {
+  const [ready, setReady] = useState(webFontReady);
+  useEffect(() => {
+    let mounted = true;
+    // Wait for the font file itself. The generic FontFaceObserver alphabet
+    // sample can time out for this symbol-only font in the Web preview.
+    if (!webFontLoad) {
+      const uri = Asset.fromModule(Feather.font.feather).uri;
+      const face = new FontFace(webFontFamily, `url(${JSON.stringify(uri)})`);
+      webFontLoad = face.load().then(loaded => {
+        (document.fonts as FontFaceSet & { add(face: FontFace): FontFaceSet }).add(loaded);
+        webFontReady = true;
+      }).catch(error => {
+        webFontLoad = undefined;
+        throw error;
+      });
+    }
+    webFontLoad.then(() => { if (mounted) setReady(true); }).catch(error => {
+      console.warn('Could not load the interface icon font', error);
+    });
+    return () => { mounted = false; };
+  }, []);
+  const glyph = Feather.glyphMap[name];
+  return <Text selectable={false} style={[
+    { fontSize: size, color, width: size, height: size, lineHeight: size, textAlign: 'center' },
+    style, { fontFamily: webFontFamily, fontWeight: 'normal', fontStyle: 'normal' },
+  ]}>{ready ? (typeof glyph === 'number' ? String.fromCodePoint(glyph) : glyph) : '\u00a0'}</Text>;
+}
+
 export function Icon({
   name,
   size = iconSize.md,
@@ -38,6 +74,7 @@ export function Icon({
   color?: string;
   style?: StyleProp<TextStyle>;
 }) {
+  if (Platform.OS === 'web') return <WebIcon name={name} size={size} color={color} style={style} />;
   return <Feather name={name} size={size} color={color} style={style} />;
 }
 
