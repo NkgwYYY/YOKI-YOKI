@@ -1,3 +1,6 @@
+import {BATH_SKIP,readHygiene} from '@/utils/hygiene';
+import {CleaningToolArt} from '@/components/world/CleaningToolArt';
+import {CLEANING_TOOLS,readHousekeeping,type CleaningTool} from '@/utils/housekeeping';
 import React, { useMemo, useRef, useState } from 'react';
 import { Image, Modal, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -9,7 +12,7 @@ import { useApp } from '@/contexts/AppContext';
 import { EquipmentSlot, Item, ItemCategory, resolveItemAssetUrl, useItems } from '@/contexts/ItemContext';
 import { getMascotStage } from '@/utils/mascotUtils';
 
-type ShopGenre = 'wear' | 'effect' | 'decor' | 'background' | 'voice';
+type ShopGenre = 'cleaning' | 'wear' | 'effect' | 'decor' | 'background' | 'voice';
 type ItemPlacement = { x: number; y: number; scale: number };
 const DEFAULT_PLACEMENT: ItemPlacement = { x: 0, y: 0, scale: 1 };
 const clampPlacement = ({ x, y, scale }: ItemPlacement): ItemPlacement => ({
@@ -22,6 +25,7 @@ const touchDistance = (touches: readonly { pageX: number; pageY: number }[]) => 
   return Math.hypot(touches[0].pageX - touches[1].pageX, touches[0].pageY - touches[1].pageY);
 };
 const tabs: { id: ShopGenre; label: string }[] = [
+  { id: 'cleaning', label: 'お掃除' },
   { id: 'wear', label: '身につける' },
   { id: 'effect', label: 'エフェクト' },
   { id: 'decor', label: '置きもの' },
@@ -74,9 +78,11 @@ export default function ShopScreen() {
   const router = useRouter(); const { isSignedIn } = useAuth();
   const { width, fontScale } = useWindowDimensions();
   const stackCards = width < 360 || fontScale >= 1.4;
-  const { progress, growth, roomCustomization } = useApp();
+  const { progress, growth, roomCustomization, feedState, cleanRoom } = useApp();
+  const bathSkipActive=readHygiene(feedState.hygiene,Date.now()).protectedUntil>Date.now();
+  const ownedTools=readHousekeeping(feedState.housekeeping,Date.now()).owned;
   const { items, shopState, loading, error, catalogOnline, refreshItems, buyItem, equipItem, updateItemPlacement } = useItems();
-  const [tab, setTab] = useState<ShopGenre>('wear'); const [busy, setBusy] = useState<string | null>(null);
+  const [tab, setTab] = useState<ShopGenre>('cleaning'); const [busy, setBusy] = useState<string | null>(null);
   const actionBusy = useRef(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [customizing, setCustomizing] = useState<Item | null>(null);
@@ -211,7 +217,7 @@ export default function ShopScreen() {
   return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.wrap}>
     {actionError && <Text accessibilityRole="alert" style={s.error}>{actionError}</Text>}
     <View style={s.head}><Pressable accessibilityRole="button" accessibilityLabel="戻る" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => backToRoom(router)}><Text style={s.back}>‹ 戻る</Text></Pressable><Text style={s.title}>暮らしのお店</Text></View>
-    <Text style={s.points}>✦ {shopState.points} YOKI pt</Text>
+    <Text style={s.points}>✦ {feedState.points} YOKI pt</Text>
     {!isSignedIn && (
       <Text style={s.guestNote}>
         {Platform.OS === 'ios'
@@ -220,8 +226,14 @@ export default function ShopScreen() {
       </Text>
     )}
     <View style={s.tabs} accessibilityRole="tablist">{tabs.map(x => <Pressable accessibilityRole="tab" accessibilityState={{ selected: tab === x.id }} aria-selected={tab === x.id} accessibilityLabel={x.label} key={x.id} onPress={() => setTab(x.id)} style={[s.tab, tab === x.id && s.tabOn]}><Text style={[s.tabText, tab === x.id && s.tabTextOn]}>{x.label}</Text></Pressable>)}</View>
-    {error && <View><Text style={s.error}>{error}</Text><Pressable accessibilityRole="button" onPress={refreshItems} style={s.resetButton}><Text style={s.resetText}>お店に再接続する</Text></Pressable></View>}
-    {loading && !items.length ? <Text style={s.note}>アイテムを読み込み中…</Text> : visibleItems.length === 0 ? <Text style={s.note}>このカテゴリのアイテムは、ただいま準備中です。</Text> : visibleItems.map(item => {
+    {tab!=='cleaning'&&error && <View><Text style={s.error}>{error}</Text><Pressable accessibilityRole="button" onPress={refreshItems} style={s.resetButton}><Text style={s.resetText}>お店に再接続する</Text></Pressable></View>}
+    {tab==='cleaning' ? <><View testID="shop-bath-skip" style={s.card}><View style={s.info}><Text style={s.name}>風呂キャン</Text><Text style={s.cost}>7日間、おふろに入らなくてもさっぱり。買うとすぐ有効になるよ。</Text><Pressable testID="shop-buy-bath-skip" accessibilityRole="button" disabled={!!busy||bathSkipActive||feedState.points<BATH_SKIP.cost} style={[s.button,(bathSkipActive||feedState.points<BATH_SKIP.cost)&&s.buttonOn]} onPress={async()=>{if(actionBusy.current)return;actionBusy.current=true;setBusy('bathSkip');setActionError(null);try{await cleanRoom({kind:'bathSkip'});}catch(e){setActionError(e instanceof Error?e.message:'保存できませんでした');}finally{actionBusy.current=false;setBusy(null);}}}><Text style={s.buttonText}>{busy==='bathSkip'?'保存中…':bathSkipActive?'風呂キャン中':`${BATH_SKIP.cost} pt で交換`}</Text></Pressable></View></View>{(Object.entries(CLEANING_TOOLS) as [CleaningTool,typeof CLEANING_TOOLS[CleaningTool]][]).map(([tool,item])=>{
+      const owned=ownedTools.includes(tool),insufficient=feedState.points<item.cost;
+      return <View key={tool} testID={`shop-cleaning-${tool}`} style={[s.card,stackCards&&s.cardStack]}><View style={s.preview}><CleaningToolArt tool={tool}/></View><View style={s.info}><Text style={s.name}>{item.name}</Text><Text style={s.cost}>{item.description}</Text><Pressable testID={`shop-buy-${tool}`} accessibilityRole="button" accessibilityLabel={`${item.name}：${owned?'購入済み':`${item.cost} pt で交換`}`} disabled={!!busy||owned||insufficient} style={[s.button,(owned||insufficient)&&s.buttonOn]} onPress={async()=>{
+        if(actionBusy.current)return;actionBusy.current=true;setBusy(tool);setActionError(null);
+        try{await cleanRoom({kind:'buy',tool});}catch(e){setActionError(e instanceof Error?e.message:'保存できませんでした。もう一度お試しください。');}finally{actionBusy.current=false;setBusy(null);}
+      }}><Text style={s.buttonText}>{busy===tool?'保存中…':owned?'購入済み':insufficient?`${item.cost} pt（ポイントが足りません）`:`${item.cost} pt で交換`}</Text></Pressable>{owned&&<Pressable accessibilityRole="button" onPress={()=>router.replace('/?place=home')} style={s.customButton}><Text style={s.customText}>おうちで使う</Text></Pressable>}</View></View>;
+    })}</> : loading && !items.length ? <Text style={s.note}>アイテムを読み込み中…</Text> : visibleItems.length === 0 ? <Text style={s.note}>このカテゴリのアイテムは、ただいま準備中です。</Text> : visibleItems.map(item => {
       const owned = shopState.inventory.includes(item.id); const itemSlot = slot(item); const equipped = equippedIdFor(itemSlot) === item.id;
       const insufficient = !owned && shopState.points < item.cost;
       const label = !owned && !catalogOnline ? '再接続すると交換できます' : insufficient ? 'YOKIポイントが足りません' : !owned ? `${item.cost} pt で交換` : equipped ? 'はずす' : '着ける / 設定する';

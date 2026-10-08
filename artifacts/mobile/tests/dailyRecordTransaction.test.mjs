@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import ts from 'typescript';
 import * as energy from '../utils/lightEnergy.ts';
 import * as game from '../utils/gameLogic.ts';
+import * as happiness from '../utils/happiness.ts';
 import { createRecoverableStorage } from '../utils/recoverableStorage.ts';
 
 // Load the production helper with its real pure energy/level dependencies.
@@ -14,6 +15,7 @@ const exports={};
 new Function('require','exports',code)(name=>{
   if(name==='./gameLogic')return game;
   if(name==='./lightEnergy')return energy;
+  if(name==='./happiness')return happiness;
   throw Error('Unexpected dependency: '+name);
 },exports);
 const {prepareDailyRecord,RECORD_KEYS:k}=exports;

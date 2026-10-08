@@ -1,5 +1,6 @@
 import type { DailyRecord, FeedState, RecordExtras, UnlockedBadge, UserProgress } from '../contexts/AppContext';
 import type { StorageEntry } from './recoverableStorage';
+import { grantHappiness } from './happiness';
 import { calculateLevel, calculateMentalMuscle, XP_FOR_MOOD_RECORD } from './gameLogic';
 import { applyElapsedEnergy, applyEnergyGain, resolveLightEnergyState, GAIN_MOOD_RECORD, GAIN_DIARY } from './lightEnergy';
 
@@ -48,7 +49,7 @@ export function prepareDailyRecord(
     streak: progress.lastRecordDate === input.yesterday ? progress.streak + 1 : progress.lastRecordDate === input.today ? progress.streak : 1,
     totalDays: progress.totalDays + 1, lastRecordDate: input.today,
   } : progress;
-  const nextFeed = { ...feed, points: feed.points + (isNew ? foodPoints : 0) };
+  const nextFeed = { ...feed, happiness:grantHappiness(feed.happiness,'record',input.today).state, points: feed.points + (isNew ? foodPoints : 0) };
   const settled = applyElapsedEnergy(resolveLightEnergyState(parse(RECORD_KEYS.energy, null), input.today), input.today, now);
   let energy = applyEnergyGain(settled, GAIN_MOOD_RECORD, input.today, 'mood');
   if (input.notes.trim() || input.extras?.win?.trim()) energy = applyEnergyGain(energy, GAIN_DIARY, input.today, 'diary');

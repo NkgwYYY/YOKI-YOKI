@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 type DockProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
 function WorldDock({state, navigation}: DockProps) {
   const insets = useSafeAreaInsets();
-  const places = [{name: 'index', label: 'おうち', icon: 'home'}, {name: 'plant', label: 'ひかり', icon: 'zap'}, {name: 'growth', label: '思い出', icon: 'book-open'}] as const;
+  const places = [{name: 'index', label: 'おうち', icon: 'home'}, {name: 'plant', label: 'おふろ', icon: 'droplet'}, {name: 'growth', label: '思い出', icon: 'book-open'}] as const;
   return <View pointerEvents="box-none" style={{position: 'absolute', bottom: Math.max(12, insets.bottom), left: 16, right: 16, alignItems: 'center'}}>
     <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 30, backgroundColor: '#FFF9F0F5', borderWidth: 1, borderColor: '#FFFFFFE8', shadowColor:'#50355F', shadowOpacity:.16, shadowRadius:18, shadowOffset:{width:0,height:5}}}>
       {places.map(place => {
@@ -34,7 +34,7 @@ function WorldDock({state, navigation}: DockProps) {
 function ClassicTabLayout() {
   return <Tabs tabBar={props => <WorldDock {...props} />} screenOptions={{headerShown: false}}>
     <Tabs.Screen name="index" options={{title: 'おうち'}} />
-    <Tabs.Screen name="plant" options={{title: 'ひかり'}} />
+    <Tabs.Screen name="plant" options={{title: 'おふろ'}} />
     <Tabs.Screen name="growth" options={{title: '思い出'}} />
     <Tabs.Screen name="record" options={{title: '今日の記録', href: null}} />
     <Tabs.Screen name="chat" options={{title: 'おはなし', href: null}} />

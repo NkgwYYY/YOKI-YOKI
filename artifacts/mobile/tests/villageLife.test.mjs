@@ -18,7 +18,7 @@ new Function(
     { compilerOptions: { module: ts.ModuleKind.CommonJS } },
   ).outputText,
 )(() => maps, mod, mod.exports);
-const { steerStep, mapPortals, VILLAGE_LINKS, VILLAGERS } = mod.exports;
+const { steerStep, mapPortals, nearbyPortalIndex, VILLAGE_LINKS, VILLAGERS, MAP_COORDS } = mod.exports;
 test("every destination connects back home and every gate is on walkable ground", () => {
   for (const m of maps.WORLD_MAPS) {
     const seen = new Set(),
@@ -35,6 +35,26 @@ test("every destination connects back home and every gate is on walkable ground"
       assert.ok(VILLAGE_LINKS[gate.to].includes(m.id));
     }
   }
+});
+
+test('each visible gate can be reached by control movement and does not trigger at spawn',()=>{
+  for(const map of maps.WORLD_MAPS){
+    const portals=mapPortals(map.id),start=maps.mapStart(map.id);
+    assert.equal(nearbyPortalIndex(start,portals),-1,map.id);
+    assert.ok(MAP_COORDS[map.id]);
+    for(const gate of portals){
+      let at=start;
+      for(const target of maps.mapRoute(map.id,start,gate.point)){
+        for(let i=0;i<3000&&Math.hypot(at.x-target.x,(at.y-target.y)*1.5)>.004;i++){
+          const dx=target.x-at.x,dy=(target.y-at.y)*1.5,length=Math.hypot(dx,dy);
+          at=steerStep(map.id,at,{x:dx/length,y:dy/length},1/60);
+        }
+      }
+      const hit=nearbyPortalIndex(at,portals);
+      assert.equal(portals[hit]?.to,gate.to,`${map.id} -> ${gate.to}`);
+    }
+  }
+  assert.equal(maps.canVisitMap('tobacco',1),true);
 });
 test("steering supports eight directions, normalizes diagonals, and respects water/room boundaries", () => {
   for (const m of maps.WORLD_MAPS)
@@ -111,4 +131,12 @@ test("ramen is reachable at level one and residents use all four approved forms"
   assert.ok(VILLAGE_LINKS.market.includes('ramen'));
   assert.deepEqual([...new Set(VILLAGERS.map(v => v.stage))].sort(), ['egg','odango','stage3','stage4']);
   assert.ok(maps.isMapGround('ramen', maps.mapStart('ramen')));
+});
+
+
+test('walking away from a nearby gate does not retrigger travel',()=>{
+  const gates=mapPortals('home');
+  const near={x:.5,y:.445};
+  assert.equal(nearbyPortalIndex(near,gates,{x:0,y:1}),-1);
+  assert.notEqual(nearbyPortalIndex(near,gates,{x:0,y:-1}),-1);
 });

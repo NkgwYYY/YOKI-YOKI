@@ -1,3 +1,6 @@
+import {HygieneGauge} from '@/components/world/HygieneGauge';
+import {hygieneValue,readHygiene} from '@/utils/hygiene';
+import {readHousekeeping,roomDirt} from '@/utils/housekeeping';
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useRouter,useLocalSearchParams } from 'expo-router';
@@ -8,6 +11,10 @@ import { useApp } from '@/contexts/AppContext';
 import { useItems, resolveItemAssetUrl } from '@/contexts/ItemContext';
 import { getMascotStage } from '@/utils/mascotUtils';
 import { SatietyGauge } from '@/components/world/SatietyGauge';
+import {HappinessGauge} from '@/components/world/HappinessGauge';
+import {useWorldHappiness} from '@/components/world/useWorldHappiness';
+import {useVillageBgm} from '@/components/world/useVillageBgm';
+import {HAPPY_REWARDS,type HappyAction} from '@/utils/happiness';
 import { WorldPill } from '@/components/world/WorldPill';
 import { WorldHome } from '@/components/world/WorldHome';
 import { useWorldTime } from '@/components/world/useWorldTime';
@@ -27,7 +34,7 @@ import { isRecordPromptDue } from '@/utils/recordPrompt';
 import { DailyRecordInvitation } from '@/components/record/DailyRecordInvitation';
 
 const HINT_KEY = '@yoki/world_hints_v3';
-type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | null;
+type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | null;
 export default function HomeScreen() {
   const router = useRouter();
   const {place}=useLocalSearchParams<{place?:string}>();
@@ -44,6 +51,13 @@ export default function HomeScreen() {
   const [sceneBusy,setSceneBusy]=useState(false);
   const [feedVenue,setFeedVenue]=useState<'ramen'|undefined>(undefined);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const happiness=useWorldHappiness(active);
+  const [hygieneNow,setHygieneNow]=useState(Date.now);
+  useEffect(()=>{if(!active)return;setHygieneNow(Date.now());const timer=setInterval(()=>setHygieneNow(Date.now()),60000);return()=>clearInterval(timer);},[active]);
+  const dust=roomDirt(readHousekeeping(feedState.housekeeping,hygieneNow),hygieneNow);
+  const hygiene=hygieneValue(feedState.hygiene,dust.reduce((a,b)=>a+b,0)/dust.length*100,hygieneNow);
+  const hygieneState=readHygiene(feedState.hygiene,hygieneNow);
+  const music=useVillageBgm(active&&sheet!=='chat');
   const [hints, setHints] = useState(false);
   const [name, setName] = useState('');
   const [reaction, setReaction] = useState(0);
@@ -121,7 +135,7 @@ export default function HomeScreen() {
   const restTogether = () => {setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <WorldHome cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
@@ -132,9 +146,9 @@ export default function HomeScreen() {
       onChat={chat} onRest={restTogether} onAlbum={() => router.push('/(tabs)/growth')} />
     <View pointerEvents="box-none" style={[s.header, {top: insets.top + (compact ? 6 : 16)}]}>
       <View style={s.brandRow}><View pointerEvents="none"><Text style={s.brand}>YOKI YOKI</Text><Text style={s.subtitle}>{time.dateLabel}　{time.label}</Text></View>
-        <WorldPill compact testID="home-more-menu" label="部屋のメニュー" icon="more-horizontal" onPress={()=>setSheet('menu')}/>
+        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={s.points}><Icon name="star" size={14} color="#9476A6"/><Text style={s.pointsText}>{feedState.points} pt</Text></View><WorldPill compact testID="home-more-menu" label="部屋のメニュー" icon="more-horizontal" onPress={()=>setSheet('menu')}/></View>
       </View>
-      <View style={s.statusRow}><SatietyGauge value={currentSatiety} onPress={()=>openFeed()}/><View style={s.points}><Icon name="star" size={14} color="#9476A6"/><Text style={s.pointsText}>{feedState.points} pt</Text></View></View>
+      <View style={s.statusRow}><SatietyGauge compact value={currentSatiety} onPress={()=>openFeed()}/><HappinessGauge value={happiness.value} onPress={()=>setSheet('happiness')}/><HygieneGauge value={hygiene} onPress={()=>setSheet('hygiene')}/></View>
     </View>
     <View pointerEvents="box-none" style={[s.footer, {bottom: tabHeight + 12}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
       {invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => setSheet('record')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
@@ -148,6 +162,19 @@ export default function HomeScreen() {
         <Pressable testID="home-chat" accessibilityRole="button" accessibilityLabel="この子とお話しする" onPress={chat} style={s.talkButton}><Icon name="message-circle" size={18} color="#796087" /><Text style={s.talkText}>おはなし</Text></Pressable>
       </View>
     </View>
+    {sheet==='hygiene'&&<BottomSheet visible title="からだの清潔度" onClose={()=>setSheet(null)}>
+      <Text style={s.chatText}>清潔度 {hygiene}%</Text><Text style={s.chatText}>3日以上おふろに入らないと、少しずつ薄汚れていくよ。お部屋のほこりも、からだにつきます。</Text>
+      {hygieneState.protectedUntil>hygieneNow&&<Text style={s.chatText}>風呂キャン中。あと{Math.ceil((hygieneState.protectedUntil-hygieneNow)/86400000)}日間は、入浴しなくてもさっぱり。</Text>}
+      <WorldPill label="おうちのおふろへ" icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/>
+    </BottomSheet>}
+    {sheet === 'happiness' && <BottomSheet visible onClose={close} title="うれしい気持ち" subtitle="会いに来てくれることが、いちばんうれしい。">
+      <Text style={s.chatText}>幸福度 {happiness.value}%</Text>
+      <Text style={{color:'#806D87',fontSize:13,lineHeight:22}}>同じ楽しみの加点は、1日1回。毎日記録できなくても、自分のペースで会いに来てね。</Text>
+      {(Object.entries({visit:'会いに来てくれた',record:'今日のことを教えてくれた',ramen:'ラーメンを食べた',bath:'温泉でひと休み',homeBath:'おうちのおふろ',meal:'一緒にごはん',smoke:'喫煙所で一服'}) as [HappyAction,string][]).map(([action,label])=><View key={action} style={s.menuRow}>
+        <Icon name={happiness.actions.includes(action)?'check-circle':'circle'} color="#A07DAA"/><Text style={s.menuText}>{label}</Text><Text style={{color:'#927A99'}}>＋{HAPPY_REWARDS[action]}</Text>
+      </View>)}
+      {!!happiness.error&&<><Text accessibilityRole="alert">{happiness.error}</Text><Button label="もう一度保存する" onPress={happiness.retry}/></>}
+    </BottomSheet>}
     {sheet === 'record' && <BottomSheet visible onClose={close} title="今日の記録" maxHeightRatio={0.95} wide={wide} contentStyle={compact ? {paddingTop: 8, paddingBottom: 16, gap: 8} : undefined}>
       <QuickAffirmationRecord onComplete={() => { setReaction(n => n + 1); say('今日のこと、教えてくれてありがとう。'); close(); }} />
       {menuRow('book-open', 'もう少し残したいとき', () => { close(); router.push('/(tabs)/record'); })}

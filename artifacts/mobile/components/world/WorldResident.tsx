@@ -1,3 +1,4 @@
+import {ResidentDust} from './ResidentDust';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -12,7 +13,7 @@ import type { WorldPeriod } from '@/utils/worldTime';
 import {isMapGround,mapGroundPoint,mapStart,type WorldMapId} from '@/utils/worldMaps';
 import type {PinchGesture} from 'react-native-gesture-handler';
 import {MEAL_DURATION,mealSample} from '@/utils/residentMeal';
-import {steerStep,mapPortals,type VillageExperience} from '@/utils/villageLife';
+import {steerStep,mapPortals,nearbyPortalIndex,type VillageExperience} from '@/utils/villageLife';
 import {ResidentMeal} from '@/components/village/ResidentMeal';
 import {rollStep} from '@/utils/residentPhysics';
 import {VolumeResident,hasResidentVolume} from './VolumeResident';
@@ -22,6 +23,9 @@ import type {WorldBowlingInput} from '@/utils/bowling';
 import type {WorldBowlingMotion} from './useWorldBowling';
 
 type Props = {
+  riding:boolean;cleanliness:number;
+  happinessValue:number;
+  portalTravel:SharedValue<boolean>;
   bowling:WorldBowlingMotion; bowlingBusy:boolean; onBowlingRoll:(input:WorldBowlingInput)=>void; onBowlingFinished:()=>void;
   footX: SharedValue<number>; steering:SharedValue<{x:number;y:number}>; experience:VillageExperience|null; food:string|null; onPortal:(map:WorldMapId)=>void; onDestinationReached:(id:number)=>void;
   map: WorldMapId; zoom: SharedValue<number>; cameraTouch: SharedValue<number>; cameraGesture: PinchGesture;
@@ -60,11 +64,16 @@ export function WorldResident(p: Props) {
   const volumetric=hasResidentVolume(stage);
   const size = width * 0.135 * Math.max(0.9, Math.min(1.12, p.growthSize));
   useEffect(()=>{const at=mapStart(map);cancelAnimation(x);cancelAnimation(y);rolling.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);x.value=at.x;y.value=at.y;holding.value=0;setInteracting(false);},[map]);
-  const pose = useWorldResident({...p, x, y, walking, interacting:interacting||manual||!!experience||p.bowlingBusy});
+  useEffect(()=>{
+    if(!p.destination)return;
+    rolling.value=0;idleTime.value=0;setRollingLabel(false);setInteracting(false);
+    cancelAnimation(x);cancelAnimation(y);
+  },[p.destination?.id]);
+  const pose = useWorldResident({...p, x, y, walking, interacting:interacting||manual||p.riding||!!experience||p.bowlingBusy});
   useAnimatedReaction(()=>Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
   const portals=mapPortals(map);
   const onPortal=p.onPortal;
-  useAnimatedReaction(()=>{if(!available.value||!Math.hypot(steering.value.x,steering.value.y))return -1;return portals.findIndex(portal=>Math.hypot(x.value-portal.point.x,(y.value-portal.point.y)*1.5)<.035);},(index,previous)=>{if(index>=0&&index!==previous){steering.value={x:0,y:0};runOnJS(onPortal)(portals[index].to);}},[map,onPortal]);
+  useAnimatedReaction(()=>{if(!available.value||!p.portalTravel.value||experience||food||p.bowlingBusy)return -1;const dir=Math.hypot(steering.value.x,steering.value.y)>.05?steering.value:p.destination?{x:p.destination.point.x-x.value,y:p.destination.point.y-y.value}:null;return dir?nearbyPortalIndex({x:x.value,y:y.value},portals,dir):-1;},(index,previous)=>{if(index>=0&&index!==previous){p.portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(x);cancelAnimation(y);walking.value=0;runOnJS(onPortal)(portals[index].to);}},[map,onPortal,experience,food,p.bowlingBusy,p.destination]);
   useEffect(()=>{if(pose==='eating'&&active){mealProgress.value=0;mealProgress.value=withTiming(1,{duration:MEAL_DURATION,easing:Easing.linear});}else mealProgress.value=0;return()=>cancelAnimation(mealProgress);},[pose,active,mealProgress]);
   useEffect(() => () => {
     available.value = false;
@@ -131,7 +140,7 @@ export function WorldResident(p: Props) {
   },[active,pose,reduceMotion,rx,ry,rz]);
   const launchRoll=(speedX:number,speedY:number,automatic=false)=>{
     'worklet';
-    if(!available.value||(reduceMotion&&map!=='bowling')||cameraTouch.value||experience||food||p.bowlingBusy)return;
+    if(p.riding||!available.value||(reduceMotion&&map!=='bowling')||cameraTouch.value||experience||food||p.bowlingBusy)return;
     if(map==='bowling'){
       if(automatic)return;
       rollAge.value=0;
@@ -163,7 +172,7 @@ export function WorldResident(p: Props) {
       return;
     }
     if(p.bowlingBusy)return;
-    if(!experience&&!food&&Math.hypot(steering.value.x,steering.value.y)>.05){const next=steerStep(map,{x:x.value,y:y.value},steering.value,dt,height/width);x.value=next.x;y.value=next.y;walking.value=1;idleTime.value=0;return;}
+    if(!experience&&!food&&Math.hypot(steering.value.x,steering.value.y)>.05){const next=steerStep(map,{x:x.value,y:y.value},steering.value,dt,height/width);x.value=p.riding?Math.max(.40,Math.min(.65,next.x)):next.x;y.value=p.riding?Math.max(.44,Math.min(.55,next.y)):next.y;walking.value=1;idleTime.value=0;return;}
     if(reduceMotion||experience||food)return;
     if(!rolling.value){
       if(map!=='bowling'&&idleAllowed.value&&!walking.value&&!holding.value){idleTime.value+=dt;if(idleTime.value>16&&isMapGround(map,{x:x.value,y:y.value}))launchRoll(.24*Math.cos(daySeed),.19,true);}
@@ -197,7 +206,7 @@ export function WorldResident(p: Props) {
     if(!reduceMotion)settleRotation();
     runOnJS(setInteracting)(false);
   };
-  const hold = Gesture.Pan().enabled(active&&!experience&&!food&&!p.bowlingBusy).maxPointers(1).activateAfterLongPress(240)
+  const hold = Gesture.Pan().enabled(active&&!p.riding&&!experience&&!food&&!p.bowlingBusy).maxPointers(1).activateAfterLongPress(240)
     .onBegin(begin)
     .onStart(() => {
       if (!available.value) return;
@@ -232,7 +241,7 @@ export function WorldResident(p: Props) {
         if (success) runOnJS(notify)('land');
       });
     });
-  const stroke = Gesture.Pan().enabled(active&&!experience&&!food&&!p.bowlingBusy).maxPointers(1).minDistance(10)
+  const stroke = Gesture.Pan().enabled(active&&!p.riding&&!experience&&!food&&!p.bowlingBusy).maxPointers(1).minDistance(10)
     .onStart(event => {
       cancelAnimation(x); cancelAnimation(y); walking.value = 0;
       touchMode.value = 3; downX.value=event.absoluteX;downY.value=event.absoluteY;petDistance.value=0;strokeVX.value=0;strokeVY.value=0;strokeAt.value=Date.now();
@@ -277,7 +286,7 @@ export function WorldResident(p: Props) {
       finishTouch();
       if (success && petDistance.value > 20) runOnJS(notify)('pet');
     });
-  const tap = Gesture.Tap().enabled(active&&!experience&&!food&&!p.bowlingBusy).maxDuration(240).maxDistance(10).onEnd((_event, success) => {
+  const tap = Gesture.Tap().enabled(active&&!p.riding&&!experience&&!food&&!p.bowlingBusy).maxDuration(240).maxDistance(10).onEnd((_event, success) => {
     if (!success || !available.value) return;
     finishTouch(); runOnJS(notify)('greet');
   });
@@ -307,7 +316,7 @@ export function WorldResident(p: Props) {
     const sy=stage==='egg'?1-jelly.value*.17-breath.value*.014+mealY:Math.min(1,soft.y+mealY);
     return {transform: [
       {translateX:mealMove*size*.12},
-      {translateY: lift.value + (1 - sy) * size * 0.42 - Math.abs(step) * size * 0.021},
+      {translateY: (p.riding?-size*.12:0) + lift.value + (1 - sy) * size * 0.42 - Math.abs(step) * size * 0.021},
       {rotate: `${lean.value + mealMove*8 + step * 2.2 + (volumetric?0:rz.value*180/Math.PI)}deg`},
       {scaleX: (stage==='egg'?1+jelly.value*.14+breath.value*.011:soft.x)+(reduceMotion?0:meal.chew*.025)}, {scaleY: sy},
     ]};
@@ -316,14 +325,14 @@ export function WorldResident(p: Props) {
     const air = Math.min(1, Math.abs(lift.value) / (size * 0.55));
     return {opacity: 1 - air * 0.65, transform: [{scaleX: worldResidentScale(y.value) * (1 + air * 0.45)}, {scaleY: 1 + air * 0.3}]};
   });
-  const mood: MascotMood = touchMood ?? (interacting || pose === 'eating' ? 'happy' : p.resting || pose === 'sleeping' ? 'sleepy' : 'normal');
+  const mood: MascotMood = touchMood ?? (interacting || pose === 'eating' ? 'happy' : p.resting || pose === 'sleeping' ? 'sleepy' : p.happinessValue>=75?'happy':'normal');
   useEffect(() => {
     blink.value = 0;
     if (!active || reduceMotion || mood !== 'normal') return;
     blink.value = withRepeat(withDelay(4100, withSequence(withTiming(1, {duration: 80}), withTiming(0, {duration: 130}))), -1);
     return () => cancelAnimation(blink);
   }, [active, reduceMotion, mood, blink]);
-  const activity = manual?'おさんぽしています':rollingLabel ? 'ころころしています' : pose === 'walking' ? 'おさんぽしています' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'eating' ? 'おやつの時間' : pose === 'watching' ? '景色を眺めています' : 'のんびりしています';
+  const activity = p.riding?'掃除機に乗っています':manual?'おさんぽしています':rollingLabel ? 'ころころしています' : pose === 'walking' ? 'おさんぽしています' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'eating' ? 'おやつの時間' : pose === 'watching' ? '景色を眺めています' : 'のんびりしています';
   const acknowledge = (kind: ResidentInteraction) => {
     if (!active || experience || food) return;
     notify(kind);
@@ -349,6 +358,7 @@ export function WorldResident(p: Props) {
         <Animated.View testID="resident-body" style={body}>
           {p.effect && <Image source={{uri: p.effect.uri}} resizeMode="contain" style={{position: 'absolute', width: size * p.effect.scale * 1.3, height: size * p.effect.scale * 1.3, left: -size * 0.15 + p.effect.x, top: -size * 0.15 + p.effect.y}}/>}
           {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} mealProgress={pose==='eating'?mealProgress:undefined}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
+          <ResidentDust value={p.cleanliness} size={size}/>
           {!volumetric&&<View style={[StyleSheet.absoluteFill, {opacity: p.period === 'night' ? 0.18 : 0.13}]} >
             <StaticMascot stage={p.stage} mood={mood} size={size} tintColor={p.period === 'night' ? '#717CAB' : '#DFB878'}/>
           </View>}

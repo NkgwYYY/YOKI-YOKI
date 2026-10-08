@@ -32,5 +32,12 @@ export function useWorldCamera({width,height,left,top,active,reduceMotion}: {wid
   const reset=()=>{zoom.value=withTiming(1,{duration:reduceMotion?0:250});panX.value=withTiming(0,{duration:reduceMotion?0:250});panY.value=withTiming(0,{duration:reduceMotion?0:250});};
   useEffect(()=>{reset();},[width,height]);
   const closer=()=>{zoom.value=withTiming(Math.min(2.4,zoom.value+.35),{duration:reduceMotion?0:250});};
-  return {zoom,panX,panY,follow,touching,pinch,gesture:Gesture.Simultaneous(pinch,pan),style,reset,closer};
+  const focusAt=(point:{x:number;y:number},viewport:{width:number;height:number})=>{
+    const scale=1.7,duration=reduceMotion?0:420;
+    cancelAnimation(follow);
+    zoom.value=withTiming(scale,{duration});
+    panX.value=withTiming(viewport.width/2-left-width/2-(point.x-.5)*width*scale,{duration});
+    panY.value=withTiming(viewport.height*.43-top-height/2-follow.value-(point.y-.5)*height*scale,{duration});
+  };
+  return {zoom,panX,panY,follow,touching,pinch,gesture:Gesture.Simultaneous(pinch,pan),style,reset,closer,focusAt};
 }

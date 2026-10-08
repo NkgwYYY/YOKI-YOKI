@@ -40,12 +40,12 @@ export function LightFlowEffect({ amount, reduceMotion = false, onDone, onGoPlan
     </View>}
     <View style={[styles.bannerWrap, { bottom: Math.max(insets.bottom + 74, 104), left: insets.left + 16, right: insets.right + 16 }]} pointerEvents="box-none">
       <Pressable testID="light-flow-garden" accessibilityRole="button"
-        accessibilityLabel={`光エネルギー ${amount}が庭に届きました。ひかりの庭を見る`}
+        accessibilityLabel={`今日のひとこまを残しました。おうちへ戻る`}
         onPress={() => { done.current(); onGoPlant?.(); }} style={styles.banner}>
         <Icon name="star" size={18} color="#F1D49C" />
         <View style={styles.copy}>
-          <Text accessibilityLiveRegion="polite" style={styles.title}>あなたのひとこまが、庭の光になったよ。</Text>
-          <Text style={styles.link}>ひかりの庭へ</Text>
+          <Text accessibilityLiveRegion="polite" style={styles.title}>今日のひとこまを、ありがとう。</Text>
+          <Text style={styles.link}>おうちへ</Text>
         </View>
         <Icon name="chevron-right" size={16} color="#F1D49C" />
       </Pressable>

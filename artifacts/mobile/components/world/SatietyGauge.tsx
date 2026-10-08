@@ -4,9 +4,11 @@ import { Icon, iconSize } from "@/components/ui/Icon";
 export function SatietyGauge({
   value,
   onPress,
+  compact = false,
 }: {
   value: number;
   onPress?: () => void;
+  compact?: boolean;
 }) {
   const amount = Math.max(0, Math.min(100, Math.round(value)));
   const label =
@@ -25,12 +27,12 @@ export function SatietyGauge({
       accessibilityLabel={`満腹度${amount}パーセント。${label}`}
       accessibilityValue={{ min: 0, max: 100, now: amount }}
       onPress={onPress}
-      style={s.root}
+      style={[s.root,compact&&{minWidth:0,maxWidth:undefined,paddingHorizontal:8,gap:4}]}
     >
-      <Icon name="coffee" size={iconSize.sm} color={color} />
+      <Icon name="coffee" size={compact?iconSize.xs:iconSize.sm} color={color} />
       <View style={s.body}>
         <View style={s.row}>
-          <Text style={s.name}>{label}</Text>
+          {!compact&&<Text style={s.name}>{label}</Text>}
           <Text style={s.number}>満腹 {amount}%</Text>
         </View>
         <View style={s.track}>

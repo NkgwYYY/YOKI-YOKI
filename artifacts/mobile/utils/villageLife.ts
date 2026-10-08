@@ -1,9 +1,10 @@
 import { mapGroundPoint, type WorldMapId } from "./worldMaps";
 export type Point = { x: number; y: number };
-export type VillageExperience = "bath" | "wheel";
+export type VillageExperience = "bath" | "wheel" | "smoke";
 export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
   home: ["market", "forest"],
-  market: ["home", "village", "lake", "ramen", "bowling"],
+  market: ["home", "village", "lake", "ramen", "bowling", "tobacco"],
+  tobacco: ["market"],
   bowling: ["market"],
   ramen: ["market"],
   forest: ["home", "onsen"],
@@ -11,21 +12,30 @@ export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
   village: ["market", "onsen"],
   lake: ["market"],
 };
+// A gate is both the visible sign and the actual walking trigger.
+const GATES: Record<WorldMapId, Point[]> = {
+  home: [{x:.51,y:.785},{x:.50,y:.435}],
+  market: [{x:.24,y:.72},{x:.42,y:.49},{x:.60,y:.49},{x:.77,y:.56},{x:.53,y:.80},{x:.77,y:.72}],
+  tobacco: [{x:.23,y:.67}],
+  bowling: [{x:.70,y:.765}],
+  ramen: [{x:.35,y:.58}],
+  forest: [{x:.51,y:.80},{x:.51,y:.445}],
+  onsen: [{x:.42,y:.80},{x:.76,y:.60}],
+  village: [{x:.50,y:.80},{x:.23,y:.60}],
+  lake: [{x:.52,y:.81}],
+};
 export function mapPortals(map: WorldMapId) {
-  return VILLAGE_LINKS[map].map((to, i) => ({
-    to,
-    point: mapGroundPoint(
-      map,
-      map === 'bowling' ? {x:.75,y:.78} : i===4 ? {x:.27,y:.53} : map === "home"
-        ? { x: i ? 0.62 : 0.46, y: 0.755 }
-        : {
-            // Keep the return sign to the right of the fixed left-thumb pad.
-            x: i === 0 ? 0.43 : i === 1 ? 0.73 : i === 2 ? 0.5 : 0.73,
-            y: i === 3 ? 0.53 : i === 2 ? 0.77 : 0.69,
-          },
-    ),
-  }));
+  return VILLAGE_LINKS[map].map((to, i) => ({to, point:mapGroundPoint(map,GATES[map][i])}));
 }
+export function nearbyPortalIndex(point: Point, portals: {point:Point}[], direction?:Point) {
+  'worklet';
+  return portals.findIndex(portal=>Math.hypot(point.x-portal.point.x,(point.y-portal.point.y)*1.5)<.038&&(!direction||(portal.point.x-point.x)*direction.x+(portal.point.y-point.y)*direction.y>=0));
+}
+export const MAP_COORDS: Record<WorldMapId, Point> = {
+  onsen:{x:.17,y:.09}, village:{x:.5,y:.09}, lake:{x:.83,y:.09},
+  forest:{x:.17,y:.35}, market:{x:.5,y:.45}, ramen:{x:.83,y:.35},
+  home:{x:.17,y:.70}, tobacco:{x:.83,y:.70}, bowling:{x:.5,y:.90},
+};
 /** Fixed scene coordinates keep velocity stable through camera zoom and viewport changes. */
 export function steerStep(
   map: WorldMapId,

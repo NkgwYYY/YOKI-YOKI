@@ -34,7 +34,7 @@ export function LightFlowHost() {
       amount={current.amount}
       reduceMotion={reduceMotion}
       onDone={() => setQueue((q) => q[0]?.seq === current.seq ? q.slice(1) : q)}
-      onGoPlant={() => router.push('/(tabs)/plant')}
+      onGoPlant={() => router.push('/(tabs)')}
     />
   );
 }

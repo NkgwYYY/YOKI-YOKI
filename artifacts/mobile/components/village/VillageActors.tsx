@@ -166,12 +166,14 @@ export function BathingEgg({
   height,
   active,
   reduceMotion,
+  x = .52, y = .37, label = '温泉',
 }: {
   stage: MascotStage;
   width: number;
   height: number;
   active: boolean;
   reduceMotion: boolean;
+  x?: number; y?: number; label?: string;
 }) {
   const wave = useSharedValue(0),
     size = width * 0.14;
@@ -190,11 +192,11 @@ export function BathingEgg({
   return (
     <View
       testID="village-bathing"
-      accessibilityLabel={`${getStageName(stage)}が温泉でひと休みしています`}
+      accessibilityLabel={`${getStageName(stage)}が${label}でひと休みしています`}
       style={{
         position: "absolute",
-        left: width * 0.52 - size,
-        top: height * 0.37 - size * 0.55,
+        left: width * x - size,
+        top: height * y - size * 0.55,
         width: size * 2,
         height: size,
         zIndex: 820,

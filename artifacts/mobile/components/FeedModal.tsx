@@ -205,7 +205,7 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
 
       <View style={modalStyles.hint}>
         <Icon name="info" size={iconSize.xs} color={colors.subtleForeground} />
-        <Text style={modalStyles.hintText}>今日の記録や、ひかりの庭で受け取ったポイントを使えるよ</Text>
+        <Text style={modalStyles.hintText}>今日の記録やボウリングで集めたポイントを使えるよ</Text>
       </View>
 
       <FeedToast message={toast.message} visible={toast.visible} />

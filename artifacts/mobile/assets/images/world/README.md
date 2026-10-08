@@ -57,3 +57,15 @@ Coordinates measured from the generated image: approach `(0.505, 0.49)`; head pi
 - Asset: `village-bowling-long.jpg`. Built-in ImageGen edit of the approved `village-bowling.jpg`; JPEG quality 90, unchanged resolution. The previous asset is preserved.
 - Prompt: Lengthen only the single wooden lane toward the foreground, roughly two to three times the rolling distance, from the existing back wall to a new foul line near (0.46, 0.64), with a clear approach near (0.45, 0.69). Preserve the approved camera, cutaway lodge, benches, garden, stream, warm light and tactile pastel 3D style. Extend the lane/deck through the central garden path, with low lavender gutters. Remove the old intermediate foul line/arrows; retain one new foreground line. No characters, loose pins, balls, UI or text.
 - Measured final coordinates: initial feet (0.455, 0.715), foul line about y=0.665, head pin (0.552, 0.358). Initial ball-to-pin distance is about 2.7 times the short lane. Only feet behind the line (y=0.685–0.75, x=0.34–0.64) can start a rewarded throw. Saved throws use `garden-long`; earlier `garden` results retain their original rules.
+
+### 2026-10-08: こかげのタバコ屋
+
+- Asset: `village-tobacco.jpg` (1024×1536, JPEG quality 90). Built-in image_gen; generated source is retained separately. New asset, existing art preserved.
+- Prompt: Create a portrait 1024×1536 small Japanese tobacco kiosk and a separate outdoor smoking terrace, matching `village-market.jpg` as style/camera reference: elevated three-quarter camera, cozy rounded 3D miniature toy diorama, warm wood, pastel purple awning, clay textures, flowers, river and hills. Kiosk in upper half with exact sign「たばこ」and plain unbranded boxes. Separate covered bench and standing ashtray on right around 55% down. Broad empty golden-earth foreground around 60% down for the live character, paths to left/right/down. No painted characters, UI, logos or excessive smoke. Fictional game environment.
+
+
+## Home bath and egg-job kitchen (2026-10-08)
+
+- `home-bath.jpg`: original built-in ImageGen scene; source `exec-1ca57134-3190-4964-93ee-2e209023324b.png`, 1024×1536, JPEG quality 90. Prompt: tactile 3D toy diorama Japanese domestic bathroom, ivory bathtub, honey wood, lavender/mint details, folded towels, shower, window into a green garden; elevated portrait camera and open foreground, no characters/UI/text. A home bathroom distinct from the outdoor onsen.
+- `egg-kitchen.jpg`: original built-in ImageGen scene; source `exec-bf8bbfc7-4a0c-42aa-b00f-e875bf380965.png`, 1024×1536, JPEG quality 90. Prompt: peaceful forest cottage boiled-egg shop, warm rounded 3D miniature kitchen, egg baskets, timer, honeywood workbench with clear middle area for interactive saucepan; no characters, pan, text or UI.
+- The interactive tub bather, dirt, tools, vacuum and egg-job pot are rendered by app components rather than baked into these environments. Existing approved backgrounds were retained.

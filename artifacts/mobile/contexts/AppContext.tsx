@@ -1,3 +1,6 @@
+import {prepareEggJob,type EggJobState,type EggJobOperation,type EggJobResult} from '@/utils/eggJob';
+import type {HygieneState} from '@/utils/hygiene';
+import {prepareCleaning, type HousekeepingState, type CleaningOperation} from '@/utils/housekeeping';
 import { mergeEncounterHistory } from '@/utils/mergeEncounters';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
@@ -7,6 +10,7 @@ import { prepareItemPurchase } from '@/utils/itemPurchase';
 import { EMPTY_BOWLING, readBowlingState, prepareBowlingPlay, type BowlingInput, type BowlingState } from '@/utils/bowling';
 import { prepareRhythmReward } from '@/utils/rhythmReward';
 import { prepareDailyRecord } from '@/utils/dailyRecordTransaction';
+import { grantHappiness, prepareHappiness, type HappinessState, type HappyAction } from '@/utils/happiness';
 import { prepareChecklist, type ChecklistOperation } from '@/utils/checklistTransaction';
 import { prepareRoomOperation, COMPANION_PRICE, type RoomOperation } from '@/utils/roomPurchase';
 import * as Haptics from 'expo-haptics';
@@ -141,6 +145,10 @@ export interface UnlockedBadge {
 }
 
 export interface FeedState {
+  happiness?: HappinessState;
+  housekeeping?: HousekeepingState;
+  hygiene?: HygieneState;
+  eggJob?: EggJobState;
   points: number;
   lastFeedTime: string;
   satietyAtFeed: number;
@@ -209,6 +217,9 @@ interface AppContextType {
   newlyUnlockedBadge: string | null;
   mascotName: string;
   feedState: FeedState;
+  runEggJob: (operation: EggJobOperation) => Promise<EggJobResult>;
+  cleanRoom: (operation: CleaningOperation) => Promise<{spent:number;removed:number}>;
+  awardHappiness: (action: HappyAction) => Promise<{gained:number;newlyGranted:boolean}>;
   /** サーバーで確定したショップ購入後のポイント残高を端末側にも同期する */
   syncFeedPoints: (points: number) => Promise<void>;
   /** 端末側ポイントを不足チェック付きで減算する */
@@ -966,6 +977,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (state.feed.points < food.cost) return { state, result: { success: false, message: 'YOKIポイントが足りないよ！', newSatiety: baseSatiety } };
         const newSatiety = Math.min(100, baseSatiety + food.satietyGain);
         return { state: { ...state, feed: {
+          ...state.feed,
+          happiness: grantHappiness(state.feed.happiness, foodId === 'ramen' ? 'ramen' : 'meal', getTodayDate()).state,
           points: state.feed.points - food.cost,
           lastFeedTime: new Date().toISOString(), satietyAtFeed: newSatiety,
         } }, result: { success: true, message: `${food.name}をあげたよ！`, newSatiety } };
@@ -1101,6 +1114,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: saved.success, reason: saved.success ? undefined : 'not_enough' };
   }, [runRoomOperation]);
 
+  const runEggJob = useCallback(async (operation: EggJobOperation) => {
+    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      return prepareEggJob(values, operation, Date.now(), defaultFeedState);
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (saved.changed) void pushDataToCloud().catch(() => {});
+    return {state:saved.state,receipt:saved.receipt,newlyGranted:saved.newlyGranted};
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
+
+  const cleanRoom = useCallback(async (operation: CleaningOperation) => {
+    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      return prepareCleaning(values, operation, Date.now(), defaultFeedState);
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (saved.changed) void pushDataToCloud().catch(() => {});
+    return {spent:saved.spent,removed:saved.removed};
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
+
+  const awardHappiness = useCallback(async (action: HappyAction) => {
+    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      return prepareHappiness(values, action, getTodayDate(), defaultFeedState);
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (saved.changed) void pushDataToCloud().catch(() => {});
+    return {gained:saved.gained,newlyGranted:saved.newlyGranted};
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
+
   const playBowling = useCallback(async (id: string, input: BowlingInput) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
@@ -1148,6 +1200,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         newlyUnlockedBadge,
         mascotName,
         feedState,
+        awardHappiness,
+        cleanRoom,
+        runEggJob,
         syncFeedPoints,
         spendFeedPoints,
         purchaseGuestItem,

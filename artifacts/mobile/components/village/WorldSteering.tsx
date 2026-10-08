@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedStyle,
@@ -53,14 +53,13 @@ export function WorldSteering({
     ],
   }));
   return (
-    <GestureDetector gesture={gesture} touchAction="none">
       <View
         testID="world-steering"
         style={[s.pad, !enabled && { opacity: 0.4 }]}
         accessible
         accessibilityRole="adjustable"
         accessibilityLabel="おさんぽの方向"
-        accessibilityHint="指をすべらせて上下左右に歩きます。離すと止まります。"
+        accessibilityHint="矢印を押すか、中央をすべらせて歩きます。道しるべで隣の場所へ移動します。"
         accessibilityState={{ disabled: !enabled }}
         accessibilityActions={[
           { name: "up", label: "奥へ歩く" },
@@ -98,30 +97,27 @@ export function WorldSteering({
             }
           : {})}
       >
-        <Text pointerEvents="none" style={s.up}>
-          ⌃
-        </Text>
-        <Text pointerEvents="none" style={s.down}>
-          ⌄
-        </Text>
-        <Text pointerEvents="none" style={s.left}>
-          ‹
-        </Text>
-        <Text pointerEvents="none" style={s.right}>
-          ›
-        </Text>
+        {([['up',0,-1,'⌃','奥へ'],['down',0,1,'⌄','手前へ'],['left',-1,0,'‹','左へ'],['right',1,0,'›','右へ']] as const).map(([id,x,y,glyph,label])=><Pressable key={id}
+          testID={`world-steer-${id}`} accessibilityRole="button" accessibilityLabel={`${label}歩く`} disabled={!enabled}
+          onPressIn={()=>{onStart();value.value={x,y};}}
+          onPressOut={()=>{value.value={x:0,y:0};}}
+          onPress={()=>onStep(x,y)}
+          style={[s.arrow,id==='up'?s.up:id==='down'?s.down:id==='left'?s.left:s.right]}>
+          <Text style={s.arrowText}>{glyph}</Text>
+        </Pressable>)}
+        <GestureDetector gesture={gesture} touchAction="none"><View style={s.stick}>
         <Animated.View pointerEvents="none" style={[s.knob, knob]}>
           <View style={s.dot} />
         </Animated.View>
+        </View></GestureDetector>
       </View>
-    </GestureDetector>
   );
 }
 const s = StyleSheet.create({
   pad: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
     borderWidth: 1,
     borderColor: "#FFFFFFDD",
     backgroundColor: "#FFF8EEF0",
@@ -142,8 +138,8 @@ const s = StyleSheet.create({
     shadowOpacity: 0.25,
   },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#F8F0FF" },
-  up: { position: "absolute", top: 0, color: "#967AA6", fontSize: 24 },
-  down: { position: "absolute", bottom: 0, color: "#967AA6", fontSize: 24 },
-  left: { position: "absolute", left: 9, color: "#967AA6", fontSize: 24 },
-  right: { position: "absolute", right: 9, color: "#967AA6", fontSize: 24 },
+  stick:{width:40,height:40,alignItems:'center',justifyContent:'center'},
+  arrow:{position:'absolute',width:34,height:32,alignItems:'center',justifyContent:'center'},
+  arrowText:{color:'#967AA6',fontSize:24,lineHeight:26},
+  up:{top:0,left:35},down:{bottom:0,left:35},left:{left:0,top:35},right:{right:0,top:35},
 });
