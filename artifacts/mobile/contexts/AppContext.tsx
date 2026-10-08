@@ -1102,7 +1102,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [runRoomOperation]);
 
   const playBowling = useCallback(async (id: string, input: BowlingInput) => {
-    if (isLoading || !cloudSynced || (isSignedIn && !user)) throw new Error('データの準備ができていません');
+    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
     const saved = await AsyncStorage.transaction(values => {
       if (bowlingOwner.current !== owner) throw new Error('Account changed');

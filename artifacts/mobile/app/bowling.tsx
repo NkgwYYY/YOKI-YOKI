@@ -10,6 +10,7 @@ import {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from "@/contexts/AppContext";
 import { useRoomActivity } from "@/components/room/useRoomActivity";
 import { WorldPill } from "@/components/world/WorldPill";
@@ -32,6 +33,7 @@ export default function BowlingScreen() {
     insets = useSafeAreaInsets(),
     window = useWindowDimensions();
   const { active, reduceMotion } = useRoomActivity();
+  const { isSignedIn } = useAuth();
   const {
     progress: character,
     mascotName,
@@ -64,7 +66,7 @@ export default function BowlingScreen() {
     setError("場所を切り替えられませんでした。"),
   );
   const disabled =
-    saving || running || done || !active || (isLoading || !cloudSynced) || transition.busy;
+    saving || running || done || !active || (isLoading || (isSignedIn && !cloudSynced)) || transition.busy;
   useEffect(() => {
     if (active) setToday(getTodayDate());
   }, [active]);
