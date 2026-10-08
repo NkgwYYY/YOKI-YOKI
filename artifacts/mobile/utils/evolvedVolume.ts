@@ -56,6 +56,20 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   const rot=(p:Point3)=>{'worklet';return rotatePoint(p,rx,ry,rz);};
   const silhouette=hull(geometry.outline.map(rot));
   const originY=91-Math.max(...silhouette.map(p=>p.y));
+  // Small soft tufts extend the silhouette without stretching the underlying body.
+  let furHalo='';
+  for(let i=0;i<silhouette.length;i++){
+    const a=silhouette[i],b=silhouette[(i+1)%silhouette.length];
+    const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy),steps=Math.max(1,Math.ceil(length/2));
+    for(let j=0;j<steps;j++){
+      const t=j/steps,x=50+a.x+dx*t,y=originY+a.y+dy*t;
+      const fluff=.7+((i*7+j*3)%11)*.15;
+      furHalo+=(furHalo?' L':'M')+x.toFixed(2)+' '+Math.min(91,y).toFixed(2);
+      furHalo+=' Q'+(x+dx/steps*.3+dy/Math.max(1,length)*fluff).toFixed(2)+' '+Math.min(91,y+dy/steps*.3-dx/Math.max(1,length)*fluff).toFixed(2);
+      furHalo+=' '+(x+dx/steps*.58+dy/Math.max(1,length)*fluff).toFixed(2)+' '+Math.min(91,y+dy/steps*.58-dx/Math.max(1,length)*fluff).toFixed(2);
+    }
+  }
+  furHalo+=' Z';
   const normal=(p:Point3)=>{'worklet';return rot({x:p.x/(r.x*r.x),y:p.y/(r.y*r.y),z:p.z/(r.z*r.z)}).z;};
   // Clip each feature at the horizon, including its near edge. This avoids the
   // whole far eye popping in/out at a single centre-normal threshold.
@@ -81,13 +95,13 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   const fur=['','',''];
   for(let i=0;i<geometry.fibres.length;i++){
     const p=geometry.fibres[i];if(normal(p)<=0)continue;
-    const q=rot(p),length=1.2+(i%7)*.14;
+    const q=rot(p),length=2.1+(i%7)*.29;
     // Fibres radiate with the volume and remain present on sides and rear.
     const tip=rot({x:p.x*(1+length/r.x),y:p.y*(1+length/r.y),z:p.z*(1+length/r.z)});
     fur[i%3]+=d([q,tip],false,originY)+' ';
   }
   return {
-    body:d(silhouette,true,originY),furLight:fur[0],furMid:fur[1],furShade:fur[2],
+    body:d(silhouette,true,originY),furHalo,furLight:fur[0],furMid:fur[1],furShade:fur[2],
     leftCheek:patch(-f.cheekX,f.cheekY,6.7+chew*.8,4+chew*.4),rightCheek:patch(f.cheekX,f.cheekY,6.7+chew*.8,4+chew*.4),
     leftSocket:patch(-f.eyeX,f.eyeY,5.6,6.3),rightSocket:patch(f.eyeX,f.eyeY,5.6,6.3),
     leftEye:patch(-f.eyeX,f.eyeY,f.eyeWidth,eyeHeight),rightEye:patch(f.eyeX,f.eyeY,f.eyeWidth,eyeHeight),

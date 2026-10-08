@@ -7,7 +7,10 @@ import { useApp } from '@/contexts/AppContext';
 import { useAppActivity } from '@/components/room/useRoomActivity';
 import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
-import { FOOD_ITEMS, FoodItem, RARITY_COLORS, FoodRarity } from '@/data/foodItems';
+import { foodsForVenue, FoodItem, RARITY_COLORS, FoodRarity } from '@/data/foodItems';
+import { RamenArt } from '@/components/village/RamenArt';
+import { RamenServing } from '@/components/village/RamenServing';
+import { WorldPill } from '@/components/world/WorldPill';
 import { BerryIcon, AppleIcon, CandyIcon, CakeFoodIcon, RamenIcon, SpecialFoodIcon } from '@/components/ui/Illustrations';
 
 interface FeedModalProps {
@@ -120,6 +123,7 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
 
   const { active, reduceMotion } = useAppActivity();
   const [saving, setSaving] = useState(false);
+  const [serving, setServing] = useState<'preview' | 'served' | null>(null);
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
   const totalCount = getTotalCheckCount();
@@ -141,9 +145,10 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
     feeding.current = true;
     setSaving(true);
     try {
-      const result = await feedMascot(foodId);
+      const result = await feedMascot(foodId, venue === 'ramen' ? 'ramen' : 'home');
       if (!mounted.current) return;
       if (result.success) {
+        if (venue === 'ramen' && foodId === 'ramen') { setServing('served'); return; }
         if (onFed) { onFed(foodId); return; }
         setIsEating(true);
         timers.current.push(setTimeout(() => setIsEating(false), 800));
@@ -159,13 +164,13 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
   const hungerLabel = currentSatiety >= 80 ? 'ごちそうさま' : 'おやつでひと休みしよう';
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={venue === 'ramen' ? 'もふもふラーメン' : 'ごはんをあげる'} subtitle={venue === 'ramen' ? 'もふもふ店長の、あったかい一杯。お店で食べていこう。' : '一緒に、ほっとする時間'} maxHeightRatio={0.88} contentStyle={modalStyles.content}>
+    <><BottomSheet visible={visible && !serving} onClose={onClose} title={venue === 'ramen' ? 'もふもふラーメン' : 'ごはんをあげる'} subtitle={venue === 'ramen' ? 'もふもふ店長の、あったかい一杯。お店で食べていこう。' : '一緒に、ほっとする時間'} maxHeightRatio={0.88} contentStyle={modalStyles.content}>
       <View style={modalStyles.pointsBadge}>
         <Icon name="star" size={iconSize.sm} color={colors.primary} />
         <Text style={modalStyles.pointsText}>{feedState.points} pt</Text>
       </View>
 
-      <View style={modalStyles.mascotRow}>
+      {venue !== 'ramen' && <View style={modalStyles.mascotRow}>
         {Platform.OS === 'ios' || reduceMotion || !active ? (
           <StaticMascot stage={mascotStage} mood={isEating ? 'excited' : mascotMood} size={80} />
         ) : (
@@ -183,14 +188,20 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
         </View>
       </View>
 
+      }
       {saving && <Text accessibilityLiveRegion="polite">ごはんを保存しています…</Text>}
-      <View style={modalStyles.grid}>
-        {FOOD_ITEMS.filter(food => venue !== 'ramen' || food.id === 'ramen').map((food) => (
-          <View key={food.id} style={modalStyles.gridItem}>
-            <FoodCard food={food} canAfford={feedState.points >= food.cost} saving={saving} reduceMotion={reduceMotion} onFeed={handleFeed} />
-          </View>
-        ))}
-      </View>
+      {venue === 'ramen' ? <View style={{alignItems:'center',gap:12}}>
+        <RamenArt size={250} />
+        <Text style={{fontSize:21,fontWeight:'700',color:'#594364'}}>店長の特製ラーメン</Text>
+        <Text style={{fontSize:13,lineHeight:22,textAlign:'center',color:'#89788E'}}>とろけるチャーシュー、半熟たまご。{ '\n' }お店だけの、とっておきのごちそう。</Text>
+        <WorldPill testID="ramen-order" primary icon="coffee" label={saving?'ご用意しています…':'注文する  ·  60 pt'} disabled={saving||feedState.points<60} onPress={()=>handleFeed('ramen')} style={{width:'100%'}} />
+        {feedState.points<60&&<Text style={{fontSize:12,color:'#967953'}}>あと{60-feedState.points}ポイントで注文できます</Text>}
+        <Pressable testID="ramen-preview" accessibilityRole="button" accessibilityLabel="できたてのラーメンを見る" onPress={()=>setServing('preview')} style={{minHeight:44,justifyContent:'center'}}><Text style={{color:'#806195',fontSize:13}}>できたてを見る</Text></Pressable>
+      </View> : <View style={modalStyles.grid}>
+        {foodsForVenue().map((food) => <View key={food.id} style={modalStyles.gridItem}>
+          <FoodCard food={food} canAfford={feedState.points >= food.cost} saving={saving} reduceMotion={reduceMotion} onFeed={handleFeed} />
+        </View>)}
+      </View>}
 
       <View style={modalStyles.hint}>
         <Icon name="info" size={iconSize.xs} color={colors.subtleForeground} />
@@ -199,11 +210,15 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
 
       <FeedToast message={toast.message} visible={toast.visible} />
     </BottomSheet>
+    {serving && <RamenServing active={active} reduceMotion={reduceMotion} preview={serving==='preview'} onComplete={()=>{
+      const mode=serving;setServing(null);
+      if(mode==='served'){if(onFed)onFed('ramen');else onClose();}
+    }}/>}</>
   );
 }
 
 const modalStyles = StyleSheet.create({
-  content: { gap: space.xl },
+  content: { gap: space.md },
   pointsBadge: { flexDirection: 'row', alignItems: 'center', gap: space.xs, alignSelf: 'flex-start', paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.pill, backgroundColor: colors.primarySoft, ...border.hairline, borderColor: colors.primary },
   pointsText: { ...typography.bodyStrong, color: colors.primary },
   mascotRow: { flexDirection: 'row', alignItems: 'center', gap: space.lg },

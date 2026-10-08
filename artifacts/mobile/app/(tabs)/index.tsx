@@ -7,6 +7,8 @@ import { Audio } from 'expo-av';
 import { useApp } from '@/contexts/AppContext';
 import { useItems, resolveItemAssetUrl } from '@/contexts/ItemContext';
 import { getMascotStage } from '@/utils/mascotUtils';
+import { SatietyGauge } from '@/components/world/SatietyGauge';
+import { WorldPill } from '@/components/world/WorldPill';
 import { WorldHome } from '@/components/world/WorldHome';
 import { useWorldTime } from '@/components/world/useWorldTime';
 import type { ResidentInteraction } from '@/components/room/RoomResident';
@@ -35,7 +37,7 @@ export default function HomeScreen() {
   const tabHeight = 60 + Math.max(12, insets.bottom);
   const { active, reduceMotion } = useRoomActivity();
   const time = useWorldTime(active);
-  const { progress, growth, mascotName, setMascotName, roomCustomization, companionState,
+  const { progress, growth, currentSatiety, feedState, mascotName, setMascotName, roomCustomization, companionState,
     getTodayRecord, getCompletedCount, getTotalCheckCount, homeCommentPreferences } = useApp();
   const { items, shopState } = useItems();
   const [sceneBusy,setSceneBusy]=useState(false);
@@ -118,7 +120,7 @@ export default function HomeScreen() {
   const restTogether = () => {setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onGarden={()=>router.push('/(tabs)/plant')} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <WorldHome careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onGarden={()=>router.push('/(tabs)/plant')} onBowling={()=>router.push('/bowling')} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
@@ -128,11 +130,10 @@ export default function HomeScreen() {
       onRecord={() => setSheet('record')} onFeed={openFeed}
       onChat={chat} onRest={restTogether} onAlbum={() => router.push('/(tabs)/growth')} />
     <View pointerEvents="box-none" style={[s.header, {top: insets.top + (compact ? 6 : 16)}]}>
-      <View pointerEvents="none"><Text style={s.brand}>YOKI YOKI</Text><Text style={s.subtitle}>{time.dateLabel}　{time.label}</Text></View>
-      <View style={s.headerTools}>
-        <Pressable accessibilityRole="button" accessibilityLabel={hints ? '家具のヒントを隠す' : '家具のヒントを表示'} onPress={toggleHints} style={s.iconButton}><Icon name="help-circle" size={21} color="#F2E8DE" /></Pressable>
-        <Pressable testID="home-more-menu" accessibilityRole="button" accessibilityLabel="部屋のメニュー" onPress={() => setSheet('menu')} style={s.iconButton}><Icon name="menu" size={22} color="#F2E8DE" /></Pressable>
+      <View style={s.brandRow}><View pointerEvents="none"><Text style={s.brand}>YOKI YOKI</Text><Text style={s.subtitle}>{time.dateLabel}　{time.label}</Text></View>
+        <WorldPill compact testID="home-more-menu" label="部屋のメニュー" icon="more-horizontal" onPress={()=>setSheet('menu')}/>
       </View>
+      <View style={s.statusRow}><SatietyGauge value={currentSatiety} onPress={()=>openFeed()}/><View style={s.points}><Icon name="star" size={14} color="#9476A6"/><Text style={s.pointsText}>{feedState.points} pt</Text></View></View>
     </View>
     <View pointerEvents="box-none" style={[s.footer, {bottom: tabHeight + 12}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
       {invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => setSheet('record')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
@@ -141,9 +142,9 @@ export default function HomeScreen() {
       </View>}
       <View style={[s.quickActions, wide && {flexDirection: 'column', alignItems: 'center'}]}>
         <Pressable testID="home-daily-record" accessibilityRole="button" accessibilityLabel="今日の記録を開く" onPress={() => setSheet('record')} style={({pressed}) => [s.noteButton, pressed && {opacity: 0.8}]}>
-          <Icon name={today ? 'check' : 'edit-3'} size={17} color="#454934" /><Text style={s.noteText}>{today ? '今日の記録' : '今日を、ひとこと'}</Text>
+          <Icon name={today ? 'check' : 'edit-3'} size={17} color="#796087" /><Text style={s.noteText}>{today ? '今日の記録' : '今日を、ひとこと'}</Text>
         </Pressable>
-        <Pressable testID="home-chat" accessibilityRole="button" accessibilityLabel="この子とお話しする" onPress={chat} style={s.talkButton}><Icon name="message-circle" size={18} color="#FFF3DF" /><Text style={s.talkText}>おはなし</Text></Pressable>
+        <Pressable testID="home-chat" accessibilityRole="button" accessibilityLabel="この子とお話しする" onPress={chat} style={s.talkButton}><Icon name="message-circle" size={18} color="#796087" /><Text style={s.talkText}>おはなし</Text></Pressable>
       </View>
     </View>
     {sheet === 'record' && <BottomSheet visible onClose={close} title="今日の記録" maxHeightRatio={0.95} wide={wide} contentStyle={compact ? {paddingTop: 8, paddingBottom: 16, gap: 8} : undefined}>
@@ -161,7 +162,7 @@ export default function HomeScreen() {
       {menuRow('coffee', 'ごはんの時間', () => openFeed())}
       {menuRow('heart', 'そっと、なでる', () => { setReaction(n => n + 1); interact('pet'); close(); })}
       {menuRow('moon', 'ベッドで一緒に休む', () => { restTogether(); close(); })}
-      {menuRow('shopping-bag', '暮らしのお店', () => { close(); router.push('/shop'); })}
+      {menuRow('help-circle', hints ? '家具のヒントを隠す' : '家具のヒントを表示', () => { toggleHints(); close(); })}
       {menuRow('home', '部屋の模様替え', () => setSheet('atelier'))}
       {menuRow('edit-3', 'なまえをつける', () => { setName(mascotName); setNameError(''); setSheet('name'); })}
       {menuRow('clock', '記録する時間', () => { close(); router.push('/profile'); })}
@@ -178,7 +179,11 @@ export default function HomeScreen() {
 }
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#243A33' },
-  header: { position: 'absolute', left: 20, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { position: 'absolute', left: 20, right: 20, gap: 10 },
+  brandRow: {flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  statusRow: {flexDirection:'row',gap:8,alignItems:'center'},
+  points:{minHeight:44,paddingHorizontal:12,backgroundColor:'#FFF9F0F2',borderColor:'#FFFFFFE8',borderWidth:1,borderRadius:18,flexDirection:'row',alignItems:'center',gap:6},
+  pointsText:{fontSize:11,fontWeight:'700',color:'#806195'},
   brand: { fontSize: 12, letterSpacing: 3, color: '#FFF5E6', fontWeight: '700', textShadowColor: '#263A35', textShadowRadius: 6 },
   subtitle: { marginTop: 6, fontSize: 11, color: '#FFF1D9', textShadowColor: '#263A35', textShadowRadius: 6 },
   headerTools: { flexDirection: 'row', gap: 5 }, iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#223D367A', alignItems: 'center', justifyContent: 'center' },
@@ -187,11 +192,11 @@ const s = StyleSheet.create({
   speech: {alignItems: 'center', gap: 6, maxWidth: 380},
   residentName: {fontSize: 10, letterSpacing: 1, color: '#FAE3B8', textShadowColor: '#17291B', textShadowRadius: 6},
   whisper: { color: '#FFFAEF', fontSize: 14, lineHeight: 22, textAlign: 'center', textShadowColor: '#17291B', textShadowRadius: 6 },
-  quickActions: {flexDirection: 'row', gap: 10, justifyContent: 'center'},
-  noteButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 20, borderRadius: 24, backgroundColor: '#F5E9CE'},
-  noteText: {fontSize: 12, fontWeight: '600', color: '#454934'},
-  talkButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 15, borderRadius: 24, backgroundColor: '#20352ACF', borderWidth: 1, borderColor: '#D8DBBD40'},
-  talkText: {fontSize: 12, color: '#FFF3DF'},
+  quickActions: {flexDirection:'row',gap:0,padding:4,borderRadius:26,backgroundColor:'#FFF9F0F5',borderWidth:1,borderColor:'#FFFFFFDD',justifyContent:'center',shadowColor:'#50355F',shadowOpacity:.12,shadowRadius:12},
+  noteButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 20, borderRadius: 24, backgroundColor: '#EFE3F5'},
+  noteText: {fontSize: 12, fontWeight: '600', color: '#71567F'},
+  talkButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 15, borderRadius: 24, backgroundColor:'transparent'},
+  talkText: {fontSize: 12, color: '#71567F'},
   menuRow: { minHeight: 50, flexDirection: 'row', gap: 14, alignItems: 'center', paddingVertical: 10 },
   menuText: { flex: 1, fontSize: 14, color: '#4B3C52' },
   chatText: { fontSize: 17, lineHeight: 28, color: '#4B3C52', marginVertical: 18 },

@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 import { balanceStorage as AsyncStorage } from '@/utils/balanceStorage';
 import { claimGardenReward } from '@/utils/gardenReward';
 import { prepareItemPurchase } from '@/utils/itemPurchase';
+import { EMPTY_BOWLING, readBowlingState, prepareBowlingPlay, type BowlingInput, type BowlingState } from '@/utils/bowling';
 import { prepareRhythmReward } from '@/utils/rhythmReward';
 import { prepareDailyRecord } from '@/utils/dailyRecordTransaction';
 import { prepareChecklist, type ChecklistOperation } from '@/utils/checklistTransaction';
@@ -14,6 +15,8 @@ import { BADGE_DEFINITIONS } from '@/data/badges';
 import { getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
 import {
   FOOD_ITEMS,
+  canServeFood,
+  type FoodVenue,
   FP_PER_CHECKLIST_ITEM,
   FP_PER_FULL_DAY_BONUS,
   FP_PER_MOOD_RECORD,
@@ -161,6 +164,7 @@ export interface CompanionState {
 export const EGG_COMPANION_COST = COMPANION_PRICE;
 
 const KEYS = {
+  BOWLING: '@yoki/bowling_v1',
   PROGRESS: '@mentore/progress_v2',
   RECORDS: '@mentore/records_v2',
   CHECKED_STATE: '@mentore/checked_state_v2',
@@ -213,6 +217,8 @@ interface AppContextType {
   currentSatiety: number;
   inactivityHours: number;
   miniGameState: MiniGameState;
+  bowlingState: BowlingState;
+  playBowling: (id: string, input: BowlingInput) => Promise<ReturnType<typeof prepareBowlingPlay>['result']>;
   profile: UserProfile | null;
   homeCommentPreferences: HomeCommentPreferences;
   /** True once the post-login cloud pull has finished (safe to decide onboarding) */
@@ -233,7 +239,7 @@ interface AppContextType {
   getCompletedCount: () => number;
   getTotalCheckCount: () => number;
   setMascotName: (name: string) => Promise<void>;
-  feedMascot: (foodId: string) => Promise<{ success: boolean; message: string; newSatiety: number }>;
+  feedMascot: (foodId: string, venue?: FoodVenue) => Promise<{ success: boolean; message: string; newSatiety: number }>;
   completeMiniGame: (slot: GameSlot, reward: { fp: number; stars?: number }, playId: string) => Promise<number>;
   /** キャラクターのエネルギー(元気・光の力・チャージ量)の現在の状態 */
   lightEnergy: LightEnergyState;
@@ -303,7 +309,9 @@ const defaultCompanionState: CompanionState = { extraEggs: 0 };
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, getToken } = useAuth();
+  const { isSignedIn, getToken, user } = useAuth();
+  const bowlingOwner = useRef(user?.id ?? "guest");
+  bowlingOwner.current = user?.id ?? "guest";
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
   const signedInRef = useRef(isSignedIn);
@@ -319,6 +327,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [mascotName, setMascotNameState] = useState('');
   const [feedState, setFeedState] = useState<FeedState>(defaultFeedState);
   const [inactivityHours, setInactivityHours] = useState(0);
+  const [bowlingState, setBowlingState] = useState<BowlingState>(EMPTY_BOWLING);
   const [miniGameState, setMiniGameState] = useState<MiniGameState>(DEFAULT_MINI_GAME_STATE);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [homeCommentPreferences, setHomeCommentPreferences] =
@@ -723,7 +732,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loadAll = async () => {
     try {
       await AsyncStorage.recover();
-      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr, homeCommentPreferencesStr] =
+      const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr, homeCommentPreferencesStr, bowlingStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
           AsyncStorage.getItem(KEYS.RECORDS),
@@ -743,6 +752,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.ROOM_CUSTOMIZATION),
           AsyncStorage.getItem(KEYS.COMPANIONS),
           AsyncStorage.getItem(KEYS.HOME_COMMENT_PREFERENCES),
+          AsyncStorage.getItem(KEYS.BOWLING),
         ]);
 
       // ── サイズ成長: 保存値を読み、経過時間ぶんの成長を適用 ──
@@ -846,6 +856,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         feedStateRef.current = parsed;
         setFeedState(parsed);
       }
+      setBowlingState(readBowlingState(bowlingStr ? JSON.parse(bowlingStr) : null));
       setMiniGameState(resolveMiniGameState(miniGameStr ? JSON.parse(miniGameStr) : null));
       if (profileStr) {
         try { setProfile(JSON.parse(profileStr)); } catch { setProfile(null); }
@@ -946,9 +957,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [pushDataToCloud]);
 
   const feedMascot = useCallback(
-    async (foodId: string): Promise<{ success: boolean; message: string; newSatiety: number }> => {
+    async (foodId: string, venue: FoodVenue = 'home'): Promise<{ success: boolean; message: string; newSatiety: number }> => {
       const food = FOOD_ITEMS.find((f) => f.id === foodId);
-      if (!food) return { success: false, message: 'Unknown food', newSatiety: currentSatiety };
+      if (!food || !canServeFood(foodId, venue)) return { success: false, message: 'Unknown food', newSatiety: currentSatiety };
       // 残高チェック・減算は常に最新の ref を正とする(交換・報酬付与との競合対策)
       const result = await updateBalances(state => {
         const baseSatiety = computeCurrentSatiety(state.feed);
@@ -1090,6 +1101,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: saved.success, reason: saved.success ? undefined : 'not_enough' };
   }, [runRoomOperation]);
 
+  const playBowling = useCallback(async (id: string, input: BowlingInput) => {
+    if (isLoading || !cloudSynced || (isSignedIn && !user)) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      return prepareBowlingPlay(values, id, input, getTodayDate(), defaultFeedState);
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    setBowlingState(saved.state);
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (saved.newlyGranted) void pushDataToCloud();
+    return saved;
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
+
   const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp: number; stars?: number }, playId: string) => {
     const saved = await AsyncStorage.transaction(values => prepareRhythmReward(values, playId, slot, reward.fp, getTodayDate(), defaultFeedState, MAX_PLAYS_PER_SLOT));
     setMiniGameState(saved.game);
@@ -1129,6 +1154,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentSatiety,
         inactivityHours,
         miniGameState,
+        bowlingState,
+        playBowling,
         profile,
         homeCommentPreferences,
         cloudSynced,

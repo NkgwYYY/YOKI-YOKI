@@ -55,7 +55,7 @@ export const FOOD_ITEMS: FoodItem[] = [
     id: 'ramen',
     icon: 'coffee',
     name: 'ラーメン',
-    description: 'がっつりお腹いっぱい！',
+    description: 'お店で味わう、とっておきの一杯',
     cost: 60,
     satietyGain: 75,
     rarity: 'rare',
@@ -70,6 +70,15 @@ export const FOOD_ITEMS: FoodItem[] = [
     rarity: 'special',
   },
 ];
+
+export type FoodVenue = 'home' | 'ramen';
+/** Old rich-food records remain readable, but daily feeding offers simple snacks only. */
+export function foodsForVenue(venue: FoodVenue = 'home'): FoodItem[] {
+  return FOOD_ITEMS.filter(food => venue === 'ramen' ? food.id === 'ramen' : ['berry', 'apple', 'candy'].includes(food.id));
+}
+export function canServeFood(foodId: string, venue: FoodVenue = 'home'): boolean {
+  return foodsForVenue(venue).some(food => food.id === foodId);
+}
 
 // Feed points earned per action
 export const FP_PER_CHECKLIST_ITEM = 2;

@@ -21,6 +21,7 @@ import { AuthProvider, GuestAuthProvider, useAuth } from '@/contexts/AuthContext
 import { RecordPromptProvider } from '@/contexts/RecordPromptContext';
 import { ItemProvider } from '@/contexts/ItemContext';
 import { initAnalytics } from '@/utils/analytics';
+import { SceneTransitionProvider } from '@/components/world/useSceneTransition';
 import { StartupLoadingOverlay } from '@/components/StartupLoadingOverlay';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -80,7 +81,8 @@ function RootLayoutNav() {
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="guide" options={{ headerShown: false }} />
-        <Stack.Screen name="shop" options={{ headerShown: false }} />
+        <Stack.Screen name="shop" options={{ headerShown: false, animation: 'none' }} />
+        <Stack.Screen name="bowling" options={{ headerShown: false, animation: 'none' }} />
         <Stack.Screen name="monthly-report" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </>
@@ -92,8 +94,8 @@ function AppContent() {
     <AppProvider>
       <RecordPromptProvider><ItemProvider>
         <GestureHandlerRootView style={styles.root}>
-          <RootLayoutNav />
-          <StartupLoadingOverlay />
+          <SceneTransitionProvider><RootLayoutNav />
+          <StartupLoadingOverlay /></SceneTransitionProvider>
         </GestureHandlerRootView>
       </ItemProvider></RecordPromptProvider>
     </AppProvider>

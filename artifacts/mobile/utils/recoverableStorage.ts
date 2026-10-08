@@ -5,12 +5,15 @@ type Storage = {
 };
 export type StorageEntry = [string, string];
 
-/** Single-process write-ahead journal. After preparation, recovery rolls forward
+/** Write-ahead journal, shared across browser tabs when Web Locks are available.
+ * After preparation, recovery rolls forward
  * the exact saved values, never re-applies a points delta. The journal stays local. */
 export function createRecoverableStorage(storage: Storage, journalKey: string, allowedKeys: readonly string[]) {
   let tail: Promise<unknown> = Promise.resolve();
   const exclusive = <T>(work: () => Promise<T>): Promise<T> => {
-    const next = tail.then(work, work);
+    const locked = async (): Promise<T> => typeof navigator !== 'undefined' && navigator.locks?.request
+      ? await navigator.locks.request(journalKey, work) : await work();
+    const next = tail.then(locked, locked);
     tail = next.catch(() => {});
     return next;
   };

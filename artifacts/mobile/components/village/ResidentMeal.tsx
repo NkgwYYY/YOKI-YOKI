@@ -82,6 +82,14 @@ export function ResidentMeal({
       ],
     };
   });
+  if (food === 'ramen') return <View testID="world-food-offering" pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 10 }]}>
+    <View style={{ position: 'absolute', left: size * .64, top: size * .62 }}><RamenIcon size={size * .58} /></View>
+    <Animated.View testID="meal-morsel" style={[{ position: 'absolute', left: 0, top: 0 }, morsel]}>
+      <Svg width={size * .18} height={size * .2} viewBox="0 0 24 28">
+        <Path d="M4 2 Q12 8 7 14 T10 25 M10 2 Q18 8 13 14 T16 25 M16 2 Q24 8 19 14 T21 23" fill="none" stroke="#EEC76E" strokeWidth="2.3" strokeLinecap="round"/>
+      </Svg>
+    </Animated.View>
+  </View>;
   return (
     <View
       testID="world-food-offering"
