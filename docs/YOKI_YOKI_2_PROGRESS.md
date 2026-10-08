@@ -1,5 +1,17 @@
 # YOKI YOKI 2.0 — implementation progress
 
+## Latest: fancy village preview, 2026-10-08
+
+Code is saved in Replit main 8f82dd6 (702c000 feature + 0832548 image readiness + 8f82dd6 Web fixes). Backup: backup/yoki-before-fancy-20261008 at 3755a0d. Do not reset to an older handoff.
+
+- Short dark scene transitions replace walking delays at destination/shop entrances; nearby backgrounds prefetch and repeated trips are locked.
+- Mofumofu Ramen is available from the market and map at level 1. Existing ramen price 60 points / satiety +75 and feeding transaction are preserved. Entry is free.
+- Nine pastel toy/storybook backgrounds; prompts and paths in artifacts/mobile/assets/images/world/README.md. Residents use only egg, odango/mofumofu, stage3/happa and stage4/colorful happa.
+- React Native Web prefetch resolves void on success. World and startup readiness now accept this; false/rejection still fails. Web scenery uses overflow:clip to prevent modal focus restoration scrolling the fixed HUD.
+- Initial local validation: 452 tests, TypeScript, Web/iOS/Android JS/assets export passed. Replit isolation: 307 tests passed, zero failed, one real-native-build verification skipped. After final fixes both TypeScript checks passed and eight local startup/world-image regression cases passed.
+- Actual Replit standalone and 375px Preview: home/market/ramen travel, menu opening/closing, map travel, shop entry/return verified. After repeat travel the scenery scrollLeft and scrollTop remain zero. Level-locked areas and real purchase/meal transactions were not exercised. The existing general shop shows an offline cached catalogue; reconnecting its exchange service remains to be checked. No user points or growth state were changed.
+- No GitHub remote write, production republish or DB push. Preserve existing dependency security fixes, reminder persistence and native build launcher. Refresh Preview to see the result.
+
 ## Resume checkpoint
 - Started: 2026-09-28; source main: `f99bf9ff3d2a9887ec88afc1321209402a2a6278` (2026-09-22 23:08:02 UTC).
 - Working branch: `codex/yoki-yoki-2-room`. Never force-push or replace main.
