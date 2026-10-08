@@ -12,7 +12,8 @@ import type { WorldPeriod } from '@/utils/worldTime';
 import {isMapGround,mapGroundPoint,mapStart,type WorldMapId} from '@/utils/worldMaps';
 import type {PinchGesture} from 'react-native-gesture-handler';
 import {rollStep} from '@/utils/residentPhysics';
-import {VolumeEgg} from './VolumeEgg';
+import {VolumeResident,hasResidentVolume} from './VolumeResident';
+import {residentSoftScale,residentWalkYaw} from '@/utils/evolvedVolume';
 import { useWorldResident } from './useWorldResident';
 
 type Props = {
@@ -46,6 +47,7 @@ export function WorldResident(p: Props) {
   const latest = useRef(p); latest.current = p;
   const taps = useRef({at: 0, count: 0});
   const reaction = useRef(p.reaction);
+  const volumetric=hasResidentVolume(stage);
   const size = width * 0.135 * Math.max(0.9, Math.min(1.12, p.growthSize));
   useEffect(()=>{const at=mapStart(map);cancelAnimation(x);cancelAnimation(y);rolling.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);x.value=at.x;y.value=at.y;holding.value=0;setInteracting(false);},[map]);
   const pose = useWorldResident({...p, x, y, walking, interacting});
@@ -91,6 +93,15 @@ export function WorldResident(p: Props) {
     if (!reduceMotion) jelly.value = withSequence(withTiming(0.7, {duration: 90}), withSpring(0, SOFT));
   }, [p.reaction, active, interacting, reduceMotion, jelly]);
 
+  useAnimatedReaction(()=>({x:x.value,y:y.value,walking:walking.value}), (now,previous)=>{
+    if(!previous||!now.walking||holding.value||rolling.value||reduceMotion)return;
+    const dx=now.x-previous.x,dy=now.y-previous.y;
+    if(Math.hypot(dx,dy)<.00001)return;
+    const target=residentWalkYaw(dx,dy,height/width);
+    // Choose the equivalent closest angle, so crossing +/-pi never spins around.
+    const delta=Math.atan2(Math.sin(target-ry.value),Math.cos(target-ry.value));
+    ry.value=withTiming(ry.value+delta,{duration:160});
+  });
   const settleRotation=()=>{
     'worklet';
     rx.value=withSpring(Math.round(rx.value/(Math.PI*2))*Math.PI*2,{damping:16,stiffness:100});
@@ -117,8 +128,9 @@ export function WorldResident(p: Props) {
       return;
     }
     const next=rollStep({x:x.value,y:y.value,vx:vx.value,vy:vy.value,hit:false},dt,height/width,map);
-    const radius=size*.33/width;
-    rz.value+=(next.x-x.value)/radius;
+    const radius=size*(stage==='odango'?.45:.33)/width;
+    if(stage==='odango')ry.value+=(next.x-x.value)/radius;
+    else rz.value+=(next.x-x.value)/radius;
     rx.value-=(next.y-y.value)*(height/width)/radius;
     x.value=next.x;y.value=next.y;vx.value=next.vx;vy.value=next.vy;rollAge.value+=dt;
     if(next.hit)jelly.value=withSequence(withTiming(.7,{duration:60}),withSpring(0,SOFT));
@@ -245,11 +257,12 @@ export function WorldResident(p: Props) {
   });
   const body = useAnimatedStyle(() => {
     const step = walking.value ? Math.sin(gait.value) : 0;
-    const sy = 1 - jelly.value * 0.17 - breath.value * 0.014;
+    const soft=residentSoftScale(jelly.value,breath.value);
+    const sy = stage==='egg'?1-jelly.value*.17-breath.value*.014:soft.y;
     return {transform: [
       {translateY: lift.value + (1 - sy) * size * 0.42 - Math.abs(step) * size * 0.021},
-      {rotate: `${lean.value + step * 2.2 + (stage==='egg'?0:rz.value*180/Math.PI)}deg`},
-      {scaleX: 1 + jelly.value * 0.14 + breath.value * 0.011}, {scaleY: sy},
+      {rotate: `${lean.value + step * 2.2 + (volumetric?0:rz.value*180/Math.PI)}deg`},
+      {scaleX: stage==='egg'?1+jelly.value*.14+breath.value*.011:soft.x}, {scaleY: sy},
     ]};
   });
   const shadow = useAnimatedStyle(() => {
@@ -286,8 +299,8 @@ export function WorldResident(p: Props) {
       <Animated.View pointerEvents="none" style={perspective}>
         <Animated.View testID="resident-body" style={body}>
           {p.effect && <Image source={{uri: p.effect.uri}} resizeMode="contain" style={{position: 'absolute', width: size * p.effect.scale * 1.3, height: size * p.effect.scale * 1.3, left: -size * 0.15 + p.effect.x, top: -size * 0.15 + p.effect.y}}/>}
-          {p.stage==='egg'?<VolumeEgg size={size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
-          {p.stage!=='egg'&&<View style={[StyleSheet.absoluteFill, {opacity: p.period === 'night' ? 0.18 : 0.13}]}>
+          {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
+          {!volumetric&&<View style={[StyleSheet.absoluteFill, {opacity: p.period === 'night' ? 0.18 : 0.13}]}>
             <StaticMascot stage={p.stage} mood={mood} size={size} tintColor={p.period === 'night' ? '#717CAB' : '#DFB878'}/>
           </View>}
           {p.wear && <Image source={{uri: p.wear.uri}} resizeMode="contain" style={{position: 'absolute', ...roomWearableFrame(p.wear.id, getCharacter(p.stage).key, size, p.wear)}}/>}
