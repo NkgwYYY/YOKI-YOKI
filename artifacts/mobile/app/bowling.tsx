@@ -192,7 +192,7 @@ export default function BowlingScreen() {
       <GestureDetector gesture={gesture}>
         <View
           testID="bowling-play-area"
-          style={s.stage}
+          style={[s.stage, { height: Math.max(220, window.height - insets.top - Math.max(14, insets.bottom) - 310) }]}
           onLayout={(e) => setBounds(e.nativeEvent.layout)}
         >
           {bounds.width > 0 && (
@@ -316,7 +316,7 @@ const s = StyleSheet.create({
     marginVertical: 10,
   },
   stage: {
-    flex: 1,
+    flexShrink: 0,
     minHeight: 180,
     width: "100%",
     maxWidth: 680,
