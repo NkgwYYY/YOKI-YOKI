@@ -60,10 +60,10 @@ export function RamenServing({
       useNativeDriver: Platform.OS !== "web",
     });
     animation.start(({ finished: ended }) => {
-      if (ended) finish();
+      if (ended && !preview) finish();
     });
     return () => animation.stop();
-  }, [active, ready, failed, reduceMotion, progress, finish]);
+  }, [active, ready, failed, reduceMotion, preview, progress, finish]);
   const bowlStyle = reduceMotion
     ? {}
     : {
