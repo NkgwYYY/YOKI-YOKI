@@ -38,6 +38,7 @@ export default function HomeScreen() {
   const { progress, growth, mascotName, setMascotName, roomCustomization, companionState,
     getTodayRecord, getCompletedCount, getTotalCheckCount, homeCommentPreferences } = useApp();
   const { items, shopState } = useItems();
+  const [sceneBusy,setSceneBusy]=useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [hints, setHints] = useState(false);
   const [name, setName] = useState('');
@@ -54,7 +55,7 @@ export default function HomeScreen() {
   const nameSession = useRef(0);
   const today = getTodayRecord();
   const prompt = useRecordPrompt();
-  const invitation = active && !sheet && prompt.ready && isRecordPromptDue(prompt.settings, prompt.now, !!today);
+  const invitation = active && !sheet && !sceneBusy && prompt.ready && isRecordPromptDue(prompt.settings, prompt.now, !!today);
   const soundRef = useRef<Audio.Sound | null>(null);
   const soundGeneration = useRef(0);
   const close = () => { nameSession.current++; setSheet(null); };
@@ -112,17 +113,18 @@ export default function HomeScreen() {
     greet: 'あ、きてくれた。うれしいな。', pet: 'なでなで、きもちいい。',
     space: 'くすぐったいよ。ゆっくりで大丈夫。', held: 'ふわっ。そっと、抱っこしてね。', land: 'ぽふっ。ただいま。', roll:'ころころ。ちょっと、ひなたぼっこ。',
   }[kind]);
+  const openFeed=()=>{if(food){say('いま、おやつを食べているところだよ。');return;}setSheet('feed');};
   const restTogether = () => {setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <WorldHome careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onGarden={()=>router.push('/(tabs)/plant')} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
       resting={!!today && today.mood <= 2} reaction={reaction} meal={meal} rest={rest} hints={hints} companion={companionState.extraEggs > 0}
       totalDays={progress.totalDays} wear={equipment('wear')} effect={equipment('effect')} decor={equipment('decor')}
       background={background?.assetUrl ? resolveItemAssetUrl(background.assetUrl) : undefined}
-      onRecord={() => setSheet('record')} onFeed={() => setSheet('feed')}
+      onRecord={() => setSheet('record')} onFeed={openFeed}
       onChat={chat} onRest={restTogether} onAlbum={() => router.push('/(tabs)/growth')} />
     <View pointerEvents="box-none" style={[s.header, {top: insets.top + (compact ? 6 : 16)}]}>
       <View pointerEvents="none"><Text style={s.brand}>YOKI YOKI</Text><Text style={s.subtitle}>{time.dateLabel}　{time.label}</Text></View>
@@ -155,7 +157,7 @@ export default function HomeScreen() {
     {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
       {menuRow('edit-3', '今日を記録する', () => setSheet('record'))}
       {menuRow('message-circle', 'この子とお話しする', chat)}
-      {menuRow('coffee', 'ごはんの時間', () => setSheet('feed'))}
+      {menuRow('coffee', 'ごはんの時間', openFeed)}
       {menuRow('heart', 'そっと、なでる', () => { setReaction(n => n + 1); interact('pet'); close(); })}
       {menuRow('moon', 'ベッドで一緒に休む', () => { restTogether(); close(); })}
       {menuRow('shopping-bag', '暮らしのお店', () => { close(); router.push('/shop'); })}

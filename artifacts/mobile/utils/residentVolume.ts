@@ -26,7 +26,8 @@ function hull(points:Point3[]) {
   lower.pop();upper.pop();return lower.concat(upper);
 }
 function path(points:Point3[],closed=true) {'worklet';return points.map((p,i)=>`${i?'L':'M'}${(50+p.x).toFixed(2)} ${(50+p.y).toFixed(2)}`).join(' ')+(closed?' Z':'');}
-export function projectEgg(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false) {
+const FRONT_BODY=path(hull(MODEL));
+export function projectEgg(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0) {
   'worklet';
   const rot=(p:Point3)=>{'worklet';return rotatePoint(p,rx,ry,rz);};
   const patch=(x:number,y:number,wx:number,hy:number)=>{
@@ -42,12 +43,12 @@ export function projectEgg(rx:number,ry:number,rz:number,blink=0,happy=false,sle
   const mouth:number[][]=[];
   for(let i=0;i<=12;i++){const x=-7+i*14/12;mouth.push([x,17+(happy?1:-1)*(1-(x/7)**2)*2.7]);}
   return {
-    body:path(hull(MODEL.map(rot))),
+    body:rx===0&&ry===0&&rz===0?FRONT_BODY:path(hull(MODEL.map(rot))),
     leftSocket:patch(-10,6,5.5,6),rightSocket:patch(10,6,5.5,6),
     leftEye:patch(-10,6,4,Math.max(.55,4.5*(1-shut))),rightEye:patch(10,6,4,Math.max(.55,4.5*(1-shut))),
     leftShine:shut>.5?'':patch(-8.7,4.3,1,1.1),rightShine:shut>.5?'':patch(11.3,4.3,1,1.1),
-    leftCheek:patch(-17,13,6.3,3.6),rightCheek:patch(17,13,6.3,3.6),
-    mouth:line(mouth),crack:line([[-4,-32],[-6,-26],[-2,-23],[-5,-17]]),
+    leftCheek:patch(-17,13,6.3+chew*1.7,3.6+chew),rightCheek:patch(17,13,6.3+chew*1.7,3.6+chew),
+    mouth:line(mouth),openMouth:mouthOpen>.02?patch(0,17,3.5+mouthOpen*2,1+mouthOpen*4):'',crack:line([[-4,-32],[-6,-26],[-2,-23],[-5,-17]]),
     facing:rot({x:0,y:0,z:1}).z,
   };
 }

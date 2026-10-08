@@ -13,3 +13,14 @@ Created with the built-in image generation tool, using `home-day.jpg` as the sty
 | `light-garden.jpg` | Light garden presentation | Blue-hour stone-and-moss terrace, distant lavender mountains and softly lit greenhouse, natural luminous flowers and brass lanterns at edges; empty center reserved for separately rendered character, glass reservoir and cord. Cozy painterly 3D materials, no baked character/tank/text/UI. |
 
 Map bounds are derived from the actual dry/clear parts of these images (`utils/worldMaps.ts`). The outdoor scenes are dusk-tinted at night, not independent night paintings. Map unlocks only read the existing level; travel creates no rewards. The garden's liquid always reads stored energy, not decorative state.
+
+## Connected village life — 2026-10-08
+
+Four original 1024×1536 backgrounds generated with the built-in image tool using `home-day.jpg` solely as the material/light/style reference. Saved as JPEG quality 90 (encoding only). Prompts requested warm elevated 35-degree woodland dioramas, lavender fabrics, honey timber, mossy stone, broad unobstructed foreground ground; no characters/UI/text.
+
+- `village-market.jpg`: upper left/right market stalls, berries, ceramics, scarves and lamps; open foreground plaza.
+- `village-onsen.jpg`: upper-middle mineral pool, rock rim, waterfall and lavender-curtain bathhouse; dry foreground courtyard. The runtime bather/waterline is anchored to this actual pool.
+- `village-neighbors.jpg`: three timber cottages around a grassy plaza, clear central paths. NPC residents render separately.
+- `village-lake.jpg`: distant lake and an empty timber promenade; no baked wheel. The brass/wood SVG wheel and upright moving gondolas render separately.
+
+This is layered illustrated scenery with a volumetric egg and interactive objects, not a fully navigable 3D terrain renderer. Bounds, connected paths and level requirements are in `worldMaps.ts` / `villageLife.ts`. No map or activity awards currency or modifies care records.

@@ -5,6 +5,7 @@ import { WORLD_PLACES, WORLD_TRAIL, worldActivity, worldWalkDuration, worldWalki
 import type { RoomPoint } from '@/utils/roomGeometry';
 import type { WorldPeriod } from '@/utils/worldTime';
 
+import {MEAL_DURATION} from '@/utils/residentMeal';
 import {mapRoute,type WorldMapId} from '@/utils/worldMaps';
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
   active: boolean; interacting: boolean; reduceMotion: boolean; resting: boolean;
   meal: number; rest: number; period: WorldPeriod; daySeed: number;
   x: SharedValue<number>; y: SharedValue<number>; walking: SharedValue<number>;
-  destination: WorldDestination | null; onMealFinished?: () => void;
+  destination: WorldDestination | null; onMealFinished?: () => void; onDestinationReached?:(id:number)=>void;
 };
 
 /** Presentation only: one completion callback, no wallet or persistence writes. */
@@ -21,6 +22,7 @@ export function useWorldResident(p: Props) {
   const handled = useRef({meal: 0, rest: 0, destination: 0});
   const turn = useRef(0);
   const complete = useRef(p.onMealFinished); complete.current = p.onMealFinished;
+  const arrived=useRef(p.onDestinationReached);arrived.current=p.onDestinationReached;
   const {map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination} = p;
   useEffect(()=>{if(map!=='home')handled.current.rest=rest;setPose('idle');},[map]);
   useEffect(() => {
@@ -60,8 +62,7 @@ export function useWorldResident(p: Props) {
       const restPending = rest > handled.current.rest;
       if(map!=='home'&&(mealPending||restPending))return; // HOME owns furniture requests.
       if (!mealPending && !restPending && destination && destination.id > handled.current.destination) {
-        handled.current.destination = destination.id;
-        walk(destination.point, () => {setPose('idle'); later(run, 18000);});
+        walk(destination.point, () => {handled.current.destination=destination.id;setPose('idle'); arrived.current?.(destination.id); later(run, 18000);});
         return;
       }
       if (reduceMotion && !mealPending && !restPending && !resting) {setPose('idle'); return;}
@@ -79,7 +80,7 @@ export function useWorldResident(p: Props) {
           if (activity === 'bed' && !stroll) handled.current.rest = rest;
           turn.current++;
           later(run, 10000);
-        }, activity === 'meal' ? 3400 : 12000);
+        }, activity === 'meal' ? MEAL_DURATION : 12000);
       };
       // Existing reduced-motion meal/rest alternative: expression, no unsolicited travel.
       if (reduceMotion) finish(); else walk(target, finish);
