@@ -1,0 +1,633 @@
+diff --git a/artifacts/mobile/app/(tabs)/index.tsx b/artifacts/mobile/app/(tabs)/index.tsx
+index 245962e..2fd32e8 100644
+--- a/artifacts/mobile/app/(tabs)/index.tsx
++++ b/artifacts/mobile/app/(tabs)/index.tsx
+@@ -1,6 +1,6 @@
+ import React, { useEffect, useRef, useState } from 'react';
+ import { Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+-import { useRouter } from 'expo-router';
++import { useRouter,useLocalSearchParams } from 'expo-router';
+ import { useSafeAreaInsets } from 'react-native-safe-area-context';
+ import AsyncStorage from '@react-native-async-storage/async-storage';
+ import { Audio } from 'expo-av';
+@@ -30,6 +30,7 @@ const HINT_KEY = '@yoki/world_hints_v3';
+ type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | null;
+ export default function HomeScreen() {
+   const router = useRouter();
++  const {place}=useLocalSearchParams<{place?:string}>();
+   const insets = useSafeAreaInsets();
+   const window = useWindowDimensions();
+   const compact = window.height < 600;
+@@ -121,7 +122,7 @@ export default function HomeScreen() {
+   const restTogether = () => {setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
+   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
+   return <View style={s.root}>
+-    <WorldHome careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onGarden={()=>router.push('/(tabs)/plant')} onBowling={()=>router.push('/bowling')} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
++    <WorldHome careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
+       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
+       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
+diff --git a/artifacts/mobile/components/world/WorldBowling.tsx b/artifacts/mobile/components/world/WorldBowling.tsx
+new file mode 100644
+index 0000000..9465617
+--- /dev/null
++++ b/artifacts/mobile/components/world/WorldBowling.tsx
+@@ -0,0 +1,49 @@
++import React from 'react';
++import {StyleSheet,View} from 'react-native';
++import Svg,{Defs,LinearGradient,Stop,Rect,Path,Ellipse,G,Text as SvgText} from 'react-native-svg';
++import Animated,{useAnimatedStyle} from 'react-native-reanimated';
++import type {WorldBowlingMotion} from './useWorldBowling';
++
++/** A room in the normal world, using the home's scene frame and camera. */
++export function BowlingRoomArt(){
++  return <Svg width="100%" height="100%" viewBox="0 0 1000 1500" preserveAspectRatio="none">
++    <Defs>
++      <LinearGradient id="bowlingWall" x2="0" y2="1"><Stop stopColor="#E7D8DF"/><Stop offset="1" stopColor="#B7BECA"/></LinearGradient>
++      <LinearGradient id="bowlingFloor" x2=".2" y2="1"><Stop stopColor="#CDAF92"/><Stop offset="1" stopColor="#ECD4B4"/></LinearGradient>
++      <LinearGradient id="bowlingWood" x2="1" y2="0"><Stop stopColor="#D5AD79"/><Stop offset=".5" stopColor="#F3D5A3"/><Stop offset="1" stopColor="#C99967"/></LinearGradient>
++    </Defs>
++    <Rect width="1000" height="1500" fill="#ADBDB2"/>
++    <Ellipse cx="502" cy="1260" rx="450" ry="106" fill="#718C7C" opacity=".35"/>
++    <Path d="M100 530 L245 230 L802 230 L920 545 L920 1160 Q900 1260 800 1290 L190 1290 Q80 1260 80 1160Z" fill="#7E8E86"/>
++    <Path d="M100 545 L235 260 L790 260 L900 545 L875 890 L110 890Z" fill="url(#bowlingWall)" stroke="#FAF0E4" strokeWidth="20"/>
++    <Path d="M100 605 L900 605 L908 1190 Q870 1260 810 1260 L180 1260 Q100 1240 92 1190Z" fill="url(#bowlingFloor)" stroke="#F4E1C8" strokeWidth="18"/>
++    {Array.from({length:12},(_,i)=><Path key={i} d={`M${110+i*65} 608 L${90+i*70} 1248`} stroke="#AD8F73" strokeWidth="2" opacity=".32"/>)}
++    <Rect x="317" y="367" width="366" height="111" rx="38" fill="#826B85" stroke="#FCE1AF" strokeWidth="7"/>
++    <SvgText x="500" y="436" textAnchor="middle" fill="#FFF4D8" fontSize="39" fontWeight="600">KORO KORO</SvgText>
++    <Path d="M340 655 L660 655 L724 1122 Q500 1160 276 1122Z" fill="#746A7F"/>
++    <Path d="M367 659 L633 659 L685 1112 Q500 1142 315 1112Z" fill="url(#bowlingWood)" stroke="#FBE3BE" strokeWidth="5"/>
++    {Array.from({length:7},(_,i)=><Path key={i} d={`M${381+i*39} 662 L${335+i*55} 1113`} stroke="#B58C63" strokeWidth="1.5" opacity=".65"/>)}
++    <Path d="M337 998 Q500 1014 663 998" stroke="#8C7185" strokeWidth="5" fill="none"/>
++    {[440,470,500,530,560].map((x,i)=><Path key={x} d={`M${x-5} ${916-Math.abs(i-2)*8} l5 -10 l5 10Z`} fill="#A58975"/>)}
++    <G fill="#9A869D" stroke="#EBDDDF" strokeWidth="6">
++      <Rect x="152" y="816" width="93" height="240" rx="28"/><Rect x="763" y="816" width="93" height="240" rx="28"/>
++    </G>
++    {[206,794].map(x=><G key={x}><Path d={`M${x-32} 572 L${x+32} 572 L${x+25} 660 L${x-25} 660Z`} fill="#DAB99C"/><Ellipse cx={x} cy="557" rx="45" ry="66" fill="#88A78D"/><Ellipse cx={x-22} cy="546" rx="27" ry="37" fill="#A8B9A0"/></G>)}
++    {[290,710].map(x=><G key={x}><Path d={`M${x} 260 V326`} stroke="#9C827E" strokeWidth="5"/><Ellipse cx={x} cy="336" rx="47" ry="17" fill="#F7E1B7"/><Ellipse cx={x} cy="341" rx="27" ry="8" fill="#FFF4D8"/></G>)}
++    <Ellipse cx="500" cy="1211" rx="104" ry="22" fill="#B79583" opacity=".38"/>
++  </Svg>;
++}
++function WorldPin({motion,id,width,height}:{motion:WorldBowlingMotion;id:number;width:number;height:number}){
++  const size=width*.045;
++  const style=useAnimatedStyle(()=>{
++    const pin=motion.frames.value[Math.min(motion.index.value,motion.frames.value.length-1)]?.pins[id];
++    if(!pin)return {opacity:0};
++    return {zIndex:Math.round(pin.y*1000),transform:[{translateX:pin.x*width-size/2},{translateY:pin.y*height-size*1.7},{rotate:`${pin.rotation*(id%2?-1:1)}deg`}]};
++  });
++  return <Animated.View testID={`world-bowling-pin-${id}`} pointerEvents="none" style={[{position:'absolute',width:size,height:size*1.9},style]}>
++    <Svg width="100%" height="100%" viewBox="0 0 40 76"><Ellipse cx="22" cy="70" rx="17" ry="5" fill="#7E6A69" opacity=".25"/><Path d="M15 8 Q10 15 15 27 C19 37 5 42 6 59 Q6 68 20 68 Q34 68 34 59 C35 42 21 37 25 27 Q31 15 25 8Z" fill="#FFFAEB" stroke="#BDABAF" strokeWidth="1.5"/><Path d="M15 26 H25 M15 31 H25" stroke="#C97F96" strokeWidth="4"/><Path d="M12 47 Q9 58 13 62" stroke="#FFF" strokeWidth="3" fill="none"/></Svg>
++  </Animated.View>;
++}
++export function WorldBowlingPins({motion,width,height}:{motion:WorldBowlingMotion;width:number;height:number}){
++  return <>{Array.from({length:10},(_,id)=><WorldPin key={id} id={id} motion={motion} width={width} height={height}/>)}</>;
++}
+diff --git a/artifacts/mobile/components/world/WorldHome.tsx b/artifacts/mobile/components/world/WorldHome.tsx
+index ddb8b1f..4adab0b 100644
+--- a/artifacts/mobile/components/world/WorldHome.tsx
++++ b/artifacts/mobile/components/world/WorldHome.tsx
+@@ -27,10 +27,12 @@ import { WorldPill, worldUI } from './WorldPill';
+ import { Icon } from '@/components/ui/Icon';
+ import { RamenArt } from '@/components/village/RamenArt';
+ import { useSceneTransition } from './useSceneTransition';
++import {BowlingRoomArt,WorldBowlingPins} from './WorldBowling';
++import {useWorldBowling} from './useWorldBowling';
+ export { HOME_ART } from '@/utils/worldArt';
+ type VillageAction={kind:'portal';map:WorldMapId}|{kind:'bath'|'wheel'|'shop'|'feed'|'ramen-meal'}|{kind:'neighbor';id:VillagerId};
+ type Props = {
+-  careInvitation:boolean;onSceneBusy:(busy:boolean)=>void;onShop:()=>void;onGarden:()=>void;onBowling:()=>void;
++  careInvitation:boolean;onSceneBusy:(busy:boolean)=>void;onShop:()=>void;onGarden:()=>void;initialMap?:WorldMapId;
+   level: number; customization: RoomCustomization; stage: MascotStage; growthSize: number; mascotName: string;
+   active: boolean; reduceMotion: boolean; resting: boolean; reaction: number; meal: number; rest: number;
+   hints: boolean; companion: boolean; totalDays: number; period: WorldPeriod; daySeed: number; food: string | null;
+@@ -41,7 +43,7 @@ type Props = {
+ 
+ export function WorldHome(props: Props) {
+   const {reduceMotion} = props;
+-  const [map,setMap]=useState<WorldMapId>('home');
++  const [map,setMap]=useState<WorldMapId>(props.initialMap??'home');
+   const [mapOpen,setMapOpen]=useState(false);
+   const [placesOpen,setPlacesOpen]=useState(false),[viewOpen,setViewOpen]=useState(false);
+   const [experience,setExperience]=useState<VillageExperience|null>(null);
+@@ -51,6 +53,7 @@ export function WorldHome(props: Props) {
+   const [mapMessage,setMapMessage]=useState('');
+   const transition=useSceneTransition(reduceMotion,()=>setMapMessage('景色を読み込めませんでした。もう一度、行き先を選んでね。'));
+   const active=props.active&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!transition.busy;
++  const bowling=useWorldBowling(map,active);
+   const footX=useSharedValue(.5);
+   const steering=useSharedValue({x:0,y:0});
+   useEffect(()=>{props.onSceneBusy(!!experience||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy);return()=>props.onSceneBusy(false);},[experience,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,props.onSceneBusy]);
+@@ -76,7 +79,7 @@ export function WorldHome(props: Props) {
+   }, [height, viewportHeight, frameTop, reduceMotion, active]);
+ 
+   const walkTo = (point: {x: number; y: number}) => {
+-    if (active&&!props.food&&!experience) {pending.current=null;setDestination({id:++destinationId.current,point:mapGroundPoint(map,point)});}
++    if (active&&!props.food&&!experience&&!bowling.busy) {pending.current=null;setDestination({id:++destinationId.current,point:mapGroundPoint(map,point)});}
+   };
+   const enterMap=(target:WorldMapId,fromMap=false)=>{
+     if(!props.active||neighbor||transition.busy||(!fromMap&&(mapOpen||placesOpen||viewOpen))||props.food||experience)return;
+@@ -111,7 +114,7 @@ export function WorldHome(props: Props) {
+     const point = {x: x / width, y: y / height};
+     if (isMapGround(map,point)) walkTo(point);
+   };
+-  const groundGesture = Gesture.Tap().enabled(active&&!props.food&&!experience).simultaneousWithExternalGesture(view.pinch).maxDuration(250).maxDistance(10).onEnd((event, success) => {
++  const groundGesture = Gesture.Tap().enabled(active&&!props.food&&!experience&&!bowling.busy).simultaneousWithExternalGesture(view.pinch).maxDuration(250).maxDistance(10).onEnd((event, success) => {
+     if (success) runOnJS(groundTap)(event.x, event.y);
+   });
+   const night = props.period === 'night';
+@@ -126,9 +129,9 @@ export function WorldHome(props: Props) {
+   const facility=(id:string,label:string,point:{x:number;y:number},action:VillageAction)=><Pressable key={id} testID={`village-${id}`} accessibilityRole="button" accessibilityLabel={label} disabled={!active||!!props.food||!!experience} onPress={()=>request(point,action)} style={[s.facility,{left:point.x*width-60,top:point.y*height-30}]}><Text style={s.facilityText}>{label}</Text></Pressable>;
+   const speaker=VILLAGERS.find(n=>n.id===neighbor);
+   return <View style={s.root} testID="room-scene" onLayout={e => setBounds(e.nativeEvent.layout)}>
+-    <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="cover" blurRadius={18} style={[s.art, {opacity: 0.8}]} /></View>
++    <View pointerEvents="none" style={StyleSheet.absoluteFill}>{map==='bowling'?<View style={[StyleSheet.absoluteFill,{backgroundColor:'#A8B9AC'}]}/>:<Image source={source} resizeMode="cover" blurRadius={18} style={[s.art, {opacity: 0.8}]} />}</View>
+     {width > 0 && <GestureDetector gesture={view.gesture}><View style={StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, view.style]}>
+-      <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="stretch" style={s.art} accessible={false} /></View>
++      <View pointerEvents="none" style={StyleSheet.absoluteFill}>{map==='bowling'?<BowlingRoomArt/>:<Image source={source} resizeMode="stretch" style={s.art} accessible={false} />}</View>
+       {map!=='home'&&night&&<View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#182C4B66'}]}/>}
+       {props.period === 'dusk' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: '#B5646028'}]} />}
+       <GestureDetector gesture={groundGesture}><View testID="world-ground" accessible={false} style={StyleSheet.absoluteFill}/></GestureDetector>
+@@ -151,15 +154,17 @@ export function WorldHome(props: Props) {
+       {map==='village'&&<VillageNeighbors width={width} height={height} active={active&&!experience} reduceMotion={reduceMotion} onTalk={id=>{const n=VILLAGERS.find(p=>p.id===id)!;request({x:n.x+.06,y:n.y+.035},{kind:'neighbor',id});}}/>}
+       {map==='market'&&<View pointerEvents="none" style={{position:'absolute',left:width*.20,top:height*.36,width:width*.105,zIndex:455}}><VillageResident stage="stage3" size={width*.105} active={active} reduceMotion={reduceMotion} scarf="#BEA2C6"/></View>}
+       {map==='ramen'&&<View pointerEvents="none" style={{position:'absolute',left:width*.42,top:height*.285,width:width*.18,zIndex:440}}><VillageResident stage="odango" size={width*.18} active={active} reduceMotion={reduceMotion} scarf="#DCA5B4"/></View>}
+-      <WorldResident {...props} footX={footX} steering={steering} experience={experience} onPortal={enterMap} onDestinationReached={arrive} active={active} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
++      {map==='bowling'&&<WorldBowlingPins motion={bowling.motion} width={width} height={height}/>}
++      <WorldResident {...props} bowling={bowling.motion} bowlingBusy={bowling.busy} onBowlingRoll={input=>{pending.current=null;setDestination(null);steering.value={x:0,y:0};void bowling.roll(input);}} onBowlingFinished={bowling.finish} footX={footX} steering={steering} experience={experience} onPortal={enterMap} onDestinationReached={arrive} active={active} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
+       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
+     </Animated.View></View></GestureDetector>}
+     <LinearGradient pointerEvents="none" colors={['#15262A75', 'transparent']} style={s.topShade} />
+     <LinearGradient pointerEvents="none" colors={['transparent', '#192D2CB8']} style={s.bottomShade} />
+     <View style={[s.toolbar,{top:insets.top+126}]} pointerEvents="box-none">
+-      <WorldPill testID="world-map-open" icon="map" label={WORLD_MAPS.find(p=>p.id===map)!.name} accessibilityLabel="世界の地図を開く" disabled={!active} onPress={()=>{steering.value={x:0,y:0};setMapOpen(true);}} style={{maxWidth:260}} />
+-      <WorldPill compact icon="sliders" label="景色の見かた" disabled={!active} onPress={()=>setViewOpen(true)} />
++      <WorldPill testID="world-map-open" icon="map" label={WORLD_MAPS.find(p=>p.id===map)!.name} accessibilityLabel="世界の地図を開く" disabled={!active||bowling.busy} onPress={()=>{steering.value={x:0,y:0};setMapOpen(true);}} style={{maxWidth:260}} />
++      <WorldPill compact icon="sliders" label="景色の見かた" disabled={!active||bowling.busy} onPress={()=>setViewOpen(true)} />
+     </View>
++    {map==='bowling'&&<View pointerEvents="none" testID="world-bowling-status" style={[s.bowlingStatus,{top:insets.top+182}]}><Text accessibilityLiveRegion="polite" style={s.mapCopy}>{bowling.message}</Text></View>}
+     {!experience&&['market','ramen','onsen','lake'].includes(map)&&<View style={[s.placeAction,{bottom:bounds.height<600?172:236}]}>
+       <WorldPill testID={map==='ramen'?'village-ramen-menu':map==='market'?'village-market-menu':map==='onsen'?'village-bath':'village-ride'} primary
+         label={map==='market'?'お店をのぞく':map==='ramen'?'ラーメンを注文':map==='onsen'?'温泉に入る':'観覧車に乗る'}
+@@ -175,26 +180,26 @@ export function WorldHome(props: Props) {
+       <WorldPill testID="village-shop" label="暮らしのお店" icon="shopping-bag" onPress={()=>{setPlacesOpen(false);void transition.run('暮らしのお店',props.onShop);}}/>
+       <WorldPill testID="village-food-stall" label="ごはんのお店" icon="heart" onPress={()=>{setPlacesOpen(false);void transition.run('ごはんのお店',()=>props.onFeed());}}/>
+       <Pressable testID="village-portal-ramen" accessibilityRole="button" accessibilityLabel="もふもふラーメンへの道" onPress={()=>enterMap('ramen',true)} style={s.mapRow}><RamenArt size={68}/><View style={{flex:1,gap:5}}><Text style={s.mapName}>もふもふラーメン</Text><Text style={s.mapCopy}>お店で食べる、とっておきの一杯。</Text></View><Icon name="chevron-right" color={worldUI.violet}/></Pressable>
+-      <WorldPill testID="village-bowling" label="ころころボウリング" icon="circle" onPress={()=>{setPlacesOpen(false);void transition.run('ころころボウリング',props.onBowling);}}/>
++      <WorldPill testID="village-bowling" label="ころころボウリング" icon="circle" onPress={()=>enterMap('bowling',true)}/>
+     </BottomSheet>}
+     {mapOpen&&<BottomSheet visible onClose={()=>setMapOpen(false)} title="ふたりの世界">
+       <Text style={s.mapIntro}>行きたい場所を選んで、おでかけ。{ '\n' }お休みしても、開いた場所はそのままです。</Text>
+       {WORLD_MAPS.map(place=>{const unlocked=canVisitMap(place.id,props.level);const busy=!!experience||!!props.food||transition.busy;return <Pressable key={place.id} testID={`world-map-${place.id}`} accessibilityRole="button" disabled={!unlocked||busy} accessibilityState={{disabled:!unlocked||busy,selected:map===place.id}} onPress={()=>{if(!unlocked){setMapMessage(`レベル${place.level}で、この場所へおさんぽできます。`);return;}enterMap(place.id,true);}} style={s.mapRow}>
+-        <Image source={place.id==='home'?HOME_ART.day:OUTDOOR_ART[place.id]} style={s.mapThumb}/><View style={{flex:1,gap:6}}><Text style={s.mapName}>{place.name}{map===place.id?'　・いまここ':''}</Text><Text style={s.mapCopy}>{busy?experience?'ひと休みが終わったら、でかけよう。':'おやつが終わったら、でかけよう。':unlocked?place.description:`レベル${place.level}でひらきます　（いま ${props.level}）`}</Text></View>
++        {place.id==='bowling'?<View style={[s.mapThumb,{overflow:'hidden'}]}><BowlingRoomArt/></View>:<Image source={place.id==='home'?HOME_ART.day:OUTDOOR_ART[place.id]} style={s.mapThumb}/>}<View style={{flex:1,gap:6}}><Text style={s.mapName}>{place.name}{map===place.id?'　・いまここ':''}</Text><Text style={s.mapCopy}>{busy?experience?'ひと休みが終わったら、でかけよう。':'おやつが終わったら、でかけよう。':unlocked?place.description:`レベル${place.level}でひらきます　（いま ${props.level}）`}</Text></View>
+       </Pressable>;})}
+-      <WorldPill testID="world-map-bowling" label="ころころボウリング" icon="circle" disabled={!!props.food||!!experience||transition.busy} onPress={()=>{setMapOpen(false);void transition.run('ころころボウリング',props.onBowling);}}/>
+       <Pressable accessibilityRole="button" disabled={!!props.food||!!experience||transition.busy} onPress={()=>{setMapOpen(false);void transition.run('ひかりの庭',props.onGarden);}} style={s.mapRow}><Text style={s.mapName}>ひかりの庭へ</Text></Pressable>
+       {!!mapMessage&&<Text accessibilityLiveRegion="polite" style={s.mapCopy}>{mapMessage}</Text>}
+     </BottomSheet>}
+     {!!mapMessage&&!mapOpen&&<Pressable accessibilityRole="button" accessibilityLabel="道の案内を閉じる" onPress={()=>setMapMessage('')} style={[s.notice,{top:insets.top+174}]}><Text accessibilityLiveRegion="polite" style={s.trailText}>{mapMessage}　×</Text></Pressable>}
+     {experience&&<View testID="village-experience" style={[s.experience,{bottom:bounds.height<600?160:210}]}><Text style={s.experienceText}>{experience==='bath'?'ぽかぽか。ここで、ひと休み。':'空から、いつもの世界を眺めよう。'}</Text><Pressable testID="village-experience-exit" accessibilityRole="button" onPress={finishExperience} style={s.exit}><Text style={s.exitText}>{experience==='bath'?'お湯からあがる':'観覧車から降りる'}</Text></Pressable></View>}
+-    {!props.careInvitation&&!experience&&<View style={{position:'absolute',left:20,bottom:bounds.height<600?170:230}}><WorldSteering value={steering} enabled={active&&!props.food} onStart={()=>{pending.current=null;setDestination(null);}} onStep={(dx,dy)=>walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04})}/></View>}
++    {!props.careInvitation&&!experience&&<View style={{position:'absolute',left:20,bottom:bounds.height<600?170:230}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowling.busy} onStart={()=>{pending.current=null;setDestination(null);}} onStep={(dx,dy)=>walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04})}/></View>}
+     {speaker&&<BottomSheet visible title={speaker.name} subtitle="となりの村の住人" onClose={()=>setNeighbor(null)}><View style={{alignItems:'center'}}><VillageResident stage={speaker.stage} size={112} active={props.active} reduceMotion={reduceMotion} scarf={speaker.color}/></View><Text testID="village-dialogue" accessibilityLiveRegion="polite" style={s.dialogue}>{reply||speaker.intro}</Text>{speaker.choices.map(choice=><Pressable key={choice.label} accessibilityRole="button" onPress={()=>setReply(choice.reply)} style={s.mapRow}><Text style={s.mapCopy}>{choice.label}</Text></Pressable>)}<Pressable accessibilityRole="button" onPress={()=>setNeighbor(null)} style={s.exit}><Text style={s.exitText}>またね</Text></Pressable></BottomSheet>}
+     {transition.overlay}
+-    {props.hints && <Text pointerEvents="none" style={[s.travelHint, {top: insets.top + 182}]}>左の丸で自由に移動。地面でも移動。2本指で拡大。</Text>}
++    {props.hints && map!=='bowling' && <Text pointerEvents="none" style={[s.travelHint, {top: insets.top + 182}]}>左の丸で自由に移動。地面でも移動。2本指で拡大。</Text>}
+   </View>;
+ }
+ const s = StyleSheet.create({
++  bowlingStatus:{position:'absolute',left:20,right:20,maxWidth:400,padding:12,borderRadius:18,backgroundColor:'#FFF8EDed'},
+   toolbar:{position:'absolute',left:20,right:20,flexDirection:'row',gap:8,alignItems:'center'},
+   placeAction:{position:'absolute',left:116,right:20,maxWidth:240},
+   ramenWelcome:{position:'absolute',padding:10,borderRadius:20,backgroundColor:'#FFF7E8EE'},ramenWelcomeText:{fontSize:13,textAlign:'center',color:'#795F77',lineHeight:21},
+diff --git a/artifacts/mobile/components/world/WorldResident.tsx b/artifacts/mobile/components/world/WorldResident.tsx
+index 177fb5b..1b179f0 100644
+--- a/artifacts/mobile/components/world/WorldResident.tsx
++++ b/artifacts/mobile/components/world/WorldResident.tsx
+@@ -18,8 +18,11 @@ import {rollStep} from '@/utils/residentPhysics';
+ import {VolumeResident,hasResidentVolume} from './VolumeResident';
+ import {residentSoftScale,residentWalkYaw} from '@/utils/evolvedVolume';
+ import { useWorldResident } from './useWorldResident';
++import type {WorldBowlingInput} from '@/utils/bowling';
++import type {WorldBowlingMotion} from './useWorldBowling';
+ 
+ type Props = {
++  bowling:WorldBowlingMotion; bowlingBusy:boolean; onBowlingRoll:(input:WorldBowlingInput)=>void; onBowlingFinished:()=>void;
+   footX: SharedValue<number>; steering:SharedValue<{x:number;y:number}>; experience:VillageExperience|null; food:string|null; onPortal:(map:WorldMapId)=>void; onDestinationReached:(id:number)=>void;
+   map: WorldMapId; zoom: SharedValue<number>; cameraTouch: SharedValue<number>; cameraGesture: PinchGesture;
+   width: number; height: number; stage: MascotStage; growthSize: number; mascotName: string;
+@@ -57,7 +60,7 @@ export function WorldResident(p: Props) {
+   const volumetric=hasResidentVolume(stage);
+   const size = width * 0.135 * Math.max(0.9, Math.min(1.12, p.growthSize));
+   useEffect(()=>{const at=mapStart(map);cancelAnimation(x);cancelAnimation(y);rolling.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);x.value=at.x;y.value=at.y;holding.value=0;setInteracting(false);},[map]);
+-  const pose = useWorldResident({...p, x, y, walking, interacting:interacting||manual||!!experience});
++  const pose = useWorldResident({...p, x, y, walking, interacting:interacting||manual||!!experience||p.bowlingBusy});
+   useAnimatedReaction(()=>Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
+   const portals=mapPortals(map);
+   const onPortal=p.onPortal;
+@@ -128,7 +131,15 @@ export function WorldResident(p: Props) {
+   },[active,pose,reduceMotion,rx,ry,rz]);
+   const launchRoll=(speedX:number,speedY:number,automatic=false)=>{
+     'worklet';
+-    if(!available.value||reduceMotion||cameraTouch.value||experience||food)return;
++    if(!available.value||(reduceMotion&&map!=='bowling')||cameraTouch.value||experience||food||p.bowlingBusy)return;
++    if(map==='bowling'){
++      if(automatic)return;
++      rollAge.value=0;
++      cancelAnimation(x);cancelAnimation(y);walking.value=0;holding.value=0;touchMode.value=0;lift.value=0;
++      runOnJS(setInteracting)(false);
++      runOnJS(p.onBowlingRoll)({x:x.value,y:y.value,vx:Math.max(-1.25,Math.min(1.25,speedX)),vy:Math.max(-1.25,Math.min(1.25,speedY)),aspect:height/width,radius:size*(stage==='odango'?.45:.33)/width});
++      return;
++    }
+     cancelAnimation(x);cancelAnimation(y);cancelAnimation(rx);cancelAnimation(ry);cancelAnimation(rz);
+     const point=mapGroundPoint(map,{x:x.value,y:y.value});x.value=point.x;y.value=point.y;
+     rolling.value=1;rollAge.value=0;idleTime.value=0;vx.value=Math.max(-1.25,Math.min(1.25,speedX));vy.value=Math.max(-1.25,Math.min(1.25,speedY));
+@@ -141,10 +152,21 @@ export function WorldResident(p: Props) {
+     'worklet';
+     if(!available.value||cameraTouch.value)return;
+     const dt=Math.min(1/30,(frame.timeSincePreviousFrame??16.67)/1000);
++    if(map==='bowling'&&p.bowling.running.value){
++      const frames=p.bowling.frames.value;
++      rollAge.value+=dt;
++      const index=reduceMotion?frames.length-1:Math.min(frames.length-1,Math.floor(rollAge.value*60));
++      const next=frames[index],radius=size*(stage==='odango'?.45:.33)/width;
++      if(!reduceMotion){if(stage==='odango')ry.value+=(next.x-x.value)/radius;else rz.value+=(next.x-x.value)/radius;rx.value-=(next.y-y.value)*(height/width)/radius;}
++      x.value=next.x;y.value=next.y;p.bowling.index.value=index;
++      if(index===frames.length-1){p.bowling.running.value=false;rollAge.value=0;if(!reduceMotion)settleRotation();runOnJS(p.onBowlingFinished)();}
++      return;
++    }
++    if(p.bowlingBusy)return;
+     if(!experience&&!food&&Math.hypot(steering.value.x,steering.value.y)>.05){const next=steerStep(map,{x:x.value,y:y.value},steering.value,dt,height/width);x.value=next.x;y.value=next.y;walking.value=1;idleTime.value=0;return;}
+     if(reduceMotion||experience||food)return;
+     if(!rolling.value){
+-      if(idleAllowed.value&&!walking.value&&!holding.value){idleTime.value+=dt;if(idleTime.value>16&&isMapGround(map,{x:x.value,y:y.value}))launchRoll(.24*Math.cos(daySeed),.19,true);}
++      if(map!=='bowling'&&idleAllowed.value&&!walking.value&&!holding.value){idleTime.value+=dt;if(idleTime.value>16&&isMapGround(map,{x:x.value,y:y.value}))launchRoll(.24*Math.cos(daySeed),.19,true);}
+       return;
+     }
+     const next=rollStep({x:x.value,y:y.value,vx:vx.value,vy:vy.value,hit:false},dt,height/width,map);
+@@ -175,7 +197,7 @@ export function WorldResident(p: Props) {
+     if(!reduceMotion)settleRotation();
+     runOnJS(setInteracting)(false);
+   };
+-  const hold = Gesture.Pan().enabled(active&&!experience&&!food).maxPointers(1).activateAfterLongPress(240)
++  const hold = Gesture.Pan().enabled(active&&!experience&&!food&&!p.bowlingBusy).maxPointers(1).activateAfterLongPress(240)
+     .onBegin(begin)
+     .onStart(() => {
+       if (!available.value) return;
+@@ -210,7 +232,7 @@ export function WorldResident(p: Props) {
+         if (success) runOnJS(notify)('land');
+       });
+     });
+-  const stroke = Gesture.Pan().enabled(active&&!experience&&!food).maxPointers(1).minDistance(10)
++  const stroke = Gesture.Pan().enabled(active&&!experience&&!food&&!p.bowlingBusy).maxPointers(1).minDistance(10)
+     .onStart(event => {
+       cancelAnimation(x); cancelAnimation(y); walking.value = 0;
+       touchMode.value = 3; downX.value=event.absoluteX;downY.value=event.absoluteY;petDistance.value=0;strokeVX.value=0;strokeVY.value=0;strokeAt.value=Date.now();
+@@ -248,14 +270,14 @@ export function WorldResident(p: Props) {
+       if (touchMode.value !== 3) return;
+       const fresh=Date.now()-strokeAt.value<140;
+       const speedX=fresh?strokeVX.value:0,speedY=fresh?strokeVY.value:0;
+-      if(success&&!reduceMotion&&Math.hypot(speedX,speedY)>450){
++      if(success&&(!reduceMotion||map==='bowling')&&Math.hypot(speedX,speedY)>450){
+         jelly.value=withSpring(0,SOFT);lean.value=withSpring(0,SOFT);
+         launchRoll(speedX/(width*zoom.value)*.65,speedY/(width*zoom.value)*.65);return;
+       }
+       finishTouch();
+       if (success && petDistance.value > 20) runOnJS(notify)('pet');
+     });
+-  const tap = Gesture.Tap().enabled(active&&!experience&&!food).maxDuration(240).maxDistance(10).onEnd((_event, success) => {
++  const tap = Gesture.Tap().enabled(active&&!experience&&!food&&!p.bowlingBusy).maxDuration(240).maxDistance(10).onEnd((_event, success) => {
+     if (!success || !available.value) return;
+     finishTouch(); runOnJS(notify)('greet');
+   });
+@@ -310,12 +332,12 @@ export function WorldResident(p: Props) {
+   return <GestureDetector gesture={gesture} touchAction="none">
+     <Animated.View testID="room-resident" style={[s.root, {width: size, height: size}, rootStyle]} accessible={!experience} accessibilityRole="button"
+       accessibilityElementsHidden={!!experience} importantForAccessibility={experience ? 'no-hide-descendants' : 'auto'} aria-hidden={!!experience}
+-      accessibilityState={{disabled: !active || !!experience || !!food}}
++      accessibilityState={{disabled: !active || !!experience || !!food || p.bowlingBusy}}
+       accessibilityLabel={`${p.mascotName}にふれる。${activity}`} accessibilityHint="タップでごあいさつ。なでると喜びます。すばやく払うと、ころころ。長押しで抱っこ。2本指で景色を拡大"
+       accessibilityActions={[{name: 'activate', label: 'ごあいさつ'}, {name: 'pet', label: 'なでる'}, {name: 'talk', label: 'お話しする'}, {name:'roll',label:'ころがす'}]}
+-      onAccessibilityAction={e => {if(!active || experience || food)return; e.nativeEvent.actionName === 'roll' ? launchRoll(.6,.3) : e.nativeEvent.actionName === 'talk' ? p.onChat() : acknowledge(e.nativeEvent.actionName === 'pet' ? 'pet' : 'greet');}}
++      onAccessibilityAction={e => {if(!active || experience || food||p.bowlingBusy)return; e.nativeEvent.actionName === 'roll' ? launchRoll(map==='bowling'?0:.6,map==='bowling'?-.9:.3) : e.nativeEvent.actionName === 'talk' ? p.onChat() : acknowledge(e.nativeEvent.actionName === 'pet' ? 'pet' : 'greet');}}
+       onAccessibilityTap={() => acknowledge('greet')} tabIndex={active && !experience && !food ? 0 : -1}
+-      {...(Platform.OS === 'web' ? {onKeyDown: (e: React.KeyboardEvent) => {if(e.key==='ArrowRight'&&!reduceMotion){e.preventDefault();launchRoll(.6,.3);}else if (e.key === 'Enter' || e.key === ' ') {e.preventDefault(); acknowledge('greet');}}} : {})}>
++      {...(Platform.OS === 'web' ? {onKeyDown: (e: React.KeyboardEvent) => {if(map==='bowling'&&e.key==='ArrowUp'){e.preventDefault();launchRoll(0,-.9);}else if(e.key==='ArrowRight'&&!reduceMotion){e.preventDefault();launchRoll(.6,.3);}else if (e.key === 'Enter' || e.key === ' ') {e.preventDefault(); acknowledge('greet');}}} : {})}>
+       <Animated.View pointerEvents="none" testID="resident-contact-shadow" style={[s.shadow, {height: size * 0.3}, shadow]}>
+         <Svg width="100%" height="100%" viewBox="0 0 100 30">
+           <Defs><RadialGradient id="residentGround"><Stop offset="0" stopColor="#34251A" stopOpacity="0.52"/><Stop offset="0.45" stopColor="#493525" stopOpacity="0.22"/><Stop offset="1" stopColor="#493525" stopOpacity="0"/></RadialGradient></Defs>
+diff --git a/artifacts/mobile/components/world/useWorldBowling.ts b/artifacts/mobile/components/world/useWorldBowling.ts
+new file mode 100644
+index 0000000..f81fabe
+--- /dev/null
++++ b/artifacts/mobile/components/world/useWorldBowling.ts
+@@ -0,0 +1,47 @@
++import {useCallback,useEffect,useRef,useState} from 'react';
++import {useSharedValue,type SharedValue} from 'react-native-reanimated';
++import {useApp} from '@/contexts/AppContext';
++import {getTodayDate} from '@/utils/dateUtils';
++import {bowlingPlayedToday,simulateBowling,worldPinPositions,type BowlingFrame,type WorldBowlingInput} from '@/utils/bowling';
++import type {WorldMapId} from '@/utils/worldMaps';
++
++export type WorldBowlingMotion={frames:SharedValue<BowlingFrame[]>;index:SharedValue<number>;running:SharedValue<boolean>};
++const readyFrame=():BowlingFrame=>({x:.5,y:.70,pins:worldPinPositions()});
++export function useWorldBowling(map:WorldMapId,active:boolean){
++  const {bowlingState,playBowling}=useApp();
++  const frames=useSharedValue<BowlingFrame[]>([readyFrame()]);
++  const index=useSharedValue(0),running=useSharedValue(false);
++  const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
++  const [today,setToday]=useState(getTodayDate);
++  const lock=useRef(false),generation=useRef(0),resultText=useRef('');
++  const latest=useRef({map,bowlingState,playBowling});latest.current={map,bowlingState,playBowling};
++  useEffect(()=>{if(!active||busy)return;setToday(getTodayDate());const timer=setInterval(()=>setToday(getTodayDate()),30000);return()=>clearInterval(timer);},[active,busy]);
++  useEffect(()=>{
++    generation.current++;running.value=false;lock.current=false;setBusy(false);setMessage('');
++    const receipt=Object.values(latest.current.bowlingState.plays).find(p=>p.date>=today);
++    const frame=receipt?.world?simulateBowling(receipt).frames.at(-1)!:readyFrame();
++    // Earlier saved games used a different lane; keep their earned result and used day.
++    if(receipt&&!receipt.world)frame.pins=frame.pins.map((pin,i)=>({...pin,down:i<receipt.pins,rotation:i<receipt.pins?84:0}));
++    frames.value=[frame];index.value=0;
++    return()=>{generation.current++;running.value=false;};
++  },[map,today,frames,index,running]);
++  const roll=useCallback(async(world:WorldBowlingInput)=>{
++    if(latest.current.map!=='bowling'||lock.current)return;
++    const date=getTodayDate();
++    if(bowlingPlayedToday(latest.current.bowlingState,date)){setMessage('今日の一投はおしまい。また明日、ころころしよう。');return;}
++    lock.current=true;setBusy(true);setMessage('');
++    const current=generation.current;
++    try{
++      const input={aim:0,power:.8,world};
++      const result=await latest.current.playBowling(`world-${Date.now()}-${Math.random().toString(36).slice(2,10)}`,input);
++      if(current!==generation.current)return;
++      if(!result.accepted){setMessage('今日の一投はおしまい。また明日、遊ぼう。');lock.current=false;setBusy(false);return;}
++      const simulation=simulateBowling(result.receipt);
++      resultText.current=`${result.receipt.pins===10?'ストライク！':`${result.receipt.pins}本たおれた！`} ＋${result.receipt.earned} pt　また明日、遊ぼう。`;
++      frames.value=simulation.frames;index.value=0;running.value=true;
++    }catch{if(current===generation.current){lock.current=false;setBusy(false);setMessage('保存できませんでした。通信や空き容量を確認して、もう一度スワイプしてね。');}}
++  },[frames,index,running]);
++  const finish=useCallback(()=>{lock.current=false;setBusy(false);setMessage(resultText.current);},[]);
++  const receipt=Object.values(bowlingState.plays).find(p=>p.date>=today);
++  return {motion:{frames,index,running},roll,finish,busy,message:message||(busy?'ころころ…':receipt?`今日は${receipt.pins}本。＋${receipt.earned} pt　また明日、遊ぼう。`:'キャラをピンに向けてスワイプ。1日1投・1本5 pt')};
++}
+diff --git a/artifacts/mobile/components/world/useWorldResident.ts b/artifacts/mobile/components/world/useWorldResident.ts
+index 3619bd9..05256b1 100644
+--- a/artifacts/mobile/components/world/useWorldResident.ts
++++ b/artifacts/mobile/components/world/useWorldResident.ts
+@@ -65,6 +65,7 @@ export function useWorldResident(p: Props) {
+         walk(destination.point, () => {handled.current.destination=destination.id;setPose('idle'); arrived.current?.(destination.id); later(run, 18000);});
+         return;
+       }
++      if(map==='bowling'){setPose('idle');return;}
+       if (reduceMotion && !mealPending && !restPending && !resting) {setPose('idle'); return;}
+       const activity = mealPending || restPending || resting
+         ? chooseResidentActivity({meal, rest}, handled.current, resting, turn.current)
+diff --git a/artifacts/mobile/tests/bowling.test.mjs b/artifacts/mobile/tests/bowling.test.mjs
+index 9cc17e1..5b59c68 100644
+--- a/artifacts/mobile/tests/bowling.test.mjs
++++ b/artifacts/mobile/tests/bowling.test.mjs
+@@ -6,6 +6,7 @@ import {
+   readBowlingState,
+   bowlingPlayedToday,
+   BOWLING_KEY,
++  groundRollStep,
+ } from "../utils/bowling.ts";
+ import { createRecoverableStorage } from "../utils/recoverableStorage.ts";
+ import fs from "node:fs";
+@@ -29,6 +30,33 @@ const feed = {
+ };
+ const today = "2026-10-08",
+   input = { aim: 0, power: 0.8 };
++const worldShot=(vx=0,vy=-.9)=>({...input,world:{x:.5,y:.7,vx,vy,aspect:1.5,radius:.045}});
++test('world flick keeps the home trajectory until physical pin contact',()=>{
++  const shot=worldShot(),result=simulateBowling(shot);
++  let body=shot.world;
++  for(let i=1;i<=8;i++){
++    body=groundRollStep(body,1/60,1.5,{minX:.22,maxX:.78,minY:.43,maxY:.8});
++    assert.equal(result.frames[i].x,body.x);assert.equal(result.frames[i].y,body.y);
++  }
++  assert.equal(result.pins,10);
++  for(const shot of [worldShot(.7),worldShot(0,.6),worldShot(0,-.2)])assert.equal(simulateBowling(shot).pins,0);
++  for(const vx of [-.7,-.3,0,.1,.2,.3,.7]){
++    const result=simulateBowling(worldShot(vx));
++    assert.equal(result.pins,result.frames.at(-1).pins.filter(p=>p.down).length);
++    assert.equal(result.earned,result.pins*5);
++    assert.deepEqual(simulateBowling(worldShot(vx)),result);
++  }
++});
++test('world receipts survive reload, preserve the actual flick, and share the existing daily limit',()=>{
++  const first=prepareBowlingPlay({[feedKey]:JSON.stringify(feed)},'world',worldShot(),today,feed);
++  const values=Object.fromEntries(first.entries);
++  const restored=readBowlingState(JSON.parse(values[BOWLING_KEY]));
++  assert.deepEqual(restored.plays[today].world,worldShot().world);
++  const again=prepareBowlingPlay(values,'new-flick',worldShot(.7),today,feed);
++  assert.equal(again.result.accepted,false);assert.deepEqual(again.entries,[]);
++  assert.equal(again.result.feed.points,feed.points+50);
++  for(const invalid of [{vx:Infinity},{y:-1},{radius:1},{aspect:0}])assert.throws(()=>simulateBowling({...worldShot(),world:{...worldShot().world,...invalid}}));
++});
+ function fixture(failAt = Infinity) {
+   const data = new Map([[feedKey, JSON.stringify(feed)]]);
+   let writes = 0;
+diff --git a/artifacts/mobile/tests/worldExpansion.test.mjs b/artifacts/mobile/tests/worldExpansion.test.mjs
+index fcec2e0..afb2ff3 100644
+--- a/artifacts/mobile/tests/worldExpansion.test.mjs
++++ b/artifacts/mobile/tests/worldExpansion.test.mjs
+@@ -4,9 +4,10 @@ import fs from 'node:fs';
+ import ts from 'typescript';
+ import {DEFAULT_RECORD_PROMPT as D,parseRecordPrompt,isRecordPromptDue as due,localPromptDate} from '../utils/recordPrompt.ts';
+ import * as maps from '../utils/worldMaps.ts';
++import * as bowling from '../utils/bowling.ts';
+ import {projectEgg,rotatePoint} from '../utils/residentVolume.ts';
+ const physicsCode=ts.transpileModule(fs.readFileSync(new URL('../utils/residentPhysics.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+-const physics={exports:{}};new Function('require','module','exports',physicsCode)(()=>maps,physics,physics.exports);
++const physics={exports:{}};new Function('require','module','exports',physicsCode)(name=>name==='./bowling'?bowling:maps,physics,physics.exports);
+ const {rollStep}=physics.exports;
+ test('record invitation follows local time, completed record, snooze and one-day rest',()=>{
+   const now=new Date(2026,9,7,20,0,0),earlier=new Date(2026,9,7,19,59,59);
+@@ -25,9 +26,9 @@ test('persisted invitation validates without silently erasing bad preferences',(
+   for(const time of ['24:00','20:60','7:00','-1:00','bad'])assert.throws(()=>parseRecordPrompt(JSON.stringify({...D,time})));
+   assert.throws(()=>parseRecordPrompt('{broken'));
+ });
+-test('seven distinct maps unlock at saved level, with connected reachable dry-ground routes',()=>{
+-  for(const [level,ids] of [[1,['home','market','ramen']],[3,['home','market','ramen','forest','onsen']],[4,['home','market','ramen','forest','onsen','village']],[6,['home','market','ramen','forest','onsen','village','lake']],[15,['home','market','ramen','forest','onsen','village','lake']]])assert.deepEqual(maps.WORLD_MAPS.filter(m=>maps.canVisitMap(m.id,level)).map(m=>m.id),ids);
+-  for(const id of ['forest','lake','market','onsen','village','ramen']){
++test('eight distinct maps unlock at saved level, with connected reachable dry-ground routes',()=>{
++  for(const [level,ids] of [[1,['home','market','ramen','bowling']],[3,['home','market','ramen','bowling','forest','onsen']],[4,['home','market','ramen','bowling','forest','onsen','village']],[6,['home','market','ramen','bowling','forest','onsen','village','lake']],[15,['home','market','ramen','bowling','forest','onsen','village','lake']]])assert.deepEqual(maps.WORLD_MAPS.filter(m=>maps.canVisitMap(m.id,level)).map(m=>m.id),ids);
++  for(const id of ['forest','lake','market','onsen','village','ramen','bowling']){
+     assert.equal(maps.isMapGround(id,{x:.1,y:.2}),false);
+     const points=[maps.mapStart(id),maps.mapGroundPoint(id,{x:-1,y:9}),maps.mapGroundPoint(id,{x:9,y:-1})];
+     for(const from of points)for(const to of points){let at=from;for(const next of maps.mapRoute(id,from,to)){for(let t=0;t<=1;t+=.02)assert.ok(maps.isMapGround(id,{x:at.x+(next.x-at.x)*t,y:at.y+(next.y-at.y)*t}));at=next;}assert.deepEqual(at,to);}
+diff --git a/artifacts/mobile/utils/bowling.ts b/artifacts/mobile/utils/bowling.ts
+index 9c32f44..e585064 100644
+--- a/artifacts/mobile/utils/bowling.ts
++++ b/artifacts/mobile/utils/bowling.ts
+@@ -5,7 +5,8 @@ export const BOWLING_KEY = "@yoki/bowling_v1";
+ const FEED_KEY = "@mentore/feed_state_v1";
+ export const POINTS_PER_PIN = 5;
+ export const BOWLING_DURATION = 3200;
+-export type BowlingInput = { aim: number; power: number };
++export type WorldBowlingInput = { x:number; y:number; vx:number; vy:number; aspect:number; radius:number };
++export type BowlingInput = { aim: number; power: number; world?: WorldBowlingInput };
+ export type PinPose = { x: number; y: number; rotation: number; down: boolean };
+ export type BowlingFrame = { x: number; y: number; pins: PinPose[] };
+ export type BowlingResult = {
+@@ -33,6 +34,53 @@ export function validateBowlingInput(input: BowlingInput) {
+     input.power > 1
+   )
+     throw new Error("投げ方を確認できません");
++  if(input.world){
++    const p=input.world;
++    if(![p.x,p.y,p.vx,p.vy,p.aspect,p.radius].every(Number.isFinite)||p.x<.22||p.x>.78||p.y<.43||p.y>.8||Math.abs(p.vx)>1.25||Math.abs(p.vy)>1.25||p.aspect<1||p.aspect>2||p.radius<.025||p.radius>.09)throw new Error("投げ方を確認できません");
++  }
++}
++/** The same ground motion drives home flicks and the bowling character. */
++export function groundRollStep(state:{x:number;y:number;vx:number;vy:number},dt:number,aspect:number,b:{minX:number;maxX:number;minY:number;maxY:number}) {
++  'worklet';
++  const delta=Math.min(1/30,Math.max(0,dt)),drag=Math.exp(-1.35*delta);
++  let vx=state.vx*drag,vy=state.vy*drag,x=state.x+vx*delta,y=state.y+vy*delta/aspect,hit=false;
++  const margin=.018;
++  if(y<b.minY+margin){y=b.minY+margin;vy=Math.abs(vy)*.58;hit=true;}
++  else if(y>b.maxY-margin){y=b.maxY-margin;vy=-Math.abs(vy)*.58;hit=true;}
++  if(x<b.minX+margin){x=b.minX+margin;vx=Math.abs(vx)*.58;hit=true;}
++  else if(x>b.maxX-margin){x=b.maxX-margin;vx=-Math.abs(vx)*.58;hit=true;}
++  return {x,y,vx,vy,hit};
++}
++export function worldPinPositions(){
++  return Array.from({length:4},(_,row)=>Array.from({length:row+1},(_,col)=>({x:.5+(col-row/2)*.045,y:.535-row*.026,rotation:0,down:false}))).flat();
++}
++/** Normal scene coordinates. Pin contact, scatter and reward share one trajectory. */
++function simulateWorldBowling(input:WorldBowlingInput):BowlingResult {
++  const pins=worldPinPositions().map(p=>({...p,vx:0,vy:0}));
++  let ball={...input,hit:false};
++  const frames:BowlingFrame[]=[];
++  const collide=(a:{x:number;y:number;vx:number;vy:number},b:typeof pins[number],radius:number,mass:number)=>{
++    const dx=b.x-a.x,dy=(b.y-a.y)*input.aspect,d=Math.hypot(dx,dy),contact=radius+.021;
++    if(d>=contact||d<.00001)return;
++    const nx=dx/d,ny=dy/d,speed=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
++    if(speed<=0)return;
++    const impulse=1.55*speed/(1/mass+1);
++    a.vx-=impulse*nx/mass;a.vy-=impulse*ny/mass;b.vx+=impulse*nx;b.vy+=impulse*ny;
++    b.x+=nx*(contact-d)*.55;b.y+=ny*(contact-d)*.55/input.aspect;
++    if(Math.hypot(b.vx,b.vy)>.07)b.down=true;
++  };
++  for(let i=0;i<=300;i++){
++    frames.push({x:ball.x,y:ball.y,pins:pins.map(({x,y,rotation,down})=>({x,y,rotation,down}))});
++    ball={...ball,...groundRollStep(ball,1/60,input.aspect,{minX:.22,maxX:.78,minY:.43,maxY:.8})};
++    for(const pin of pins)collide(ball,pin,input.radius,4.6);
++    for(let a=0;a<10;a++)for(let b=a+1;b<10;b++){collide(pins[a],pins[b],.021,1);if(Math.hypot(pins[a].vx,pins[a].vy)>.07)pins[a].down=true;}
++    for(const pin of pins){
++      pin.x=Math.max(.24,Math.min(.76,pin.x+pin.vx/60));pin.y=Math.max(.438,Math.min(.79,pin.y+pin.vy/60/input.aspect));
++      pin.vx*=.95;pin.vy*=.95;if(pin.down)pin.rotation=Math.min(84,pin.rotation+6);
++    }
++  }
++  const count=pins.filter(p=>p.down).length;
++  return {frames,pins:count,earned:count*POINTS_PER_PIN};
+ }
+ export function pinPositions() {
+   return Array.from({ length: 4 }, (_, row) =>
+@@ -45,6 +93,7 @@ export function pinPositions() {
+ /** Fixed-step collisions determine both the visible pin fall and the saved reward. */
+ export function simulateBowling(input: BowlingInput): BowlingResult {
+   validateBowlingInput(input);
++  if(input.world)return simulateWorldBowling(input.world);
+   const ball = {
+     x: 0,
+     y: 0.1,
+diff --git a/artifacts/mobile/utils/residentPhysics.ts b/artifacts/mobile/utils/residentPhysics.ts
+index 54bdad3..8118f0b 100644
+--- a/artifacts/mobile/utils/residentPhysics.ts
++++ b/artifacts/mobile/utils/residentPhysics.ts
+@@ -1,16 +1,13 @@
+ import {mapGroundBounds,type WorldMapId} from './worldMaps';
++import {groundRollStep} from './bowling';
+ export type RollingState={x:number;y:number;vx:number;vy:number;hit:boolean};
+ /** Velocity is in scene widths / second. Vertical projection is converted by
+  * aspect, so speed and friction are independent of viewport size / frame rate. */
+ export function rollStep(state:RollingState,dt:number,aspect:number,map:WorldMapId):RollingState {
+   'worklet';
+-  const delta=Math.min(1/30,Math.max(0,dt)),drag=Math.exp(-1.35*delta);
+-  let vx=state.vx*drag,vy=state.vy*drag,x=state.x+vx*delta,y=state.y+vy*delta/aspect,hit=false;
+-  const b=mapGroundBounds(map,y),margin=.018;
+-  if(y<b.minY+margin){y=b.minY+margin;vy=Math.abs(vy)*.58;hit=true;}
+-  else if(y>b.maxY-margin){y=b.maxY-margin;vy=-Math.abs(vy)*.58;hit=true;}
+-  const row=mapGroundBounds(map,y);
+-  if(x<row.minX+margin){x=row.minX+margin;vx=Math.abs(vx)*.58;hit=true;}
+-  else if(x>row.maxX-margin){x=row.maxX-margin;vx=-Math.abs(vx)*.58;hit=true;}
+-  return {x,y,vx,vy,hit};
++  const delta=Math.min(1/30,Math.max(0,dt));
++  const y=state.y+state.vy*Math.exp(-1.35*delta)*delta/aspect;
++  const bounds=mapGroundBounds(map,y);
++  const row=mapGroundBounds(map,Math.max(bounds.minY+.018,Math.min(bounds.maxY-.018,y)));
++  return groundRollStep(state,dt,aspect,{...bounds,minX:row.minX,maxX:row.maxX});
+ }
+diff --git a/artifacts/mobile/utils/villageLife.ts b/artifacts/mobile/utils/villageLife.ts
+index 3ccf819..b4ee839 100644
+--- a/artifacts/mobile/utils/villageLife.ts
++++ b/artifacts/mobile/utils/villageLife.ts
+@@ -3,7 +3,8 @@ export type Point = { x: number; y: number };
+ export type VillageExperience = "bath" | "wheel";
+ export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
+   home: ["market", "forest"],
+-  market: ["home", "village", "lake", "ramen"],
++  market: ["home", "village", "lake", "ramen", "bowling"],
++  bowling: ["market"],
+   ramen: ["market"],
+   forest: ["home", "onsen"],
+   onsen: ["forest", "village"],
+@@ -15,7 +16,7 @@ export function mapPortals(map: WorldMapId) {
+     to,
+     point: mapGroundPoint(
+       map,
+-      map === "home"
++      map === 'bowling' ? {x:.75,y:.78} : i===4 ? {x:.27,y:.53} : map === "home"
+         ? { x: i ? 0.62 : 0.46, y: 0.755 }
+         : {
+             // Keep the return sign to the right of the fixed left-thumb pad.
+diff --git a/artifacts/mobile/utils/worldArt.ts b/artifacts/mobile/utils/worldArt.ts
+index 7383fb1..c9619d0 100644
+--- a/artifacts/mobile/utils/worldArt.ts
++++ b/artifacts/mobile/utils/worldArt.ts
+@@ -10,10 +10,12 @@ export const OUTDOOR_ART = {
+   onsen: require('@/assets/images/world/village-onsen.jpg'),
+   village: require('@/assets/images/world/village-neighbors.jpg'),
+   ramen: require('@/assets/images/world/village-ramen.jpg'),
++  bowling: HOME_ART.day,
+ };
+ export function worldArt(map: WorldMapId, night = false) { return map === 'home' ? HOME_ART[night ? 'night' : 'day'] : OUTDOOR_ART[map]; }
+ const cached = new Map<string, Promise<void>>();
+ export function prepareWorldArt(map: WorldMapId, night = false): Promise<void> {
++  if(map==='bowling')return Promise.resolve();
+   const uri = Asset.fromModule(worldArt(map, night)).uri;
+   let promise = cached.get(uri);
+   if (!promise) {
+diff --git a/artifacts/mobile/utils/worldMaps.ts b/artifacts/mobile/utils/worldMaps.ts
+index 2a12f1a..8896110 100644
+--- a/artifacts/mobile/utils/worldMaps.ts
++++ b/artifacts/mobile/utils/worldMaps.ts
+@@ -1,8 +1,9 @@
+-export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen';
++export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling';
+ export const WORLD_MAPS = [
+   {id:'home',name:'おうち',level:1,description:'いつでも帰れる、小さなおうち。'},
+   {id:'market',name:'こもれび市場',level:1,description:'ごはんや、暮らしの小さなお買いもの。'},
+   {id:'ramen',name:'もふもふラーメン',level:1,description:'湯気の向こうで、もふもふ店長がお出迎え。'},
++  {id:'bowling',name:'ころころボウリング',level:1,description:'いつものようにスワイプ。ピンに向かって、ころころ。'},
+   {id:'forest',name:'木もれびの森',level:3,description:'葉の音を聞きながら、ゆっくりおさんぽ。'},
+   {id:'onsen',name:'森の温泉',level:3,description:'お湯にゆられて、ゆっくりひと休み。'},
+   {id:'village',name:'となりの村',level:4,description:'たまご・もふもふ・はっぱたちの、小さな村。'},
+@@ -11,6 +12,7 @@ export const WORLD_MAPS = [
+ export function canVisitMap(id: WorldMapId, level: number) {return level >= WORLD_MAPS.find(map=>map.id===id)!.level;}
+ export function mapGroundBounds(map: WorldMapId, y: number) {
+   'worklet';
++  if(map==='bowling')return {minX:.22,maxX:.78,minY:.43,maxY:.8};
+   if(map==='home') {
+     if(y<.50)return {minX:.40,maxX:.61,minY:.43,maxY:.79};
+     if(y<.56)return {minX:.40,maxX:.66,minY:.43,maxY:.79};
+@@ -32,7 +34,7 @@ export function mapGroundPoint(map: WorldMapId, point: {x:number;y:number}) {
+ export function isMapGround(map: WorldMapId, point: {x:number;y:number}) {
+   'worklet';const p=mapGroundPoint(map,point);return Math.abs(p.x-point.x)<.001&&Math.abs(p.y-point.y)<.001;
+ }
+-export function mapStart(map: WorldMapId) {return map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.52,y:.56}:{x:.52,y:.61};}
++export function mapStart(map: WorldMapId) {return map==='bowling'?{x:.5,y:.70}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.52,y:.56}:{x:.52,y:.61};}
+ export function mapRoute(map: WorldMapId, from:{x:number;y:number}, to:{x:number;y:number}) {
+   const target=mapGroundPoint(map,to);
+   return [{x:.52,y:from.y},{x:.52,y:target.y},target];
