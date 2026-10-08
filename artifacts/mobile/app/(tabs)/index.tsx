@@ -163,7 +163,7 @@ export default function HomeScreen() {
       </View>
     </View>
     {sheet==='hygiene'&&<BottomSheet visible title="からだの清潔度" onClose={()=>setSheet(null)}>
-      <Text style={s.chatText}>清潔度 {hygiene}%</Text><Text style={s.chatText}>3日以上おふろに入らないと、少しずつ薄汚れていくよ。お部屋のほこりも、からだにつきます。</Text>
+      <Text style={s.chatText}>清潔度 {hygiene}%</Text><Text style={s.chatText}>3日以上からだを洗わないと、少しずつ薄汚れていくよ。おふろのタオルを選んで、指でからだをこすって洗おう。お湯に浸かるだけでは汚れは落ちません。</Text>
       {hygieneState.protectedUntil>hygieneNow&&<Text style={s.chatText}>風呂キャン中。あと{Math.ceil((hygieneState.protectedUntil-hygieneNow)/86400000)}日間は、入浴しなくてもさっぱり。</Text>}
       <WorldPill label="おうちのおふろへ" icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/>
     </BottomSheet>}

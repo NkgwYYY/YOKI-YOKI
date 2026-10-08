@@ -94,3 +94,7 @@ Prompt set: preserve interaction coordinates and edit the room/character into th
 ## Web transfer variants — 2026-10-09
 
 The .webp siblings of the 14 world backgrounds/atlas and four merchant portraits are delivery encodings of the existing approved artwork, with the same dimensions and composition. Generated with Pillow WebP method 6: background quality 88, portrait quality 90 and full alpha quality. JPEG/PNG source files remain the native assets. WorldArt selects the WebP variant only on Web. Merchant portraits are prepared with their destination background; the atlas and one likely exit are warmed sequentially after the current scene settles.
+
+## Dark tobacco alley — 2026-10-09
+
+Built-in imagegen edit, source exec-cf4da3b5-7e37-4993-9e5f-fa82218fc6bb.png, referenced village-tobacco-v2.jpg. Saved as village-tobacco-dark.jpg and WebP. Prompt: preserve the exact shop-left / bench-right / open stone ground layout and rounded clay/felt art; change the atmosphere to a slightly shady after-hours alley with deep plum/indigo shadows, weathered dark wood, burgundy curtains, amber lantern pools, muted violet window light and moonlight; fewer bright flowers, darker climbing leaves. No characters, text, UI, brands or logos. The original daytime version is retained.

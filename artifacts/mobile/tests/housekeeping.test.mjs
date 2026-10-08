@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CLEANING_TOOLS,DUST_SPOTS,readHousekeeping,roomDirt,sweptSpots,prepareCleaning} from '../utils/housekeeping.ts';
+import {CLEANING_TOOLS,DUST_SPOTS,readHousekeeping,roomDirt,sweptSpots,prepareCleaning,BODY_WASH_SPOTS,rubBody,isBodyWashComplete,bodyWashPercent} from '../utils/housekeeping.ts';
 import {hygieneValue,DAY_MS,BATH_SKIP} from '../utils/hygiene.ts';
 import {prepareHappiness,HAPPY_REWARDS} from '../utils/happiness.ts';
 import {createRecoverableStorage} from '../utils/recoverableStorage.ts';
@@ -42,15 +42,62 @@ test('three days without a bath stays clean; dust and later missed baths gradual
   assert.equal(hygieneValue(hygiene,100,now+4*DAY_MS),67);
   assert.equal(hygieneValue(hygiene,0,now-DAY_MS),100);
 });
-test('repeat baths refresh cleanliness without farming happiness; hot springs give more happiness',async()=>{
+test('soaking gives happiness but never washes the body; hot springs remain more relaxing',async()=>{
   assert.ok(HAPPY_REWARDS.bath>HAPPY_REWARDS.homeBath&&HAPPY_REWARDS.visit>HAPPY_REWARDS.bath);
-  const {store}=memory();const first=await store.transaction(values=>prepareHappiness(values,'homeBath','2026-10-08',feed,now));
+  const dirty={...feed,hygiene:{lastBathAt:now-4*DAY_MS,protectedUntil:0,smokeDirt:6}};
+  const {store}=memory(dirty);const first=await store.transaction(values=>prepareHappiness(values,'homeBath','2026-10-08',feed,now));
   const again=await store.transaction(values=>prepareHappiness(values,'homeBath','2026-10-08',feed,now+3600000));
-  assert.equal(first.gained,4);assert.equal(again.gained,0);assert.equal(again.feed.hygiene.lastBathAt,now+3600000);assert.equal(again.feed.points,300);
+  assert.equal(first.gained,4);assert.equal(again.gained,0);assert.equal(again.feed.hygiene.lastBathAt,dirty.hygiene.lastBathAt);assert.equal(again.feed.hygiene.smokeDirt,6);assert.equal(again.feed.points,300);
 });
 test('an interrupted purchase recovers the item and exact debit on retry',async()=>{
   const data=new Map([[key,JSON.stringify(feed)]]);let fail=true;
   const store=createRecoverableStorage({getItem:async k=>data.get(k)??null,setItem:async(k,v)=>{if(k===key&&fail){fail=false;throw Error('disk');}data.set(k,v);},removeItem:async k=>data.delete(k)},'journal',[key]);
   await assert.rejects(store.transaction(values=>prepareCleaning(values,{kind:'buy',tool:'cloth'},now,feed)),/disk/);
   const retry=await store.transaction(values=>prepareCleaning(values,{kind:'buy',tool:'cloth'},now,feed));assert.equal(retry.feed.points,270);assert.deepEqual(retry.feed.housekeeping.owned,['cloth']);assert.equal(retry.spent,0);
+});
+
+const fullyWashed=()=>BODY_WASH_SPOTS.map(()=>1);
+test('touch without movement, off-body gestures and a single patch cannot wash the whole body',()=>{
+ const empty=BODY_WASH_SPOTS.map(()=>0);
+ assert.deepEqual(rubBody(empty,{x:.5,y:.5},{x:.5,y:.5}),empty);
+ assert.deepEqual(rubBody(empty,{x:0,y:0},{x:1,y:0}),empty);
+ assert.deepEqual(rubBody(empty,{x:NaN,y:.5},{x:.5,y:.5}),empty);
+ let one=empty;
+ for(let i=0;i<30;i++)one=rubBody(one,{x:.25,y:.28},{x:.45,y:.28});
+ assert.ok(bodyWashPercent(one)>0&&bodyWashPercent(one)<100);
+ assert.equal(isBodyWashComplete(one),false);
+});
+test('rubbing all parts completes washing and sampling frequency does not change progress',()=>{
+ const apply=(steps)=>{
+  let coverage=BODY_WASH_SPOTS.map(()=>0);
+  for(let round=0;round<4;round++)for(const y of [.28,.49,.72])for(let i=0;i<steps;i++)coverage=rubBody(coverage,{x:.24+.52*i/steps,y},{x:.24+.52*(i+1)/steps,y});
+  return coverage;
+ };
+ const coarse=apply(1),fine=apply(30);
+ assert.equal(isBodyWashComplete(coarse),true);
+ assert.equal(bodyWashPercent(coarse),100);
+ assert.deepEqual(coarse,fine);
+});
+test('only complete rubbing can save cleanliness; repeat receipt never cleans later smoke',async()=>{
+ const dirty={...feed,hygiene:{lastBathAt:now-7*DAY_MS,protectedUntil:now+DAY_MS,smokeDirt:9,smokeReceipts:['smoke-before']}};
+ const {store,data}=memory(dirty);
+ for(const coverage of [[],[1],BODY_WASH_SPOTS.map(()=>.99),BODY_WASH_SPOTS.map(()=>NaN)])await assert.rejects(store.transaction(values=>prepareCleaning(values,{kind:'bodyWash',id:'wash-a',coverage},now,feed)),/全体/);
+ const before=JSON.parse(data.get(key));assert.equal(before.hygiene.smokeDirt,9);
+ const washed=await store.transaction(values=>prepareCleaning(values,{kind:'bodyWash',id:'wash-a',coverage:fullyWashed()},now,feed));
+ assert.equal(washed.feed.hygiene.smokeDirt,0);assert.equal(washed.feed.hygiene.lastBathAt,now);
+ assert.equal(hygieneValue(washed.feed.hygiene,100,now),100);
+ assert.equal(washed.feed.hygiene.protectedUntil,dirty.hygiene.protectedUntil);
+ assert.equal(washed.feed.points,feed.points);assert.deepEqual(washed.feed.happiness,feed.happiness);
+ await store.transaction(values=>prepareHappiness(values,'smoke','2026-10-08',feed,now+1,'smoke-after'));
+ const retry=await store.transaction(values=>prepareCleaning(values,{kind:'bodyWash',id:'wash-a',coverage:fullyWashed()},now+2,feed));
+ assert.equal(retry.changed,false);assert.equal(retry.feed.hygiene.smokeDirt,3);
+});
+test('a failed wash save recovers its receipt exactly once on retry',async()=>{
+ const dirty={...feed,hygiene:{lastBathAt:now-7*DAY_MS,protectedUntil:0,smokeDirt:9}};
+ const data=new Map([[key,JSON.stringify(dirty)]]);let fail=true;
+ const store=createRecoverableStorage({getItem:async k=>data.get(k)??null,setItem:async(k,v)=>{if(k===key&&fail){fail=false;throw Error('disk');}data.set(k,v);},removeItem:async k=>data.delete(k)},'journal',[key]);
+ const operation={kind:'bodyWash',id:'wash-retry',coverage:fullyWashed()};
+ await assert.rejects(store.transaction(values=>prepareCleaning(values,operation,now,feed)),/disk/);
+ const retry=await store.transaction(values=>prepareCleaning(values,operation,now+1,feed));
+ assert.equal(retry.changed,false);assert.equal(retry.feed.hygiene.lastBathAt,now);assert.deepEqual(retry.feed.hygiene.washReceipts,['wash-retry']);assert.equal(retry.feed.points,300);
 });

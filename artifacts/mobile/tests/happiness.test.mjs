@@ -55,7 +55,7 @@ test('smoking dirt is per session and retry-safe, while happiness remains once a
  const second=prepareHappiness(values(retry.feed),'smoke',date,fresh,now+2,'smoke-b').result;
  assert.equal(second.feed.hygiene.smokeDirt,6);assert.equal(second.gained,0);assert.equal(second.feed.points,72);
  const bath=prepareHappiness(values(second.feed),'homeBath',date,fresh,now+300,'bath-a').result;
- assert.equal(bath.feed.hygiene.smokeDirt,0);assert.equal(bath.feed.hygiene.protectedUntil,fresh.hygiene.protectedUntil);
+ assert.equal(bath.feed.hygiene.smokeDirt,6);assert.equal(bath.feed.hygiene.protectedUntil,fresh.hygiene.protectedUntil);
  const delayedRetry=prepareHappiness(values(bath.feed),'smoke',date,fresh,now+301,'smoke-a').result;
- assert.equal(delayedRetry.feed.hygiene.smokeDirt,0);assert.equal(delayedRetry.feed.points,72);
+ assert.equal(delayedRetry.feed.hygiene.smokeDirt,6);assert.equal(delayedRetry.feed.points,72);
 });

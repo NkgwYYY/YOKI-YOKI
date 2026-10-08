@@ -36,7 +36,7 @@ export function sweptSpots(from:{x:number;y:number},to:{x:number;y:number},tool:
     return Math.hypot(px-t*dx,py-t*dy)<=radius?[i]:[];
   });
 }
-export type CleaningOperation={kind:'init'}|{kind:'bathSkip'}|{kind:'buy';tool:CleaningTool}|{kind:'clean';tool:CleaningTool;spots:number[]};
+export type CleaningOperation={kind:'init'}|{kind:'bathSkip'}|{kind:'buy';tool:CleaningTool}|{kind:'clean';tool:CleaningTool;spots:number[]}|{kind:'bodyWash';id:string;coverage:number[]};
 export function prepareCleaning(values:Record<string,string|null>,operation:CleaningOperation,now:number,defaultFeed:FeedState) {
   const key='@mentore/feed_state_v1';
   const feed:FeedState=values[key]?JSON.parse(values[key]!):defaultFeed;
@@ -45,7 +45,13 @@ export function prepareCleaning(values:Record<string,string|null>,operation:Clea
   let changed=!feed.housekeeping,spent=0,removed=0;
   let hygiene=feed.hygiene??{lastBathAt:now,protectedUntil:0};
   if(!feed.hygiene)changed=true;
-  if(operation.kind==='bathSkip'){
+  if(operation.kind==='bodyWash'){
+    if(!operation.id||operation.id.length>160||!isBodyWashComplete(operation.coverage))throw new Error('体を全体までこすって洗ってね');
+    if(!hygiene.washReceipts?.includes(operation.id)){
+      hygiene={...hygiene,lastBathAt:Math.max(now,hygiene.lastBathAt),smokeDirt:0,washReceipts:[...(hygiene.washReceipts??[]),operation.id].slice(-32)};
+      changed=true;
+    }
+  }else if(operation.kind==='bathSkip'){
     if(hygiene.protectedUntil<=now){
       spent=60;
       if(feed.points<spent)throw new Error('YOKIポイントが足りません');
@@ -69,4 +75,29 @@ export function prepareCleaning(values:Record<string,string|null>,operation:Clea
   const next=changed?{...feed,points:feed.points-spent,housekeeping:house,hygiene}:feed;
   const entries:StorageEntry[]=changed?[[key,JSON.stringify(next)]]:[];
   return {entries,result:{feed:next,changed,spent,removed}};
+}
+
+/** Body-space coordinates shared by the towel hit test, dirt and foam. */
+export const BODY_WASH_SPOTS=[{x:.35,y:.28},{x:.65,y:.28},{x:.31,y:.49},{x:.69,y:.49},{x:.36,y:.72},{x:.64,y:.72}];
+export function isBodyWashComplete(coverage:number[]) {
+  return coverage.length===BODY_WASH_SPOTS.length&&coverage.every(n=>Number.isFinite(n)&&n>=1);
+}
+export function bodyWashPercent(coverage:number[]) {
+  if(isBodyWashComplete(coverage))return 100;
+  return Math.min(99,Math.floor(BODY_WASH_SPOTS.reduce((sum,_,i)=>sum+Math.max(0,Math.min(1,coverage[i]||0)),0)/BODY_WASH_SPOTS.length*100));
+}
+/** Count only actual rubbing on the body, independent of event frequency. */
+export function rubBody(coverage:number[],from:{x:number;y:number},to:{x:number;y:number}):number[] {
+  const onBody=(p:{x:number;y:number})=>Number.isFinite(p.x)&&Number.isFinite(p.y)&&((p.x-.5)/.43)**2+((p.y-.5)/.48)**2<=1;
+  if(!onBody(from)||!onBody(to))return coverage;
+  const dx=to.x-from.x,dy=to.y-from.y,length=Math.hypot(dx,dy);
+  if(length<.002||length>.65)return coverage;
+  return BODY_WASH_SPOTS.map((spot,i)=>{
+    const px=from.x-spot.x,py=from.y-spot.y;
+    const b=2*(px*dx+py*dy),a=length*length,c=px*px+py*py-.18*.18;
+    const discriminant=b*b-4*a*c;
+    if(discriminant<=0)return coverage[i]||0;
+    const root=Math.sqrt(discriminant),start=Math.max(0,(-b-root)/(2*a)),end=Math.min(1,(-b+root)/(2*a));
+    return Math.min(1,(coverage[i]||0)+Math.max(0,end-start)*length/.85);
+  });
 }
