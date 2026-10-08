@@ -12,6 +12,7 @@ import { BerryIcon, AppleIcon, CandyIcon, CakeFoodIcon, RamenIcon, SpecialFoodIc
 
 interface FeedModalProps {
   visible: boolean;
+  venue?: 'ramen';
   onClose: () => void;
   onFed?: (foodId: string) => void;
 }
@@ -114,7 +115,7 @@ const toastStyles = StyleSheet.create({
   text: { ...typography.calloutStrong, color: colors.primaryForeground },
 });
 
-export function FeedModal({ visible, onClose, onFed }: FeedModalProps) {
+export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
   const { feedState, currentSatiety, feedMascot, progress, getTodayRecord, getCompletedCount, getTotalCheckCount } = useApp();
 
   const { active, reduceMotion } = useAppActivity();
@@ -158,7 +159,7 @@ export function FeedModal({ visible, onClose, onFed }: FeedModalProps) {
   const hungerLabel = currentSatiety >= 80 ? 'ごちそうさま' : 'おやつでひと休みしよう';
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="ごはんをあげる" subtitle="一緒に、ほっとする時間" maxHeightRatio={0.88} contentStyle={modalStyles.content}>
+    <BottomSheet visible={visible} onClose={onClose} title={venue === 'ramen' ? 'もふもふラーメン' : 'ごはんをあげる'} subtitle={venue === 'ramen' ? 'もふもふ店長の、あったかい一杯。お店で食べていこう。' : '一緒に、ほっとする時間'} maxHeightRatio={0.88} contentStyle={modalStyles.content}>
       <View style={modalStyles.pointsBadge}>
         <Icon name="star" size={iconSize.sm} color={colors.primary} />
         <Text style={modalStyles.pointsText}>{feedState.points} pt</Text>
@@ -184,7 +185,7 @@ export function FeedModal({ visible, onClose, onFed }: FeedModalProps) {
 
       {saving && <Text accessibilityLiveRegion="polite">ごはんを保存しています…</Text>}
       <View style={modalStyles.grid}>
-        {FOOD_ITEMS.map((food) => (
+        {FOOD_ITEMS.filter(food => venue !== 'ramen' || food.id === 'ramen').map((food) => (
           <View key={food.id} style={modalStyles.gridItem}>
             <FoodCard food={food} canAfford={feedState.points >= food.cost} saving={saving} reduceMotion={reduceMotion} onFeed={handleFeed} />
           </View>

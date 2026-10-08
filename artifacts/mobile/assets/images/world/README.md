@@ -1,5 +1,25 @@
 # 3.0 world art
 
+## Current art direction — 2026-10-08 fanciful village
+
+The user requested a softer, anime-like fanciful world in the spirit of cozy life-sim and handcrafted storybook games. Nine original backgrounds were generated with the built-in image-generation tool, using the new home-day scene as the common style reference and the previous scenes as layout references. Rounded toy/clay silhouettes, pastel lilac/mint/butter-yellow/coral, puffy trees, simple oversized flowers and diffuse light replace realistic microtextures. No people, animals, UI or baked-in villagers. The four permitted inhabitants are the existing egg, mofumofu (`odango` internal ID), happa and colorful happa characters; those render separately.
+
+Files below are in `artifacts/mobile/assets/images/world/`. Each is 1024×1536. JPEG quality 88 is encoding-only optimization of the generated original, with no visual repainting or compositing. Original PNGs are retained with the generation output. The user explicitly requested replacement of the old realistic artwork.
+
+| File | Final prompt specification / preserved interaction layout |
+| --- | --- |
+| `home-day.jpg` | Toy-like cutaway cottage, lavender bed right, bookcase upper middle, window left, journal table left, rug center, bowl right, river left and clear garden path. Puffy hills and clouds; preserve furniture interaction coordinates. |
+| `home-night.jpg` | Exact new daylight scene at cozy night: indigo/lilac sky, simple stars and crescent, warm windows and lanterns; same objects and layout. |
+| `forest-clearing.jpg` | Puffy woodland, toy bench left, lantern tree hollow right, stream at left edge, open central curving footpath. |
+| `village-market.jpg` | Chunky market stalls flanking an empty plaza, toy bridge and stream behind, fruit/jars at left, ramen-bowl sign and lilac noren at right. No text or inhabitants. |
+| `village-onsen.jpg` | Rounded marshmallow stones, smooth turquoise pool in upper-middle at existing bather position, waterfall left, lilac-curtain bathhouse right, dry courtyard below. |
+| `village-neighbors.jpg` | Three round cottages with oversized lilac roofs, flower mailboxes, toy bridge/fence and an open grassy village plaza. Four runtime residents. |
+| `village-lake.jpg` | Toy boardwalk, lilac ticket hut upper left, pastel lake and hills, empty terrace for the separately animated wheel, wide dry foreground. |
+| `light-garden.jpg` | Blue-hour fantasy garden, stars, pastel hills, toy greenhouse right, glowing chunky flowers and star lanterns; empty central terrace reserved for the runtime character, cord and energy tank. |
+| `village-ramen.jpg` | New cutaway ramen house: lilac noren, bowl ornament, rounded kitchen counter, ceramic bowls/stockpot, two side tables, peach checker floor and open center. The mofumofu chef renders separately. |
+
+Do not replace these original character forms with arbitrary animals or humans. The image generation prompts used original scenery, not copied game characters/logos. Earlier art records below describe superseded versions.
+
 Original generated cottage illustrations, created for YOKI YOKI 3.0. Day and night share the same scene geometry (1024×1536). JPEG encoding is for loading size; no mascot is drawn into these backgrounds. Original character sprites and owned items are rendered separately. Coordinates live in `utils/worldGeometry.ts`. Do not use the scene clock or animation callbacks to award persisted currency.
 
 ## Care-first expansion — 2026-10-07

@@ -39,6 +39,7 @@ export default function HomeScreen() {
     getTodayRecord, getCompletedCount, getTotalCheckCount, homeCommentPreferences } = useApp();
   const { items, shopState } = useItems();
   const [sceneBusy,setSceneBusy]=useState(false);
+  const [feedVenue,setFeedVenue]=useState<'ramen'|undefined>(undefined);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [hints, setHints] = useState(false);
   const [name, setName] = useState('');
@@ -113,7 +114,7 @@ export default function HomeScreen() {
     greet: 'あ、きてくれた。うれしいな。', pet: 'なでなで、きもちいい。',
     space: 'くすぐったいよ。ゆっくりで大丈夫。', held: 'ふわっ。そっと、抱っこしてね。', land: 'ぽふっ。ただいま。', roll:'ころころ。ちょっと、ひなたぼっこ。',
   }[kind]);
-  const openFeed=()=>{if(food){say('いま、おやつを食べているところだよ。');return;}setSheet('feed');};
+  const openFeed=(venue?:'ramen')=>{if(food){say('いま、おやつを食べているところだよ。');return;}setFeedVenue(venue);setSheet('feed');};
   const restTogether = () => {setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
@@ -149,7 +150,7 @@ export default function HomeScreen() {
       <QuickAffirmationRecord onComplete={() => { setReaction(n => n + 1); say('今日のこと、教えてくれてありがとう。'); close(); }} />
       {menuRow('book-open', 'もう少し残したいとき', () => { close(); router.push('/(tabs)/record'); })}
     </BottomSheet>}
-    {sheet === 'feed' && <FeedModal visible onClose={close} onFed={id => { setFood(id); setMeal(n => n + 1); say('わあ、いいにおい。いま行くね。'); close(); }} />}
+    {sheet === 'feed' && <FeedModal visible venue={feedVenue} onClose={close} onFed={id => { setFood(id); setMeal(n => n + 1); say(feedVenue==='ramen'?'いただきます。あったかくて、おいしそう。':'わあ、いいにおい。いま行くね。'); close(); }} />}
     {sheet === 'chat' && <BottomSheet visible onClose={close} title={mascotName || 'よっきー'}>
       <Text style={s.chatText}>{today && today.mood <= 2 ? '今日は一緒に休もう。話したいことがあったら、ここにいるよ。' : message}</Text>
       <Button label="少し、お話しする" icon="message-circle" onPress={() => { close(); router.push('/(tabs)/chat'); }} />
@@ -157,7 +158,7 @@ export default function HomeScreen() {
     {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
       {menuRow('edit-3', '今日を記録する', () => setSheet('record'))}
       {menuRow('message-circle', 'この子とお話しする', chat)}
-      {menuRow('coffee', 'ごはんの時間', openFeed)}
+      {menuRow('coffee', 'ごはんの時間', () => openFeed())}
       {menuRow('heart', 'そっと、なでる', () => { setReaction(n => n + 1); interact('pet'); close(); })}
       {menuRow('moon', 'ベッドで一緒に休む', () => { restTogether(); close(); })}
       {menuRow('shopping-bag', '暮らしのお店', () => { close(); router.push('/shop'); })}

@@ -18,7 +18,7 @@ new Function(
     { compilerOptions: { module: ts.ModuleKind.CommonJS } },
   ).outputText,
 )(() => maps, mod, mod.exports);
-const { steerStep, mapPortals, VILLAGE_LINKS } = mod.exports;
+const { steerStep, mapPortals, VILLAGE_LINKS, VILLAGERS } = mod.exports;
 test("every destination connects back home and every gate is on walkable ground", () => {
   for (const m of maps.WORLD_MAPS) {
     const seen = new Set(),
@@ -104,4 +104,11 @@ test("mouth and cheeks deform on the 3D surface and disappear on the back", () =
   assert.notEqual(rest.leftCheek, bite.leftCheek);
   assert.equal(rest.body, bite.body);
   assert.equal(projectEgg(0, Math.PI, 0, 0, true, false, 1, 1).openMouth, "");
+});
+
+test("ramen is reachable at level one and residents use all four approved forms", () => {
+  assert.equal(maps.canVisitMap('ramen', 1), true);
+  assert.ok(VILLAGE_LINKS.market.includes('ramen'));
+  assert.deepEqual([...new Set(VILLAGERS.map(v => v.stage))].sort(), ['egg','odango','stage3','stage4']);
+  assert.ok(maps.isMapGround('ramen', maps.mapStart('ramen')));
 });

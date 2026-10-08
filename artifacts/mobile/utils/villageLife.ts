@@ -3,7 +3,8 @@ export type Point = { x: number; y: number };
 export type VillageExperience = "bath" | "wheel";
 export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
   home: ["market", "forest"],
-  market: ["home", "village", "lake"],
+  market: ["home", "village", "lake", "ramen"],
+  ramen: ["market"],
   forest: ["home", "onsen"],
   onsen: ["forest", "village"],
   village: ["market", "onsen"],
@@ -18,8 +19,8 @@ export function mapPortals(map: WorldMapId) {
         ? { x: i ? 0.62 : 0.46, y: 0.755 }
         : {
             // Keep the return sign to the right of the fixed left-thumb pad.
-            x: i === 0 ? 0.4 : i === 1 ? 0.73 : 0.5,
-            y: i === 2 ? 0.77 : 0.69,
+            x: i === 0 ? 0.43 : i === 1 ? 0.73 : i === 2 ? 0.5 : 0.73,
+            y: i === 3 ? 0.53 : i === 2 ? 0.77 : 0.69,
           },
     ),
   }));
@@ -44,6 +45,7 @@ export function steerStep(
 export const VILLAGERS = [
   {
     id: "suzu",
+    stage: "egg",
     name: "すず",
     color: "#B6CBB5",
     x: 0.32,
@@ -62,6 +64,7 @@ export const VILLAGERS = [
   },
   {
     id: "kohaku",
+    stage: "odango",
     name: "こはく",
     color: "#DCC094",
     x: 0.7,
@@ -80,9 +83,10 @@ export const VILLAGERS = [
   },
   {
     id: "nagi",
+    stage: "stage3",
     name: "なぎ",
     color: "#B6A7D0",
-    x: 0.5,
+    x: 0.36,
     y: 0.61,
     intro: "今日は、どこまでおさんぽする？",
     choices: [
@@ -94,6 +98,14 @@ export const VILLAGERS = [
         label: "今日はここで休む",
         reply: "じゃあ、となりにいるね。何もしない時間も、一緒だといいね。",
       },
+    ],
+  },
+  {
+    id: "iroha", name: "いろは", stage: "stage4", color: "#D7A9C9", x: 0.68, y: 0.64,
+    intro: "きょうのお花、いろんな色でかわいいね。どの色が好き？",
+    choices: [
+      { label: "むらさきが好き", reply: "わたしも。夕方の空みたいで、ほっとするね。" },
+      { label: "みんなでごはんに行こう", reply: "もふもふさんのラーメン屋へ行こうよ。湯気まで、ふわふわなんだ。" },
     ],
   },
 ] as const;

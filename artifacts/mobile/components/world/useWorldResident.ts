@@ -60,7 +60,7 @@ export function useWorldResident(p: Props) {
       // A successful food request always wins; interrupted meals resume once.
       const mealPending = meal > handled.current.meal;
       const restPending = rest > handled.current.rest;
-      if(map!=='home'&&(mealPending||restPending))return; // HOME owns furniture requests.
+      if(map!=='home'&&!(map==='ramen'&&mealPending)&&(mealPending||restPending))return; // HOME owns furniture requests.
       if (!mealPending && !restPending && destination && destination.id > handled.current.destination) {
         walk(destination.point, () => {handled.current.destination=destination.id;setPose('idle'); arrived.current?.(destination.id); later(run, 18000);});
         return;
@@ -74,7 +74,7 @@ export function useWorldResident(p: Props) {
       const target = map==='home' ? (stroll ? WORLD_TRAIL.garden.point : WORLD_PLACES[activity]) : {x:turn.current%2?.55:.46,y:turn.current%2?.72:.56};
       const finish = () => {
         if (!alive) return;
-        setPose(map!=='home'?'watching':stroll ? 'watching' : activity === 'meal' ? 'eating' : activity === 'bed' ? 'sleeping' : activity === 'window' ? 'watching' : 'idle');
+        setPose(map==='ramen'&&mealPending?'eating':map!=='home'?'watching':stroll ? 'watching' : activity === 'meal' ? 'eating' : activity === 'bed' ? 'sleeping' : activity === 'window' ? 'watching' : 'idle');
         later(() => {
           if (activity === 'meal' && !stroll) {handled.current.meal = meal; complete.current?.();}
           if (activity === 'bed' && !stroll) handled.current.rest = rest;
@@ -83,7 +83,7 @@ export function useWorldResident(p: Props) {
         }, activity === 'meal' ? MEAL_DURATION : 12000);
       };
       // Existing reduced-motion meal/rest alternative: expression, no unsolicited travel.
-      if (reduceMotion) finish(); else walk(target, finish);
+      if (reduceMotion || (map==='ramen'&&mealPending)) finish(); else walk(target, finish);
     };
     const requested = meal > handled.current.meal || rest > handled.current.rest || (destination && destination.id > handled.current.destination);
     later(run, requested ? 60 : 6500);

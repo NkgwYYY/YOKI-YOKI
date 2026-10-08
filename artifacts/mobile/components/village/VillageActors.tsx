@@ -11,16 +11,20 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Ellipse, Path } from "react-native-svg";
-import { VolumeEgg } from "@/components/world/VolumeEgg";
+import { VolumeResident, hasResidentVolume } from "@/components/world/VolumeResident";
+import { StaticMascot } from "@/components/Mascot";
+import { getStageName, type MascotStage } from "@/utils/mascotUtils";
 import { VILLAGERS, type VillagerId } from "@/utils/villageLife";
 
-export function VillageEgg({
+export function VillageResident({
+  stage = "egg",
   size,
   active,
   reduceMotion,
   scarf,
   asleep = false,
 }: {
+  stage?: MascotStage;
   size: number;
   active: boolean;
   reduceMotion: boolean;
@@ -66,14 +70,15 @@ export function VillageEgg({
       style={[{ width: size, height: size }, style]}
       pointerEvents="none"
     >
-      <VolumeEgg
+      {hasResidentVolume(stage) ? <VolumeResident
+        stage={stage}
         size={size}
         rx={zero}
         ry={zero}
         rz={zero}
         blink={blink}
         mood={asleep ? "sleepy" : "happy"}
-      />
+      /> : <StaticMascot stage={stage} mood={asleep ? "sleepy" : "happy"} size={size} />}
       {scarf && (
         <Svg
           width={size}
@@ -141,7 +146,8 @@ export function VillageNeighbors({
               backgroundColor: "#322E2B2B",
             }}
           />
-          <VillageEgg
+          <VillageResident
+            stage={n.stage}
             size={width * 0.124}
             active={active}
             reduceMotion={reduceMotion}
@@ -155,11 +161,13 @@ export function VillageNeighbors({
 }
 /** Waterline covers the lower shell; ripples and towel stay anchored to the bather. */
 export function BathingEgg({
+  stage,
   width,
   height,
   active,
   reduceMotion,
 }: {
+  stage: MascotStage;
   width: number;
   height: number;
   active: boolean;
@@ -182,7 +190,7 @@ export function BathingEgg({
   return (
     <View
       testID="village-bathing"
-      accessibilityLabel="たまごが温泉でひと休みしています"
+      accessibilityLabel={`${getStageName(stage)}が温泉でひと休みしています`}
       style={{
         position: "absolute",
         left: width * 0.52 - size,
@@ -228,7 +236,8 @@ export function BathingEgg({
           overflow: "hidden",
         }}
       >
-        <VillageEgg
+        <VillageResident
+          stage={stage}
           size={size}
           active={active}
           reduceMotion={reduceMotion}
