@@ -1,10 +1,13 @@
-export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco';
+export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'diner' | 'workshop';
 export const WORLD_MAPS = [
   {id:'home',name:'おうち',level:1,description:'いつでも帰れる、小さなおうち。'},
-  {id:'market',name:'こもれび市場',level:1,description:'ごはんや、暮らしの小さなお買いもの。'},
+  {id:'market',name:'こもれび広場',level:1,description:'噴水のそばから、お店や路地へ。'},
   {id:'ramen',name:'もふもふラーメン',level:1,description:'湯気の向こうで、もふもふ店長がお出迎え。'},
   {id:'bowling',name:'ころころボウリング',level:1,description:'いつものようにスワイプ。ピンに向かって、ころころ。'},
   {id:'tobacco',name:'こかげのタバコ屋',level:1,description:'お店のとなりに、小さな屋外喫煙所。'},
+  {id:'homewares',name:'暮らしのお店',level:1,description:'ほうき、リネン、小さな暮らしの道具。'},
+  {id:'diner',name:'ごはんのお店',level:1,description:'炊きたてのごはんと、あたたかいおかず。'},
+  {id:'workshop',name:'ゆでたまご工房',level:1,description:'店長の注文を受けて、ひと鍋ずつ働こう。'},
   {id:'forest',name:'木もれびの森',level:3,description:'葉の音を聞きながら、ゆっくりおさんぽ。'},
   {id:'onsen',name:'森の温泉',level:3,description:'お湯にゆられて、ゆっくりひと休み。'},
   {id:'village',name:'となりの村',level:4,description:'たまご・もふもふ・はっぱたちの、小さな村。'},
@@ -23,8 +26,10 @@ export function mapGroundBounds(map: WorldMapId, y: number) {
   if(map==='forest')return {minX:y<.52?.43:.36,maxX:y<.52?.61:.66,minY:.44,maxY:.81};
   if(map==='ramen')return {minX:.34,maxX:.66,minY:.47,maxY:.64};
   if(map==='onsen')return {minX:.23,maxX:.77,minY:.49,maxY:.81};
-  if(map==='tobacco')return {minX:.22,maxX:.78,minY:.52,maxY:.81};
-  if(map==='market'||map==='village')return {minX:y<.52?.40:.22,maxX:y<.52?.60:.78,minY:.48,maxY:.81};
+  if(map==='tobacco')return {minX:.22,maxX:.78,minY:.55,maxY:.81};
+  if(map==='homewares'||map==='diner'||map==='workshop')return {minX:.26,maxX:.74,minY:.49,maxY:.81};
+  if(map==='market')return {minX:.23,maxX:.77,minY:.46,maxY:.81};
+  if(map==='village')return {minX:y<.52?.40:.22,maxX:y<.52?.60:.78,minY:.48,maxY:.81};
   return {minX:.23,maxX:.79,minY:.48,maxY:.82};
 }
 export function mapGroundPoint(map: WorldMapId, point: {x:number;y:number}) {

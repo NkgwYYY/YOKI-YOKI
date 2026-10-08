@@ -1,7 +1,7 @@
 /**
  * YOKI-YOKI デザインシステム — 単一のソース・オブ・トゥルース。
  *
- * コンセプト: "Dream Atelier" (ファンシーで明るい、心落ち着く小さなアトリエ・街)
+ * コンセプト: "Moonlit Atelier" (紫水晶と古金を使う、静かなRPGの街)
  * ピンク、ラベンダー、パープルを基調とした、透明感と温かみのある世界観。
  */
 
@@ -10,32 +10,32 @@
  * ------------------------------------------------------------------ */
 
 const atelierColors = {
-  900: '#2A1846', // Very dark purple
-  800: '#422765', // Main text
-  700: '#62418B', // Muted text
-  600: '#8A67B4', // Borders strong, Icons
-  500: '#B093D6', // Disabled
-  400: '#D1BDF0', // Borders subtle
-  300: '#E6D8F8', // Muted backgrounds / Dividers
-  200: '#F3EAFB', // Secondary surfaces
-  100: '#F6F1EC', // App background
-  50:  '#FCF8F3', // Pink-white card highlights
+  900: '#F4EDF9', // Bright headings
+  800: '#ECE2F3', // Main text
+  700: '#BDB3CC', // Muted text
+  600: '#B3A4CB', // Borders strong, Icons
+  500: '#80788D', // Disabled
+  400: '#978671', // Borders subtle
+  300: '#3A334B', // Muted backgrounds / Dividers
+  200: '#292337', // Secondary surfaces
+  100: '#15121E', // App background
+  50:  '#211C2C', // Raised purple surfaces
 } as const;
 
 const charmColors = {
-  500: '#80618D', // Primary pink
-  600: '#694F76', // Primary pressed
-  900: '#EEE5F2', // Soft pink
+  500: '#756293', // Violet command fill
+  600: '#55436F', // Primary pressed
+  900: '#352B45', // Selected purple surface
 } as const;
 
 export const colors = {
   /* 面 */
   background: atelierColors[100],
   backgroundSunken: atelierColors[300],
-  card: atelierColors[50], // White for crispness
+  card: atelierColors[50], // Raised purple surface
   cardForeground: atelierColors[900],
   sheet: atelierColors[50],
-  scrim: 'rgba(42, 24, 70, 0.4)', // Soft purple shadow
+  scrim: 'rgba(8, 6, 17, 0.76)', // Soft purple shadow
 
   /* 文字 */
   foreground: atelierColors[900],
@@ -60,7 +60,7 @@ export const colors = {
   primaryForeground: '#FFFFFF',
   primaryPressed: charmColors[600],
   primarySoft: charmColors[900],
-  primaryOnSoft: charmColors[600],
+  primaryOnSoft: '#DEC8EE',
   ring: charmColors[500],
   tint: charmColors[500],
 
@@ -103,7 +103,7 @@ export const homePalette = {
   playMarker: '#E7B944',
   gaugeTrack: '#EDE8F5',
   dateText: '#6D5F8A',
-  navActive: '#80618D',
+  navActive: '#756293',
   navInactive: '#BAA6C2',
   navBackground: '#382B37',
   navBorder: 'rgba(160, 149, 181, 0.22)',
@@ -148,11 +148,11 @@ export const screenPadding = space.xl;
  * Radius
  * ------------------------------------------------------------------ */
 export const radius = {
-  sm: 8,
-  md: 16, // Softer curves for dream aesthetic
-  homeCard: 20,
-  lg: 24,
-  xl: 32,
+  sm: 6,
+  md: 8, // Softer curves for dream aesthetic
+  homeCard: 10,
+  lg: 10,
+  xl: 12,
   pill: 999,
 } as const;
 
@@ -160,10 +160,10 @@ export const radius = {
  * Border
  * ------------------------------------------------------------------ */
 export const border = {
-  width: 1.5, // Slightly thicker for cute aesthetic
-  hairline: { borderWidth: 1.5, borderColor: colors.border },
-  hairlineStrong: { borderWidth: 1.5, borderColor: colors.borderStrong },
-  inner: { borderWidth: 1.5, borderColor: colors.borderOnFill },
+  width: 1, // Slightly thicker for cute aesthetic
+  hairline: { borderWidth: 1, borderColor: colors.border },
+  hairlineStrong: { borderWidth: 1, borderColor: colors.borderStrong },
+  inner: { borderWidth: 1, borderColor: colors.borderOnFill },
 } as const;
 
 /* ------------------------------------------------------------------ *
@@ -216,7 +216,7 @@ export const control = {
   padH: 24,
   padVSm: 10,
   padHSm: 16,
-  pressScale: 0.94, // slightly squishier
+  pressScale: 0.98, // slightly squishier
 } as const;
 
 /* ------------------------------------------------------------------ *
@@ -225,9 +225,9 @@ export const control = {
 export const moodPalette: Record<number, string> = {
   1: '#FF4D6D',
   2: '#FF9533',
-  3: '#B093D6',
+  3: '#80788D',
   4: '#20D695',
-  5: '#80618D',
+  5: '#756293',
 };
 
 export const activityPalette = {
@@ -235,8 +235,8 @@ export const activityPalette = {
   exercise: '#20D695',
   study: '#FF9533',
   journal: '#33B5E5',
-  earlySleep: '#8A67B4',
-  selfCare: '#80618D',
+  earlySleep: '#B3A4CB',
+  selfCare: '#756293',
 } as const;
 
 export const categoryPalette = {
@@ -248,8 +248,8 @@ export const categoryPalette = {
 
 export const rarityPalette = {
   common: { bg: atelierColors[200], text: atelierColors[800], border: atelierColors[400] },
-  rare: { bg: '#E4F4FF', text: '#0083B0', border: '#70C2E8' },
-  special: { bg: '#EEE5F2', text: '#694F76', border: '#80618D' },
+  rare: { bg: '#203545', text: '#A5DAED', border: '#70C2E8' },
+  special: { bg: '#352B45', text: '#55436F', border: '#756293' },
 } as const;
 
 export const judgePalette = {
@@ -259,14 +259,14 @@ export const judgePalette = {
   miss: atelierColors[500],
 } as const;
 
-export const lanePalette = ['#80618D', '#FF9533', '#20D695', '#33B5E5'] as const;
+export const lanePalette = ['#756293', '#FF9533', '#20D695', '#33B5E5'] as const;
 
 export const gameSurface = {
   background: atelierColors[100],
   scrim: 'rgba(42, 24, 70, 0.6)',
 } as const;
 
-export const chartPalette = ['#80618D', '#20D695', '#33B5E5', '#FF9533', '#FF4D6D'] as const;
+export const chartPalette = ['#756293', '#20D695', '#33B5E5', '#FF9533', '#FF4D6D'] as const;
 
 /* ------------------------------------------------------------------ *
  * Hook

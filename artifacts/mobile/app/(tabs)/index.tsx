@@ -157,9 +157,9 @@ export default function HomeScreen() {
       </View>}
       <View style={[s.quickActions, wide && {flexDirection: 'column', alignItems: 'center'}]}>
         <Pressable testID="home-daily-record" accessibilityRole="button" accessibilityLabel="今日の記録を開く" onPress={() => setSheet('record')} style={({pressed}) => [s.noteButton, pressed && {opacity: 0.8}]}>
-          <Icon name={today ? 'check' : 'edit-3'} size={17} color="#796087" /><Text style={s.noteText}>{today ? '今日の記録' : '今日を、ひとこと'}</Text>
+          <Icon name={today ? 'check' : 'edit-3'} size={17} color="#CCBADB" /><Text style={s.noteText}>{today ? '今日の記録' : '今日を、ひとこと'}</Text>
         </Pressable>
-        <Pressable testID="home-chat" accessibilityRole="button" accessibilityLabel="この子とお話しする" onPress={chat} style={s.talkButton}><Icon name="message-circle" size={18} color="#796087" /><Text style={s.talkText}>おはなし</Text></Pressable>
+        <Pressable testID="home-chat" accessibilityRole="button" accessibilityLabel="この子とお話しする" onPress={chat} style={s.talkButton}><Icon name="message-circle" size={18} color="#CCBADB" /><Text style={s.talkText}>おはなし</Text></Pressable>
       </View>
     </View>
     {sheet==='hygiene'&&<BottomSheet visible title="からだの清潔度" onClose={()=>setSheet(null)}>
@@ -169,9 +169,9 @@ export default function HomeScreen() {
     </BottomSheet>}
     {sheet === 'happiness' && <BottomSheet visible onClose={close} title="うれしい気持ち" subtitle="会いに来てくれることが、いちばんうれしい。">
       <Text style={s.chatText}>幸福度 {happiness.value}%</Text>
-      <Text style={{color:'#806D87',fontSize:13,lineHeight:22}}>同じ楽しみの加点は、1日1回。毎日記録できなくても、自分のペースで会いに来てね。</Text>
+      <Text style={{color:'#C1B2CA',fontSize:13,lineHeight:22}}>同じ楽しみの加点は、1日1回。毎日記録できなくても、自分のペースで会いに来てね。</Text>
       {(Object.entries({visit:'会いに来てくれた',record:'今日のことを教えてくれた',ramen:'ラーメンを食べた',bath:'温泉でひと休み',homeBath:'おうちのおふろ',meal:'一緒にごはん',smoke:'喫煙所で一服'}) as [HappyAction,string][]).map(([action,label])=><View key={action} style={s.menuRow}>
-        <Icon name={happiness.actions.includes(action)?'check-circle':'circle'} color="#A07DAA"/><Text style={s.menuText}>{label}</Text><Text style={{color:'#927A99'}}>＋{HAPPY_REWARDS[action]}</Text>
+        <Icon name={happiness.actions.includes(action)?'check-circle':'circle'} color="#A07DAA"/><Text style={s.menuText}>{label}</Text><Text style={{color:'#CDB68E'}}>＋{HAPPY_REWARDS[action]}</Text>
       </View>)}
       {!!happiness.error&&<><Text accessibilityRole="alert">{happiness.error}</Text><Button label="もう一度保存する" onPress={happiness.retry}/></>}
     </BottomSheet>}
@@ -210,23 +210,23 @@ const s = StyleSheet.create({
   header: { position: 'absolute', left: 20, right: 20, gap: 10 },
   brandRow: {flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   statusRow: {flexDirection:'row',gap:8,alignItems:'center'},
-  points:{minHeight:44,paddingHorizontal:12,backgroundColor:'#FFF9F0F2',borderColor:'#FFFFFFE8',borderWidth:1,borderRadius:18,flexDirection:'row',alignItems:'center',gap:6},
-  pointsText:{fontSize:11,fontWeight:'700',color:'#806195'},
+  points:{minHeight:44,paddingHorizontal:12,backgroundColor:'#211B30EC',borderColor:'#B7A48290',borderWidth:1,borderRadius: 7,flexDirection:'row',alignItems:'center',gap:6},
+  pointsText:{fontSize:11,fontWeight:'700',color:'#D6C4E8'},
   brand: { fontSize: 12, letterSpacing: 3, color: '#FFF5E6', fontWeight: '700', textShadowColor: '#263A35', textShadowRadius: 6 },
   subtitle: { marginTop: 6, fontSize: 11, color: '#FFF1D9', textShadowColor: '#263A35', textShadowRadius: 6 },
-  headerTools: { flexDirection: 'row', gap: 5 }, iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#223D367A', alignItems: 'center', justifyContent: 'center' },
+  headerTools: { flexDirection: 'row', gap: 5 }, iconButton: { width: 44, height: 44, borderRadius: 7, backgroundColor: '#223D367A', alignItems: 'center', justifyContent: 'center' },
   footer: { position: 'absolute', left: 22, right: 22, alignItems: 'center', gap: 14 },
   compactFooter: {left: 14, right: 14, gap: 5},
   speech: {alignItems: 'center', gap: 6, maxWidth: 380},
   residentName: {fontSize: 10, letterSpacing: 1, color: '#FAE3B8', textShadowColor: '#17291B', textShadowRadius: 6},
   whisper: { color: '#FFFAEF', fontSize: 14, lineHeight: 22, textAlign: 'center', textShadowColor: '#17291B', textShadowRadius: 6 },
-  quickActions: {flexDirection:'row',gap:0,padding:4,borderRadius:26,backgroundColor:'#FFF9F0F5',borderWidth:1,borderColor:'#FFFFFFDD',justifyContent:'center',shadowColor:'#50355F',shadowOpacity:.12,shadowRadius:12},
-  noteButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 20, borderRadius: 24, backgroundColor: '#EFE3F5'},
-  noteText: {fontSize: 12, fontWeight: '600', color: '#71567F'},
-  talkButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 15, borderRadius: 24, backgroundColor:'transparent'},
-  talkText: {fontSize: 12, color: '#71567F'},
+  quickActions: {flexDirection:'row',gap:0,padding:4,borderRadius: 7,backgroundColor:'#211B30F2',borderWidth:1,borderColor:'#B7A48290',justifyContent:'center',shadowColor:'#50355F',shadowOpacity:.12,shadowRadius:12},
+  noteButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 20, borderRadius: 7, backgroundColor: '#51415F88'},
+  noteText: {fontSize: 12, fontWeight: '600', color: '#E6DAED'},
+  talkButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 15, borderRadius: 7, backgroundColor:'transparent'},
+  talkText: {fontSize: 12, color: '#E6DAED'},
   menuRow: { minHeight: 50, flexDirection: 'row', gap: 14, alignItems: 'center', paddingVertical: 10 },
-  menuText: { flex: 1, fontSize: 14, color: '#4B3C52' },
-  chatText: { fontSize: 17, lineHeight: 28, color: '#4B3C52', marginVertical: 18 },
-  input: { minHeight: 48, borderWidth: 1, borderColor: '#CEBDCE', borderRadius: 12, padding: 12, marginVertical: 18, color: '#4B3C52' },
+  menuText: { flex: 1, fontSize: 14, color: '#EEE3F4' },
+  chatText: { fontSize: 17, lineHeight: 28, color: '#EEE3F4', marginVertical: 18 },
+  input: { minHeight: 48, borderWidth: 1, borderColor: '#CEBDCE', borderRadius: 12, padding: 12, marginVertical: 18, color: '#EEE3F4' },
 });

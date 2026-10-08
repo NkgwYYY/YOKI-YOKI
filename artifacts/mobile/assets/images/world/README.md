@@ -69,3 +69,24 @@ Coordinates measured from the generated image: approach `(0.505, 0.49)`; head pi
 - `home-bath.jpg`: original built-in ImageGen scene; source `exec-1ca57134-3190-4964-93ee-2e209023324b.png`, 1024×1536, JPEG quality 90. Prompt: tactile 3D toy diorama Japanese domestic bathroom, ivory bathtub, honey wood, lavender/mint details, folded towels, shower, window into a green garden; elevated portrait camera and open foreground, no characters/UI/text. A home bathroom distinct from the outdoor onsen.
 - `egg-kitchen.jpg`: original built-in ImageGen scene; source `exec-bf8bbfc7-4a0c-42aa-b00f-e875bf380965.png`, 1024×1536, JPEG quality 90. Prompt: peaceful forest cottage boiled-egg shop, warm rounded 3D miniature kitchen, egg baskets, timer, honeywood workbench with clear middle area for interactive saucepan; no characters, pan, text or UI.
 - The interactive tub bather, dirt, tools, vacuum and egg-job pot are rendered by app components rather than baked into these environments. Existing approved backgrounds were retained.
+
+
+## Fancy village refresh — 2026-10-09
+
+Built-in image generation / style transfer. `home-day.jpg` is the authoritative style reference. The initially photorealistic drafts were rejected and are not referenced by the app. Final art uses rounded clay/felt storybook miniatures, lavender, honey yellow, mint and peach, diffuse light, no text or UI. All PNG sprites preserve alpha. Background JPEGs only re-encode the generated pixels for delivery.
+
+- `home-bath-v2`: generated source `exec-2a27b14e-dbea-4274-805d-fdda4b916dd7.png`.
+- `village-tobacco-v2`: generated source `exec-2e9937e1-726e-44ac-8576-22a5170015fd.png`.
+- `village-homewares`: generated source `exec-8745bc5b-d32e-4acd-924c-a328d5b50414.png`.
+- `village-diner`: generated source `exec-7fda35a9-1e51-4730-901f-c5518c3e74fb.png`.
+- `village-square`: generated source `exec-acd0c108-5a82-435d-8073-d9ad0f34c3ef.png`.
+- `egg-workshop-v2`: generated source `exec-1ffaed54-e94a-4922-aafe-8d55617ec8ac.png`.
+- `village-atlas`: generated source `exec-fec370e3-5951-426d-9a6d-3d2c829378cf.png`.
+- `village-workshop`: generated source `exec-01dab66a-82b0-479b-aca3-62a9272815a7.png`.
+- `copper-pot`: generated source `exec-acb4cb08-690f-4569-ab65-dfc17a6f3534.png`.
+- `homewares-keeper`: generated source `exec-2cc93847-dcb2-428a-a4dc-836510e57e42.png`.
+- `ramen-master`: generated source `exec-e8651981-3ed6-4c53-8603-6398d971c143.png`.
+- `tobacco-keeper`: generated source `exec-3265f0f8-8a2b-42e2-b30e-465db8b24207.png`.
+- `diner-chef`: generated source `exec-00102da0-3292-40ce-9073-00d0f6c3c213.png`.
+
+Prompt set: preserve interaction coordinates and edit the room/character into the existing fancy YOKI YOKI style; no photoreal texture, grain, realistic human eyes, dark cinematic lighting or copyrighted game characters. Bath: clear oval water center (.51,.331), open floor; tobacco: teal/plum retro kiosk and right-hand outdoor bench; homewares: linens/brushes/brooms and center counter; diner: rice kitchen and clear floor; square: open plaza and small upper fountain; atlas: toy landscape with forest/onsen upper-left and lake upper-right; kitchen: open tabletop and empty stove; workshop: separate egg-emblem cottage; sprites: ramen master with headband/coat, rice chef with hat/apron, fluffy storekeeper with cleaning tools, cigarette-motif plum-vest keeper, peach/lavender egg pot. No generated letters or buttons.

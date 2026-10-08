@@ -49,7 +49,7 @@ export function prepareCleaning(values:Record<string,string|null>,operation:Clea
     if(hygiene.protectedUntil<=now){
       spent=60;
       if(feed.points<spent)throw new Error('YOKIポイントが足りません');
-      hygiene={lastBathAt:now,protectedUntil:now+7*DAY};changed=true;
+      hygiene={...hygiene,lastBathAt:now,protectedUntil:now+7*DAY};changed=true;
     }
   }else if(operation.kind==='buy'){
     if(!Object.hasOwn(CLEANING_TOOLS,operation.tool))throw new Error('Unknown tool');

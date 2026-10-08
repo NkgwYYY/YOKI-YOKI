@@ -14,7 +14,7 @@ function WorldDock({state, navigation}: DockProps) {
   const insets = useSafeAreaInsets();
   const places = [{name: 'index', label: 'おうち', icon: 'home'}, {name: 'plant', label: 'おふろ', icon: 'droplet'}, {name: 'growth', label: '思い出', icon: 'book-open'}] as const;
   return <View pointerEvents="box-none" style={{position: 'absolute', bottom: Math.max(12, insets.bottom), left: 16, right: 16, alignItems: 'center'}}>
-    <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 30, backgroundColor: '#FFF9F0F5', borderWidth: 1, borderColor: '#FFFFFFE8', shadowColor:'#50355F', shadowOpacity:.16, shadowRadius:18, shadowOffset:{width:0,height:5}}}>
+    <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 7, backgroundColor: '#211B30F2', borderWidth: 1, borderColor: '#B7A48290', shadowColor:'#50355F', shadowOpacity:.16, shadowRadius:18, shadowOffset:{width:0,height:5}}}>
       {places.map(place => {
         const route = state.routes.find(r => r.name === place.name);
         if (!route) return null;
@@ -22,9 +22,9 @@ function WorldDock({state, navigation}: DockProps) {
         return <Pressable key={route.key} accessibilityRole="tab" accessibilityLabel={place.label} accessibilityState={{selected}}
           onPress={() => {const event = navigation.emit({type: 'tabPress', target: route.key, canPreventDefault: true}); if (!selected && !event.defaultPrevented) navigation.navigate(route.name, route.params);}}
           onLongPress={() => navigation.emit({type: 'tabLongPress', target: route.key})}
-          style={({pressed}) => ({flex: 1, minHeight: 48, borderRadius: 25, alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: selected ? '#EBDCF4' : 'transparent', opacity: pressed ? 0.7 : 1})}>
-          <Icon name={place.icon} size={20} color={selected ? '#75538A' : '#A290A7'} />
-          <Text style={{fontSize: 10, color: selected ? '#75538A' : '#A290A7'}}>{place.label}</Text>
+          style={({pressed}) => ({flex: 1, minHeight: 48, borderRadius: 7, alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: selected ? '#66507688' : 'transparent', opacity: pressed ? 0.7 : 1})}>
+          <Icon name={place.icon} size={20} color={selected ? '#F0DDAE' : '#B2A4BD'} />
+          <Text style={{fontSize: 10, color: selected ? '#F0DDAE' : '#B2A4BD'}}>{place.label}</Text>
         </Pressable>;
       })}
     </View>
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     minWidth: 180,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 24,
+    borderRadius: 7,
     backgroundColor: homePalette.navActive,
     paddingHorizontal: 24,
   },

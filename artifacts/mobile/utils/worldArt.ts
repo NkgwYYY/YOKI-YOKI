@@ -4,14 +4,17 @@ import type { WorldMapId } from './worldMaps';
 
 export const HOME_ART = { day: require('@/assets/images/world/home-day.jpg'), night: require('@/assets/images/world/home-night.jpg') };
 export const OUTDOOR_ART = {
+  homewares: require('@/assets/images/world/village-homewares.jpg'),
+  diner: require('@/assets/images/world/village-diner.jpg'),
+  workshop: require('@/assets/images/world/village-workshop.jpg'),
   forest: require('@/assets/images/world/forest-clearing.jpg'),
   lake: require('@/assets/images/world/village-lake.jpg'),
-  market: require('@/assets/images/world/village-market.jpg'),
+  market: require('@/assets/images/world/village-square.jpg'),
   onsen: require('@/assets/images/world/village-onsen.jpg'),
   village: require('@/assets/images/world/village-neighbors.jpg'),
   ramen: require('@/assets/images/world/village-ramen.jpg'),
   bowling: require('@/assets/images/world/village-bowling-long.jpg'),
-  tobacco: require('@/assets/images/world/village-tobacco.jpg'),
+  tobacco: require('@/assets/images/world/village-tobacco-v2.jpg'),
 };
 export function worldArt(map: WorldMapId, night = false) { return map === 'home' ? HOME_ART[night ? 'night' : 'day'] : OUTDOOR_ART[map]; }
 const cached = new Map<string, Promise<void>>();

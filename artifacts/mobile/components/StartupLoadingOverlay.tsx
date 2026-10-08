@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.md,
-    backgroundColor: homePalette.backgroundTop,
+    backgroundColor: colors.background,
   },
   logo: {
     ...typography.title,
@@ -130,13 +130,13 @@ const styles = StyleSheet.create({
   },
   message: {
     ...typography.caption,
-    color: homePalette.dateText,
+    color: colors.mutedForeground,
   },
   retryButton: {
     marginTop: space.sm,
     paddingHorizontal: space.xl,
     paddingVertical: space.sm,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     backgroundColor: colors.primary,
   },
   retryText: {

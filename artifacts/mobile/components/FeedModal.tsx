@@ -192,11 +192,11 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
       {saving && <Text accessibilityLiveRegion="polite">ごはんを保存しています…</Text>}
       {venue === 'ramen' ? <View style={{alignItems:'center',gap:12}}>
         <RamenArt size={250} />
-        <Text style={{fontSize:21,fontWeight:'700',color:'#594364'}}>店長の特製ラーメン</Text>
-        <Text style={{fontSize:13,lineHeight:22,textAlign:'center',color:'#89788E'}}>とろけるチャーシュー、半熟たまご。{ '\n' }お店だけの、とっておきのごちそう。</Text>
+        <Text style={{fontSize:21,fontWeight:'700',color:'#EBDFF0'}}>店長の特製ラーメン</Text>
+        <Text style={{fontSize:13,lineHeight:22,textAlign:'center',color:'#C0B1CC'}}>とろけるチャーシュー、半熟たまご。{ '\n' }お店だけの、とっておきのごちそう。</Text>
         <WorldPill testID="ramen-order" primary icon="coffee" label={saving?'ご用意しています…':'注文する  ·  60 pt'} disabled={saving||feedState.points<60} onPress={()=>handleFeed('ramen')} style={{width:'100%'}} />
-        {feedState.points<60&&<Text style={{fontSize:12,color:'#967953'}}>あと{60-feedState.points}ポイントで注文できます</Text>}
-        <Pressable testID="ramen-preview" accessibilityRole="button" accessibilityLabel="できたてのラーメンを見る" onPress={()=>setServing('preview')} style={{minHeight:44,justifyContent:'center'}}><Text style={{color:'#806195',fontSize:13}}>できたてを見る</Text></Pressable>
+        {feedState.points<60&&<Text style={{fontSize:12,color:'#D3B783'}}>あと{60-feedState.points}ポイントで注文できます</Text>}
+        <Pressable testID="ramen-preview" accessibilityRole="button" accessibilityLabel="できたてのラーメンを見る" onPress={()=>setServing('preview')} style={{minHeight:44,justifyContent:'center'}}><Text style={{color:'#C6AFD9',fontSize:13}}>できたてを見る</Text></Pressable>
       </View> : <View style={modalStyles.grid}>
         {foodsForVenue().map((food) => <View key={food.id} style={modalStyles.gridItem}>
           <FoodCard food={food} canAfford={feedState.points >= food.cost} saving={saving} reduceMotion={reduceMotion} onFeed={handleFeed} />
@@ -205,7 +205,7 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
 
       <View style={modalStyles.hint}>
         <Icon name="info" size={iconSize.xs} color={colors.subtleForeground} />
-        <Text style={modalStyles.hintText}>今日の記録やボウリングで集めたポイントを使えるよ</Text>
+        <Text style={modalStyles.hintText}>バイトや今日の記録で集めたポイントを使えます</Text>
       </View>
 
       <FeedToast message={toast.message} visible={toast.visible} />

@@ -3,8 +3,11 @@ export type Point = { x: number; y: number };
 export type VillageExperience = "bath" | "wheel" | "smoke";
 export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
   home: ["market", "forest"],
-  market: ["home", "village", "lake", "ramen", "bowling", "tobacco"],
+  market: ["home", "village", "lake", "ramen", "bowling", "tobacco", "homewares", "diner", "workshop"],
   tobacco: ["market"],
+  homewares: ["market"],
+  diner: ["market"],
+  workshop: ["market"],
   bowling: ["market"],
   ramen: ["market"],
   forest: ["home", "onsen"],
@@ -15,8 +18,11 @@ export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
 // A gate is both the visible sign and the actual walking trigger.
 const GATES: Record<WorldMapId, Point[]> = {
   home: [{x:.51,y:.785},{x:.50,y:.435}],
-  market: [{x:.24,y:.72},{x:.42,y:.49},{x:.60,y:.49},{x:.77,y:.56},{x:.53,y:.80},{x:.77,y:.72}],
-  tobacco: [{x:.23,y:.67}],
+  market: [{x:.25,y:.78},{x:.38,y:.47},{x:.62,y:.47},{x:.76,y:.54},{x:.50,y:.80},{x:.76,y:.75},{x:.24,y:.53},{x:.76,y:.64},{x:.25,y:.65}],
+  tobacco: [{x:.50,y:.80}],
+  homewares: [{x:.50,y:.80}],
+  diner: [{x:.50,y:.80}],
+  workshop: [{x:.50,y:.80}],
   bowling: [{x:.70,y:.765}],
   ramen: [{x:.35,y:.58}],
   forest: [{x:.51,y:.80},{x:.51,y:.445}],
@@ -32,9 +38,9 @@ export function nearbyPortalIndex(point: Point, portals: {point:Point}[], direct
   return portals.findIndex(portal=>Math.hypot(point.x-portal.point.x,(point.y-portal.point.y)*1.5)<.038&&(!direction||(portal.point.x-point.x)*direction.x+(portal.point.y-point.y)*direction.y>=0));
 }
 export const MAP_COORDS: Record<WorldMapId, Point> = {
-  onsen:{x:.17,y:.09}, village:{x:.5,y:.09}, lake:{x:.83,y:.09},
-  forest:{x:.17,y:.35}, market:{x:.5,y:.45}, ramen:{x:.83,y:.35},
-  home:{x:.17,y:.70}, tobacco:{x:.83,y:.70}, bowling:{x:.5,y:.90},
+ onsen:{x:.19,y:.10},forest:{x:.21,y:.29},village:{x:.55,y:.22},lake:{x:.82,y:.10},
+ homewares:{x:.21,y:.47},market:{x:.51,y:.46},ramen:{x:.81,y:.40},diner:{x:.73,y:.59},
+ home:{x:.21,y:.71},workshop:{x:.50,y:.69},bowling:{x:.41,y:.89},tobacco:{x:.82,y:.85},
 };
 /** Fixed scene coordinates keep velocity stable through camera zoom and viewport changes. */
 export function steerStep(

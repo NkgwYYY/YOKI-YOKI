@@ -27,14 +27,17 @@ export function grantHappiness(raw:unknown,action:HappyAction,today:string) {
   const retained=Object.fromEntries(Object.entries(days).sort(([a],[b])=>b.localeCompare(a)).slice(0,32));
   return {state:{value,updatedOn:today,days:retained},gained:value-state.value,newlyGranted:true};
 }
-export function prepareHappiness(values:Record<string,string|null>,action:HappyAction,today:string,defaultFeed:FeedState,now=Date.now()) {
+export function prepareHappiness(values:Record<string,string|null>,action:HappyAction,today:string,defaultFeed:FeedState,now=Date.now(),eventId?:string) {
   const key='@mentore/feed_state_v1';
   const feed:FeedState=values[key]?JSON.parse(values[key]!):defaultFeed;
   if(!feed||!Number.isFinite(feed.points)||feed.points<0)throw new Error('データを確認できません');
   const reward=grantHappiness(feed.happiness,action,today);
   const bathing=action==='bath'||action==='homeBath';
-  const hygiene=bathing?{lastBathAt:Math.max(now,feed.hygiene?.lastBathAt??0),protectedUntil:feed.hygiene?.protectedUntil??0}:feed.hygiene;
-  const changed=reward.newlyGranted||bathing;
+  const old=feed.hygiene??{lastBathAt:now,protectedUntil:0};
+  const smokeKey=eventId||`daily-smoke-${today}`;
+  const smoked=action==='smoke'&&!old.smokeReceipts?.includes(smokeKey);
+  const hygiene=bathing?{...old,lastBathAt:Math.max(now,old.lastBathAt),smokeDirt:0}:smoked?{...old,smokeDirt:Math.min(30,(old.smokeDirt??0)+3),smokeReceipts:[...(old.smokeReceipts??[]),smokeKey].slice(-40)}:feed.hygiene;
+  const changed=reward.newlyGranted||bathing||smoked;
   const next={...feed,happiness:reward.state,...(hygiene?{hygiene}:{})};
   const entries:StorageEntry[]=changed?[[key,JSON.stringify(next)]]:[];
   return {entries,result:{feed:changed?next:feed,...reward,changed}};

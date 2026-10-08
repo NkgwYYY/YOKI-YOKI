@@ -1,10 +1,13 @@
 import type {FeedState} from '../contexts/AppContext';
 import type {StorageEntry} from './recoverableStorage';
+export const EGG_RECIPES=[{id:'soft',name:'とろとろ半熟',targetMs:5400,description:'黄身がとろりと流れる、やわらかな半熟。'},{id:'jammy',name:'ねっとり半熟',targetMs:6500,description:'黄身がしっとり濃厚な、工房の定番。'},{id:'firm',name:'しっとり固ゆで',targetMs:7400,description:'火を通しすぎず、ほくほくに仕上げる。'}] as const;
+export type EggRecipeId=typeof EGG_RECIPES[number]['id'];
+export const recipeForTarget=(target:number)=>EGG_RECIPES[target<5900?0:target<7000?1:2];
 export type EggGrade='raw'|'good'|'perfect'|'hard';
 export type EggShift={id:string;startedAt:number;targetMs:number};
-export type EggReceipt={id:string;grade:EggGrade;earned:number;elapsed:number};
+export type EggReceipt={id:string;grade:EggGrade;earned:number;elapsed:number;targetMs?:number};
 export type EggJobState={active:EggShift|null;receipts:EggReceipt[]};
-export type EggJobOperation={kind:'start';id:string}|{kind:'finish';id:string;finishedAt?:number};
+export type EggJobOperation={kind:'start';id:string;recipe?:EggRecipeId}|{kind:'finish';id:string;finishedAt?:number};
 export type EggJobResult={state:EggJobState;receipt:EggReceipt|null;newlyGranted:boolean};
 export const EGG_JOB_LIMIT_MS=10000;
 export function eggGrade(elapsed:number,target:number):{grade:EggGrade;earned:number}{
@@ -28,7 +31,8 @@ export function prepareEggJob(values:Record<string,string|null>,op:EggJobOperati
   else if(op.kind==='start'){
     if(!state.active){
       let seed=0;for(const c of op.id)seed=(seed*31+c.charCodeAt(0))>>>0;
-      state.active={id:op.id,startedAt:now,targetMs:5200+seed%2401};changed=true;
+      const order=EGG_RECIPES.find(r=>r.id===op.recipe);
+      state.active={id:op.id,startedAt:now,targetMs:order?order.targetMs+seed%241-120:5200+seed%2401};changed=true;
     }
   }else{
     if(state.active?.id!==op.id)throw new Error('この仕事は完了しています');
@@ -36,7 +40,7 @@ export function prepareEggJob(values:Record<string,string|null>,op:EggJobOperati
     if(!Number.isFinite(end)||end>now)throw new Error('仕事の時刻を確認できません');
     const elapsed=end-state.active.startedAt;
     if(elapsed<0)throw new Error('端末の時刻を確認してください');
-    receipt={id:op.id,elapsed,...eggGrade(elapsed,state.active.targetMs)};
+    receipt={id:op.id,elapsed,targetMs:state.active.targetMs,...eggGrade(elapsed,state.active.targetMs)};
     state.receipts=[...state.receipts,receipt].slice(-40);state.active=null;changed=true;newlyGranted=true;
   }
   const next=changed?{...feed,eggJob:state,points:feed.points+(newlyGranted?receipt!.earned:0)}:feed;

@@ -219,7 +219,7 @@ interface AppContextType {
   feedState: FeedState;
   runEggJob: (operation: EggJobOperation) => Promise<EggJobResult>;
   cleanRoom: (operation: CleaningOperation) => Promise<{spent:number;removed:number}>;
-  awardHappiness: (action: HappyAction) => Promise<{gained:number;newlyGranted:boolean}>;
+  awardHappiness: (action: HappyAction, eventId?: string) => Promise<{gained:number;newlyGranted:boolean}>;
   /** サーバーで確定したショップ購入後のポイント残高を端末側にも同期する */
   syncFeedPoints: (points: number) => Promise<void>;
   /** 端末側ポイントを不足チェック付きで減算する */
@@ -1140,12 +1140,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return {spent:saved.spent,removed:saved.removed};
   }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
 
-  const awardHappiness = useCallback(async (action: HappyAction) => {
+  const awardHappiness = useCallback(async (action: HappyAction, eventId?: string) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
     const saved = await AsyncStorage.transaction(values => {
       if (bowlingOwner.current !== owner) throw new Error('Account changed');
-      return prepareHappiness(values, action, getTodayDate(), defaultFeedState);
+      return prepareHappiness(values, action, getTodayDate(), defaultFeedState, Date.now(), eventId);
     });
     if (bowlingOwner.current !== owner) throw new Error('Account changed');
     feedStateRef.current = saved.feed; setFeedState(saved.feed);

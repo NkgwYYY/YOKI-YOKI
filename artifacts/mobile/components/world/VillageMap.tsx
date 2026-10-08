@@ -1,41 +1,36 @@
-import React, {useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
-import Svg, {Path} from 'react-native-svg';
-import {Icon, type IconName} from '@/components/ui/Icon';
-import {canVisitMap, WORLD_MAPS, type WorldMapId} from '@/utils/worldMaps';
-import {MAP_COORDS, VILLAGE_LINKS} from '@/utils/villageLife';
-
-const symbols:Record<WorldMapId,IconName>={home:'home',market:'shopping-bag',forest:'feather',onsen:'sun',village:'users',lake:'droplet',ramen:'coffee',bowling:'circle',tobacco:'wind'};
-const names:Record<WorldMapId,string>={home:'おうち',market:'こもれび市場',forest:'木もれびの森',onsen:'森の温泉',village:'となりの村',lake:'星あかりの湖',ramen:'ラーメン屋',bowling:'ボウリング',tobacco:'タバコ屋'};
-export function VillageMap({current,level,disabled,onSelect}:{current:WorldMapId;level:number;disabled:boolean;onSelect:(id:WorldMapId)=>void}) {
-  const [width,setWidth]=useState(300);
-  return <View>
-    <Text style={s.intro}>道しるべまで歩くと、となりの場所へ。地図の場所を押しても移動できます。</Text>
-    <View testID="village-map" onLayout={e=>setWidth(e.nativeEvent.layout.width)} style={s.paper}>
-      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} viewBox={`0 0 ${width} 360`} accessible={false}>
-        <Path d={`M ${width*.72} 0 Q ${width*.56} 85 ${width*.71} 165 T ${width*.76} 360`} fill="none" stroke="#CCE3E3" strokeWidth={20}/>
-        {WORLD_MAPS.flatMap(place=>VILLAGE_LINKS[place.id].filter(to=>place.id<to).map(to=>{
-          const a=MAP_COORDS[place.id],b=MAP_COORDS[to];
-          return <Path key={`${place.id}-${to}`} d={`M ${a.x*width} ${a.y*360} L ${b.x*width} ${b.y*360}`} stroke="#C7AF86" strokeWidth={5} strokeLinecap="round" strokeDasharray="2 8"/>;
-        }))}
-      </Svg>
-      {WORLD_MAPS.map(place=>{const p=MAP_COORDS[place.id],here=current===place.id,open=canVisitMap(place.id,level);return <Pressable
-        key={place.id} testID={`world-map-${place.id}`} accessibilityRole="button" accessibilityLabel={`${place.name}${here?'、いまここ':open?'へ移動':`、レベル${place.level}でひらく`}`}
-        accessibilityState={{selected:here,disabled:!open||disabled}} disabled={!open||disabled} onPress={()=>onSelect(place.id)}
-        style={[s.place,{left:width*p.x-width*.15,top:360*p.y-27,width:width*.30},here&&s.here,!open&&s.locked]}>
-        <Icon name={open?symbols[place.id]:'lock'} size={18} color={here?'#FFF8EB':'#806195'}/>
-        <Text numberOfLines={1} style={[s.name,here&&{color:'#FFF8EB'}]}>{names[place.id]}</Text>
-        <Text style={[s.detail,here&&{color:'#F4E7FA'}]}>{here?'いまここ':open?'':`Lv.${place.level}`}</Text>
-      </Pressable>;})}
-    </View>
-    <Text style={s.legend}>点線は、歩いて行き来できる道です。</Text>
-  </View>;
+import React,{useState} from 'react';
+import {Image,Modal,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
+import {LinearGradient} from 'expo-linear-gradient';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import Svg,{Path} from 'react-native-svg';
+import {Icon,type IconName} from '@/components/ui/Icon';
+import {canVisitMap,WORLD_MAPS,type WorldMapId} from '@/utils/worldMaps';
+import {MAP_COORDS,VILLAGE_LINKS} from '@/utils/villageLife';
+import {worldArt} from '@/utils/worldArt';
+import {WorldPill} from './WorldPill';
+const symbols:Record<WorldMapId,IconName>={home:'home',market:'map-pin',forest:'feather',onsen:'sun',village:'users',lake:'droplet',ramen:'coffee',bowling:'circle',tobacco:'wind',homewares:'shopping-bag',diner:'coffee',workshop:'briefcase'};
+const names:Record<WorldMapId,string>={home:'おうち',market:'こもれび広場',forest:'木もれびの森',onsen:'森の温泉',village:'となりの村',lake:'星あかりの湖',ramen:'ラーメン屋',bowling:'ボウリング',tobacco:'路地裏のタバコ屋',homewares:'暮らしのお店',diner:'ごはんのお店',workshop:'ゆでたまご工房'};
+export function VillageMap({current,level,disabled,onSelect,onClose,onBath}:{current:WorldMapId;level:number;disabled:boolean;onSelect:(id:WorldMapId)=>void;onClose:()=>void;onBath:()=>void}){
+ const window=useWindowDimensions(),insets=useSafeAreaInsets(),[selected,setSelected]=useState(current);
+ const width=Math.min(window.width,640),height=Math.max(560,Math.min(750,window.height-insets.top-insets.bottom-225));
+ const place=WORLD_MAPS.find(p=>p.id===selected)!,open=canVisitMap(selected,level);
+ return <Modal transparent={false} animationType="fade" onRequestClose={onClose}><View style={s.root}>
+  <View style={[s.header,{paddingTop:Math.max(20,insets.top+12)}]}><View><Text style={s.kicker}>YOKI YOKI / WORLD ATLAS</Text><Text style={s.title}>村をめぐる</Text></View><WorldPill compact label="地図を閉じる" icon="x" onPress={onClose}/></View>
+  <ScrollView contentContainerStyle={{alignItems:'center',paddingBottom:12}} showsVerticalScrollIndicator={false}>
+   <View testID="village-map" style={{width,height,overflow:'hidden'}}>
+    <Image source={require('@/assets/images/world/village-atlas.jpg')} resizeMode="cover" style={[StyleSheet.absoluteFill,{width:'100%',height:'100%'}]}/>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#100C1929'}]}/>
+    <Svg width={width} height={height} style={StyleSheet.absoluteFill} viewBox={`0 0 ${width} ${height}`} pointerEvents="none">
+     {WORLD_MAPS.flatMap(p=>VILLAGE_LINKS[p.id].filter(to=>p.id<to).map(to=>{const a=MAP_COORDS[p.id],b=MAP_COORDS[to],highlight=selected===p.id||selected===to;return <Path key={`${p.id}-${to}`} d={`M ${a.x*width} ${a.y*height} Q ${(a.x+b.x)*width/2+12} ${(a.y+b.y)*height/2-15} ${b.x*width} ${b.y*height}`} fill="none" stroke={highlight?'#E6C888':'#D4C09A8C'} strokeWidth={highlight?1.8:1} strokeDasharray="3 5"/>;}))}
+    </Svg>
+    {WORLD_MAPS.map(p=>{const at=MAP_COORDS[p.id],chosen=selected===p.id,here=current===p.id,unlocked=canVisitMap(p.id,level);return <Pressable key={p.id} testID={`world-map-${p.id}`} accessibilityRole="button" accessibilityLabel={`${p.name}${here?'、いまここ':unlocked?'':`、レベル${p.level}でひらく`}`} accessibilityState={{selected:chosen}} onPress={()=>setSelected(p.id)} style={[s.location,{left:at.x*width-53,top:at.y*height-20}]}>
+     {here&&<Text style={s.here}>現在地</Text>}<View style={[s.diamond,chosen&&s.selected,!unlocked&&{opacity:.65}]}><View style={{transform:[{rotate:'-45deg'}]}}><Icon name={unlocked?symbols[p.id]:'lock'} size={16} color={chosen?'#FFF0BD':'#DECEAC'}/></View></View><Text numberOfLines={1} style={[s.name,chosen&&{color:'#FFE5A8'}]}>{names[p.id]}</Text>
+    </Pressable>;})}
+    <LinearGradient pointerEvents="none" colors={['transparent','#14101F']} style={s.fade}/>
+   </View>
+  </ScrollView>
+  <View testID="village-map-selection" style={[s.detail,{paddingBottom:Math.max(18,insets.bottom+8)}]}><Image source={worldArt(selected,true)} style={s.thumbnail}/><View style={{flex:1,gap:5}}><Text style={s.place}>{place.name}</Text><Text style={s.copy}>{open?place.description:`レベル ${place.level} でひらきます`}</Text></View></View>
+  <View style={[s.actions,{paddingBottom:Math.max(18,insets.bottom)}]}><WorldPill label="自宅のおふろ" icon="droplet" onPress={onBath}/><WorldPill testID="world-map-travel" primary label={selected===current?'ここに戻る':'ここへ向かう'} icon="navigation" disabled={disabled||!open} onPress={()=>selected===current?onClose():onSelect(selected)}/></View>
+ </View></Modal>;
 }
-const s=StyleSheet.create({
-  intro:{fontSize:12,lineHeight:20,color:'#806C86',marginBottom:12},
-  paper:{height:360,backgroundColor:'#F2EEDC',borderRadius:22,overflow:'hidden',borderWidth:1,borderColor:'#E3D8C1'},
-  place:{position:'absolute',minHeight:54,paddingVertical:5,alignItems:'center',gap:3,borderRadius:15,backgroundColor:'#FFFCF2',borderWidth:1,borderColor:'#DCCCAE'},
-  here:{backgroundColor:'#816392',borderColor:'#6F4E83'},locked:{backgroundColor:'#E7E4D7',opacity:.72},
-  name:{fontSize:10,fontWeight:'600',color:'#695377'},detail:{fontSize:9,lineHeight:10,color:'#8C7A8B'},
-  legend:{fontSize:11,lineHeight:18,color:'#8C7A8B',marginTop:10},
-});
+const s=StyleSheet.create({root:{flex:1,backgroundColor:'#14101F'},header:{paddingHorizontal:22,paddingBottom:20,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderColor:'#AD96713F'},kicker:{fontSize:9,letterSpacing:2.5,color:'#BFA77A'},title:{fontSize:24,letterSpacing:3,color:'#F2E7D8',marginTop:8,fontWeight:'500'},location:{position:'absolute',width:106,minHeight:58,alignItems:'center',gap:9,justifyContent:'center'},diamond:{width:29,height:29,borderWidth:1,borderColor:'#CEB78E',backgroundColor:'#282035E8',transform:[{rotate:'45deg'}],alignItems:'center',justifyContent:'center',shadowColor:'#000',shadowOpacity:.6,shadowRadius:8},selected:{backgroundColor:'#8B7044',borderColor:'#FFE6AA',shadowColor:'#F0C777',shadowOpacity:.7,shadowRadius:12},name:{fontSize:10,fontWeight:'600',color:'#F1E7D3',textShadowColor:'#100D18',textShadowRadius:6,backgroundColor:'#1C1524C7',paddingVertical:4,paddingHorizontal:6,borderBottomWidth:1,borderColor:'#AD967177'},here:{position:'absolute',top:-19,fontSize:8,letterSpacing:2,color:'#FFE6AA',backgroundColor:'#2B2332E5',paddingHorizontal:6,paddingVertical:2},fade:{position:'absolute',bottom:0,left:0,right:0,height:30},detail:{paddingHorizontal:22,paddingTop:12,flexDirection:'row',gap:14,alignItems:'center',borderTopWidth:1,borderColor:'#AD967144'},thumbnail:{width:52,height:58,borderWidth:1,borderColor:'#9B825A',borderRadius:3},place:{fontSize:16,letterSpacing:1,color:'#EEE0CA'},copy:{fontSize:11,lineHeight:18,color:'#B8A9C2'},actions:{flexDirection:'row',justifyContent:'space-between',gap:12,paddingHorizontal:22}});

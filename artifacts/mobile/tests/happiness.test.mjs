@@ -44,3 +44,18 @@ test('interrupted happiness save recovers exactly once without overwriting balan
   const retry=await store.transaction(values=>prepareHappiness(values,'visit',date,feed));
   assert.equal(retry.newlyGranted,false);assert.equal(retry.feed.happiness.value,75);assert.equal(retry.feed.points,72);
 });
+
+test('smoking dirt is per session and retry-safe, while happiness remains once a day',()=>{
+ const now=Date.parse(date+'T10:00:00Z'),fresh={...feed,hygiene:{lastBathAt:now,protectedUntil:now+86400000}};
+ const values=f=>({[key]:JSON.stringify(f)});
+ const first=prepareHappiness(values(fresh),'smoke',date,fresh,now,'smoke-a').result;
+ assert.equal(first.feed.hygiene.smokeDirt,3);assert.equal(first.gained,2);
+ const retry=prepareHappiness(values(first.feed),'smoke',date,fresh,now+1,'smoke-a').result;
+ assert.equal(retry.changed,false);assert.equal(retry.feed.hygiene.smokeDirt,3);
+ const second=prepareHappiness(values(retry.feed),'smoke',date,fresh,now+2,'smoke-b').result;
+ assert.equal(second.feed.hygiene.smokeDirt,6);assert.equal(second.gained,0);assert.equal(second.feed.points,72);
+ const bath=prepareHappiness(values(second.feed),'homeBath',date,fresh,now+300,'bath-a').result;
+ assert.equal(bath.feed.hygiene.smokeDirt,0);assert.equal(bath.feed.hygiene.protectedUntil,fresh.hygiene.protectedUntil);
+ const delayedRetry=prepareHappiness(values(bath.feed),'smoke',date,fresh,now+301,'smoke-a').result;
+ assert.equal(delayedRetry.feed.hygiene.smokeDirt,0);assert.equal(delayedRetry.feed.points,72);
+});

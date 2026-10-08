@@ -25,3 +25,13 @@ test('interrupted finish recovers the original timing and salary',async()=>{
   fail();await assert.rejects(store.transaction(values=>prepareEggJob(values,{kind:'finish',id:'a',finishedAt},finishedAt,feed)),/disk/);
   const result=await store.transaction(values=>prepareEggJob(values,{kind:'finish',id:'a',finishedAt},finishedAt+1500,feed));assert.equal(result.receipt.grade,'perfect');assert.equal(result.newlyGranted,false);assert.equal(JSON.parse(data.get(key)).points,100);
 });
+
+test('each order has its own timing and a reload preserves the target and result',async()=>{
+ for(const [recipe,target] of [['soft',5400],['jammy',6500],['firm',7400]]){
+  const {store,data}=setup();const start=await store.transaction(values=>prepareEggJob(values,{kind:'start',id:recipe,recipe},now,feed));
+  const pot=JSON.parse(data.get(key)).eggJob.active;
+  assert.ok(Math.abs(pot.targetMs-target)<=120);assert.deepEqual(pot,start.state.active);
+  const done=await store.transaction(values=>prepareEggJob(values,{kind:'finish',id:recipe,finishedAt:now+pot.targetMs},now+pot.targetMs,feed));
+  assert.equal(done.receipt.grade,'perfect');assert.equal(done.receipt.targetMs,pot.targetMs);assert.equal(done.feed.points,100);
+ }
+});
