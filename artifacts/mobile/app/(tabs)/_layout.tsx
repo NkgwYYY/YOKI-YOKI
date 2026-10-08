@@ -1,108 +1,45 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Redirect, Tabs } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { homePalette, typography } from '@/constants/theme';
+import { homePalette } from '@/constants/theme';
 import { NewFriendModal } from '@/components/dex/NewFriendModal';
 import { LightFlowHost } from '@/components/LightFlowHost';
-import { Icon, iconSize } from '@/components/ui/Icon';
+import { Icon } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { AccountDeletionGate } from '@/components/account/AccountDeletionGate';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+type DockProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
+function WorldDock({state, navigation}: DockProps) {
+  const insets = useSafeAreaInsets();
+  const places = [{name: 'index', label: 'おうち', icon: 'home'}, {name: 'plant', label: 'ひかり', icon: 'zap'}, {name: 'growth', label: '思い出', icon: 'book-open'}] as const;
+  return <View pointerEvents="box-none" style={{position: 'absolute', bottom: Math.max(12, insets.bottom), left: 16, right: 16, alignItems: 'center'}}>
+    <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 30, backgroundColor: '#243932', borderWidth: 1, borderColor: '#C9D0AC45'}}>
+      {places.map(place => {
+        const route = state.routes.find(r => r.name === place.name);
+        if (!route) return null;
+        const selected = state.routes[state.index].key === route.key;
+        return <Pressable key={route.key} accessibilityRole="tab" accessibilityLabel={place.label} accessibilityState={{selected}}
+          onPress={() => {const event = navigation.emit({type: 'tabPress', target: route.key, canPreventDefault: true}); if (!selected && !event.defaultPrevented) navigation.navigate(route.name, route.params);}}
+          onLongPress={() => navigation.emit({type: 'tabLongPress', target: route.key})}
+          style={({pressed}) => ({flex: 1, minHeight: 48, borderRadius: 25, alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: selected ? '#EFF0D61A' : 'transparent', opacity: pressed ? 0.7 : 1})}>
+          <Icon name={place.icon} size={20} color={selected ? '#F8E5B4' : '#B9C7B9'} />
+          <Text style={{fontSize: 10, color: selected ? '#F8E5B4' : '#B9C7B9'}}>{place.label}</Text>
+        </Pressable>;
+      })}
+    </View>
+  </View>;
+}
 
 function ClassicTabLayout() {
-  const isIOS = Platform.OS === 'ios';
-  const isWeb = Platform.OS === 'web';
-
-  return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: homePalette.navActive,
-        tabBarInactiveTintColor: homePalette.navInactive,
-        headerShown: false,
-        tabBarLabelStyle: typography.micro,
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          // 面の区切りは上端の 1px だけ。影は敷かない。
-          backgroundColor: isIOS ? 'transparent' : homePalette.navBackground,
-          borderTopWidth: 1,
-          borderTopColor: homePalette.navBorder,
-          elevation: 0,
-          ...(isWeb ? { height: 84 } : {}),
-        },
-        tabBarBackground: () =>
-          isIOS ? (
-            <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
-          ) : isWeb ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: homePalette.navBackground }]} />
-          ) : null,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'ホーム',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="house" tintColor={color} size={24} />
-            ) : (
-              <Icon name="home" size={iconSize.lg} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="record"
-        options={{
-          title: '記録',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="pencil" tintColor={color} size={24} />
-            ) : (
-              <Icon name="edit-3" size={iconSize.lg} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: 'チャット',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="bubble.left.and.bubble.right" tintColor={color} size={24} />
-            ) : (
-              <Icon name="message-circle" size={iconSize.lg} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="growth"
-        options={{
-          title: '成長',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="chart.line.uptrend.xyaxis" tintColor={color} size={24} />
-            ) : (
-              <Icon name="trending-up" size={iconSize.lg} color={color} />
-            ),
-        }}
-      />
-      <Tabs.Screen
-        name="plant"
-        options={{
-          title: 'エネルギー',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="sparkles" tintColor={color} size={24} />
-            ) : (
-              <Icon name="star" size={iconSize.lg} color={color} />
-            ),
-        }}
-      />
-    </Tabs>
-  );
+  return <Tabs tabBar={props => <WorldDock {...props} />} screenOptions={{headerShown: false}}>
+    <Tabs.Screen name="index" options={{title: 'おうち'}} />
+    <Tabs.Screen name="plant" options={{title: 'ひかり'}} />
+    <Tabs.Screen name="growth" options={{title: '思い出'}} />
+    <Tabs.Screen name="record" options={{title: '今日の記録', href: null}} />
+    <Tabs.Screen name="chat" options={{title: 'おはなし', href: null}} />
+  </Tabs>;
 }
 
 export default function TabLayout() {
@@ -110,21 +47,24 @@ export default function TabLayout() {
   const {
     profile,
     cloudSynced,
+    cloudSyncState,
     isCloudSyncing,
     retryCloudSync,
     isLoading: appLoading,
+    storageError,
+    retryStorageRecovery,
   } = useApp();
   const [cloudWaitExpired, setCloudWaitExpired] = useState(false);
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
-    if (!isSignedIn || profile || cloudSynced) {
+    if (!isSignedIn || cloudSynced) {
       setCloudWaitExpired(false);
       return;
     }
     const timer = setTimeout(() => setCloudWaitExpired(true), 5000);
     return () => clearTimeout(timer);
-  }, [isSignedIn, profile, cloudSynced, retryAttempt]);
+  }, [isSignedIn, cloudSynced, retryAttempt]);
 
   const handleRetry = () => {
     setCloudWaitExpired(false);
@@ -134,10 +74,19 @@ export default function TabLayout() {
 
   // The root navigator stays mounted, but the tabs and their frame-driven home
   // animations must not mount until startup state determines they are allowed.
-  if (authLoading || appLoading) return null;
+  if (authLoading) return null;
+  if (isSignedIn && cloudSyncState.error === 'deleted') return <AccountDeletionGate />;
+  if (appLoading) return null;
+  if (storageError) return <View style={styles.syncGate}>
+    <Text style={styles.syncTitle}>保存データを確認しています</Text>
+    <Text accessibilityRole="alert" style={styles.syncMessage}>{storageError}</Text>
+    <Pressable accessibilityRole="button" onPress={retryStorageRecovery} style={styles.retryButton}>
+      <Text style={styles.retryButtonText}>もう一度読み込む</Text>
+    </Pressable>
+  </View>;
   if (!isSignedIn && !profile) return <Redirect href="/onboarding" />;
-  if (isSignedIn && !profile && !cloudSynced && !cloudWaitExpired) return null;
-  if (isSignedIn && !profile && !cloudSynced) {
+  if (isSignedIn && !cloudSynced && !cloudWaitExpired) return null;
+  if (isSignedIn && !cloudSynced) {
     return (
       <View style={styles.syncGate}>
         {isCloudSyncing ? (
@@ -150,7 +99,7 @@ export default function TabLayout() {
           <>
             <Text style={styles.syncTitle}>データを確認できませんでした</Text>
             <Text style={styles.syncMessage}>
-              通信環境を確認して、もう一度お試しください。端末やクラウドのデータは変更されません。
+              通信環境を確認して、もう一度お試しください。確認が済むまで、新しい記録の編集はお待ちください。
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -173,10 +122,10 @@ export default function TabLayout() {
         <>
           {/* 新キャラ初登場・進化時の「新しい仲間が生まれました!」演出(どのタブでも表示) */}
           <NewFriendModal />
-          {/* 記録・チェック・ゲームで光を獲得した瞬間の循環演出(どのタブでも表示) */}
-          <LightFlowHost />
         </>
       ) : null}
+      {/* Native Animated feedback is available on iOS as well as Android/Web. */}
+      <LightFlowHost />
     </>
   );
 }

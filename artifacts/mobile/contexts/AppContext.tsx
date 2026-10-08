@@ -1,17 +1,24 @@
+import { privateCacheStorage } from '@/utils/privateCacheStorage';
+import type { PrivateCache } from '@/utils/privateCache';
+import { APP_STORAGE_KEYS as KEYS } from '@/utils/appStorageKeys';
+import { createCloudOutbox } from '@/utils/cloudOutbox';
+import { subscribeAccountDeletion } from '@/utils/accountDeletion';
+import { createAccountOwnership, encodeDataOwner, LOCAL_DATA_OWNER_KEY } from '@/utils/accountOwnership';
+import { createCloudSyncSession, createCloudSyncTransport, INITIAL_CLOUD_SYNC_STATE, type CloudSyncState } from '@/utils/cloudSync';
+import { mergeEncounterHistory } from '@/utils/mergeEncounters';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { balanceStorage as AsyncStorage } from '@/utils/balanceStorage';
+import { claimGardenReward } from '@/utils/gardenReward';
+import { prepareItemPurchase } from '@/utils/itemPurchase';
+import { prepareRhythmReward } from '@/utils/rhythmReward';
+import { prepareDailyRecord } from '@/utils/dailyRecordTransaction';
+import { prepareChecklist, type ChecklistOperation } from '@/utils/checklistTransaction';
+import { prepareRoomOperation, COMPANION_PRICE, type RoomOperation } from '@/utils/roomPurchase';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef, ChecklistCategory } from '@/data/defaultChecklist';
 import { BADGE_DEFINITIONS } from '@/data/badges';
 import { getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
-import {
-  calculateLevel,
-  calculateMentalMuscle,
-  XP_FOR_CHECKLIST_ITEM,
-  XP_FOR_MOOD_RECORD,
-  XP_FULL_DAY_BONUS,
-} from '@/utils/gameLogic';
 import {
   FOOD_ITEMS,
   FP_PER_CHECKLIST_ITEM,
@@ -39,12 +46,6 @@ import {
   createLightEnergyState,
   resolveLightEnergyState,
   applyElapsedEnergy,
-  applyEnergyGain,
-  GAIN_CHECK_ITEM,
-  GAIN_FULL_DAY_BONUS,
-  GAIN_MOOD_RECORD,
-  GAIN_DIARY,
-  EnergyGain,
 } from '@/utils/lightEnergy';
 import {
   PowerPlantState,
@@ -66,7 +67,6 @@ import type { CharacterKey } from '@/utils/mascotUtils';
 import {
   clearHomeCommentCache,
   DEFAULT_HOME_COMMENT_PREFERENCES,
-  HOME_COMMENT_PREFERENCES_KEY,
   resolveHomeCommentPreferences,
   type HomeCommentPreferences,
 } from '@/utils/homeComment';
@@ -82,6 +82,8 @@ export interface DailyRecord {
   date: string;
   mood: number;
   sleep: number;
+  /** false for a basic mood-only entry; missing means an existing detailed record. */
+  sleepRecorded?: boolean;
   behaviors: string[];
   notes: string;
   // Life-condition extras (optional; added later, older records won't have them)
@@ -105,6 +107,7 @@ export interface UserProfile {
 }
 
 export interface RecordExtras {
+  sleepRecorded?: boolean;
   exercise?: number;
   meal?: number;
   social?: number;
@@ -122,6 +125,8 @@ export interface CheckedState {
   date: string;
   items: CheckedItem[];
   bonusEarned: boolean;
+  /** Daily receipts retained even when a checked item is removed or the list is reset. */
+  earnedItemIds?: string[];
 }
 
 export interface UserProgress {
@@ -159,29 +164,7 @@ export interface CompanionState {
   extraEggs: number;
 }
 
-export const EGG_COMPANION_COST = 1000;
-
-const KEYS = {
-  PROGRESS: '@mentore/progress_v2',
-  RECORDS: '@mentore/records_v2',
-  CHECKED_STATE: '@mentore/checked_state_v2',
-  CUSTOM_ITEMS: '@mentore/custom_items_v2',       // legacy – used for migration only
-  CHECKLIST_ITEMS: '@mentore/checklist_items_v3', // unified items list (default + custom)
-  BADGES: '@mentore/badges_v2',
-  MASCOT_NAME: '@mentore/mascot_name_v1',
-  FEED_STATE: '@mentore/feed_state_v1',
-  LAST_OPENED: '@mentore/last_opened_v1',
-  MINI_GAME: '@mentore/mini_game_v1',
-  PROFILE: '@mentore/profile_v1',
-  GROWTH: '@mentore/growth_v1',
-  LIGHT_ENERGY: '@mentore/light_energy_v1',
-  POWER_PLANT: '@mentore/power_plant_v1',
-  ENCOUNTERS: '@mentore/encounters_v1',
-  ROOM_CUSTOMIZATION: '@mentore/room_customization_v1',
-  COMPANIONS: '@mentore/companions_v1',
-  SHOP_STATE: '@mentore/shop_state_v2',
-  HOME_COMMENT_PREFERENCES: HOME_COMMENT_PREFERENCES_KEY,
-};
+export const EGG_COMPANION_COST = COMPANION_PRICE;
 
 /** Compute current satiety based on elapsed time since last feed */
 export function computeCurrentSatiety(feedState: FeedState): number {
@@ -197,6 +180,7 @@ export function computeInactivityHours(lastOpenedAt: string): number {
 }
 
 interface AppContextType {
+  privateCache: PrivateCache | null;
   progress: UserProgress;
   records: DailyRecord[];
   checkedState: CheckedState;
@@ -210,6 +194,7 @@ interface AppContextType {
   syncFeedPoints: (points: number) => Promise<void>;
   /** 端末側ポイントを不足チェック付きで減算する */
   spendFeedPoints: (points: number) => Promise<boolean>;
+  purchaseGuestItem: (itemId: string, cost: number) => Promise<ReturnType<typeof prepareItemPurchase>['result']>;
   currentSatiety: number;
   inactivityHours: number;
   miniGameState: MiniGameState;
@@ -217,9 +202,10 @@ interface AppContextType {
   homeCommentPreferences: HomeCommentPreferences;
   /** True once the post-login cloud pull has finished (safe to decide onboarding) */
   cloudSynced: boolean;
-  /** True while signed-in account data is being pulled from the cloud */
+  cloudSyncState: CloudSyncState;
+  /** True while signed-in account data is being downloaded or uploaded */
   isCloudSyncing: boolean;
-  /** Retry a failed post-login cloud pull without authorizing onboarding */
+  /** Retry the failed direction: initial download or latest local upload. */
   retryCloudSync: () => void;
   saveProfile: (profile: UserProfile) => Promise<void>;
   saveHomeCommentPreferences: (preferences: HomeCommentPreferences) => Promise<void>;
@@ -234,9 +220,12 @@ interface AppContextType {
   getTotalCheckCount: () => number;
   setMascotName: (name: string) => Promise<void>;
   feedMascot: (foodId: string) => Promise<{ success: boolean; message: string; newSatiety: number }>;
-  completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => Promise<void>;
+  completeMiniGame: (slot: GameSlot, reward: { fp: number; stars?: number }, playId: string) => Promise<number>;
   /** キャラクターのエネルギー(元気・光の力・チャージ量)の現在の状態 */
   lightEnergy: LightEnergyState;
+  storageError: string | null;
+  retryStorageRecovery: () => Promise<void>;
+  receiveGardenReward: () => Promise<{ received: number }>;
   /** 直近の「ユーザー操作による」光エネルギー獲得イベント(循環演出用)。
    *  クラウド同期・読込では発火しない。seq は毎回増える識別子 */
   lightGainEvent: { amount: number; seq: number } | null;
@@ -298,13 +287,22 @@ const defaultRoomCustomization: RoomCustomization = {
 const defaultCompanionState: CompanionState = { extraEggs: 0 };
 
 const AppContext = createContext<AppContextType | null>(null);
+const cloudOutbox = createCloudOutbox(AsyncStorage);
+const accountOwnership = createAccountOwnership(AsyncStorage, Object.values(KEYS));
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, getToken } = useAuth();
+  const { isSignedIn, getToken, user, isLoading: authLoading } = useAuth();
+  const accountId = isSignedIn ? user?.id ?? null : null;
+  const accountIdRef = useRef(accountId);
+  accountIdRef.current = accountId;
+  const identityRef = useRef({ accountId, authLoading });
+  if (identityRef.current.accountId !== accountId || identityRef.current.authLoading !== authLoading) {
+    identityRef.current = { accountId, authLoading };
+  }
+  const identity = identityRef.current;
+  const [privateScope, setPrivateScope] = useState<PrivateCache | null>(null);
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
-  const signedInRef = useRef(isSignedIn);
-  useEffect(() => { signedInRef.current = isSignedIn; }, [isSignedIn]);
 
   const [progress, setProgress] = useState<UserProgress>(defaultProgress);
   const [records, setRecords] = useState<DailyRecord[]>([]);
@@ -312,6 +310,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [checklistItems, setChecklistItems] = useState<ChecklistItemDef[]>(DEFAULT_CHECKLIST_ITEMS);
   const [unlockedBadges, setUnlockedBadges] = useState<UnlockedBadge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [localScope, setLocalScope] = useState<{ accountId: string | null; ready: boolean } | null>(null);
+  const [scopeRetry, setScopeRetry] = useState(0);
+  const scopeCurrent = !authLoading && localScope?.accountId === accountId;
+  const localScopeReady = scopeCurrent && localScope?.ready === true;
+  const appLoading = isLoading || !scopeCurrent;
   const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<string | null>(null);
   const [mascotName, setMascotNameState] = useState('');
   const [feedState, setFeedState] = useState<FeedState>(defaultFeedState);
@@ -320,15 +323,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [homeCommentPreferences, setHomeCommentPreferences] =
     useState<HomeCommentPreferences>(DEFAULT_HOME_COMMENT_PREFERENCES);
-  const [cloudSynced, setCloudSynced] = useState(false);
-  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
-  const [cloudSyncAttempt, setCloudSyncAttempt] = useState(0);
-  // The first authenticated transition may be a guest upgrading to an account.
-  // Keep this separate from Clerk state so local data can be merged before pull.
-  const wasGuestRef = useRef(false);
+  const [cloudSyncState, setCloudSyncState] = useState<CloudSyncState>(INITIAL_CLOUD_SYNC_STATE);
+  const cloudSyncAccountRef = useRef<string | null>(null);
+  const cloudSynced = localScopeReady && cloudSyncState.ready && accountId !== null && cloudSyncAccountRef.current === accountId;
+  const isCloudSyncing = cloudSyncState.phase !== 'idle';
+  const cloudSessionRef = useRef<ReturnType<typeof createCloudSyncSession> | null>(null);
+  const deletingAccountRef = useRef<string | null>(null);
+  const [deletionPaused, setDeletionPaused] = useState(false);
+  const [syncRestart, setSyncRestart] = useState(0);
+  useEffect(() => subscribeAccountDeletion(event => {
+    if (event.accountId !== accountIdRef.current) return;
+    if (event.phase === 'start') {
+      deletingAccountRef.current = event.accountId;
+      cloudSessionRef.current?.dispose();
+      cloudSessionRef.current = null;
+      setDeletionPaused(true);
+    } else if (event.serverDeleted) {
+      // Local cleanup or identity deletion can fail after server deletion. Keep
+      // the account closed and offer completion retry instead of fresh onboarding.
+      setCloudSyncState({ ready: false, phase: 'idle', error: 'deleted' });
+    } else {
+      deletingAccountRef.current = null;
+      setDeletionPaused(false);
+      setCloudSyncState(INITIAL_CLOUD_SYNC_STATE);
+      setSyncRestart(value => value + 1);
+    }
+  }), []);
+  useEffect(() => {
+    if (deletingAccountRef.current !== accountId) {
+      deletingAccountRef.current = null;
+      setDeletionPaused(false);
+    }
+  }, [accountId]);
   // マスコットは進化しても同一個体なので characterId は固定 'mascot'
   const [growth, setGrowth] = useState<GrowthRecord>(() => createGrowthRecord('mascot'));
   const [lightEnergy, setLightEnergy] = useState<LightEnergyState>(() => createLightEnergyState(getTodayDate()));
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const dataReady = !deletionPaused && !appLoading && !storageError && localScopeReady && (!isSignedIn || cloudSynced);
+  const privateCache = dataReady && privateScope?.isCurrent() ? privateScope : null;
+  const feedStateRef = useRef<FeedState>(defaultFeedState);
   // 非同期処理の並走でも付与が失われないよう、最新値を ref でも保持する
   const lightEnergyRef = useRef(lightEnergy);
   useEffect(() => { lightEnergyRef.current = lightEnergy; }, [lightEnergy]);
@@ -344,32 +377,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [roomCustomization, setRoomCustomization] = useState<RoomCustomization>(defaultRoomCustomization);
   const [companionState, setCompanionState] = useState<CompanionState>(defaultCompanionState);
 
-  /** 時間経過ぶんの自然なエネルギーチャージを精算する。読込・復帰・定期更新のすべてで共通利用する */
-  const settleElapsedEnergy = useCallback(() => {
-    const next = applyElapsedEnergy(lightEnergyRef.current, getTodayDate());
-    if (next === lightEnergyRef.current) return next;
-    lightEnergyRef.current = next;
-    setLightEnergy(next);
-    AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next)).catch(() => {});
-    return next;
+  type Balances = { energy: LightEnergyState; plant: PowerPlantState; feed: FeedState };
+  const updateBalances = useCallback(async <T,>(change: (state: Balances) => { state: Balances; result: T }): Promise<T> => {
+    const saved = await AsyncStorage.transaction(values => {
+      const parse = (key: string) => values[key] === null ? null : JSON.parse(values[key]!);
+      const state: Balances = {
+        energy: resolveLightEnergyState(parse(KEYS.LIGHT_ENERGY), getTodayDate()),
+        plant: resolvePowerPlantState(parse(KEYS.POWER_PLANT)),
+        feed: parse(KEYS.FEED_STATE) ?? defaultFeedState,
+      };
+      const next = change(state);
+      const entries: [string, string][] = [
+        [KEYS.LIGHT_ENERGY, JSON.stringify(next.state.energy)],
+        [KEYS.POWER_PLANT, JSON.stringify(next.state.plant)],
+        [KEYS.FEED_STATE, JSON.stringify(next.state.feed)],
+      ];
+      return { entries: entries.filter(([key, value]) => values[key] !== value), result: next };
+    });
+    lightEnergyRef.current = saved.state.energy; setLightEnergy(saved.state.energy);
+    powerPlantRef.current = saved.state.plant; setPowerPlant(saved.state.plant);
+    feedStateRef.current = saved.state.feed; setFeedState(saved.state.feed);
+    return saved.result;
   }, []);
+
+  /** 時間経過ぶんの自然なエネルギーチャージを精算する。読込・復帰・定期更新のすべてで共通利用する */
+  const settleElapsedEnergy = useCallback(() => updateBalances(state => {
+    const energy = applyElapsedEnergy(state.energy, getTodayDate());
+    return { state: { ...state, energy }, result: energy };
+  }), [updateBalances]);
 
   // アプリを開いたまま日付が変わっても日次値(元気・光の力・今日のエネルギー)が
   // 前日のまま表示されないよう、1分ごとに日付ロールオーバーとチャージを精算する
   useEffect(() => {
     const timer = setInterval(() => {
-      settleElapsedEnergy();
+      if (dataReady) settleElapsedEnergy().catch(() => {});
     }, 60_000);
     return () => clearInterval(timer);
-  }, [settleElapsedEnergy]);
+  }, [settleElapsedEnergy, dataReady]);
 
   // バックグラウンドから戻った瞬間にも、閉じていた時間のチャージ分を反映する
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') settleElapsedEnergy();
+      if (state === 'active' && dataReady) settleElapsedEnergy().catch(() => {});
     });
     return () => subscription.remove();
-  }, [settleElapsedEnergy]);
+  }, [settleElapsedEnergy, dataReady]);
 
   // ユーザー操作による獲得イベント(循環演出はこれだけを根拠に発火する。
   // クラウドpullや読込による数値変動では発火しない)
@@ -409,30 +461,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [flushGainEvent]);
 
-  /** 光エネルギー獲得(獲得ルールは utils/lightEnergy.ts に集約)。flag 指定時は1日1回のみ */
-  const gainLightEnergy = useCallback(
-    async (gain: EnergyGain, flag?: keyof LightEnergyState['flags']) => {
-      const today = getTodayDate();
-      const settled = settleElapsedEnergy();
-      const next = applyEnergyGain(settled, gain, today, flag);
-      if (next === settled) return;
-      // 付与量は totalEnergy の差分で求める(todayEnergy は深夜のロールオーバーで
-      // リセットされるため、日付またぎ直後の付与でも正しい量になる)
-      const gained = next.totalEnergy - settled.totalEnergy;
-      lightEnergyRef.current = next;
-      setLightEnergy(next);
-      if (gained > 0) queueGainEvent(gained);
-      await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next));
-    },
-    [settleElapsedEnergy]
-  );
-
   // ── 出会い記録の最新化: レベル(=進化段階)が変わるたびに図鑑へ登録する ──
   // ロード完了前(defaultProgress)や、ログイン済みでクラウド取得が終わる前は
   // 誤登録・偽の「新しい仲間」演出につながるためスキップする
   useEffect(() => {
-    if (!encountersLoadedRef.current || isLoading) return;
-    if (pullingRef.current) return;
+    if (!encountersLoadedRef.current || !dataReady) return;
     if (isSignedIn && !cloudSynced) return;
     // アカウントに履歴があるか(既存ユーザーの遡り登録判定に使う)
     const hasHistory = progress.totalDays > 0 || progress.experience > 0 || progress.level > 1;
@@ -446,7 +479,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (newlyMet.length > 0) {
       setNewEncounters((prev) => [...prev, ...newlyMet.filter((k) => !prev.includes(k))]);
     }
-  }, [progress.level, isLoading, isSignedIn, cloudSynced]);
+  }, [progress.level, dataReady, isSignedIn, cloudSynced]);
 
   /** 「新しい仲間が生まれました!」演出を1件消化する */
   const dismissNewEncounter = useCallback(() => {
@@ -461,35 +494,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (plantBusyRef.current) return { converted: 0, gained: 0 };
     plantBusyRef.current = true;
     try {
-      const energy = lightEnergyRef.current;
-      const converted = Math.floor(energy.storedEnergy);
-      if (converted <= 0) return { converted: 0, gained: 0 };
-      const gained = converted * ECO_POINTS_PER_ENERGY;
-
-      const nextEnergy = { ...energy, storedEnergy: energy.storedEnergy - converted };
-      lightEnergyRef.current = nextEnergy;
-      setLightEnergy(nextEnergy);
-
-      const nextPlant: PowerPlantState = {
-        ...powerPlantRef.current,
-        ecoPoints: powerPlantRef.current.ecoPoints + gained,
-        totalSold: powerPlantRef.current.totalSold + converted,
-        sellCount: powerPlantRef.current.sellCount + 1,
-      };
-      powerPlantRef.current = nextPlant;
-      setPowerPlant(nextPlant);
-
-      await Promise.all([
-        AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(nextEnergy)),
-        AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant)),
-      ]);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const result = await updateBalances(state => {
+        const converted = Math.floor(state.energy.storedEnergy);
+        const gained = converted * ECO_POINTS_PER_ENERGY;
+        if (converted <= 0) return { state, result: { converted: 0, gained: 0 } };
+        return { state: { ...state,
+          energy: { ...state.energy, storedEnergy: state.energy.storedEnergy - converted },
+          plant: { ...state.plant, ecoPoints: state.plant.ecoPoints + gained,
+            totalSold: state.plant.totalSold + converted, sellCount: state.plant.sellCount + 1 },
+        }, result: { converted, gained } };
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
-      return { converted, gained };
+      return result;
     } finally {
       plantBusyRef.current = false;
     }
-  }, []);
+  }, [updateBalances]);
+
+  /** One recoverable transaction from stored light/legacy eco points to food points. */
+  const receiveGardenReward = useCallback(async () => {
+    if (plantBusyRef.current) return { received: 0 };
+    plantBusyRef.current = true;
+    try {
+      const result = await updateBalances(state => claimGardenReward(state, ECO_POINTS_PER_ENERGY));
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      pushDataToCloud();
+      return result;
+    } finally { plantBusyRef.current = false; }
+  }, [updateBalances]);
 
   const sellEnergy = useCallback(async (): Promise<{ sold: number; gained: number }> => {
     const { converted, gained } = await convertStoredEnergy();
@@ -501,100 +534,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (plantBusyRef.current) return { reason: 'not_enough' };
     plantBusyRef.current = true;
     try {
-      const plant = powerPlantRef.current;
-      const item = nextTownItem(plant);
-      if (!item) return { reason: 'no_more' };
-      if (plant.ecoPoints < item.cost) return { reason: 'not_enough' };
-
-      const nextPlant: PowerPlantState = {
-        ...plant,
-        ecoPoints: plant.ecoPoints - item.cost,
-        townBuilt: plant.townBuilt + 1,
-      };
-      powerPlantRef.current = nextPlant;
-      setPowerPlant(nextPlant);
-      await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const result = await updateBalances<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }>(state => {
+        const item = nextTownItem(state.plant);
+        if (!item) return { state, result: { reason: 'no_more' } };
+        if (state.plant.ecoPoints < item.cost) return { state, result: { reason: 'not_enough' } };
+        return { state: { ...state, plant: { ...state.plant,
+          ecoPoints: state.plant.ecoPoints - item.cost, townBuilt: state.plant.townBuilt + 1,
+        } }, result: { built: item } };
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
-      return { built: item };
+      return result;
     } finally {
       plantBusyRef.current = false;
     }
-  }, []);
+  }, [updateBalances]);
 
   /** 交換待ちポイント(旧エコポイント)をYOKIポイントに受け取る(1:1) */
   const exchangeEcoPoints = useCallback(async (amount: number): Promise<{ exchanged: number }> => {
     if (plantBusyRef.current) return { exchanged: 0 };
     plantBusyRef.current = true;
     try {
-      const plant = powerPlantRef.current;
-      const exchanged = Math.min(Math.floor(amount), plant.ecoPoints);
-      if (exchanged <= 0) return { exchanged: 0 };
-
-      const nextPlant: PowerPlantState = { ...plant, ecoPoints: plant.ecoPoints - exchanged };
-      powerPlantRef.current = nextPlant;
-      setPowerPlant(nextPlant);
-      await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
-      await mutateFeedPoints(exchanged);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const result = await updateBalances(state => {
+        const exchanged = Number.isFinite(amount) ? Math.min(Math.max(0, Math.floor(amount)), state.plant.ecoPoints) : 0;
+        return { state: { ...state,
+          plant: { ...state.plant, ecoPoints: state.plant.ecoPoints - exchanged },
+          feed: { ...state.feed, points: state.feed.points + exchanged },
+        }, result: { exchanged } };
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
-      return { exchanged };
+      return result;
     } finally {
       plantBusyRef.current = false;
     }
-  }, []);
+  }, [updateBalances]);
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
   // ─── Cloud sync helpers ───────────────────────────────────────────────
-  // Blocks pushes while the initial post-login pull is running, so a quick
-  // user action right after sign-in can't overwrite cloud data.
-  const pullingRef = useRef(false);
-
-  // push を直列化するチェーン。並走した push が古いスナップショットで
-  // 新しいクラウド状態を上書きしないよう、常に「前の push 完了後に
-  // スナップショットを取る」順序を保証する
-  const pushChainRef = useRef<Promise<void>>(Promise.resolve());
-
-  const pushDataToCloud = useCallback(async () => {
-    if (!signedInRef.current || pullingRef.current) return;
-    const run = async () => {
-      if (!signedInRef.current || pullingRef.current) return;
-      const t = await getTokenRef.current();
-      if (!t) return;
-      try {
-        const keys = Object.values(KEYS);
-        const values = await Promise.all(keys.map((k) => AsyncStorage.getItem(k)));
-        const data: Record<string, unknown> = {};
-        keys.forEach((k, i) => {
-          if (values[i] !== null) {
-            try { data[k] = JSON.parse(values[i]!); } catch { data[k] = values[i]; }
-          }
-        });
-        await fetch(`${API_BASE}/sync`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-          body: JSON.stringify({ data }),
-        });
-      } catch { /* fire-and-forget */ }
-    };
-    const next = pushChainRef.current.then(run, run);
-    pushChainRef.current = next;
-    await next;
+  const readCloudSnapshot = useCallback(async () => {
+    const keys = Object.values(KEYS);
+    const values = await Promise.all(keys.map(k => AsyncStorage.getItem(k)));
+    const data: Record<string, unknown> = {};
+    keys.forEach((k, i) => {
+      if (values[i] !== null) {
+        try { data[k] = JSON.parse(values[i]!); } catch { data[k] = values[i]; }
+      }
+    });
+    return data;
   }, []);
 
-  const pullDataFromCloud = useCallback(async (): Promise<{ ok: boolean; data: Record<string, unknown> }> => {
-    if (!signedInRef.current) return { ok: false, data: {} };
-    const t = await getTokenRef.current();
-    if (!t) return { ok: false, data: {} };
-    try {
-      const res = await fetch(`${API_BASE}/sync`, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
-      if (!res.ok) return { ok: false, data: {} };
-      const { data } = await res.json() as { data: Record<string, unknown> };
-      return { ok: true, data };
-    } catch { return { ok: false, data: {} }; }
+  const pushDataToCloud = useCallback(async () => {
+    await cloudSessionRef.current?.push();
+  }, []);
+  const retryCloudSync = useCallback(() => {
+    void cloudSessionRef.current?.retry();
   }, []);
 
   const mergeGuestWithCloud = useCallback(async (cloudData: Record<string, unknown>) => {
@@ -611,7 +606,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // data fills missing values; append-only histories and progress are merged below.
     const merged: Record<string, unknown> = { ...localData, ...cloudData };
     // Keep both sides of append-only histories and use the most progressed state.
-    for (const key of [KEYS.RECORDS, KEYS.BADGES, KEYS.ENCOUNTERS]) {
+    for (const key of [KEYS.RECORDS, KEYS.BADGES]) {
       const cloud = Array.isArray(cloudData[key]) ? cloudData[key] : [];
       const local = Array.isArray(localData[key]) ? localData[key] : [];
       const byId = new Map<string, unknown>();
@@ -621,6 +616,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
       merged[key] = [...byId.values()];
     }
+    merged[KEYS.ENCOUNTERS] = mergeEncounterHistory(cloudData[KEYS.ENCOUNTERS], localData[KEYS.ENCOUNTERS]);
     if (cloudData[KEYS.PROGRESS] || localData[KEYS.PROGRESS]) {
       const cloud = (cloudData[KEYS.PROGRESS] ?? {}) as UserProgress;
       const local = (localData[KEYS.PROGRESS] ?? {}) as UserProgress;
@@ -645,71 +641,90 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         placements: { ...(cloud.placements ?? {}), ...(local.placements ?? {}) },
       };
     }
-    await Promise.all(Object.entries(merged).map(([k, v]) =>
-      AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
-    ));
+    return merged;
   }, []);
 
   // ─── Load all data from local storage (+ cloud on login) ─────────────
   useEffect(() => {
-    loadAll();
-  }, []);
-
-  // When the user logs in, pull cloud data and reload
-  const prevSignedIn = useRef(false);
-  const handledCloudSyncAttempt = useRef(0);
-  const retryCloudSync = useCallback(() => {
-    setCloudSyncAttempt((attempt) => attempt + 1);
-  }, []);
-
-  useEffect(() => {
-    const shouldPull =
-      isSignedIn &&
-      (!prevSignedIn.current || handledCloudSyncAttempt.current !== cloudSyncAttempt);
-    if (shouldPull) {
-      prevSignedIn.current = true;
-      handledCloudSyncAttempt.current = cloudSyncAttempt;
-      (async () => {
-        pullingRef.current = true;
-        setIsCloudSyncing(true);
-        let ok = false;
-        let mergedGuestData = false;
-        try {
-          const pulled = await pullDataFromCloud();
-          ok = pulled.ok;
-          if (ok && wasGuestRef.current) {
-            await mergeGuestWithCloud(pulled.data);
-            mergedGuestData = true;
-          } else if (ok) {
-            await Promise.all(
-              Object.entries(pulled.data).map(([k, v]) =>
-                AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
-              )
-            );
-            if (!(KEYS.PROFILE in pulled.data)) await AsyncStorage.removeItem(KEYS.PROFILE);
-          }
-          await loadAll();
-        } finally {
-          pullingRef.current = false;
-          setIsCloudSyncing(false);
-          // Only mark synced when the pull actually succeeded, so a failed
-          // pull can't send an existing user (with a cloud profile) to onboarding
-          if (ok) setCloudSynced(true);
-          if (ok && mergedGuestData) {
-            await pushDataToCloud();
-            Analytics.guestDataBackedUp();
-          }
+    if (authLoading || (isSignedIn && !accountId)) return;
+    let active = true;
+    const isCurrent = () => active && identityRef.current === identity && (!accountId || deletingAccountRef.current !== accountId);
+    setIsLoading(true);
+    void (async () => {
+      try {
+        // Migrate legacy private values under the OLD owner before changing it.
+        await AsyncStorage.recover();
+        const cache = await privateCacheStorage.open(accountId, isCurrent);
+        await accountOwnership.prepare(accountId, isCurrent);
+        if (!isCurrent()) return;
+        const loaded = await loadAll(isCurrent);
+        if (isCurrent()) {
+          setPrivateScope(cache);
+          setLocalScope({ accountId, ready: loaded });
         }
-      })();
-    }
-    if (!isSignedIn) {
-      prevSignedIn.current = false;
-      handledCloudSyncAttempt.current = cloudSyncAttempt;
-      setCloudSynced(false);
-      setIsCloudSyncing(false);
-      if (!isLoading) wasGuestRef.current = true;
-    }
-  }, [isSignedIn, isLoading, pullDataFromCloud, mergeGuestWithCloud, cloudSyncAttempt]);
+      } catch {
+        if (isCurrent()) {
+          setStorageError('保存データの持ち主を確認できませんでした。データを保ったまま、もう一度読み込みます。');
+          setLocalScope({ accountId, ready: false });
+          setIsLoading(false);
+        }
+      }
+    })();
+    return () => { active = false; };
+  }, [accountId, authLoading, isSignedIn, scopeRetry]);
+
+  // Wait for local recovery and auth resolution; each identity owns its requests.
+  useEffect(() => {
+    if (isLoading || authLoading || !localScopeReady || (accountId && deletingAccountRef.current === accountId)) return;
+    cloudSyncAccountRef.current = accountId;
+    setCloudSyncState(INITIAL_CLOUD_SYNC_STATE);
+    if (!accountId) return;
+    const transport = createCloudSyncTransport({
+      url: `${API_BASE}/sync`, getToken: () => getTokenRef.current(),
+    });
+    const session = createCloudSyncSession({
+      ...transport,
+      isCurrent: () => accountIdRef.current === accountId && deletingAccountRef.current !== accountId,
+      read: readCloudSnapshot,
+      onState: setCloudSyncState,
+      onGuestBackup: () => Analytics.guestDataBackedUp(),
+      pending: {
+        stage: () => cloudOutbox.stage(accountId, async () => {
+          const snapshot = await readCloudSnapshot();
+          if (accountIdRef.current !== accountId || deletingAccountRef.current === accountId) throw new Error('Account changed');
+          return snapshot;
+        }),
+        read: () => cloudOutbox.read(accountId),
+        acknowledge: receipt => cloudOutbox.acknowledge(accountId, receipt),
+      },
+      apply: async (received, isCurrent) => {
+        // A cloud response cannot write auth tokens, journals or unrelated keys.
+        const allowed: readonly string[] = Object.values(KEYS);
+        const data = Object.fromEntries(Object.entries(received).filter(([key]) => allowed.includes(key)));
+        const backup = await accountOwnership.isGuest();
+        const snapshot = backup ? await mergeGuestWithCloud(data) : data;
+        if (!isCurrent()) throw new Error('Account changed');
+        // Guest transfer must survive a restart before the first upload/ack.
+        if (backup) await cloudOutbox.stage(accountId, async () => {
+          if (!isCurrent()) throw new Error('Account changed');
+          return snapshot;
+        });
+        await AsyncStorage.replaceSnapshot({
+          ...Object.fromEntries(Object.entries(snapshot).map(([key, value]) =>
+            [key, typeof value === 'string' ? value : JSON.stringify(value)])),
+          [LOCAL_DATA_OWNER_KEY]: encodeDataOwner(accountId),
+        }, isCurrent);
+        if (!isCurrent() || !await loadAll(isCurrent)) throw new Error('Account data could not be loaded');
+        return { backup };
+      },
+    });
+    cloudSessionRef.current = session;
+    void session.initialize();
+    return () => {
+      session.dispose();
+      if (cloudSessionRef.current === session) cloudSessionRef.current = null;
+    };
+  }, [accountId, isSignedIn, authLoading, isLoading, localScopeReady, readCloudSnapshot, mergeGuestWithCloud, syncRestart]);
 
   const buildFreshCheckedState = (items: ChecklistItemDef[]): CheckedState => {
     const today = getTodayDate();
@@ -720,8 +735,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
-  const loadAll = async () => {
+  const loadAll = async (isCurrent: () => boolean = () => true) => {
+    const assertCurrent = () => { if (!isCurrent()) throw new Error('Account changed'); };
     try {
+      await AsyncStorage.recover();
+      assertCurrent();
       const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr, homeCommentPreferencesStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
@@ -743,6 +761,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(KEYS.COMPANIONS),
           AsyncStorage.getItem(KEYS.HOME_COMMENT_PREFERENCES),
         ]);
+      assertCurrent();
 
       // ── サイズ成長: 保存値を読み、経過時間ぶんの成長を適用 ──
       {
@@ -755,6 +774,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const updated = applyGrowth(g);
         setGrowth(updated);
         await AsyncStorage.setItem(KEYS.GROWTH, JSON.stringify(updated));
+        assertCurrent();
       }
 
       // ── 光エネルギー: 保存値を読み、日付が変わっていたら日次値をリセット ──
@@ -768,6 +788,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         lightEnergyRef.current = resolved;
         setLightEnergy(resolved);
         await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(resolved));
+        assertCurrent();
       }
 
       // ── 発電所: 保存値を安全に読み込む ──
@@ -799,19 +820,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const ownedFlowers = Array.isArray(parsed.ownedFlowers)
           ? parsed.ownedFlowers.filter((v): v is RoomFlower => ['pink', 'violet', 'rainbow'].includes(v))
           : [];
-        // The first room version showed a sofa and flower before purchase.
-        // Treat those starter-only values as empty so the room follows the
-        // purchase rule introduced with the shared points wallet.
-        const migratedFurniture = ownedFurniture.filter((id) => id !== 'sofa' || ownedFurniture.length > 1);
-        const migratedFlowers = ownedFlowers.filter((id) => id !== 'pink' || ownedFlowers.length > 1);
+        // A single saved sofa/rose may be a legitimate purchase. Without a
+        // versioned receipt we cannot infer starter ownership and remove it.
         const resolved: RoomCustomization = {
-          furniture: migratedFurniture.includes(parsed.furniture as RoomFurniture) ? parsed.furniture as RoomFurniture : 'none',
-          flower: migratedFlowers.includes(parsed.flower as RoomFlower) ? parsed.flower as RoomFlower : 'none',
-          ownedFurniture: Array.from(new Set(migratedFurniture)) as RoomFurniture[],
-          ownedFlowers: Array.from(new Set(migratedFlowers)) as RoomFlower[],
+          furniture: ownedFurniture.includes(parsed.furniture as RoomFurniture) ? parsed.furniture as RoomFurniture : 'none',
+          flower: ownedFlowers.includes(parsed.flower as RoomFlower) ? parsed.flower as RoomFlower : 'none',
+          ownedFurniture: Array.from(new Set(ownedFurniture)) as RoomFurniture[],
+          ownedFlowers: Array.from(new Set(ownedFlowers)) as RoomFlower[],
         };
         setRoomCustomization(resolved);
         await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(resolved));
+        assertCurrent();
       }
 
       // ── 追加のたまご: 保存値を安全に読み込む ──
@@ -821,10 +840,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const resolved: CompanionState = { extraEggs: Math.max(0, Math.min(1, Math.floor(parsed.extraEggs ?? 0))) };
         setCompanionState(resolved);
         await AsyncStorage.setItem(KEYS.COMPANIONS, JSON.stringify(resolved));
+        assertCurrent();
       }
 
-      if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
+      setInactivityHours(lastOpenedStr ? computeInactivityHours(lastOpenedStr) : 0);
       await AsyncStorage.setItem(KEYS.LAST_OPENED, new Date().toISOString());
+      assertCurrent();
 
       const today = getTodayDate();
 
@@ -837,17 +858,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const legacyCustom: ChecklistItemDef[] = legacyCustomStr ? JSON.parse(legacyCustomStr) : [];
         loadedItems = [...DEFAULT_CHECKLIST_ITEMS, ...legacyCustom];
         await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(loadedItems));
+        assertCurrent();
       }
 
-      if (progressStr) setProgress(JSON.parse(progressStr));
-      if (recordsStr)  setRecords(JSON.parse(recordsStr));
-      if (badgesStr)   setUnlockedBadges(JSON.parse(badgesStr));
-      if (nameStr)     setMascotNameState(nameStr);
-      if (feedStr) {
-        const parsed = JSON.parse(feedStr);
-        feedStateRef.current = parsed;
-        setFeedState(parsed);
-      }
+      setProgress(progressStr ? JSON.parse(progressStr) : defaultProgress);
+      setRecords(recordsStr ? JSON.parse(recordsStr) : []);
+      setUnlockedBadges(badgesStr ? JSON.parse(badgesStr) : []);
+      setMascotNameState(nameStr ?? '');
+      const loadedFeed = feedStr ? JSON.parse(feedStr) : defaultFeedState;
+      feedStateRef.current = loadedFeed;
+      setFeedState(loadedFeed);
+      setNewlyUnlockedBadge(null);
+      setNewEncounters([]);
       setMiniGameState(resolveMiniGameState(miniGameStr ? JSON.parse(miniGameStr) : null));
       if (profileStr) {
         try { setProfile(JSON.parse(profileStr)); } catch { setProfile(null); }
@@ -875,26 +897,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             : state;
           setCheckedState(merged);
           if (missingIds.length > 0) await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(merged));
+          assertCurrent();
         } else {
           const fresh = buildFreshCheckedState(loadedItems);
           setCheckedState(fresh);
           await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
+          assertCurrent();
         }
       } else {
         const fresh = buildFreshCheckedState(loadedItems);
         setCheckedState(fresh);
         await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
+        assertCurrent();
       }
+      setStorageError(null);
+      return true;
     } catch {
-      // use defaults on error
+      if (isCurrent()) setStorageError('保存データを読み込めませんでした。データを保ったまま、もう一度読み込みます。');
+      return false;
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) setIsLoading(false);
     }
   };
 
   // ── サイズ成長: 1時間ごとに経過時間ぶんを再計算(時間ベース。開いた回数は無関係) ──
   useEffect(() => {
-    if (isLoading) return;
+    if (!dataReady) return;
     const timer = setInterval(() => {
       setGrowth((prev) => {
         const next = applyGrowth(prev);
@@ -905,7 +933,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
     }, 3_600_000);
     return () => clearInterval(timer);
-  }, [isLoading]);
+  }, [dataReady]);
 
   const markGrowthSeen = useCallback(async () => {
     setGrowth((prev) => {
@@ -916,28 +944,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // YOKIポイントの同時更新(交換・購入・報酬)で残高が上書きされないよう、
-  // 常に最新値を保持する ref を正とする
-  const feedStateRef = useRef<FeedState>(defaultFeedState);
-
-  const saveFeedState = async (next: FeedState) => {
-    feedStateRef.current = next;
-    setFeedState(next);
-    await AsyncStorage.setItem(KEYS.FEED_STATE, JSON.stringify(next));
-  };
-
+  // Point changes read the latest persisted balance inside the serialized transaction.
   const syncFeedPoints = useCallback(async (points: number) => {
     if (!Number.isFinite(points) || points < 0) return;
-    const next = { ...feedStateRef.current, points };
-    await saveFeedState(next);
-  }, []);
+    await updateBalances(state => ({ state: { ...state, feed: { ...state.feed, points } }, result: undefined }));
+  }, [updateBalances]);
 
-  /** ポイント増減は必ずこの関数経由(ref ベースで直列に適用) */
+  /** Point increments/debits use the same journal/queue as garden receipt. */
   const mutateFeedPoints = async (delta: number): Promise<FeedState> => {
-    const cur = feedStateRef.current;
-    const next: FeedState = { ...cur, points: Math.max(0, cur.points + delta) };
-    await saveFeedState(next);
-    return next;
+    return updateBalances(state => {
+      if (state.feed.points + delta < 0) throw new Error('YOKIポイントが足りません');
+      const feed = { ...state.feed, points: state.feed.points + delta };
+      return { state: { ...state, feed }, result: feed };
+    });
   };
 
   const spendFeedPoints = useCallback(async (points: number): Promise<boolean> => {
@@ -947,244 +966,96 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [pushDataToCloud]);
 
+  const purchaseGuestItem = useCallback(async (itemId: string, cost: number) => {
+    const saved = await AsyncStorage.transaction(values => prepareItemPurchase(values, itemId, cost, defaultFeedState));
+    feedStateRef.current = saved.feed;
+    setFeedState(saved.feed);
+    pushDataToCloud();
+    return saved;
+  }, [pushDataToCloud]);
+
   const feedMascot = useCallback(
     async (foodId: string): Promise<{ success: boolean; message: string; newSatiety: number }> => {
       const food = FOOD_ITEMS.find((f) => f.id === foodId);
       if (!food) return { success: false, message: 'Unknown food', newSatiety: currentSatiety };
       // 残高チェック・減算は常に最新の ref を正とする(交換・報酬付与との競合対策)
-      const cur = feedStateRef.current;
-      if (cur.points < food.cost) {
-        return { success: false, message: 'YOKIポイントが足りないよ！', newSatiety: currentSatiety };
-      }
-
-      const baseSatiety = computeCurrentSatiety(cur);
-      const newSatiety = Math.min(100, baseSatiety + food.satietyGain);
-      const next: FeedState = {
-        points: cur.points - food.cost,
-        lastFeedTime: new Date().toISOString(),
-        satietyAtFeed: newSatiety,
-      };
-      await saveFeedState(next);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      return { success: true, message: `${food.name}をあげたよ！`, newSatiety };
+      const result = await updateBalances(state => {
+        const baseSatiety = computeCurrentSatiety(state.feed);
+        if (state.feed.points < food.cost) return { state, result: { success: false, message: 'YOKIポイントが足りないよ！', newSatiety: baseSatiety } };
+        const newSatiety = Math.min(100, baseSatiety + food.satietyGain);
+        return { state: { ...state, feed: {
+          points: state.feed.points - food.cost,
+          lastFeedTime: new Date().toISOString(), satietyAtFeed: newSatiety,
+        } }, result: { success: true, message: `${food.name}をあげたよ！`, newSatiety } };
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      return result;
     },
-    [currentSatiety]
+    [currentSatiety, updateBalances]
   );
 
-  const checkAndUnlockBadges = useCallback(
-    async (currentBadges: UnlockedBadge[], newProgress: UserProgress, newRecords: DailyRecord[], allChecked: boolean) => {
-      const unlocked = new Set(currentBadges.map((b) => b.id));
-      const updated = [...currentBadges];
-      let newest: string | null = null;
-      const now = new Date().toISOString();
+  const runChecklist = useCallback(async (operation: ChecklistOperation) => {
+    const saved = await AsyncStorage.transaction(values => prepareChecklist(values, operation, getTodayDate(),
+      { items: DEFAULT_CHECKLIST_ITEMS, progress: defaultProgress, feed: defaultFeedState },
+      { item: FP_PER_CHECKLIST_ITEM, fullDay: FP_PER_FULL_DAY_BONUS }));
+    setChecklistItems(saved.items);
+    setCheckedState(saved.checked);
+    if (operation.kind === 'check') {
+      setProgress(saved.progress);
+      feedStateRef.current = saved.feed; setFeedState(saved.feed);
+      lightEnergyRef.current = saved.energy; setLightEnergy(saved.energy);
+      setUnlockedBadges(saved.badges);
+      if (saved.newestBadge) setNewlyUnlockedBadge(saved.newestBadge);
+      if (saved.gainedEnergy > 0) queueGainEvent(saved.gainedEnergy);
+      if (operation.checked) await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
+    void pushDataToCloud().catch(() => {});
+  }, [queueGainEvent, pushDataToCloud]);
 
-      const unlock = (id: string) => {
-        if (!unlocked.has(id)) {
-          unlocked.add(id);
-          updated.push({ id, unlockedAt: now });
-          newest = id;
-        }
-      };
+  const toggleCheckItem = useCallback(async (id: string) => {
+    const current = checkedState.items.find(item => item.id === id);
+    if (!current) return;
+    // Keep the requested target on retry even if a prior write recovered meanwhile.
+    await runChecklist({ kind: 'check', id, checked: !(checkedState.date === getTodayDate() && current.checked) });
+  }, [checkedState, runChecklist]);
 
-      if (newRecords.length >= 1) unlock('firstStep');
-      if (newProgress.streak >= 3) unlock('streak3');
-      if (newProgress.streak >= 7) unlock('streak7');
-      if (newProgress.streak >= 30) unlock('streak30');
-      if (newRecords.length >= 7) unlock('moodLogger7');
-      if (newProgress.level >= 5) unlock('levelUp5');
-      if (allChecked) unlock('checkMaster');
+  const pendingChecklistAdd = useRef<{ text: string; category: ChecklistCategory; id: string } | null>(null);
+  const addChecklistItem = useCallback(async (text: string, category: ChecklistCategory) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    if (!pendingChecklistAdd.current || pendingChecklistAdd.current.text !== trimmed || pendingChecklistAdd.current.category !== category) {
+      pendingChecklistAdd.current = { text: trimmed, category, id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` };
+    }
+    const pending = pendingChecklistAdd.current;
+    await runChecklist({ kind: 'add', item: { ...pending, isDefault: false } });
+    if (pendingChecklistAdd.current === pending) pendingChecklistAdd.current = null;
+  }, [runChecklist]);
 
-      if (newest) {
-        setNewlyUnlockedBadge(newest);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+  const removeChecklistItem = useCallback(async (id: string) => {
+    await runChecklist({ kind: 'remove', id });
+  }, [runChecklist]);
 
-      setUnlockedBadges(updated);
-      await AsyncStorage.setItem(KEYS.BADGES, JSON.stringify(updated));
-    },
-    []
-  );
-
-  const toggleCheckItem = useCallback(
-    async (id: string) => {
-      const currentItem = checkedState.items.find((i) => i.id === id);
-      if (!currentItem) return;
-
-      const wasChecked = currentItem.checked;
-      const nowChecked = !wasChecked;
-
-      let xpGain = 0;
-      if (nowChecked && !currentItem.xpEarned) xpGain = XP_FOR_CHECKLIST_ITEM;
-
-      const newItems = checkedState.items.map((i) =>
-        i.id === id ? { ...i, checked: nowChecked, xpEarned: nowChecked ? true : i.xpEarned } : i
-      );
-
-      const allDefaultChecked = newItems.every((i) => i.checked);
-
-      let bonusXp = 0;
-      let newBonusEarned = checkedState.bonusEarned;
-      if (allDefaultChecked && !checkedState.bonusEarned) {
-        bonusXp = XP_FULL_DAY_BONUS;
-        newBonusEarned = true;
-      }
-
-      const newState: CheckedState = { ...checkedState, items: newItems, bonusEarned: newBonusEarned };
-
-      const totalXpGain = xpGain + bonusXp;
-      const newExp = progress.experience + totalXpGain;
-      const newProgress: UserProgress = {
-        ...progress,
-        experience: newExp,
-        level: calculateLevel(newExp),
-        mentalMuscle: calculateMentalMuscle(newExp),
-      };
-
-      setCheckedState(newState);
-      if (totalXpGain > 0) {
-        setProgress(newProgress);
-        await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
-      }
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newState));
-
-      if (nowChecked && !currentItem.xpEarned) {
-        let fpGain = FP_PER_CHECKLIST_ITEM;
-        if (allDefaultChecked && !checkedState.bonusEarned) fpGain += FP_PER_FULL_DAY_BONUS;
-        await mutateFeedPoints(fpGain);
-
-        // 光エネルギー: チェック1件(初回のみ) + 全達成ボーナス
-        await gainLightEnergy(GAIN_CHECK_ITEM);
-        if (allDefaultChecked && !checkedState.bonusEarned) {
-          await gainLightEnergy(GAIN_FULL_DAY_BONUS);
-        }
-      }
-
-      if (nowChecked) await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      const allChecked = newItems.every((i) => i.checked);
-      await checkAndUnlockBadges(unlockedBadges, newProgress, records, allChecked);
-
-      // Sync to cloud (fire-and-forget)
-      pushDataToCloud();
-    },
-    [checkedState, progress, unlockedBadges, records, feedState, checkAndUnlockBadges, pushDataToCloud, gainLightEnergy]
-  );
-
-  const addChecklistItem = useCallback(
-    async (text: string, category: ChecklistCategory) => {
-      const id = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-      const newItem: ChecklistItemDef = { id, text, category, isDefault: false };
-      const newItems = [...checklistItems, newItem];
-      const newChecked: CheckedState = {
-        ...checkedState,
-        items: [...checkedState.items, { id, checked: false, xpEarned: false }],
-      };
-      setChecklistItems(newItems);
-      setCheckedState(newChecked);
-      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(newItems));
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newChecked));
-      pushDataToCloud();
-    },
-    [checklistItems, checkedState, pushDataToCloud]
-  );
-
-  const removeChecklistItem = useCallback(
-    async (id: string) => {
-      const newItems = checklistItems.filter(i => i.id !== id);
-      const newChecked: CheckedState = {
-        ...checkedState,
-        items: checkedState.items.filter(i => i.id !== id),
-      };
-      setChecklistItems(newItems);
-      setCheckedState(newChecked);
-      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(newItems));
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newChecked));
-      pushDataToCloud();
-    },
-    [checklistItems, checkedState, pushDataToCloud]
-  );
-
-  const resetChecklistToDefaults = useCallback(
-    async () => {
-      const fresh = buildFreshCheckedState(DEFAULT_CHECKLIST_ITEMS);
-      setChecklistItems(DEFAULT_CHECKLIST_ITEMS);
-      setCheckedState(fresh);
-      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(DEFAULT_CHECKLIST_ITEMS));
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
-      pushDataToCloud();
-    },
-    [checkedState, pushDataToCloud]
-  );
+  const resetChecklistToDefaults = useCallback(async () => {
+    await runChecklist({ kind: 'reset' });
+  }, [runChecklist]);
 
   const saveRecord = useCallback(
     async (mood: number, sleep: number, behaviors: string[], notes: string, extras?: RecordExtras) => {
-      const today = getTodayDate();
-      const yesterday = getYesterdayDate();
-      const existingIndex = records.findIndex((r) => r.date === today);
-      const isNew = existingIndex === -1;
-
-      const record: DailyRecord = {
-        id: isNew ? `r_${Date.now()}` : records[existingIndex].id,
-        date: today,
-        mood,
-        sleep,
-        behaviors,
-        notes,
-        exercise: extras?.exercise,
-        meal: extras?.meal,
-        social: extras?.social,
-        win: extras?.win?.trim() || undefined,
-        activities: extras?.activities,
-      };
-
-      const newRecords = isNew
-        ? [...records, record]
-        : records.map((r, i) => (i === existingIndex ? record : r));
-
-      let newProgress = { ...progress };
-      if (isNew) {
-        const newStreak =
-          progress.lastRecordDate === yesterday
-            ? progress.streak + 1
-            : progress.lastRecordDate === today
-            ? progress.streak
-            : 1;
-        const newTotalDays = progress.totalDays + 1;
-        const newExp = progress.experience + XP_FOR_MOOD_RECORD;
-        newProgress = {
-          ...progress,
-          experience: newExp,
-          level: calculateLevel(newExp),
-          mentalMuscle: calculateMentalMuscle(newExp),
-          streak: newStreak,
-          totalDays: newTotalDays,
-          lastRecordDate: today,
-        };
-      }
-
-      setRecords(newRecords);
-      setProgress(newProgress);
-      await AsyncStorage.setItem(KEYS.RECORDS, JSON.stringify(newRecords));
-      await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
-
-      if (isNew) {
-        await mutateFeedPoints(FP_PER_MOOD_RECORD);
-      }
-
-      // 光エネルギー: 気分・生活の記録(1日1回) + 日記を書いた(1日1回)
-      await gainLightEnergy(GAIN_MOOD_RECORD, 'mood');
-      if (notes.trim().length > 0 || (extras?.win?.trim()?.length ?? 0) > 0) {
-        await gainLightEnergy(GAIN_DIARY, 'diary');
-      }
-
-      const allChecked = checkedState.items.every((i) => i.checked);
-      await checkAndUnlockBadges(unlockedBadges, newProgress, newRecords, allChecked);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Sync to cloud (fire-and-forget)
-      pushDataToCloud();
+      const saved = await AsyncStorage.transaction(values => prepareDailyRecord(values, {
+        today: getTodayDate(), yesterday: getYesterdayDate(), mood, sleep, behaviors, notes, extras,
+      }, { progress: defaultProgress, feed: defaultFeedState }, FP_PER_MOOD_RECORD));
+      // Publish only the committed snapshot; retry first recovers any interrupted write.
+      setRecords(saved.records);
+      setProgress(saved.progress);
+      feedStateRef.current = saved.feed; setFeedState(saved.feed);
+      lightEnergyRef.current = saved.energy; setLightEnergy(saved.energy);
+      setUnlockedBadges(saved.badges);
+      if (saved.newestBadge) setNewlyUnlockedBadge(saved.newestBadge);
+      if (saved.gainedEnergy > 0) queueGainEvent(saved.gainedEnergy);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      void pushDataToCloud().catch(() => {});
     },
-    [records, progress, unlockedBadges, checkedState, feedState, checkAndUnlockBadges, pushDataToCloud, gainLightEnergy]
+    [queueGainEvent, pushDataToCloud]
   );
 
   const getTodayRecord = useCallback((): DailyRecord | undefined => {
@@ -1197,9 +1068,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const clearNewBadge = useCallback(() => setNewlyUnlockedBadge(null), []);
 
   const saveProfile = useCallback(async (p: UserProfile) => {
-    setProfile(p);
     await AsyncStorage.setItem(KEYS.PROFILE, JSON.stringify(p));
-    pushDataToCloud();
+    setProfile(p);
+    void pushDataToCloud().catch(() => {});
   }, [pushDataToCloud]);
 
   const saveHomeCommentPreferences = useCallback(async (preferences: HomeCommentPreferences) => {
@@ -1207,121 +1078,55 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const commentInputsChanged =
       resolved.frequency !== homeCommentPreferences.frequency ||
       resolved.includeRecentChat !== homeCommentPreferences.includeRecentChat;
-    setHomeCommentPreferences(resolved);
+    if (commentInputsChanged) {
+      if (!privateCache) throw new Error('Account data is not ready');
+      await clearHomeCommentCache(privateCache);
+    }
     await AsyncStorage.setItem(KEYS.HOME_COMMENT_PREFERENCES, JSON.stringify(resolved));
-    if (commentInputsChanged) await clearHomeCommentCache();
-    pushDataToCloud();
-  }, [homeCommentPreferences, pushDataToCloud]);
+    setHomeCommentPreferences(resolved);
+    void pushDataToCloud().catch(() => {});
+  }, [homeCommentPreferences, pushDataToCloud, privateCache]);
 
   const setMascotName = useCallback(async (name: string) => {
-    setMascotNameState(name);
     await AsyncStorage.setItem(KEYS.MASCOT_NAME, name);
-    pushDataToCloud();
+    setMascotNameState(name);
+    void pushDataToCloud().catch(() => {});
   }, [pushDataToCloud]);
 
-  const shopBusyRef = useRef(false);
+  const runRoomOperation = useCallback(async (operation: RoomOperation) => {
+    const saved = await AsyncStorage.transaction(values => prepareRoomOperation(values, operation, defaultFeedState));
+    // Publish recovered snapshots even when the retry finds an existing receipt.
+    feedStateRef.current = saved.feed;
+    setFeedState(saved.feed);
+    setRoomCustomization(saved.room);
+    setCompanionState(saved.companions);
+    if (saved.success) {
+      if (saved.newlyPurchased) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      void pushDataToCloud().catch(() => {});
+    }
+    return saved;
+  }, [pushDataToCloud]);
 
   const selectRoomItem = useCallback(async (kind: RoomItemKind, id: RoomFurniture | RoomFlower): Promise<boolean> => {
-    const current = roomCustomization;
-    if (kind === 'furniture') {
-      if (id !== 'none' && (!['sofa', 'vanity', 'bookshelf'].includes(id) || !current.ownedFurniture.includes(id as RoomFurniture))) return false;
-      const next = { ...current, furniture: id as RoomFurniture };
-      setRoomCustomization(next);
-      await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
-      pushDataToCloud();
-      return true;
-    }
-    if (id !== 'none' && (!['pink', 'violet', 'rainbow'].includes(id) || !current.ownedFlowers.includes(id as RoomFlower))) return false;
-    const next = { ...current, flower: id as RoomFlower };
-    setRoomCustomization(next);
-    await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
-    pushDataToCloud();
-    return true;
-  }, [roomCustomization, pushDataToCloud]);
+    const saved = await runRoomOperation({ kind: 'select', category: kind, id });
+    return saved.success;
+  }, [runRoomOperation]);
 
-  const buyRoomItem = useCallback(async (
-    kind: RoomItemKind,
-    id: RoomFurniture | RoomFlower,
-    cost: number,
-  ): Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' | 'invalid' }> => {
-    if (shopBusyRef.current) return { success: false, reason: 'not_enough' };
-    const validFurniture = ['none', 'sofa', 'vanity', 'bookshelf'].includes(id);
-    const validFlower = ['none', 'pink', 'violet', 'rainbow'].includes(id);
-    if ((kind === 'furniture' && !validFurniture) || (kind === 'flower' && !validFlower)) {
-      return { success: false, reason: 'invalid' };
-    }
-    const current = roomCustomization;
-    if (id === 'none') return { success: false, reason: 'invalid' };
-    const owned = kind === 'furniture' ? current.ownedFurniture.includes(id as RoomFurniture) : current.ownedFlowers.includes(id as RoomFlower);
-    if (owned) return { success: false, reason: 'already_owned' };
-    if (feedStateRef.current.points < cost) return { success: false, reason: 'not_enough' };
+  const buyRoomItem = useCallback(async (kind: RoomItemKind, id: RoomFurniture | RoomFlower, cost: number) => {
+    const saved = await runRoomOperation({ kind: 'buy', category: kind, id, cost });
+    return { success: saved.success, reason: saved.reason };
+  }, [runRoomOperation]);
 
-    shopBusyRef.current = true;
-    try {
-      await mutateFeedPoints(-cost);
-      const next: RoomCustomization = kind === 'furniture'
-        ? { ...current, furniture: id as RoomFurniture, ownedFurniture: [...current.ownedFurniture, id as RoomFurniture] }
-        : { ...current, flower: id as RoomFlower, ownedFlowers: [...current.ownedFlowers, id as RoomFlower] };
-      setRoomCustomization(next);
-      await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      pushDataToCloud();
-      return { success: true };
-    } finally {
-      shopBusyRef.current = false;
-    }
-  }, [roomCustomization, pushDataToCloud]);
+  const buyEggCompanion = useCallback(async (): Promise<{ success: boolean; reason?: 'not_enough' }> => {
+    const saved = await runRoomOperation({ kind: 'companion' });
+    return { success: saved.success, reason: saved.success ? undefined : 'not_enough' };
+  }, [runRoomOperation]);
 
-  const buyEggCompanion = useCallback(async (): Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' }> => {
-    if (shopBusyRef.current) return { success: false, reason: 'not_enough' };
-    if (companionState.extraEggs >= 1) return { success: false, reason: 'already_owned' };
-    if (feedStateRef.current.points < EGG_COMPANION_COST) return { success: false, reason: 'not_enough' };
-
-    shopBusyRef.current = true;
-    try {
-      await mutateFeedPoints(-EGG_COMPANION_COST);
-      const next = { extraEggs: 1 };
-      setCompanionState(next);
-      await AsyncStorage.setItem(KEYS.COMPANIONS, JSON.stringify(next));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      pushDataToCloud();
-      return { success: true };
-    } finally {
-      shopBusyRef.current = false;
-    }
-  }, [companionState, pushDataToCloud]);
-
-  // completeMiniGame の同時多重呼び出し(再レンダー前の連打)でも二重付与しないための同期ガード
-  const completingSlotsRef = useRef<Set<GameSlot>>(new Set());
-
-  const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => {
-    // スロット上限に達していたら加算も報酬付与もしない (二重付与・上限回避の防止)
-    if ((miniGameState[slot] || 0) >= MAX_PLAYS_PER_SLOT) return;
-    if (completingSlotsRef.current.has(slot)) return;
-    completingSlotsRef.current.add(slot);
-    try {
-    // Mark slot as done
-    const next: MiniGameState = { ...miniGameState, [slot]: (miniGameState[slot] || 0) + 1 };
-    setMiniGameState(next);
-    await AsyncStorage.setItem(KEYS.MINI_GAME, JSON.stringify(next));
-
-    // Apply FP reward
-    if (reward.fp) {
-      await mutateFeedPoints(reward.fp);
-    }
-
-    // Apply XP reward
-    if (reward.xp) {
-      const newExp = progress.experience + reward.xp;
-      const newProgress: UserProgress = {
-        ...progress,
-        experience: newExp,
-        level: calculateLevel(newExp),
-        mentalMuscle: calculateMentalMuscle(newExp),
-      };
-      setProgress(newProgress);
-      await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
-    }
+  const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp: number; stars?: number }, playId: string) => {
+    const saved = await AsyncStorage.transaction(values => prepareRhythmReward(values, playId, slot, reward.fp, getTodayDate(), defaultFeedState, MAX_PLAYS_PER_SLOT));
+    setMiniGameState(saved.game);
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (!saved.newlyGranted) return saved.earned;
 
     // メンタルケア連携: 音楽と楽しく過ごした記録として、ごく僅かな成長ボーナス
     // (1回では見えない +0.03%。Level/Evolution とは独立、時間ベース成長にも影響しない)
@@ -1333,33 +1138,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // ミニゲームはYOKIポイントだけを生む(光エネルギーは日々の記録から生まれる)
 
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     pushDataToCloud();
-    } finally {
-      completingSlotsRef.current.delete(slot);
-    }
-  }, [miniGameState, feedState, progress, pushDataToCloud]);
+    return saved.earned;
+  }, [pushDataToCloud]);
 
   return (
     <AppContext.Provider
       value={{
+        privateCache,
         progress,
         records,
         checkedState,
         checklistItems,
         unlockedBadges,
-        isLoading,
+        isLoading: appLoading,
         newlyUnlockedBadge,
         mascotName,
         feedState,
         syncFeedPoints,
         spendFeedPoints,
+        purchaseGuestItem,
         currentSatiety,
         inactivityHours,
         miniGameState,
         profile,
         homeCommentPreferences,
         cloudSynced,
+        cloudSyncState,
         isCloudSyncing,
         retryCloudSync,
         saveProfile,
@@ -1380,6 +1186,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         growth,
         markGrowthSeen,
         lightEnergy,
+        storageError,
+        retryStorageRecovery: async () => {
+          if (!localScopeReady) setScopeRetry(value => value + 1);
+          else await loadAll(() => accountIdRef.current === accountId);
+        },
+        receiveGardenReward,
         lightGainEvent,
         holdLightFlow,
         powerPlant,

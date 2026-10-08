@@ -1,0 +1,147 @@
+const fs=require('node:fs'), http=require('node:http'), path=require('node:path'), assert=require('node:assert/strict');
+const {chromium}=require(process.env.YOKI_QA_PLAYWRIGHT||'playwright');
+const root=path.resolve(process.env.YOKI_QA_EXPORT||path.join(__dirname,'../../../build-yoki-v2-storage'));
+const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.jpg':'image/jpeg','.ttf':'font/ttf','.mp3':'audio/mpeg'};
+const server=http.createServer((req,res)=>{
+  let file=path.join(root,decodeURIComponent(new URL(req.url,'http://localhost').pathname));
+  if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}
+  if(!fs.existsSync(file)||fs.statSync(file).isDirectory())file=path.join(root,'index.html');
+  res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');fs.createReadStream(file).pipe(res);
+});
+(async()=>{
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const browser=await chromium.launch({executablePath:process.env.YOKI_QA_BROWSER,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
+  try{
+    for(const mode of ['retry','restart']){
+      const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+      page.on('pageerror',e=>errors.push(e.message));
+      await page.addInitScript(()=>{
+        if(!localStorage.getItem('qa-seeded')){
+          const date=new Date(),today=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+          const data={
+            '@mentore/profile_v1':{nickname:'保存テスト',ageRange:'回答しない',gender:'回答しない'},
+            '@mentore/feed_state_v1':{points:100,lastFeedTime:null,satietyAtFeed:65},
+            '@mentore/light_energy_v1':{date:today,storedEnergy:12.75,totalEnergy:40,todayEnergy:12,genki:50,lightPower:0,lastGeneratedAt:date.toISOString(),flags:{mood:false,diary:false}},
+            '@mentore/power_plant_v1':{ecoPoints:7,totalSold:9,sellCount:2,townBuilt:1},
+            '@mentore/encounters_v1':{list:[{charKey:'egg',metDate:'2026-09-01'}]},
+          };
+          for(const [key,value]of Object.entries(data))localStorage.setItem(key,JSON.stringify(value));
+          localStorage.setItem('qa-seeded','true');
+        }
+        const set=Storage.prototype.setItem;
+        Storage.prototype.setItem=function(key,value){
+          if(key==='@mentore/feed_state_v1'&&localStorage.getItem('qa-block-balance')&&localStorage.getItem('@yoki/balance_journal_v1'))throw new DOMException('QA quota failure','QuotaExceededError');
+          return set.call(this,key,value);
+        };
+      });
+      await page.goto('http://127.0.0.1:'+server.address().port);
+      await page.getByTestId('room-scene').waitFor({state:'visible'});
+      await page.waitForTimeout(3000);
+      await page.getByText('ひかりの庭',{exact:true}).last().click();
+      await page.evaluate(()=>localStorage.setItem('qa-block-balance','true'));
+      await page.getByTestId('energy-receive').click();
+      await page.getByText('保存が完了しませんでした。もう一度押すと、受け取り状況を確認して再開します。',{exact:true}).waitFor();
+      assert.ok(await page.evaluate(()=>localStorage.getItem('@yoki/balance_journal_v1')));
+      if(mode==='restart'){
+        await page.reload();
+        await page.getByText('もう一度読み込む',{exact:true}).waitFor();
+      }
+      await page.evaluate(()=>localStorage.removeItem('qa-block-balance'));
+      if(mode==='restart')await page.getByText('もう一度読み込む',{exact:true}).click();
+      else await page.getByTestId('energy-receive').click();
+      await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points===119);
+      const result=await page.evaluate(()=>({feed:JSON.parse(localStorage.getItem('@mentore/feed_state_v1')),energy:JSON.parse(localStorage.getItem('@mentore/light_energy_v1')),plant:JSON.parse(localStorage.getItem('@mentore/power_plant_v1')),journal:localStorage.getItem('@yoki/balance_journal_v1')}));
+      assert.equal(result.journal,null);assert.equal(result.plant.ecoPoints,0);assert.equal(result.plant.townBuilt,1);
+      assert.equal(result.plant.totalSold,21);assert.equal(result.plant.sellCount,3);
+      assert.ok(result.energy.storedEnergy>=0.75&&result.energy.storedEnergy<0.8);
+      await page.reload();await page.getByTestId('energy-garden').waitFor({state:'visible'});
+      assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),119);
+      assert.deepEqual(errors,[]);await page.close();
+      console.log(`PASS partial-save ${mode}: one reward, fractional energy/history retained, no page errors`);
+    }
+    const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    let offline=false;
+    const catalog=[
+      {id:'catalog-wear-round-glasses',name:'保存しためがね',category:'accessory',cost:40,assetUrl:'/qa-glasses.png',posX:0,posY:0,scale:1,isActive:true,createdAt:''},
+      {id:'starter-moon-ribbon',name:'新しいリボン',category:'accessory',cost:50,assetUrl:'/qa-glasses.png',posX:0,posY:0,scale:1,isActive:true,createdAt:''},
+    ];
+    await page.route('**/api/items',route=>offline?route.abort():route.fulfill({json:{items:catalog}}));
+    await page.route('**/qa-glasses.png',route=>route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jS1kAAAAASUVORK5CYII=','base64')}));
+    await page.addInitScript(()=>{
+      if(localStorage.getItem('qa-seeded'))return;
+      localStorage.setItem('@mentore/profile_v1',JSON.stringify({nickname:'装備テスト',ageRange:'回答しない',gender:'回答しない'}));
+      localStorage.setItem('@mentore/feed_state_v1',JSON.stringify({points:100,lastFeedTime:null,satietyAtFeed:50}));
+      localStorage.setItem('@mentore/encounters_v1',JSON.stringify({list:[{charKey:'egg',metDate:'2026-09-01'}]}));
+      localStorage.setItem('@mentore/shop_state_v2',JSON.stringify({inventory:['catalog-wear-round-glasses'],equipped:{wear:'catalog-wear-round-glasses'},placements:{'catalog-wear-round-glasses':{x:12,y:3,scale:1}}}));
+      localStorage.setItem('qa-seeded','true');
+    });
+    await page.goto('http://127.0.0.1:'+server.address().port);
+    await page.waitForFunction(()=>localStorage.getItem('@yoki/item_catalog_cache_v1'));
+    offline=true;await page.reload();
+    await page.getByTestId('room-resident').locator('img[src$="/qa-glasses.png"]').waitFor({state:'attached'});
+    await page.waitForTimeout(3000);
+    await page.getByTestId('home-more-menu').click();
+    await page.getByText('暮らしのお店',{exact:true}).click();
+    await page.getByText('お店に再接続する',{exact:true}).waitFor();
+    await page.getByText('保存しためがね',{exact:true}).waitFor();
+    await page.getByText('再接続すると交換できます',{exact:true}).waitFor();
+    await page.getByText('はずす',{exact:true}).click();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).equipped.wear===null);
+    await page.reload();await page.getByText('保存しためがね',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).equipped.wear),null);
+    offline=false;await page.getByText('お店に再接続する',{exact:true}).click();
+    await page.getByText('50 pt で交換',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),100);
+    await page.evaluate(()=>{
+      const set=Storage.prototype.setItem;
+      Storage.prototype.setItem=function(key,value){
+        if(key==='@mentore/shop_state_v2'&&localStorage.getItem('qa-block-purchase')&&localStorage.getItem('@yoki/balance_journal_v1'))throw new DOMException('QA purchase failure','QuotaExceededError');
+        return set.call(this,key,value);
+      };
+      localStorage.setItem('qa-block-purchase','true');
+    });
+    await page.getByText('50 pt で交換',{exact:true}).click();
+    await page.getByRole('alert').filter({hasText:'保存が完了しませんでした'}).waitFor();
+    assert.ok(await page.evaluate(()=>localStorage.getItem('@yoki/balance_journal_v1')));
+    await page.evaluate(()=>localStorage.removeItem('qa-block-purchase'));
+    await page.getByText('50 pt で交換',{exact:true}).click();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).inventory.includes('starter-moon-ribbon'));
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),50);
+    await page.reload();
+    await page.getByText('新しいリボン',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),50);
+    await page.setViewportSize({width:320,height:568});
+    const titleBox=await page.getByText('暮らしのお店',{exact:true}).boundingBox();
+    assert.ok(titleBox.x>=0&&titleBox.x+titleBox.width<=320);
+    const activeTab=page.getByRole('tab',{selected:true});
+    assert.equal(await activeTab.count(),1);
+    const tabBox=await activeTab.boundingBox(); assert.ok(tabBox.height>=44);
+    await page.getByText('ホームで位置を調整',{exact:true}).first().click();
+    await page.getByTestId('shop-room-preview').getByTestId('room-scene').waitFor();
+    await page.getByTestId('shop-room-preview').locator('img[src*="room-night"]').waitFor();
+    await page.waitForTimeout(400); // Finish the native-web modal fade before visual inspection.
+    await page.getByLabel('右へ移動',{exact:true}).click();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).placements['catalog-wear-round-glasses'].x===22);
+    const done=page.getByText('この位置で完了',{exact:true});
+    await done.scrollIntoViewIfNeeded();
+    const doneBox=await done.boundingBox(); assert.ok(doneBox.y>=0&&doneBox.y+doneBox.height<=568);
+    if(process.env.YOKI_QA_SCREENSHOT)await page.screenshot({path:process.env.YOKI_QA_SCREENSHOT});
+    await page.evaluate(()=>{
+      const original=Storage.prototype.setItem;
+      Storage.prototype.setItem=function(key,value){
+        if(key==='@mentore/shop_state_v2'){Storage.prototype.setItem=original;throw new DOMException('QA placement failure','QuotaExceededError');}
+        return original.call(this,key,value);
+      };
+    });
+    await done.click();
+    await page.getByText('位置を保存できませんでした。「この位置で完了」からもう一度保存できます。',{exact:true}).last().waitFor();
+    assert.equal(await page.getByTestId('shop-room-preview').count(),1);
+    await done.click();
+    await page.getByTestId('shop-room-preview').waitFor({state:'hidden'});
+    await page.reload(); await page.getByText('保存しためがね',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/shop_state_v2')).placements['catalog-wear-round-glasses'].x),22);
+    assert.deepEqual(errors,[]);await page.close();
+    console.log('PASS cached equipment, purchase recovery, 320px preview, selected category, placement failure/retry/close/reload');
+  }finally{await browser.close();server.close();}
+})().catch(e=>{console.error(e);server.close();process.exitCode=1;});

@@ -1,1010 +1,197 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Image, PanResponder, Platform, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import { border, colors, control, elevation, homePalette, radius, space, typography } from '@/constants/theme';
-import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
-import { Button } from '@/components/ui/Button';
-import { Icon, IconBadge, iconSize, type IconName } from '@/components/ui/Icon';
-import { PressScale } from '@/components/ui/PressScale';
-import { Screen } from '@/components/ui/Screen';
-import { FeedModal } from '@/components/FeedModal';
-import { MiniGameModal } from '@/components/MiniGameModal';
-import { StageCharacter } from '@/components/StageCharacter';
-import { SpeechBubble } from '@/components/SpeechBubble';
-import {
-  EGG_COMPANION_COST,
-  useApp,
-  type RoomFlower,
-  type RoomFurniture,
-  type RoomItemKind,
-} from '@/contexts/AppContext';
-import { formatDateJP, getTodayDate } from '@/utils/dateUtils';
-import { getCurrentSlot, MAX_PLAYS_PER_SLOT } from '@/utils/miniGameUtils';
-import { getMascotStage } from '@/utils/mascotUtils';
-import { GrassTexture, RoomItemPreview, RoomView } from '@/components/RoomView';
-import { GameBoardIllustration } from '@/components/ui/Illustrations';
-import { HomeSkyBackdrop } from '@/components/SkyBackground';
-import { resolveItemAssetUrl, useItems } from '@/contexts/ItemContext';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
+import { useApp } from '@/contexts/AppContext';
+import { useItems, resolveItemAssetUrl } from '@/contexts/ItemContext';
+import { getMascotStage } from '@/utils/mascotUtils';
+import { WorldHome } from '@/components/world/WorldHome';
+import { useWorldTime } from '@/components/world/useWorldTime';
+import type { ResidentInteraction } from '@/components/room/RoomResident';
+import { RoomAtelier } from '@/components/room/RoomAtelier';
+import { useRoomActivity } from '@/components/room/useRoomActivity';
+import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
+import { Icon, type IconName } from '@/components/ui/Icon';
+import { Button } from '@/components/ui/Button';
+import { FeedModal } from '@/components/FeedModal';
+import { QuickAffirmationRecord } from '@/components/record/QuickAffirmationRecord';
 import { getHomeComment } from '@/utils/homeComment';
+import { getTodayDate } from '@/utils/dateUtils';
 
-const FURNITURE_OPTIONS: { id: RoomFurniture; name: string; cost: number }[] = [
-  { id: 'none', name: '置かない', cost: 0 },
-  { id: 'sofa', name: 'ソファ', cost: 450 },
-  { id: 'vanity', name: 'ドレッサー', cost: 650 },
-  { id: 'bookshelf', name: '本棚', cost: 900 },
-];
+import { useRecordPrompt } from '@/contexts/RecordPromptContext';
+import { isRecordPromptDue } from '@/utils/recordPrompt';
+import { DailyRecordInvitation } from '@/components/record/DailyRecordInvitation';
 
-const FLOWER_OPTIONS: { id: RoomFlower; name: string; cost: number }[] = [
-  { id: 'none', name: '置かない', cost: 0 },
-  { id: 'pink', name: 'ローズ', cost: 250 },
-  { id: 'violet', name: 'バイオレット', cost: 350 },
-  { id: 'rainbow', name: 'レインボー', cost: 550 },
-];
-
-const ACTION_TONES = {
-  food: { icon: homePalette.foodIcon },
-  record: { icon: homePalette.recordIcon },
-  chat: { icon: homePalette.chatIcon },
-  play: { icon: homePalette.playIcon },
-} as const;
-
-const NO_CLIP = {
-  overflow: 'visible',
-  ...(Platform.OS === 'web'
-    ? {
-        clipPath: 'none',
-        WebkitClipPath: 'none',
-        mask: 'none',
-        WebkitMaskImage: 'none',
-      }
-    : {}),
-} as any;
-
-function OrbitAction({
-  icon,
-  illustration,
-  label,
-  tone,
-  onPress,
-  disabled,
-  testID,
-  style,
-}: {
-  icon: IconName;
-  illustration?: React.ReactNode;
-  label: string;
-  tone: keyof typeof ACTION_TONES;
-  onPress: () => void;
-  disabled?: boolean;
-  testID: string;
-  style?: object;
-}) {
-  const actionTone = ACTION_TONES[tone];
-  return (
-    <PressScale
-      testID={testID}
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityLabel={label}
-      style={[styles.orbitAction, style, disabled && styles.orbitActionDisabled]}
-    >
-      <LinearGradient
-        colors={[
-          'rgba(255, 255, 255, 0.68)',
-          'rgba(255, 255, 255, 0.34)',
-          'rgba(255, 255, 255, 0.24)',
-          'rgba(255, 255, 255, 0.34)',
-          'rgba(255, 255, 255, 0.68)',
-        ]}
-        start={{ x: 0.08, y: 0.08 }}
-        end={{ x: 0.92, y: 0.92 }}
-        style={styles.orbitBubbleGradient}
-      >
-        <BlurView
-          intensity={24}
-          tint="light"
-          style={[
-            styles.orbitBubbleSurface,
-            { backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' } as any,
-          ]}
-        >
-          <View pointerEvents="none" style={styles.orbitBubbleHighlight} />
-          <View style={styles.actionIconBubble}>
-            {illustration ?? <Icon name={icon} size={iconSize.lg} color={actionTone.icon} />}
-          </View>
-          <Text style={styles.orbitActionLabel} numberOfLines={1}>{label}</Text>
-        </BlurView>
-      </LinearGradient>
-    </PressScale>
-  );
-}
-
-function MenuAction({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
-  return (
-    <PressScale onPress={onPress} accessibilityLabel={label} style={styles.menuAction}>
-      <IconBadge name={icon} size="sm" background={colors.muted} tint={colors.primary} />
-      <Text style={styles.menuActionText}>{label}</Text>
-      <Icon name="chevron-right" size={iconSize.sm} color={colors.subtleForeground} />
-    </PressScale>
-  );
-}
-
-function HomeSatietyGauge({ satiety }: { satiety: number }) {
-  const isHungry = satiety < 40;
-  return (
-    <View style={styles.satietyContainer}>
-      <Icon name="coffee" size={14} color={isHungry ? colors.danger : homePalette.foodIcon} />
-      <View style={styles.satietyTrack}>
-        <View style={[styles.satietyFill, { width: `${satiety}%`, backgroundColor: isHungry ? colors.danger : homePalette.foodIcon }]} />
-      </View>
-      <Text style={styles.satietyText}>{satiety}%</Text>
-    </View>
-  );
-}
-
-function AtelierOption({
-  kind,
-  id,
-  name,
-  selected,
-  owned,
-  cost,
-  onPress,
-}: {
-  kind: RoomItemKind;
-  id: RoomFurniture | RoomFlower;
-  name: string;
-  selected: boolean;
-  owned: boolean;
-  cost: number;
-  onPress: () => void;
-}) {
-  return (
-    <PressScale
-      onPress={onPress}
-      accessibilityLabel={`${name}・${selected ? '使用中' : owned ? '選ぶ' : `${cost}YOKIポイント`}`}
-      style={[styles.shopOption, selected && styles.shopOptionSelected]}
-    >
-      <RoomItemPreview kind={kind} id={id} />
-      <View style={styles.shopOptionCopy}>
-        <Text style={styles.shopOptionName}>{name}</Text>
-      </View>
-      <View style={[styles.shopPrice, selected && styles.shopPriceSelected]}>
-        <Text style={[styles.shopPriceText, selected && styles.shopPriceTextSelected]}>
-          {selected ? '使用中' : owned ? '選ぶ' : `${cost} pt`}
-        </Text>
-      </View>
-    </PressScale>
-  );
-}
-
+const HINT_KEY = '@yoki/world_hints_v3';
+type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | null;
 export default function HomeScreen() {
   const router = useRouter();
-  const {
-    completeMiniGame, feedState, growth, getTodayRecord, getCompletedCount, getTotalCheckCount, mascotName,
-    miniGameState, progress, setMascotName, currentSatiety,
-    roomCustomization, selectRoomItem, buyRoomItem,
-    companionState, buyEggCompanion, homeCommentPreferences, saveHomeCommentPreferences,
-  } = useApp();
+  const insets = useSafeAreaInsets();
+  const window = useWindowDimensions();
+  const compact = window.height < 600;
+  const wide = window.width > window.height;
+  const tabHeight = 60 + Math.max(12, insets.bottom);
+  const { active, reduceMotion } = useRoomActivity();
+  const time = useWorldTime(active);
+  const { progress, growth, mascotName, setMascotName, roomCustomization, companionState,
+    getTodayRecord, getCompletedCount, getTotalCheckCount, homeCommentPreferences, privateCache } = useApp();
   const { items, shopState } = useItems();
-  const todayRecord = getTodayRecord();
-  const completedCount = getCompletedCount();
-  const totalCheckCount = getTotalCheckCount();
-  const { height: viewportHeight } = useWindowDimensions();
-
-  const [showMenu, setShowMenu] = useState(false);
-  const [showFeed, setShowFeed] = useState(false);
-  const [showMiniGame, setShowMiniGame] = useState(false);
-  const [showName, setShowName] = useState(false);
-  const [showAtelier, setShowAtelier] = useState(false);
-  const [nameInput, setNameInput] = useState('');
-  const [shopMessage, setShopMessage] = useState('');
-  const [homeComment, setHomeComment] = useState('');
-  const [isEditingComment, setIsEditingComment] = useState(false);
-  const [isDraggingComment, setIsDraggingComment] = useState(false);
-  const [commentScale, setCommentScale] = useState(homeCommentPreferences.sizeScale);
-  const [commentBubbleMeasuredWidth, setCommentBubbleMeasuredWidth] = useState(0);
-  const [commentBubbleMeasuredHeight, setCommentBubbleMeasuredHeight] = useState(0);
-  const [commentAreaMeasuredWidth, setCommentAreaMeasuredWidth] = useState(0);
-  const commentDragX = useRef(new Animated.Value(0)).current;
-  const commentDragY = useRef(new Animated.Value(0)).current;
-  const commentLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const commentDragActive = useRef(false);
-  const commentAreaWidth = useRef(0);
-  const commentBubbleWidth = useRef(0);
-  const commentResizeStart = useRef(1);
-  const commentScaleRef = useRef(homeCommentPreferences.sizeScale);
-  const viewportHeightRef = useRef(viewportHeight);
-  const commentPreferencesRef = useRef(homeCommentPreferences);
-  const saveCommentPreferencesRef = useRef(saveHomeCommentPreferences);
-
+  const [sheet, setSheet] = useState<Sheet>(null);
+  const [hints, setHints] = useState(false);
+  const [name, setName] = useState('');
+  const [reaction, setReaction] = useState(0);
+  const [meal, setMeal] = useState(0);
+  const [rest, setRest] = useState(0);
+  const [food, setFood] = useState<string | null>(null);
+  const [speech, setSpeech] = useState('');
+  const speechTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [comment, setComment] = useState<{ scope: typeof privateCache; text: string } | null>(null);
+  const message = comment?.scope === privateCache && privateCache?.isCurrent() ? comment.text : 'おかえり。今日は、どんな一日だった？';
+  const [nameError, setNameError] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const nameBusy = useRef(false);
+  const nameSession = useRef(0);
+  const today = getTodayRecord();
+  const prompt = useRecordPrompt();
+  const invitation = active && !sheet && prompt.ready && isRecordPromptDue(prompt.settings, prompt.now, !!today);
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundGeneration = useRef(0);
+  const close = () => { nameSession.current++; setSheet(null); };
+  const saveName = async () => {
+    if (nameBusy.current || !name.trim()) return;
+    const session = nameSession.current;
+    nameBusy.current = true; setSavingName(true); setNameError('');
+    try {
+      await setMascotName(name.trim());
+      if (session === nameSession.current) close();
+    } catch {
+      if (session === nameSession.current) setNameError('名前を保存できませんでした。入力は残っています。もう一度お試しください。');
+    } finally { nameBusy.current = false; setSavingName(false); }
+  };
+  useEffect(() => { let alive = true; AsyncStorage.getItem(HINT_KEY).then(value => { if (alive) setHints(value === 'show'); }).catch(() => {}); return () => { alive = false; clearTimeout(speechTimer.current); }; }, []);
   useEffect(() => {
-    commentPreferencesRef.current = homeCommentPreferences;
-    setCommentScale(homeCommentPreferences.sizeScale);
-    commentScaleRef.current = homeCommentPreferences.sizeScale;
-    saveCommentPreferencesRef.current = saveHomeCommentPreferences;
-    viewportHeightRef.current = viewportHeight;
-  }, [homeCommentPreferences, saveHomeCommentPreferences, viewportHeight]);
-
-  useEffect(() => () => {
-    if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
-  }, []);
-
-  const commentPanResponder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: () => {
-      commentDragActive.current = false;
-      commentDragX.stopAnimation();
-      commentDragY.stopAnimation();
-      commentDragX.setValue(0);
-      commentDragY.setValue(0);
-      if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
-      commentLongPressTimer.current = setTimeout(() => {
-        commentDragActive.current = true;
-        setIsEditingComment(true);
-        setIsDraggingComment(true);
-        Haptics.selectionAsync().catch(() => {});
-      }, 420);
-    },
-    onPanResponderMove: (_, gesture) => {
-      if (!commentDragActive.current) {
-        if (Math.abs(gesture.dx) > 4 || Math.abs(gesture.dy) > 4) {
-          if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
-          commentLongPressTimer.current = null;
-          commentDragActive.current = true;
-          setIsEditingComment(true);
-          setIsDraggingComment(true);
-        } else {
-          return;
-        }
-      }
-      const travelX = Math.max(1, commentAreaWidth.current - commentBubbleWidth.current);
-      const currentX = commentPreferencesRef.current.positionX * travelX;
-      commentDragX.setValue(Math.max(-currentX, Math.min(travelX - currentX, gesture.dx)));
-      const currentY = commentPreferencesRef.current.positionY * viewportHeightRef.current;
-      const minY = -0.18 * viewportHeightRef.current - currentY;
-      const maxY = 0.22 * viewportHeightRef.current - currentY;
-      commentDragY.setValue(Math.max(minY, Math.min(maxY, gesture.dy)));
-    },
-    onPanResponderRelease: (_, gesture) => {
-      if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
-      commentLongPressTimer.current = null;
-      if (!commentDragActive.current) {
-        setIsEditingComment(true);
-        return;
-      }
-
-      const current = commentPreferencesRef.current;
-      const travelX = Math.max(1, commentAreaWidth.current - commentBubbleWidth.current);
-      const nextX = Math.max(0, Math.min(1, current.positionX + gesture.dx / travelX));
-      const nextY = Math.max(-0.18, Math.min(0.22, current.positionY + gesture.dy / viewportHeightRef.current));
-
-      commentDragActive.current = false;
-      setIsDraggingComment(false);
-      saveCommentPreferencesRef.current({
-        ...current,
-        placement: nextX < 0.34 ? 'bottom_left' : nextX > 0.66 ? 'bottom_right' : 'bottom_center',
-        positionX: nextX,
-        positionY: nextY,
-      });
-      commentDragX.setValue(0);
-      commentDragY.setValue(0);
-    },
-    onPanResponderTerminate: () => {
-      if (commentLongPressTimer.current) clearTimeout(commentLongPressTimer.current);
-      commentLongPressTimer.current = null;
-      commentDragActive.current = false;
-      setIsDraggingComment(false);
-      Animated.parallel([
-        Animated.spring(commentDragX, { toValue: 0, useNativeDriver: true }),
-        Animated.spring(commentDragY, { toValue: 0, useNativeDriver: true }),
-      ]).start();
-    },
-  })).current;
-
-  const commentResizeResponder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: () => {
-      commentResizeStart.current = commentPreferencesRef.current.sizeScale;
-      setIsEditingComment(true);
-    },
-    onPanResponderMove: (_, gesture) => {
-      const next = Math.max(0.72, Math.min(1.28, commentResizeStart.current + (gesture.dx + gesture.dy) / 260));
-      commentScaleRef.current = next;
-      setCommentScale(next);
-    },
-    onPanResponderRelease: () => {
-      const next = commentScaleRef.current;
-      setCommentScale(next);
-      saveCommentPreferencesRef.current({ ...commentPreferencesRef.current, sizeScale: next });
-      Haptics.selectionAsync().catch(() => {});
-    },
-    onPanResponderTerminationRequest: () => false,
-    onPanResponderTerminate: () => {
-      const next = commentScaleRef.current;
-      setCommentScale(next);
-      saveCommentPreferencesRef.current({ ...commentPreferencesRef.current, sizeScale: next });
-    },
-  })).current;
-
-  useFocusEffect(useCallback(() => {
-    let active = true;
-    getHomeComment({
-      date: getTodayDate(),
-      mascotName: mascotName || 'こころん',
-      record: todayRecord,
-      completed: completedCount,
-      total: totalCheckCount,
-      preferences: homeCommentPreferences,
-    }).then((comment) => {
-      if (active) setHomeComment(comment);
-    });
-    return () => { active = false; };
-  }, [mascotName, todayRecord, completedCount, totalCheckCount, homeCommentPreferences]));
-
-  const currentSlot = getCurrentSlot();
-  const slotPlays = currentSlot ? miniGameState[currentSlot] ?? 0 : MAX_PLAYS_PER_SLOT;
-  const canPlay = !!currentSlot && slotPlays < MAX_PLAYS_PER_SLOT;
-  const mascotMood = todayRecord ? 'happy' : 'normal';
-  const compactHome = viewportHeight < 740;
-  const sceneHeight = compactHome ? 300 : 330;
-  const characterSize = companionState.extraEggs > 0
-    ? compactHome ? 112 : 124
-    : compactHome ? 130 : 145;
-  const characterFrame = characterSize * 1.7;
-  const characterHeight = characterSize * 2.4;
-  const currentMascotStage = getMascotStage(progress.level);
-  const equippedBackground = items.find((item) => item.id === shopState.equipped.background);
-  const equippedWear = items.find((item) => item.id === (shopState.equipped.wear ?? shopState.equipped.accessory));
-  const equippedEffect = items.find((item) => item.id === shopState.equipped.effect);
-  const equippedDecor = items.find((item) => item.id === shopState.equipped.decor);
-  const equippedVoice = items.find((item) => item.id === shopState.equipped.voice);
-  const accessoryEffect = useRef(new Animated.Value(0)).current;
-  const isAuraEquipped = !!equippedEffect;
-  const wearPlacement = equippedWear ? shopState.placements[equippedWear.id] : undefined;
-  const effectPlacement = equippedEffect ? shopState.placements[equippedEffect.id] : undefined;
-  const decorPlacement = equippedDecor ? shopState.placements[equippedDecor.id] : undefined;
-  const voiceSound = useRef<Audio.Sound | null>(null);
+    if (!active || sheet !== 'chat' || !privateCache) return;
+    let alive = true;
+    getHomeComment({ date: getTodayDate(), mascotName: mascotName || 'よっきー', record: today,
+      completed: getCompletedCount(), total: getTotalCheckCount(), preferences: homeCommentPreferences }, privateCache)
+      .then(value => { if (alive && privateCache.isCurrent() && value) setComment({ scope: privateCache, text: value }); }).catch(() => {});
+    return () => { alive = false; };
+  }, [active, sheet, today, mascotName, homeCommentPreferences, getCompletedCount, getTotalCheckCount, privateCache]);
   useEffect(() => {
-    if (!isAuraEquipped) {
-      accessoryEffect.stopAnimation();
-      accessoryEffect.setValue(0);
-      return;
-    }
-    const animation = Animated.loop(Animated.sequence([
-      Animated.timing(accessoryEffect, { toValue: 1, duration: 1200, useNativeDriver: true }),
-      Animated.timing(accessoryEffect, { toValue: 0, duration: 1200, useNativeDriver: true }),
-    ]));
-    animation.start();
-    return () => animation.stop();
-  }, [accessoryEffect, isAuraEquipped]);
-  useEffect(() => () => { voiceSound.current?.unloadAsync().catch(() => {}); }, []);
-  const playEquippedVoice = useCallback(() => {
-    if (!equippedVoice?.assetUrl) return;
-    voiceSound.current?.unloadAsync().catch(() => {});
-    Audio.Sound.createAsync({ uri: resolveItemAssetUrl(equippedVoice.assetUrl) }, { shouldPlay: true })
-      .then(({ sound }) => { voiceSound.current = sound; })
-      .catch(() => {});
-  }, [equippedVoice?.assetUrl]);
-
-  const openName = () => {
-    setShowMenu(false);
-    setNameInput(mascotName);
-    setShowName(true);
+    if (!active) { soundGeneration.current++; soundRef.current?.unloadAsync().catch(() => {}); soundRef.current = null; }
+    return () => { soundGeneration.current++; soundRef.current?.unloadAsync().catch(() => {}); soundRef.current = null; };
+  }, [active]);
+  const equipment = (category: 'wear' | 'effect' | 'decor') => {
+    const id = shopState.equipped[category] ?? (category === 'wear' ? shopState.equipped.accessory : null);
+    const item = items.find(i => i.id === id);
+    if (!item?.assetUrl) return undefined;
+    const p = shopState.placements[item.id];
+    return { id: item.id, uri: resolveItemAssetUrl(item.assetUrl), x: p?.x ?? 0, y: p?.y ?? 0, scale: p?.scale ?? 1 };
   };
-
-  const handleRoomItem = async (
-    kind: RoomItemKind,
-    id: RoomFurniture | RoomFlower,
-    cost: number,
-    owned: boolean,
-  ) => {
-    setShopMessage('');
-    if (owned) {
-      await selectRoomItem(kind, id);
-      setShopMessage('背景を変えたよ。');
-      return;
-    }
-    const result = await buyRoomItem(kind, id, cost);
-    setShopMessage(result.success ? '新しいアイテムを飾ったよ。' : 'YOKIポイントがもう少し必要みたい。');
+  const background = items.find(i => i.id === shopState.equipped.background);
+  const chat = () => {
+    setSheet('chat');
+    const voice = items.find(i => i.id === shopState.equipped.voice);
+    if (!voice?.assetUrl) return;
+    const generation = ++soundGeneration.current;
+    soundRef.current?.unloadAsync().catch(() => {});
+    Audio.Sound.createAsync({ uri: resolveItemAssetUrl(voice.assetUrl) }, { shouldPlay: false }).then(async ({ sound }) => {
+      if (generation !== soundGeneration.current) { await sound.unloadAsync(); return; }
+      soundRef.current = sound; await sound.playAsync();
+    }).catch(() => {});
   };
-
-  const handleBuyEgg = async () => {
-    setShopMessage('');
-    const result = await buyEggCompanion();
-    setShopMessage(result.success ? '新しいたまごが仲間になったよ！' : result.reason === 'already_owned' ? 'このたまごはもう仲間になっているよ。' : 'たまごを迎えるにはYOKIポイントがもう少し必要だよ。');
+  const toggleHints = () => {
+    setHints(!hints); AsyncStorage.setItem(HINT_KEY, hints ? 'seen' : 'show').catch(() => {});
   };
-
-  return (
-    <>
-      <Screen scroll={false} gap={space.xs} contentStyle={styles.homeContent}>
-        <HomeSkyBackdrop />
-        <View style={styles.header}>
-          <View>
-            <Image source={require('@/assets/images/yoki_logo.png')} style={styles.logo} resizeMode="contain" />
-            <Text style={styles.date}>{formatDateJP(getTodayDate())}</Text>
-          </View>
-          <PressScale
-            testID="home-more-menu"
-            accessibilityLabel="ほかのメニュー"
-            onPress={() => setShowMenu(true)}
-            style={styles.moreButton}
-          >
-            <Icon name="menu" size={iconSize.md} color={colors.foreground} />
-          </PressScale>
-        </View>
-
-        <PressScale
-          testID="home-name-field"
-          accessibilityLabel={mascotName ? `なかまの名前・${mascotName}` : 'なまえをいれてね'}
-          onPress={openName}
-          style={styles.nameField}
-        >
-          <Icon name="edit-3" size={iconSize.md} color={homePalette.foodIcon} />
-          <Text style={[styles.nameFieldText, !mascotName && styles.nameFieldPlaceholder]} numberOfLines={1}>
-            {mascotName || 'なまえをいれてね'}
-          </Text>
-        </PressScale>
-
-        <View style={styles.topStatusRow}>
-          <HomeSatietyGauge satiety={currentSatiety} />
-          <PressScale
-            accessibilityLabel={`YOKI SHOP・${feedState.points}YOKIポイント`}
-            onPress={() => router.push('/shop')}
-            style={styles.pointsBalance}
-          >
-            <Icon name="star" size={14} color={homePalette.navActive} />
-            <View>
-              <Text style={styles.shopShortcutLabel}>YOKI SHOP</Text>
-              <Text style={styles.pointsBalanceText}>{feedState.points} pt</Text>
-            </View>
-            <Icon name="chevron-right" size={14} color={homePalette.navActive} />
-          </PressScale>
-        </View>
-
-        {homeComment ? (
-          <View
-            style={styles.homeCommentArea}
-            onLayout={(event) => {
-              commentAreaWidth.current = event.nativeEvent.layout.width;
-              setCommentAreaMeasuredWidth(event.nativeEvent.layout.width);
-            }}
-          >
-            <View style={styles.homeComment}>
-              <Animated.View
-                testID="home-comment-draggable"
-                accessible
-                accessibilityRole="adjustable"
-                accessibilityLabel={homeComment}
-                accessibilityHint="タップして調整を表示し、そのまま上下左右へドラッグすると位置を変更できます"
-                onAccessibilityTap={() => setIsEditingComment(true)}
-                onLayout={(event) => {
-                  commentBubbleWidth.current = event.nativeEvent.layout.width;
-                  setCommentBubbleMeasuredWidth(event.nativeEvent.layout.width);
-                  setCommentBubbleMeasuredHeight(event.nativeEvent.layout.height);
-                }}
-                style={[
-                  styles.homeCommentDraggable,
-                  isDraggingComment && styles.homeCommentDragging,
-                  {
-                    left: 0,
-                    transform: [
-                      {
-                        translateX:
-                          homeCommentPreferences.positionX *
-                          Math.max(0, commentAreaMeasuredWidth - commentBubbleMeasuredWidth),
-                      },
-                      { translateX: commentDragX },
-                      { translateY: homeCommentPreferences.positionY * viewportHeight },
-                      { translateY: commentDragY },
-                    ],
-                  },
-                ]}
-                {...commentPanResponder.panHandlers}
-              >
-                <SpeechBubble
-                  message={homeComment}
-                  hint={isDraggingComment ? 'そのまま上下左右へ動かしてね' : isEditingComment ? 'ドラッグで移動・角でサイズ変更' : 'タップして位置とサイズを調整'}
-                  showHint
-                  sizeScale={commentScale}
-                />
-              </Animated.View>
-              {isEditingComment ? (
-                <Animated.View
-                  testID="home-comment-resize-handle"
-                  accessibilityRole="adjustable"
-                  accessibilityLabel="ひとことのサイズを変える"
-                  style={[
-                    styles.commentResizeHandle,
-                    {
-                      left: Math.max(
-                        0,
-                        Math.min(
-                          commentAreaMeasuredWidth - 34,
-                          homeCommentPreferences.positionX *
-                            Math.max(0, commentAreaMeasuredWidth - commentBubbleMeasuredWidth) +
-                            commentBubbleMeasuredWidth -
-                            18,
-                        ),
-                      ),
-                      top: Math.max(0, commentBubbleMeasuredHeight - 28),
-                      transform: [
-                        { translateY: homeCommentPreferences.positionY * viewportHeight },
-                      ],
-                    },
-                  ]}
-                  {...commentResizeResponder.panHandlers}
-                >
-                  <Icon name="maximize-2" size={14} color={colors.primaryForeground} />
-                </Animated.View>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
-        <View style={styles.centerArea}>
-          <View style={styles.sceneStack}>
-            <View style={styles.actionButtonsContainer}>
-              <OrbitAction
-                testID="home-feed"
-                icon="coffee"
-                tone="food"
-                label="ごはん"
-                style={{ position: 'absolute', left: '2%', top: 50, width: '22%', zIndex: 21 }}
-                onPress={() => setShowFeed(true)}
-              />
-              <OrbitAction
-                testID="home-record"
-                icon="edit-3"
-                tone="record"
-                label="記録"
-                style={{ position: 'absolute', left: '27%', top: 10, width: '22%', zIndex: 21 }}
-                onPress={() => router.push('/(tabs)/record')}
-              />
-              <OrbitAction
-                testID="home-chat"
-                icon="message-circle"
-                tone="chat"
-                label="チャット"
-                style={{ position: 'absolute', left: '52%', top: 10, width: '22%', zIndex: 21 }}
-                onPress={() => router.push('/(tabs)/chat')}
-              />
-              <OrbitAction
-                testID="home-game"
-                icon="star"
-                tone="play"
-                illustration={<GameBoardIllustration size={42} tone="play" />}
-                label="あそぶ"
-                disabled={!canPlay}
-                style={{ position: 'absolute', left: '77%', top: 50, width: '22%', zIndex: 21 }}
-                onPress={() => setShowMiniGame(true)}
-              />
-            </View>
-            <View style={[styles.characterContainer, { height: sceneHeight }]}>
-              <RoomView
-                level={progress.level}
-                streak={progress.streak}
-                totalDays={progress.totalDays}
-                mascotName={mascotName}
-                customization={roomCustomization}
-                sceneHeight={sceneHeight}
-                horizontalBleed={space.xl}
-              >
-                <View style={[styles.characterGarden, { height: sceneHeight }]}>
-                  {equippedBackground?.assetUrl ? <Image source={{ uri: resolveItemAssetUrl(equippedBackground.assetUrl) }} style={StyleSheet.absoluteFillObject} resizeMode="cover" /> : null}
-                  <View
-                    style={[
-                      styles.characterMain,
-                      {
-                        width: characterFrame,
-                        height: characterHeight,
-                        marginLeft: -characterFrame / 2,
-                        marginTop: -characterHeight / 2,
-                      },
-                    ]}
-                  >
-                    <StageCharacter
-                      stage={currentMascotStage}
-                      mood={mascotMood}
-                      size={characterSize}
-                      growthSize={growth.growthSize}
-                      onPet={playEquippedVoice}
-                      wearable={equippedWear?.assetUrl ? {
-                        id: equippedWear.id,
-                        url: resolveItemAssetUrl(equippedWear.assetUrl),
-                        offsetX: wearPlacement?.x ?? 0,
-                        offsetY: wearPlacement?.y ?? 0,
-                        scale: wearPlacement?.scale ?? 1,
-                      } : null}
-                    />
-                    {equippedEffect?.assetUrl ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { opacity: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }), transform: [{ scale: accessoryEffect.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.06] }) }] }]}><Image source={{ uri: resolveItemAssetUrl(equippedEffect.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: characterSize * 1.55 * (effectPlacement?.scale ?? 1), height: characterSize * 1.55 * (effectPlacement?.scale ?? 1), left: (characterFrame - characterSize * 1.55 * (effectPlacement?.scale ?? 1)) / 2 + (effectPlacement?.x ?? 0), top: characterHeight * 0.48 + (effectPlacement?.y ?? 0) }} /></Animated.View> : null}
-                  </View>
-                  {equippedDecor?.assetUrl ? <View pointerEvents="none" style={StyleSheet.absoluteFillObject}><Image source={{ uri: resolveItemAssetUrl(equippedDecor.assetUrl) }} resizeMode="contain" style={{ position: 'absolute', width: 64 * (decorPlacement?.scale ?? 1), height: 64 * (decorPlacement?.scale ?? 1), right: 18 - (decorPlacement?.x ?? 0), bottom: 8 - (decorPlacement?.y ?? 0) }} /></View> : null}
-                  {companionState.extraEggs > 0 ? (
-                    <View style={styles.companionEgg}>
-                      <StageCharacter stage="egg" mood="happy" size={58} growthSize={0.78} />
-                    </View>
-                  ) : null}
-                </View>
-              </RoomView>
-            </View>
-            <GrassTexture />
-          </View>
-        </View>
-      </Screen>
-
-      <BottomSheet
-        visible={showMenu}
-        onClose={() => setShowMenu(false)}
-        title="ほかにできること"
-        subtitle="今日は、気になるものだけで大丈夫。"
-        scroll={false}
-      >
-        <MenuAction icon="message-circle" label="お話しする" onPress={() => { setShowMenu(false); router.push('/(tabs)/chat'); }} />
-        <MenuAction icon="coffee" label="ごはんをあげる" onPress={() => { setShowMenu(false); setShowFeed(true); }} />
-        <MenuAction icon="music" label={canPlay ? 'リズムであそぶ' : 'リズムであそぶ（またあとで）'} onPress={() => { setShowMenu(false); if (canPlay) setShowMiniGame(true); }} />
-        <MenuAction icon="trending-up" label="成長を見る" onPress={() => { setShowMenu(false); router.push('/(tabs)/growth'); }} />
-        <MenuAction icon="user" label="プロフィール・話しかけ設定" onPress={() => { setShowMenu(false); router.push('/profile'); }} />
-        <MenuAction icon="book-open" label="使い方ガイド" onPress={() => { setShowMenu(false); router.push('/guide'); }} />
-        <MenuAction icon="edit-3" label="背景をカスタムする" onPress={() => { setShowMenu(false); setShopMessage(''); setShowAtelier(true); }} />
-        <MenuAction icon="edit-3" label={mascotName ? 'なかまの名前を変える' : 'なかまに名前をつける'} onPress={openName} />
-      </BottomSheet>
-
-      <BottomSheet
-        visible={showAtelier}
-        onClose={() => setShowAtelier(false)}
-        title="カスタム"
-        subtitle={`YOKIポイント ${feedState.points} pt`}
-        maxHeightRatio={0.9}
-      >
-        {shopMessage ? <Text style={styles.shopMessage}>{shopMessage}</Text> : null}
-
-        <View style={styles.shopSection}>
-          <Text style={styles.shopSectionTitle}>家具</Text>
-          {FURNITURE_OPTIONS.map((item) => (
-            <AtelierOption
-              key={item.id}
-              {...item}
-              kind="furniture"
-              selected={roomCustomization.furniture === item.id}
-              owned={item.id === 'none' || roomCustomization.ownedFurniture.includes(item.id)}
-              onPress={() => handleRoomItem('furniture', item.id, item.cost, item.id === 'none' || roomCustomization.ownedFurniture.includes(item.id))}
-            />
-          ))}
-        </View>
-
-        <View style={styles.shopSection}>
-          <Text style={styles.shopSectionTitle}>花</Text>
-          {FLOWER_OPTIONS.map((item) => (
-            <AtelierOption
-              key={item.id}
-              {...item}
-              kind="flower"
-              selected={roomCustomization.flower === item.id}
-              owned={item.id === 'none' || roomCustomization.ownedFlowers.includes(item.id)}
-              onPress={() => handleRoomItem('flower', item.id, item.cost, item.id === 'none' || roomCustomization.ownedFlowers.includes(item.id))}
-            />
-          ))}
-        </View>
-
-        <View style={styles.eggShopCard}>
-          <View style={styles.eggShopGlow}><Text style={styles.eggShopIcon}>✦</Text></View>
-          <View style={styles.eggShopCopy}>
-            <Text style={styles.eggShopTitle}>もうひとつのたまご</Text>
-          </View>
-          <Button
-            label={companionState.extraEggs > 0 ? '仲間になったよ' : `${EGG_COMPANION_COST} pt`}
-            size="sm"
-            disabled={companionState.extraEggs > 0 || feedState.points < EGG_COMPANION_COST}
-            onPress={handleBuyEgg}
-          />
-        </View>
-        {companionState.extraEggs === 0 && feedState.points < EGG_COMPANION_COST ? (
-          <Text style={styles.eggProgress}>あと {EGG_COMPANION_COST - feedState.points} pt で新しいたまごを迎えられるよ</Text>
-        ) : null}
-      </BottomSheet>
-
-      <CenterDialog visible={showName} onClose={() => setShowName(false)}>
-        <Text style={styles.dialogTitle}>なかまの名前</Text>
-        <Text style={styles.dialogSub}>呼びたい名前をつけよう。</Text>
-        <TextInput
-          value={nameInput}
-          onChangeText={setNameInput}
-          maxLength={16}
-          placeholder="例：よっきー"
-          placeholderTextColor={colors.subtleForeground}
-          style={styles.input}
-        />
-        <Button label="この名前にする" disabled={!nameInput.trim()} fullWidth onPress={() => {
-          if (!nameInput.trim()) return;
-          setMascotName(nameInput.trim());
-          setShowName(false);
-        }} />
-      </CenterDialog>
-
-      {showFeed ? <FeedModal visible onClose={() => setShowFeed(false)} /> : null}
-      {currentSlot && (
-        <MiniGameModal
-          visible={showMiniGame}
-          slot={currentSlot}
-          onClose={() => setShowMiniGame(false)}
-          onReward={(reward) => completeMiniGame(currentSlot, reward)}
-        />
-      )}
-    </>
-  );
+  const say = (text: string) => {
+    clearTimeout(speechTimer.current); setSpeech(text);
+    speechTimer.current = setTimeout(() => setSpeech(''), 5500);
+  };
+  const interact = (kind: ResidentInteraction) => say({
+    greet: 'あ、きてくれた。うれしいな。', pet: 'なでなで、きもちいい。',
+    space: 'くすぐったいよ。ゆっくりで大丈夫。', held: 'ふわっ。そっと、抱っこしてね。', land: 'ぽふっ。ただいま。', roll:'ころころ。ちょっと、ひなたぼっこ。',
+  }[kind]);
+  const restTogether = () => {setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
+  const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
+  return <View style={s.root}>
+    <WorldHome level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+      mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
+      period={time.period} daySeed={time.seed} food={food} onInteract={interact}
+      onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
+      resting={!!today && today.mood <= 2} reaction={reaction} meal={meal} rest={rest} hints={hints} companion={companionState.extraEggs > 0}
+      totalDays={progress.totalDays} wear={equipment('wear')} effect={equipment('effect')} decor={equipment('decor')}
+      background={background?.assetUrl ? resolveItemAssetUrl(background.assetUrl) : undefined}
+      onRecord={() => setSheet('record')} onFeed={() => setSheet('feed')}
+      onChat={chat} onRest={restTogether} onAlbum={() => router.push('/(tabs)/growth')} />
+    <View pointerEvents="box-none" style={[s.header, {top: insets.top + (compact ? 6 : 16)}]}>
+      <View pointerEvents="none"><Text style={s.brand}>YOKI YOKI</Text><Text style={s.subtitle}>{time.dateLabel}　{time.label}</Text></View>
+      <View style={s.headerTools}>
+        <Pressable accessibilityRole="button" accessibilityLabel={hints ? '家具のヒントを隠す' : '家具のヒントを表示'} onPress={toggleHints} style={s.iconButton}><Icon name="help-circle" size={21} color="#F2E8DE" /></Pressable>
+        <Pressable testID="home-more-menu" accessibilityRole="button" accessibilityLabel="部屋のメニュー" onPress={() => setSheet('menu')} style={s.iconButton}><Icon name="menu" size={22} color="#F2E8DE" /></Pressable>
+      </View>
+    </View>
+    <View pointerEvents="box-none" style={[s.footer, {bottom: tabHeight + 12}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
+      {invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => setSheet('record')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
+        <Text style={s.residentName}>{mascotName || 'よっきー'}</Text>
+        <Text testID="world-speech" style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{speech || (today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : time.moment)}</Text>
+      </View>}
+      <View style={[s.quickActions, wide && {flexDirection: 'column', alignItems: 'center'}]}>
+        <Pressable testID="home-daily-record" accessibilityRole="button" accessibilityLabel="今日の記録を開く" onPress={() => setSheet('record')} style={({pressed}) => [s.noteButton, pressed && {opacity: 0.8}]}>
+          <Icon name={today ? 'check' : 'edit-3'} size={17} color="#454934" /><Text style={s.noteText}>{today ? '今日の記録' : '今日を、ひとこと'}</Text>
+        </Pressable>
+        <Pressable testID="home-chat" accessibilityRole="button" accessibilityLabel="この子とお話しする" onPress={chat} style={s.talkButton}><Icon name="message-circle" size={18} color="#FFF3DF" /><Text style={s.talkText}>おはなし</Text></Pressable>
+      </View>
+    </View>
+    {sheet === 'record' && <BottomSheet visible onClose={close} title="今日の記録" maxHeightRatio={0.95} wide={wide} contentStyle={compact ? {paddingTop: 8, paddingBottom: 16, gap: 8} : undefined}>
+      <QuickAffirmationRecord onComplete={() => { setReaction(n => n + 1); say('今日のこと、教えてくれてありがとう。'); close(); }} />
+      {menuRow('book-open', 'もう少し残したいとき', () => { close(); router.push('/(tabs)/record'); })}
+    </BottomSheet>}
+    {sheet === 'feed' && <FeedModal visible onClose={close} onFed={id => { setFood(id); setMeal(n => n + 1); say('わあ、いいにおい。いま行くね。'); close(); }} />}
+    {sheet === 'chat' && <BottomSheet visible onClose={close} title={mascotName || 'よっきー'}>
+      <Text style={s.chatText}>{today && today.mood <= 2 ? '今日は一緒に休もう。話したいことがあったら、ここにいるよ。' : message}</Text>
+      <Button label="少し、お話しする" icon="message-circle" onPress={() => { close(); router.push('/(tabs)/chat'); }} />
+    </BottomSheet>}
+    {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
+      {menuRow('edit-3', '今日を記録する', () => setSheet('record'))}
+      {menuRow('message-circle', 'この子とお話しする', chat)}
+      {menuRow('coffee', 'ごはんの時間', () => setSheet('feed'))}
+      {menuRow('heart', 'そっと、なでる', () => { setReaction(n => n + 1); interact('pet'); close(); })}
+      {menuRow('moon', 'ベッドで一緒に休む', () => { restTogether(); close(); })}
+      {menuRow('shopping-bag', '暮らしのお店', () => { close(); router.push('/shop'); })}
+      {menuRow('home', '部屋の模様替え', () => setSheet('atelier'))}
+      {menuRow('edit-3', 'なまえをつける', () => { setName(mascotName); setNameError(''); setSheet('name'); })}
+      {menuRow('clock', '記録する時間', () => { close(); router.push('/profile'); })}
+      {menuRow('user', 'プロフィール・話しかけ設定', () => { close(); router.push('/profile'); })}
+      {menuRow('book-open', '使い方ガイド', () => { close(); router.push('/guide'); })}
+    </BottomSheet>}
+    {sheet === 'atelier' && <RoomAtelier onClose={close} />}
+    {sheet === 'name' && <CenterDialog visible onClose={close}><Text style={s.menuText}>この子を、なんて呼ぼう？</Text>
+      <TextInput accessibilityLabel="なかまの名前" editable={!savingName} maxLength={16} value={name} onChangeText={setName} style={s.input} placeholder="よっきー" />
+      {nameError ? <Text accessibilityRole="alert">{nameError}</Text> : null}
+      <Button label="この名前にする" disabled={!name.trim() || savingName} loading={savingName} onPress={saveName} />
+    </CenterDialog>}
+  </View>;
 }
-
-const styles = StyleSheet.create({
-  homeContent: {
-    ...NO_CLIP,
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 80,
-    position: 'relative',
-  },
-  header: { zIndex: 2, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  logo: { width: 122, height: 29, tintColor: colors.foreground },
-  date: { ...typography.caption, color: homePalette.dateText, marginTop: 2 },
-  moreButton: {
-    width: control.icon,
-    height: control.icon,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nameField: {
-    zIndex: 2,
-    minHeight: 48,
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    paddingHorizontal: space.md,
-    borderRadius: radius.homeCard,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: homePalette.navBorder,
-    shadowColor: homePalette.softShadow,
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  nameFieldText: { ...typography.body, flex: 1, color: colors.foreground },
-  nameFieldPlaceholder: { color: colors.mutedForeground },
-
-  centerArea: { ...NO_CLIP, flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-end', position: 'relative' },
-  sceneStack: {
-    ...NO_CLIP,
-    width: '100%',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    position: 'relative',
-  },
-  characterGarden: { ...NO_CLIP, width: '100%', position: 'relative' },
-  characterContainer: {
-    ...NO_CLIP,
-    width: '100%',
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    zIndex: 10,
-  },
-  characterMain: {
-    ...NO_CLIP,
-    position: 'absolute',
-    top: '31%',
-    left: '50%',
-    zIndex: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  companionEgg: { position: 'absolute', left: '50%', marginLeft: 42, bottom: 8, zIndex: 11 },
-  actionButtonsContainer: {
-    ...NO_CLIP,
-    position: 'relative',
-    zIndex: 20,
-    width: '100%',
-    left: 0,
-    height: 120,
-    marginBottom: 0,
-    transform: [{ translateY: 4 }],
-  },
-  orbitAction: {
-    minWidth: 0,
-    maxWidth: 96,
-    minHeight: 0,
-    aspectRatio: 1,
-    alignItems: 'stretch',
-  },
-  orbitBubbleGradient: {
-    flex: 1,
-    borderRadius: 999,
-    padding: 1.5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-    shadowColor: 'rgba(0, 0, 0, 0.02)',
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
-  },
-  orbitBubbleSurface: {
-    flex: 1,
-    borderRadius: 999,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    gap: 2,
-    paddingVertical: 4,
-  },
-  orbitBubbleHighlight: {
-    position: 'absolute',
-    top: 8,
-    left: '22%',
-    width: 18,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.82)',
-    transform: [{ rotate: '-22deg' }],
-  },
-  actionIconBubble: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orbitActionDisabled: { opacity: 0.45 },
-  orbitActionLabel: {
-    ...typography.calloutStrong,
-    width: '100%',
-    paddingHorizontal: 2,
-    fontSize: 13,
-    lineHeight: 17,
-    letterSpacing: 0,
-    color: '#4A3B69',
-    textAlign: 'center',
-  },
-
-  satietyContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: radius.pill,
-    paddingHorizontal: space.md,
-    paddingVertical: 6,
-    gap: space.sm,
-    minHeight: 38,
-    borderWidth: 1,
-    borderColor: homePalette.navBorder,
-  },
-  homeComment: {
-    zIndex: 35,
-    width: '100%',
-    minHeight: 78,
-    position: 'relative',
-  },
-  homeCommentArea: {
-    zIndex: 35,
-    width: '100%',
-  },
-  homeCommentDraggable: {
-    position: 'absolute',
-    top: 0,
-    cursor: Platform.OS === 'web' ? 'grab' : undefined,
-  } as any,
-  homeCommentDragging: {
-    opacity: 0.9,
-    cursor: Platform.OS === 'web' ? 'grabbing' : undefined,
-  },
-  commentResizeHandle: {
-    position: 'absolute',
-    width: 34,
-    height: 34,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderWidth: 2,
-    borderColor: colors.card,
-    cursor: Platform.OS === 'web' ? 'nwse-resize' : undefined,
-  } as any,
-  satietyTrack: { flex: 1, minWidth: 80, height: 7, backgroundColor: homePalette.gaugeTrack, borderRadius: 10, overflow: 'hidden' },
-  satietyFill: { height: '100%', borderRadius: 3 },
-  satietyText: { ...typography.micro, color: colors.foreground, width: 28, textAlign: 'right' },
-  topStatusRow: { zIndex: 2, width: '100%', flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  pointsBalance: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.84)',
-    borderRadius: radius.pill,
-    paddingHorizontal: space.md,
-    paddingVertical: 7,
-    gap: space.xs,
-    minHeight: 38,
-    minWidth: 74,
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: homePalette.navBorder,
-  },
-  pointsBalanceText: { ...typography.micro, color: colors.foreground },
-  shopShortcutLabel: { ...typography.micro, fontSize: 10, lineHeight: 12, color: homePalette.navActive },
-
-  shopMessage: {
-    ...typography.calloutStrong,
-    color: colors.primaryOnSoft,
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.md,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
-  },
-  shopSection: { gap: space.sm },
-  shopSectionTitle: { ...typography.subhead, color: colors.foreground },
-  shopOption: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    ...border.hairline,
-    padding: space.md,
-  },
-  shopOptionSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  shopOptionCopy: { flex: 1 },
-  shopOptionName: { ...typography.calloutStrong, color: colors.foreground },
-  shopPrice: { borderRadius: radius.pill, backgroundColor: colors.muted, paddingHorizontal: space.sm, paddingVertical: 6 },
-  shopPriceSelected: { backgroundColor: colors.primary },
-  shopPriceText: { ...typography.micro, color: colors.secondaryForeground },
-  shopPriceTextSelected: { color: colors.primaryForeground },
-  eggShopCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    borderRadius: radius.lg,
-    backgroundColor: '#E8D5FA',
-    borderWidth: border.width,
-    borderColor: '#B986E3',
-    padding: space.lg,
-  },
-  eggShopGlow: { width: 46, height: 56, borderRadius: 24, backgroundColor: '#D7B6F2', alignItems: 'center', justifyContent: 'center' },
-  eggShopIcon: { color: '#7D42AE', fontSize: 24 },
-  eggShopCopy: { flex: 1 },
-  eggShopTitle: { ...typography.calloutStrong, color: colors.foreground },
-  eggProgress: { ...typography.caption, color: colors.primaryOnSoft, textAlign: 'center', marginTop: -space.sm },
-
-  menuAction: {
-    minHeight: control.minTouch,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: space.md,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-  },
-  menuActionText: { ...typography.body, flex: 1, color: colors.foreground },
-
-  dialogTitle: { ...typography.heading, color: colors.foreground },
-  dialogSub: { ...typography.caption, color: colors.mutedForeground },
-  input: {
-    ...typography.body,
-    height: control.height,
-    backgroundColor: colors.input,
-    ...border.hairlineStrong,
-    borderRadius: radius.md,
-    paddingHorizontal: space.lg,
-    color: colors.foreground,
-  },
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#243A33' },
+  header: { position: 'absolute', left: 20, right: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brand: { fontSize: 12, letterSpacing: 3, color: '#FFF5E6', fontWeight: '700', textShadowColor: '#263A35', textShadowRadius: 6 },
+  subtitle: { marginTop: 6, fontSize: 11, color: '#FFF1D9', textShadowColor: '#263A35', textShadowRadius: 6 },
+  headerTools: { flexDirection: 'row', gap: 5 }, iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#223D367A', alignItems: 'center', justifyContent: 'center' },
+  footer: { position: 'absolute', left: 22, right: 22, alignItems: 'center', gap: 14 },
+  compactFooter: {left: 14, right: 14, gap: 5},
+  speech: {alignItems: 'center', gap: 6, maxWidth: 380},
+  residentName: {fontSize: 10, letterSpacing: 1, color: '#FAE3B8', textShadowColor: '#17291B', textShadowRadius: 6},
+  whisper: { color: '#FFFAEF', fontSize: 14, lineHeight: 22, textAlign: 'center', textShadowColor: '#17291B', textShadowRadius: 6 },
+  quickActions: {flexDirection: 'row', gap: 10, justifyContent: 'center'},
+  noteButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 20, borderRadius: 24, backgroundColor: '#F5E9CE'},
+  noteText: {fontSize: 12, fontWeight: '600', color: '#454934'},
+  talkButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 15, borderRadius: 24, backgroundColor: '#20352ACF', borderWidth: 1, borderColor: '#D8DBBD40'},
+  talkText: {fontSize: 12, color: '#FFF3DF'},
+  menuRow: { minHeight: 50, flexDirection: 'row', gap: 14, alignItems: 'center', paddingVertical: 10 },
+  menuText: { flex: 1, fontSize: 14, color: '#4B3C52' },
+  chatText: { fontSize: 17, lineHeight: 28, color: '#4B3C52', marginVertical: 18 },
+  input: { minHeight: 48, borderWidth: 1, borderColor: '#CEBDCE', borderRadius: 12, padding: 12, marginVertical: 18, color: '#4B3C52' },
 });

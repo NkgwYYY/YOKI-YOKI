@@ -1,21 +1,24 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { backToRoom } from '@/utils/backToRoom';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { toPng } from 'html-to-image';
-import { MascotFace } from '@/components/MascotFace';
+import { StaticMascot } from '@/components/Mascot';
+import type { MascotMood } from '@/utils/mascotUtils';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
-import { buildMonthlyReport } from '@/utils/monthlyReport';
+import { buildMonthlyReport, MOOD_LABELS } from '@/utils/monthlyReport';
 import { colors, radius, space, typography } from '@/constants/theme';
 
 const REPORT_URL = 'yoki-yoki.replit.app';
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+const REPORT_MOODS: Record<number, MascotMood> = { 1: 'tired', 2: 'sleepy', 3: 'normal', 4: 'happy', 5: 'excited' };
 const REPORT = {
-  background: '#F3EBF6',
-  card: '#FFFBFF',
+  background: '#F8F4EF',
+  card: '#FFFCF8',
   lavender: '#E8DEF8',
   lavenderStrong: '#D8C7F2',
   ink: '#422765',
@@ -36,7 +39,7 @@ function moveMonth(key: string, amount: number) {
 function Stat({ value, label, compact }: { value: string; label: string; compact?: boolean }) {
   return (
     <View style={styles.stat}>
-      <Text style={[styles.statValue, compact && styles.statValueCompact]} numberOfLines={1}>{value}</Text>
+      <Text style={[styles.statValue, compact && styles.statValueCompact]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -45,9 +48,13 @@ function Stat({ value, label, compact }: { value: string; label: string; compact
 export default function MonthlyReportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
+  const stackStats = width < 360 || fontScale >= 1.4;
   const { records } = useApp();
   const [selectedMonth, setSelectedMonth] = useState(monthKey(new Date()));
   const [exporting, setExporting] = useState(false);
+  const exportLock = useRef(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const cardRef = useRef<View>(null);
   const shotRef = useRef<any>(null);
   const report = useMemo(() => buildMonthlyReport(records, selectedMonth), [records, selectedMonth]);
@@ -59,8 +66,10 @@ export default function MonthlyReportScreen() {
   const isCurrentMonth = selectedMonth === monthKey(new Date());
 
   const exportReport = async () => {
-    if (exporting) return;
+    if (exportLock.current) return;
+    exportLock.current = true;
     setExporting(true);
+    setExportError(null);
     try {
       if (Platform.OS === 'web') {
         const node = cardRef.current as unknown as HTMLElement | null;
@@ -76,20 +85,21 @@ export default function MonthlyReportScreen() {
         await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png', dialogTitle: '月次レポートを共有' });
       }
     } catch (error) {
-      Alert.alert('画像を作れませんでした', error instanceof Error ? error.message : 'もう一度お試しください');
+      setExportError('画像を作れませんでした。もう一度お試しください。');
     } finally {
+      exportLock.current = false;
       setExporting(false);
     }
   };
 
   const card = (
-    <View ref={Platform.OS === 'web' ? cardRef : undefined} collapsable={false} style={styles.reportCard}>
+    <View ref={Platform.OS === 'web' ? cardRef : undefined} collapsable={false} style={styles.reportCard} testID="monthly-report-card">
       <View style={styles.sparkleOne} />
       <View style={styles.sparkleTwo} />
       <View style={styles.reportHeader}>
         <View>
           <Text style={styles.eyebrow}>YOKI YOKI</Text>
-          <Text style={styles.reportTitle}>Monthly Report</Text>
+          <Text style={styles.reportTitle}>ひと月の思い出</Text>
         </View>
         <View style={styles.monthBadge}><Text style={styles.monthBadgeText}>{report.monthLabel}</Text></View>
       </View>
@@ -100,7 +110,7 @@ export default function MonthlyReportScreen() {
       </View>
 
       <View style={styles.calendarSection}>
-        <Text style={styles.sectionTitle}>Mood Calendar</Text>
+        <Text style={styles.sectionTitle}>気持ちのカレンダー</Text>
         <View style={styles.weekRow}>
           {WEEKDAYS.map((day) => <Text key={day} style={styles.weekday}>{day}</Text>)}
         </View>
@@ -108,10 +118,12 @@ export default function MonthlyReportScreen() {
           {cells.map((day, index) => {
             const record = day ? report.recordsByDay[day] : undefined;
             return (
-              <View key={index} style={[styles.dayCell, record && styles.dayCellRecorded, !day && styles.dayCellEmpty]}>
+              <View key={index} accessible={!!day}
+                accessibilityLabel={day ? `${report.monthLabel}${day}日、${record ? MOOD_LABELS[record.mood] : '記録なし'}` : undefined}
+                style={[styles.dayCell, { minHeight: 43 * fontScale }, record && styles.dayCellRecorded, !day && styles.dayCellEmpty]}>
                 {day ? <>
                   <Text style={styles.dayNumber}>{day}</Text>
-                  {record ? <MascotFace mood={record.mood as 1 | 2 | 3 | 4 | 5} size={25} /> : <View style={styles.emptyDot} />}
+                  {record ? <StaticMascot stage="egg" mood={REPORT_MOODS[record.mood] ?? 'normal'} size={25} /> : <View style={styles.emptyDot} />}
                 </> : null}
               </View>
             );
@@ -119,12 +131,12 @@ export default function MonthlyReportScreen() {
         </View>
       </View>
 
-      <View style={styles.statsRow}>
-        <Stat value={`${report.recordedDays}日`} label="記録達成日数" />
-        <View style={styles.statDivider} />
-        <Stat value={report.mostMoodLabel} label="Most YOKI Status" compact />
-        <View style={styles.statDivider} />
-        <Stat value={`${report.longestStreak}日`} label="連続記録" />
+      <View style={[styles.statsRow, stackStats && styles.statsStack]}>
+        <Stat value={`${report.recordedDays}日`} label="記録した日" />
+        <View style={stackStats ? styles.statDividerHorizontal : styles.statDivider} />
+        <Stat value={report.mostMoodLabel} label="よく残した気持ち" compact />
+        <View style={stackStats ? styles.statDividerHorizontal : styles.statDivider} />
+        <Stat value={`${report.longestStreak}日`} label="続けて残した日" />
       </View>
 
       <View style={styles.reportFooter}>
@@ -141,7 +153,7 @@ export default function MonthlyReportScreen() {
   return (
     <View style={[styles.screen, { paddingTop: Platform.OS === 'web' ? space.lg : insets.top }]}>
       <View style={styles.toolbar}>
-        <Pressable accessibilityLabel="戻る" style={styles.iconButton} onPress={() => router.back()}>
+        <Pressable accessibilityRole="button" accessibilityLabel="戻る" style={styles.iconButton} onPress={() => backToRoom(router)}>
           <Icon name="chevron-left" size={iconSize.lg} color={colors.foreground} />
         </Pressable>
         <Text style={styles.toolbarTitle}>月次レポート</Text>
@@ -149,18 +161,21 @@ export default function MonthlyReportScreen() {
       </View>
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + space.xxl }]} showsVerticalScrollIndicator={false}>
         <View style={styles.monthPicker}>
-          <Pressable style={styles.monthArrow} onPress={() => setSelectedMonth(moveMonth(selectedMonth, -1))}>
+          <Pressable accessibilityRole="button" accessibilityLabel="前の月" disabled={exporting} accessibilityState={{ disabled: exporting }} style={styles.monthArrow} onPress={() => setSelectedMonth(moveMonth(selectedMonth, -1))}>
             <Icon name="chevron-left" size={iconSize.md} color={REPORT.ink} />
           </Pressable>
-          <Text style={styles.monthPickerText}>{report.monthLabel}</Text>
-          <Pressable disabled={isCurrentMonth} style={[styles.monthArrow, isCurrentMonth && styles.monthArrowDisabled]} onPress={() => setSelectedMonth(moveMonth(selectedMonth, 1))}>
+          <Text testID="report-selected-month" accessibilityLiveRegion="polite" style={styles.monthPickerText}>{report.monthLabel}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="次の月" disabled={isCurrentMonth || exporting} accessibilityState={{ disabled: isCurrentMonth || exporting }} style={[styles.monthArrow, isCurrentMonth && styles.monthArrowDisabled]} onPress={() => setSelectedMonth(moveMonth(selectedMonth, 1))}>
             <Icon name="chevron-right" size={iconSize.md} color={isCurrentMonth ? colors.disabledForeground : REPORT.ink} />
           </Pressable>
         </View>
         <ViewShot ref={shotRef} options={{ format: 'png', quality: 1 }} style={styles.shot}>
           {card}
         </ViewShot>
-        <Pressable style={({ pressed }) => [styles.exportButton, pressed && styles.exportButtonPressed]} onPress={exportReport}>
+        {exportError && <Text accessibilityRole="alert" style={styles.exportError}>{exportError}</Text>}
+        <Pressable accessibilityRole="button" accessibilityLabel={Platform.OS === 'web' ? '画像を保存する' : '画像をシェアする'}
+          disabled={exporting} accessibilityState={{ disabled: exporting, busy: exporting }}
+          style={({ pressed }) => [styles.exportButton, pressed && styles.exportButtonPressed]} onPress={exportReport}>
           <Icon name={Platform.OS === 'web' ? 'download' : 'share-2'} size={iconSize.md} color="#FFFFFF" />
           <Text style={styles.exportText}>{exporting ? '画像を作成中…' : Platform.OS === 'web' ? '画像を保存する' : '画像をシェアする'}</Text>
         </Pressable>
@@ -177,14 +192,14 @@ const styles = StyleSheet.create({
   iconButton: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { alignItems: 'center', paddingHorizontal: space.md, gap: space.md },
   monthPicker: { flexDirection: 'row', alignItems: 'center', gap: space.lg },
-  monthArrow: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: REPORT.card, alignItems: 'center', justifyContent: 'center' },
+  monthArrow: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: REPORT.card, alignItems: 'center', justifyContent: 'center' },
   monthArrowDisabled: { opacity: 0.45 },
   monthPickerText: { ...typography.subhead, minWidth: 120, textAlign: 'center', color: REPORT.ink },
   shot: { width: '100%', maxWidth: 390 },
-  reportCard: { width: '100%', aspectRatio: 9 / 16.5, minHeight: 690, borderRadius: 30, padding: 20, backgroundColor: REPORT.card, borderWidth: 1, borderColor: REPORT.lavenderStrong, overflow: 'hidden' },
+  reportCard: { width: '100%', minHeight: 690, borderRadius: radius.md, padding: 16, backgroundColor: REPORT.card, borderWidth: 1, borderColor: REPORT.lavenderStrong, overflow: 'hidden' },
   sparkleOne: { position: 'absolute', width: 90, height: 90, borderRadius: 45, backgroundColor: REPORT.pink, opacity: 0.25, top: -38, right: -24 },
   sparkleTwo: { position: 'absolute', width: 72, height: 72, borderRadius: 36, backgroundColor: REPORT.mint, opacity: 0.4, bottom: 74, left: -32 },
-  reportHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  reportHeader: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
   eyebrow: { ...typography.micro, color: REPORT.muted, letterSpacing: 2.2 },
   reportTitle: { fontFamily: 'Inter_700Bold', fontSize: 23, lineHeight: 29, color: REPORT.ink },
   monthBadge: { backgroundColor: REPORT.lavender, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 },
@@ -197,25 +212,28 @@ const styles = StyleSheet.create({
   weekRow: { flexDirection: 'row' },
   weekday: { width: '14.285%', textAlign: 'center', ...typography.micro, color: REPORT.muted },
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 5 },
-  dayCell: { width: '14.285%', height: 43, borderRadius: 11, alignItems: 'center', justifyContent: 'center', gap: 1 },
+  dayCell: { width: '14.285%', minHeight: 43, paddingVertical: 4, borderRadius: 11, alignItems: 'center', justifyContent: 'center', gap: 1 },
   dayCellRecorded: { backgroundColor: REPORT.background },
   dayCellEmpty: { opacity: 0 },
   dayNumber: { fontFamily: 'Inter_500Medium', fontSize: 9, lineHeight: 11, color: REPORT.muted },
   emptyDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: REPORT.lavenderStrong },
   statsRow: { marginTop: 14, minHeight: 70, borderRadius: radius.lg, backgroundColor: REPORT.background, flexDirection: 'row', alignItems: 'stretch', paddingVertical: 9 },
   stat: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
-  statValue: { fontFamily: 'Inter_700Bold', fontSize: 20, lineHeight: 25, color: REPORT.ink },
+  statValue: { fontFamily: 'Inter_700Bold', fontSize: 20, lineHeight: 25, color: REPORT.ink, textAlign: 'center' },
   statValueCompact: { fontSize: 13, lineHeight: 20 },
-  statLabel: { fontFamily: 'Inter_500Medium', fontSize: 8, lineHeight: 13, color: REPORT.muted, textAlign: 'center' },
+  statLabel: { fontFamily: 'Inter_500Medium', fontSize: 11, lineHeight: 16, color: REPORT.muted, textAlign: 'center' },
   statDivider: { width: 1, backgroundColor: REPORT.lavenderStrong, marginVertical: 5 },
+  statsStack: { flexDirection: 'column', gap: space.sm },
+  statDividerHorizontal: { height: 1, backgroundColor: REPORT.lavenderStrong, marginHorizontal: space.lg },
   reportFooter: { marginTop: 'auto', minHeight: 50, borderTopWidth: 1, borderTopColor: REPORT.lavenderStrong, flexDirection: 'row', alignItems: 'center', paddingTop: 12 },
   logoMark: { width: 34, height: 34, borderRadius: 12, backgroundColor: REPORT.ink, alignItems: 'center', justifyContent: 'center' },
   logoMarkText: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#FFFFFF' },
   footerCopy: { flex: 1, paddingHorizontal: 10 },
   footerMessage: { ...typography.label, color: REPORT.ink },
   footerUrl: { ...typography.micro, color: REPORT.muted },
-  exportButton: { width: '100%', maxWidth: 390, height: 52, borderRadius: radius.lg, backgroundColor: REPORT.ink, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
+  exportButton: { width: '100%', maxWidth: 390, minHeight: 52, paddingHorizontal: space.lg, paddingVertical: space.md, borderRadius: radius.lg, backgroundColor: REPORT.ink, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
   exportButtonPressed: { opacity: 0.86, transform: [{ scale: 0.99 }] },
-  exportText: { ...typography.bodyStrong, color: '#FFFFFF' },
+  exportText: { ...typography.bodyStrong, color: '#FFFFFF', flexShrink: 1, textAlign: 'center' },
   exportHint: { ...typography.caption, color: REPORT.muted, textAlign: 'center' },
+  exportError: { ...typography.callout, color: colors.danger, maxWidth: 390 },
 });

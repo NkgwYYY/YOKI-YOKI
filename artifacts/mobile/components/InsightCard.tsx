@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PRIVATE_CACHE_KEYS, type PrivateCache } from '@/utils/privateCache';
 import { colors, radius, space, typography } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -8,58 +8,103 @@ import { Icon, IconBadge, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileToContext } from '@/utils/profileContext';
+import { getTodayDate } from '@/utils/dateUtils';
+import { readInsights, buildLocalInsights, requestInsights, InsightRequestError, type Insight } from '@/utils/insightData';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
-const STORAGE_KEY = '@mentore/insight_v1';
-
-interface Insight {
-  title: string;
-  body: string;
-}
+const STORAGE_KEY = PRIVATE_CACHE_KEYS.INSIGHT;
 
 interface CachedInsight {
   date: string;
+  source?: 'local' | 'ai';
+  revision?: string;
   insights: Insight[];
 }
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+export function InsightCard() {
+  const { privateCache, records } = useApp();
+  const { isSignedIn } = useAuth();
+  const revision = isSignedIn ? '' : JSON.stringify(buildLocalInsights(records, getTodayDate()));
+  return privateCache ? <ScopedInsightCard key={`${privateCache.id}:${isSignedIn}:${revision}`} cache={privateCache} local={!isSignedIn} revision={revision} /> : null;
 }
 
-export function InsightCard() {
+function ScopedInsightCard({ cache, local, revision }: { cache: PrivateCache; local: boolean; revision: string }) {
   const { records, progress, checkedState, unlockedBadges, mascotName, profile } = useApp();
   const { getToken } = useAuth();
+  const displayName = mascotName.trim() || '相棒';
 
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cacheFailed, setCacheFailed] = useState(false);
+  const busy = useRef(false);
+  const requested = useRef(false);
+  const mounted = useRef(true);
+  const pendingCache = useRef<CachedInsight | null>(null);
+  const request = useRef<AbortController | null>(null);
+  const isCurrent = () => mounted.current && cache.isCurrent();
+
+  const saveCache = async () => {
+    if (!pendingCache.current || !isCurrent()) return;
+    try {
+      await cache.setItem(STORAGE_KEY, JSON.stringify(pendingCache.current));
+      if (isCurrent()) setCacheFailed(false);
+    } catch { if (isCurrent()) setCacheFailed(true); }
+  };
+
+  const retryCache = async () => {
+    if (busy.current || !isCurrent()) return;
+    busy.current = true;
+    setLoading(true);
+    try { await saveCache(); }
+    finally {
+      busy.current = false;
+      if (isCurrent()) setLoading(false);
+    }
+  };
 
   // Restore today's cached insights
   useEffect(() => {
+    mounted.current = true;
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await cache.getItem(STORAGE_KEY);
         if (!raw) return;
         const cached = JSON.parse(raw) as CachedInsight;
-        if (cached.date === todayStr() && cached.insights?.length) {
-          setInsights(cached.insights);
+        const valid = readInsights(cached?.insights);
+        if (isCurrent() && !requested.current && cached?.date === getTodayDate() && valid
+          && (local ? cached.source === 'local' && cached.revision === revision : cached.source !== 'local')) {
+          setInsights(valid);
         }
       } catch {}
     })();
+    return () => { mounted.current = false; request.current?.abort(); };
   }, []);
 
   const generate = async () => {
-    if (loading) return;
+    if (busy.current || !isCurrent()) return;
+    busy.current = true;
+    requested.current = true;
     setLoading(true);
-    setError(false);
+    setError(null);
+    setCacheFailed(false);
     try {
+      if (local) {
+        const valid = buildLocalInsights(records, getTodayDate());
+        if (!valid.length) throw new Error('No dated records');
+        setInsights(valid);
+        pendingCache.current = { date: getTodayDate(), source: 'local', revision, insights: valid };
+        await saveCache();
+        return;
+      }
       const payload = {
-        mascotName,
+        mascotName: displayName,
         profile: profileToContext(profile),
         records: records.slice(-365).map(r => ({
           date: r.date,
           mood: r.mood,
           sleep: r.sleep,
+          sleepRecorded: r.sleepRecorded,
           behaviors: r.behaviors,
           notes: r.notes?.slice(0, 80) || undefined,
           exercise: r.exercise,
@@ -78,27 +123,25 @@ export function InsightCard() {
         },
         badgeCount: unlockedBadges.length,
       };
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/insight`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error('bad status');
-      const data = await res.json();
-      if (!data.insights?.length) throw new Error('empty');
-      setInsights(data.insights);
-      await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ date: todayStr(), insights: data.insights } satisfies CachedInsight),
-      );
-    } catch {
-      setError(true);
+      const controller = new AbortController();
+      request.current = controller;
+      const valid = await requestInsights({ url: `${API_BASE}/insight`, payload, getToken, isCurrent, signal: controller.signal });
+      if (!isCurrent()) return;
+      setInsights(valid);
+      // A cache write failure must not discard a valid response or request AI again.
+      pendingCache.current = { date: getTodayDate(), source: 'ai', insights: valid };
+      await saveCache();
+    } catch (failure) {
+      if (isCurrent()) {
+        const kind = failure instanceof InsightRequestError ? failure.kind : 'network';
+        setError(kind === 'auth' ? 'ログイン状態を確認できませんでした。通信環境を確認して、もう一度お試しください。'
+          : kind === 'limit' ? 'AIのきづきの利用回数が上限に達しました。時間をおいて、またお試しください。'
+          : kind === 'timeout' ? '返事を待つ時間が長くなったため中断しました。もう一度お試しください。'
+          : 'うまく見つけられなかった…少し待ってもう一度試してね');
+      }
     } finally {
-      setLoading(false);
+      busy.current = false;
+      if (isCurrent()) setLoading(false);
     }
   };
 
@@ -109,8 +152,8 @@ export function InsightCard() {
       <View style={styles.titleWrap}>
         <IconBadge name="activity" />
         <View style={styles.titleCopy}>
-          <Text style={styles.title}>{mascotName}のきづき</Text>
-          <Text style={styles.subtitle}>あなたが気づいていない頑張り、見つけるよ</Text>
+          <Text style={styles.title}>{local ? '記録のふりかえり' : `${displayName}のきづき`}</Text>
+          <Text style={styles.subtitle}>{local ? 'この端末に残した、最近30日分の記録から' : 'あなたが気づいていない頑張り、見つけるよ'}</Text>
         </View>
       </View>
 
@@ -125,23 +168,25 @@ export function InsightCard() {
               </View>
             </View>
           ))}
-          <Text style={styles.note}>明日になると、また新しい発見を探せるよ</Text>
+          <Text style={styles.note}>{local ? '記録の件数を端末で集計しています。AIには送信していません。' : '明日になると、また新しい発見を探せるよ'}</Text>
+          {cacheFailed && <Text accessibilityRole="alert" style={styles.errorText}>この結果を端末に保存できませんでした。画面を閉じる前に確認してください。</Text>}
+          {cacheFailed && <Button label="保存をもう一度試す" onPress={retryCache} loading={loading} variant="outline" />}
         </View>
       ) : !hasData ? (
         <Text style={styles.emptyText}>
-          記録がたまると、{mascotName}があなたのすごいところを見つけられるよ。まずは今日の気分を記録してみよう！
+          記録がたまると、{displayName}があなたのすごいところを見つけられるよ。まずは今日の気分を記録してみよう！
         </Text>
       ) : (
         <>
           <Button
-            label={loading ? '記録をじっくり見てる…' : 'すごいところを見つけてもらう'}
+            label={local ? (loading ? '記録をふりかえっています…' : '記録をふりかえる') : (loading ? '記録をじっくり見てる…' : 'すごいところを見つけてもらう')}
             onPress={generate}
             loading={loading}
             icon="activity"
           />
           {error && (
-            <Text style={styles.errorText}>
-              うまく見つけられなかった…少し待ってもう一度試してね
+            <Text accessibilityRole="alert" style={styles.errorText}>
+              {error}
             </Text>
           )}
         </>
