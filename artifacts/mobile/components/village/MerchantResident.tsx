@@ -1,8 +1,9 @@
 import React,{useEffect} from 'react';
 import {Image,View} from 'react-native';
 import Animated,{cancelAnimation,useAnimatedStyle,useSharedValue,withRepeat,withSequence,withTiming} from 'react-native-reanimated';
+import {MERCHANT_ART} from '@/utils/worldArt';
 export type MerchantKind='shop'|'food'|'ramen'|'tobacco'|'job';
-const PORTRAITS={shop:require('@/assets/images/world/homewares-keeper.png'),food:require('@/assets/images/world/diner-chef.png'),ramen:require('@/assets/images/world/ramen-master.png'),tobacco:require('@/assets/images/world/tobacco-keeper.png'),job:require('@/assets/images/world/diner-chef.png')};
+const PORTRAITS={...MERCHANT_ART,job:MERCHANT_ART.food};
 export function MerchantResident({kind,size,active,reduceMotion}:{kind:MerchantKind;size:number;active:boolean;reduceMotion:boolean}){
  const breath=useSharedValue(0);
  useEffect(()=>{if(active&&!reduceMotion)breath.value=withRepeat(withSequence(withTiming(1,{duration:2100}),withTiming(0,{duration:2600})),-1);return()=>cancelAnimation(breath);},[active,reduceMotion]);

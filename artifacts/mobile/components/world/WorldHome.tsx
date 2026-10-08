@@ -29,7 +29,7 @@ import { VillageWheel } from '@/components/village/VillageWheel';
 import { mapPortals,nearbyPortalIndex,VILLAGERS,type VillagerId,type VillageExperience } from '@/utils/villageLife';
 import {mapGroundPoint} from '@/utils/worldMaps';
 
-import { HOME_ART, OUTDOOR_ART, prepareWorldArt, worldArt } from '@/utils/worldArt';
+import { HOME_ART, OUTDOOR_ART, prepareWorldArt, prepareVillageAtlas, worldArt } from '@/utils/worldArt';
 import { WorldPill, worldUI } from './WorldPill';
 import { Icon } from '@/components/ui/Icon';
 import { RamenArt } from '@/components/village/RamenArt';
@@ -124,8 +124,21 @@ export function WorldHome(props: Props) {
   useEffect(()=>{if(!canVisitMap(map,props.level))setMap('home');},[map,props.level]);
   useEffect(()=>{if(props.meal){setExperience(null);setNeighbor(null);if(map!=='ramen'&&map!=='diner')setMap('home');}},[props.meal]);
   useEffect(()=>{if(props.rest){setExperience(null);setNeighbor(null);setMap('home');}},[props.rest]);
-  // Decode on demand: visiting a hub must not prefetch every high-resolution shop.
-  useEffect(()=>{void prepareWorldArt('home',props.period==='night').catch(()=>{});},[props.period]);
+  // Warm the atlas and one likely exit, sequentially, after the scene has settled.
+  // Never download every shop just because the hub is visible.
+  useEffect(()=>{
+    if(!props.active||mapOpen||transition.busy)return;
+    let cancelled=false;
+    const timer=setTimeout(()=>{
+      void (async()=>{
+        try { await prepareVillageAtlas(); } catch {}
+        if(cancelled)return;
+        const target=map==='home'?'market':map==='market'?'home':'market';
+        if(canVisitMap(target,props.level))try { await prepareWorldArt(target,props.period==='night'); } catch {}
+      })();
+    },700);
+    return()=>{cancelled=true;clearTimeout(timer);};
+  },[map,mapOpen,props.active,props.period,props.level,transition.busy]);
   useEffect(()=>{setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
   useAnimatedReaction(() => ({y: footY.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active}), state => {
     if (!state.active) {cancelAnimation(camera); return;}
@@ -232,7 +245,7 @@ export function WorldHome(props: Props) {
       {map==='workshop'&&merchant('egg-job','工房の店長',{x:.50,y:.48},'egg','job')}
       {map==='ramen'&&merchant('ramen','ラーメン屋',{x:.49,y:.34},'odango','ramen')}
       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
-      {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} footX={footX} footY={footY} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowling.busy} onPress={()=>walkTo(gate.point,true)}/>;})}
+      {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowling.busy} onPress={()=>walkTo(gate.point,true)}/>;})}
       {map==='bowling'&&<WorldBowlingPins motion={bowling.motion} width={width} height={height}/>}
       <WorldResident {...props} riding={riding} portalTravel={portalTravel} bowling={bowling.motion} bowlingBusy={bowling.busy} onBowlingRoll={input=>{pending.current=null;setDestination(null);steering.value={x:0,y:0};void bowling.roll(input);}} onBowlingFinished={bowling.finish} footX={footX} steering={steering} experience={experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {experience==='smoke'&&<SmokingResident stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
@@ -277,7 +290,7 @@ export function WorldHome(props: Props) {
       <View style={{alignItems:'center'}}><MerchantResident kind="tobacco" size={148} active={props.active} reduceMotion={reduceMotion}/></View><Text style={s.mapCopy}>「いらっしゃい。今夜も、ゆっくりしていきな。」</Text><Text style={s.mapCopy}>一服で幸福 ＋2（1日1回） / 清潔 −3。おふろでさっぱり。</Text>
       <WorldPill testID="tobacco-smoke" label="喫煙所で一服する" icon="wind" onPress={()=>{smokeSession.current=`smoke-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;setPlacesOpen(false);view.reset();setExperience('smoke');}}/>
     </BottomSheet>}
-    {mapOpen&&<VillageMap current={map} level={props.level} disabled={!!experience||!!props.food||transition.busy} onSelect={id=>enterMap(id,true)} onClose={()=>setMapOpen(false)} onBath={()=>{setMapOpen(false);void transition.run('自宅のおふろ',props.onGarden);}}/>}
+    {mapOpen&&<VillageMap current={map} night={night} level={props.level} disabled={!!experience||!!props.food||transition.busy} onSelect={id=>enterMap(id,true)} onClose={()=>setMapOpen(false)} onBath={()=>{setMapOpen(false);void transition.run('自宅のおふろ',props.onGarden);}}/>}
     {!!mapMessage&&!mapOpen&&<Pressable accessibilityRole="button" accessibilityLabel="道の案内を閉じる" onPress={()=>setMapMessage('')} style={[s.notice,{top:insets.top+166}]}><Text accessibilityLiveRegion="polite" style={s.trailText}>{mapMessage}　×</Text></Pressable>}
     {experience&&<View testID="village-experience" style={[s.experience,{bottom:bounds.height<600?160:210}]}><Text style={s.experienceText}>{experience==='wheel'?'空から、いつもの世界を眺めよう。':experienceMessage}</Text><Pressable testID="village-experience-exit" accessibilityRole="button" onPress={finishExperience} style={s.exit}><Text style={s.exitText}>{experience==='bath'?'お湯からあがる':experience==='smoke'?'一服を終える':'観覧車から降りる'}</Text></Pressable></View>}
     {!props.careInvitation&&!experience&&!cleanTool&&<View style={{position:'absolute',left:20,bottom:bounds.height<600?170:230}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowling.busy} onStart={()=>{portalTravel.value=!riding;pending.current=null;setDestination(null);}} onStep={(dx,dy)=>{if(riding){footX.value=Math.max(.40,Math.min(.65,footX.value+dx*.045));footY.value=Math.max(.44,Math.min(.55,footY.value+dy*.03));}else walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04},true);}}/></View>}

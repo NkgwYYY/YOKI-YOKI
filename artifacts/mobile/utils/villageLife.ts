@@ -17,7 +17,7 @@ export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
 };
 // A gate is both the visible sign and the actual walking trigger.
 const GATES: Record<WorldMapId, Point[]> = {
-  home: [{x:.51,y:.785},{x:.50,y:.435}],
+  home: [{x:.51,y:.785},{x:.655,y:.70}],
   market: [{x:.25,y:.78},{x:.38,y:.47},{x:.62,y:.47},{x:.76,y:.54},{x:.50,y:.80},{x:.76,y:.75},{x:.24,y:.53},{x:.76,y:.64},{x:.25,y:.65}],
   tobacco: [{x:.50,y:.80}],
   homewares: [{x:.50,y:.80}],

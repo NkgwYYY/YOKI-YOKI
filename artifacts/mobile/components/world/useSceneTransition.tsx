@@ -79,7 +79,7 @@ export function SceneTransitionProvider({
     new Promise<void>((resolve) => {
       Animated.timing(progress, {
         toValue: closed ? 1 : 0,
-        duration: reduced ? 0 : closed ? 340 : 420,
+        duration: reduced ? 0 : closed ? 220 : 280,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: false,
       }).start(() => resolve());

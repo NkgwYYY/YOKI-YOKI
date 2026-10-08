@@ -90,3 +90,7 @@ Built-in image generation / style transfer. `home-day.jpg` is the authoritative 
 - `diner-chef`: generated source `exec-00102da0-3292-40ce-9073-00d0f6c3c213.png`.
 
 Prompt set: preserve interaction coordinates and edit the room/character into the existing fancy YOKI YOKI style; no photoreal texture, grain, realistic human eyes, dark cinematic lighting or copyrighted game characters. Bath: clear oval water center (.51,.331), open floor; tobacco: teal/plum retro kiosk and right-hand outdoor bench; homewares: linens/brushes/brooms and center counter; diner: rice kitchen and clear floor; square: open plaza and small upper fountain; atlas: toy landscape with forest/onsen upper-left and lake upper-right; kitchen: open tabletop and empty stove; workshop: separate egg-emblem cottage; sprites: ramen master with headband/coat, rice chef with hat/apron, fluffy storekeeper with cleaning tools, cigarette-motif plum-vest keeper, peach/lavender egg pot. No generated letters or buttons.
+
+## Web transfer variants — 2026-10-09
+
+The .webp siblings of the 14 world backgrounds/atlas and four merchant portraits are delivery encodings of the existing approved artwork, with the same dimensions and composition. Generated with Pillow WebP method 6: background quality 88, portrait quality 90 and full alpha quality. JPEG/PNG source files remain the native assets. WorldArt selects the WebP variant only on Web. Merchant portraits are prepared with their destination background; the atlas and one likely exit are warmed sequentially after the current scene settles.

@@ -1,25 +1,34 @@
-import { Image } from 'react-native';
+import { Image, Platform } from 'react-native';
 import { Asset } from 'expo-asset';
 import type { WorldMapId } from './worldMaps';
 
-export const HOME_ART = { day: require('@/assets/images/world/home-day.jpg'), night: require('@/assets/images/world/home-night.jpg') };
+// Web uses smaller encodings; native retains its existing JPEG/PNG assets.
+const webArt = (web: number, native: number) => Platform.OS === 'web' ? web : native;
+export const VILLAGE_ATLAS = webArt(require('@/assets/images/world/village-atlas.webp'), require('@/assets/images/world/village-atlas.jpg'));
+export const MERCHANT_ART = {
+  shop: webArt(require('@/assets/images/world/homewares-keeper.webp'), require('@/assets/images/world/homewares-keeper.png')),
+  food: webArt(require('@/assets/images/world/diner-chef.webp'), require('@/assets/images/world/diner-chef.png')),
+  ramen: webArt(require('@/assets/images/world/ramen-master.webp'), require('@/assets/images/world/ramen-master.png')),
+  tobacco: webArt(require('@/assets/images/world/tobacco-keeper.webp'), require('@/assets/images/world/tobacco-keeper.png')),
+};
+export const HOME_ART = { day: webArt(require('@/assets/images/world/home-day.webp'), require('@/assets/images/world/home-day.jpg')), night: webArt(require('@/assets/images/world/home-night.webp'), require('@/assets/images/world/home-night.jpg')) };
 export const OUTDOOR_ART = {
-  homewares: require('@/assets/images/world/village-homewares.jpg'),
-  diner: require('@/assets/images/world/village-diner.jpg'),
-  workshop: require('@/assets/images/world/village-workshop.jpg'),
-  forest: require('@/assets/images/world/forest-clearing.jpg'),
-  lake: require('@/assets/images/world/village-lake.jpg'),
-  market: require('@/assets/images/world/village-square.jpg'),
-  onsen: require('@/assets/images/world/village-onsen.jpg'),
-  village: require('@/assets/images/world/village-neighbors.jpg'),
-  ramen: require('@/assets/images/world/village-ramen.jpg'),
-  bowling: require('@/assets/images/world/village-bowling-long.jpg'),
-  tobacco: require('@/assets/images/world/village-tobacco-v2.jpg'),
+  homewares: webArt(require('@/assets/images/world/village-homewares.webp'), require('@/assets/images/world/village-homewares.jpg')),
+  diner: webArt(require('@/assets/images/world/village-diner.webp'), require('@/assets/images/world/village-diner.jpg')),
+  workshop: webArt(require('@/assets/images/world/village-workshop.webp'), require('@/assets/images/world/village-workshop.jpg')),
+  forest: webArt(require('@/assets/images/world/forest-clearing.webp'), require('@/assets/images/world/forest-clearing.jpg')),
+  lake: webArt(require('@/assets/images/world/village-lake.webp'), require('@/assets/images/world/village-lake.jpg')),
+  market: webArt(require('@/assets/images/world/village-square.webp'), require('@/assets/images/world/village-square.jpg')),
+  onsen: webArt(require('@/assets/images/world/village-onsen.webp'), require('@/assets/images/world/village-onsen.jpg')),
+  village: webArt(require('@/assets/images/world/village-neighbors.webp'), require('@/assets/images/world/village-neighbors.jpg')),
+  ramen: webArt(require('@/assets/images/world/village-ramen.webp'), require('@/assets/images/world/village-ramen.jpg')),
+  bowling: webArt(require('@/assets/images/world/village-bowling-long.webp'), require('@/assets/images/world/village-bowling-long.jpg')),
+  tobacco: webArt(require('@/assets/images/world/village-tobacco-v2.webp'), require('@/assets/images/world/village-tobacco-v2.jpg')),
 };
 export function worldArt(map: WorldMapId, night = false) { return map === 'home' ? HOME_ART[night ? 'night' : 'day'] : OUTDOOR_ART[map]; }
 const cached = new Map<string, Promise<void>>();
-export function prepareWorldArt(map: WorldMapId, night = false): Promise<void> {
-  const uri = Asset.fromModule(worldArt(map, night)).uri;
+function prepareImage(source: number): Promise<void> {
+  const uri = Asset.fromModule(source).uri;
   let promise = cached.get(uri);
   if (!promise) {
     let timer: ReturnType<typeof setTimeout>;
@@ -29,5 +38,18 @@ export function prepareWorldArt(map: WorldMapId, night = false): Promise<void> {
       .finally(() => clearTimeout(timer)).catch(error => { cached.delete(uri); throw error; });
     cached.set(uri, promise);
   }
+  return promise;
+}
+
+export function prepareVillageAtlas(): Promise<void> { return prepareImage(VILLAGE_ATLAS); }
+const scenes = new Map<string, Promise<void>>();
+export function prepareWorldArt(map: WorldMapId, night = false): Promise<void> {
+  const key = `${map}:${map === 'home' && night}`;
+  const existing = scenes.get(key);
+  if (existing) return existing;
+  const portrait = map === 'homewares' ? MERCHANT_ART.shop : map === 'diner' || map === 'workshop' ? MERCHANT_ART.food : map === 'ramen' ? MERCHANT_ART.ramen : map === 'tobacco' ? MERCHANT_ART.tobacco : undefined;
+  const sources = [worldArt(map, night), ...(portrait ? [portrait] : [])];
+  const promise = Promise.all(sources.map(prepareImage)).then(() => {}).catch(error => { scenes.delete(key); throw error; });
+  scenes.set(key, promise);
   return promise;
 }

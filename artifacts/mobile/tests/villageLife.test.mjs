@@ -136,7 +136,14 @@ test("ramen is reachable at level one and residents use all four approved forms"
 
 test('walking away from a nearby gate does not retrigger travel',()=>{
   const gates=mapPortals('home');
-  const near={x:.5,y:.445};
-  assert.equal(nearbyPortalIndex(near,gates,{x:0,y:1}),-1);
-  assert.notEqual(nearbyPortalIndex(near,gates,{x:0,y:-1}),-1);
+  const forest=gates.find(g=>g.to==='forest').point;
+  const near={x:forest.x-.01,y:forest.y};
+  assert.equal(nearbyPortalIndex(near,gates,{x:-1,y:0}),-1);
+  assert.notEqual(nearbyPortalIndex(near,gates,{x:1,y:0}),-1);
+});
+
+test('the forest exit stays outside the home rug and resting area',()=>{
+ const forest=mapPortals('home').find(g=>g.to==='forest').point;
+ assert.ok(forest.x>.62&&forest.y>.67);
+ assert.ok(maps.isMapGround('home',forest));
 });

@@ -1,24 +1,29 @@
-import React,{useState} from 'react';
-import {Image,Modal,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
+import React,{useEffect,useState} from 'react';
+import {ActivityIndicator,Image,Modal,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Svg,{Path} from 'react-native-svg';
 import {Icon,type IconName} from '@/components/ui/Icon';
 import {canVisitMap,WORLD_MAPS,type WorldMapId} from '@/utils/worldMaps';
 import {MAP_COORDS,VILLAGE_LINKS} from '@/utils/villageLife';
-import {worldArt} from '@/utils/worldArt';
+import {worldArt,prepareWorldArt,VILLAGE_ATLAS,prepareVillageAtlas} from '@/utils/worldArt';
 import {WorldPill} from './WorldPill';
 const symbols:Record<WorldMapId,IconName>={home:'home',market:'map-pin',forest:'feather',onsen:'sun',village:'users',lake:'droplet',ramen:'coffee',bowling:'circle',tobacco:'wind',homewares:'shopping-bag',diner:'coffee',workshop:'briefcase'};
 const names:Record<WorldMapId,string>={home:'おうち',market:'こもれび広場',forest:'木もれびの森',onsen:'森の温泉',village:'となりの村',lake:'星あかりの湖',ramen:'ラーメン屋',bowling:'ボウリング',tobacco:'路地裏のタバコ屋',homewares:'暮らしのお店',diner:'ごはんのお店',workshop:'ゆでたまご工房'};
-export function VillageMap({current,level,disabled,onSelect,onClose,onBath}:{current:WorldMapId;level:number;disabled:boolean;onSelect:(id:WorldMapId)=>void;onClose:()=>void;onBath:()=>void}){
+export function VillageMap({current,night,level,disabled,onSelect,onClose,onBath}:{current:WorldMapId;night:boolean;level:number;disabled:boolean;onSelect:(id:WorldMapId)=>void;onClose:()=>void;onBath:()=>void}){
  const window=useWindowDimensions(),insets=useSafeAreaInsets(),[selected,setSelected]=useState(current);
  const width=Math.min(window.width,640),height=Math.max(560,Math.min(750,window.height-insets.top-insets.bottom-225));
+ const [atlasReady,setAtlasReady]=useState(false);
+ useEffect(()=>{void prepareVillageAtlas().catch(()=>{});},[]);
+ useEffect(()=>{if(canVisitMap(selected,level))void prepareWorldArt(selected,night).catch(()=>{});},[selected,level,night]);
  const place=WORLD_MAPS.find(p=>p.id===selected)!,open=canVisitMap(selected,level);
  return <Modal transparent={false} animationType="fade" onRequestClose={onClose}><View style={s.root}>
   <View style={[s.header,{paddingTop:Math.max(20,insets.top+12)}]}><View><Text style={s.kicker}>YOKI YOKI / WORLD ATLAS</Text><Text style={s.title}>村をめぐる</Text></View><WorldPill compact label="地図を閉じる" icon="x" onPress={onClose}/></View>
   <ScrollView contentContainerStyle={{alignItems:'center',paddingBottom:12}} showsVerticalScrollIndicator={false}>
    <View testID="village-map" style={{width,height,overflow:'hidden'}}>
-    <Image source={require('@/assets/images/world/village-atlas.jpg')} resizeMode="cover" style={[StyleSheet.absoluteFill,{width:'100%',height:'100%'}]}/>
+    <LinearGradient pointerEvents="none" colors={['#384B45','#72664F','#2A383C']} style={StyleSheet.absoluteFill}/>
+    <Image testID="village-atlas-art" source={VILLAGE_ATLAS} resizeMode="stretch" onLoad={()=>setAtlasReady(true)} style={{position:'absolute',left:0,top:0,width,height,opacity:atlasReady?1:0}}/>
+    {!atlasReady&&<View pointerEvents="none" style={{position:'absolute',top:12,right:12}}><ActivityIndicator size="small" color="#F1E7D3"/></View>}
     <View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#100C1929'}]}/>
     <Svg width={width} height={height} style={StyleSheet.absoluteFill} viewBox={`0 0 ${width} ${height}`} pointerEvents="none">
      {WORLD_MAPS.flatMap(p=>VILLAGE_LINKS[p.id].filter(to=>p.id<to).map(to=>{const a=MAP_COORDS[p.id],b=MAP_COORDS[to],highlight=selected===p.id||selected===to;return <Path key={`${p.id}-${to}`} d={`M ${a.x*width} ${a.y*height} Q ${(a.x+b.x)*width/2+12} ${(a.y+b.y)*height/2-15} ${b.x*width} ${b.y*height}`} fill="none" stroke={highlight?'#E6C888':'#D4C09A8C'} strokeWidth={highlight?1.8:1} strokeDasharray="3 5"/>;}))}
@@ -29,7 +34,7 @@ export function VillageMap({current,level,disabled,onSelect,onClose,onBath}:{cur
     <LinearGradient pointerEvents="none" colors={['transparent','#14101F']} style={s.fade}/>
    </View>
   </ScrollView>
-  <View testID="village-map-selection" style={[s.detail,{paddingBottom:Math.max(18,insets.bottom+8)}]}><Image source={worldArt(selected,true)} style={s.thumbnail}/><View style={{flex:1,gap:5}}><Text style={s.place}>{place.name}</Text><Text style={s.copy}>{open?place.description:`レベル ${place.level} でひらきます`}</Text></View></View>
+  <View testID="village-map-selection" style={[s.detail,{paddingBottom:Math.max(18,insets.bottom+8)}]}><Image source={worldArt(selected,night)} style={s.thumbnail}/><View style={{flex:1,gap:5}}><Text style={s.place}>{place.name}</Text><Text style={s.copy}>{open?place.description:`レベル ${place.level} でひらきます`}</Text></View></View>
   <View style={[s.actions,{paddingBottom:Math.max(18,insets.bottom)}]}><WorldPill label="自宅のおふろ" icon="droplet" onPress={onBath}/><WorldPill testID="world-map-travel" primary label={selected===current?'ここに戻る':'ここへ向かう'} icon="navigation" disabled={disabled||!open} onPress={()=>selected===current?onClose():onSelect(selected)}/></View>
  </View></Modal>;
 }
