@@ -60,13 +60,13 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   let furHalo='';
   for(let i=0;i<silhouette.length;i++){
     const a=silhouette[i],b=silhouette[(i+1)%silhouette.length];
-    const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy),steps=Math.max(1,Math.ceil(length/2));
+    const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy),steps=Math.max(1,Math.ceil(length/1.3));
     for(let j=0;j<steps;j++){
       const t=j/steps,x=50+a.x+dx*t,y=originY+a.y+dy*t;
-      const fluff=.7+((i*7+j*3)%11)*.15;
+      const fluff=.5+((i*7+j*3)%11)*.09;
       furHalo+=(furHalo?' L':'M')+x.toFixed(2)+' '+Math.min(91,y).toFixed(2);
-      furHalo+=' Q'+(x+dx/steps*.3+dy/Math.max(1,length)*fluff).toFixed(2)+' '+Math.min(91,y+dy/steps*.3-dx/Math.max(1,length)*fluff).toFixed(2);
-      furHalo+=' '+(x+dx/steps*.58+dy/Math.max(1,length)*fluff).toFixed(2)+' '+Math.min(91,y+dy/steps*.58-dx/Math.max(1,length)*fluff).toFixed(2);
+      furHalo+=' Q'+(x+dx/steps*.5+dy/Math.max(1,length)*fluff).toFixed(2)+' '+Math.min(91,y+dy/steps*.5-dx/Math.max(1,length)*fluff).toFixed(2);
+      furHalo+=' '+(x+dx/steps).toFixed(2)+' '+Math.min(91,y+dy/steps).toFixed(2);
     }
   }
   furHalo+=' Z';
@@ -95,10 +95,12 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   const fur=['','',''];
   for(let i=0;i<geometry.fibres.length;i++){
     const p=geometry.fibres[i];if(normal(p)<=0)continue;
-    const q=rot(p),length=2.1+(i%7)*.29;
-    // Fibres radiate with the volume and remain present on sides and rear.
-    const tip=rot({x:p.x*(1+length/r.x),y:p.y*(1+length/r.y),z:p.z*(1+length/r.z)});
-    fur[i%3]+=d([q,tip],false,originY)+' ';
+    const q=rot(p),length=3.4+(i%7)*.53,bend=((i%5)-2)*.013;
+    // Curved, overlapping wisps form the entire coat, including the rear.
+    // A shared silhouette clips their tips, so there is no separate ring of fur.
+    const mid=rot({x:p.x*(1+length*.48/r.x)-p.y*bend,y:p.y*(1+length*.48/r.y)+p.x*bend,z:p.z*(1+length*.48/r.z)});
+    const tip=rot({x:p.x*(1+length/r.x)-p.y*bend*.5,y:p.y*(1+length/r.y)+p.x*bend*.5,z:p.z*(1+length/r.z)});
+    fur[i%3]+=`M${(50+q.x).toFixed(2)} ${(originY+q.y).toFixed(2)} Q${(50+mid.x).toFixed(2)} ${(originY+mid.y).toFixed(2)} ${(50+tip.x).toFixed(2)} ${(originY+tip.y).toFixed(2)} `;
   }
   return {
     body:d(silhouette,true,originY),furHalo,furLight:fur[0],furMid:fur[1],furShade:fur[2],

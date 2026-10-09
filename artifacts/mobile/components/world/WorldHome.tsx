@@ -125,8 +125,8 @@ export function WorldHome(props: Props) {
   useEffect(()=>{if(!canVisitMap(map,props.level))setMap('home');},[map,props.level]);
   useEffect(()=>{if(props.meal){setExperience(null);setNeighbor(null);if(map!=='ramen'&&map!=='diner')setMap('home');}},[props.meal]);
   useEffect(()=>{if(props.rest){setExperience(null);setNeighbor(null);setMap('home');}},[props.rest]);
-  // Warm the atlas and one likely exit, sequentially, after the scene has settled.
-  // Never download every shop just because the hub is visible.
+  // Warm the atlas, the likely exit, then the compact alley art while idle.
+  // Keep this bounded and sequential instead of downloading every shop.
   useEffect(()=>{
     if(!props.active||mapOpen||transition.busy)return;
     let cancelled=false;
@@ -135,7 +135,10 @@ export function WorldHome(props: Props) {
         try { await prepareVillageAtlas(); } catch {}
         if(cancelled)return;
         const target=map==='home'?'market':map==='market'?'home':'market';
-        if(canVisitMap(target,props.level))try { await prepareWorldArt(target,props.period==='night'); } catch {}
+        for(const next of new Set([target,'tobacco'] as WorldMapId[])){
+          if(cancelled)return;
+          if(next!==map&&canVisitMap(next,props.level))try { await prepareWorldArt(next,props.period==='night'); } catch {}
+        }
       })();
     },700);
     return()=>{cancelled=true;clearTimeout(timer);};

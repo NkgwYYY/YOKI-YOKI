@@ -3,7 +3,7 @@
 Generated with the built-in ImageGen tool. Both assets use genuine alpha transparency and are bundled in web/iOS/Android exports.
 
 - `assets/images/food/ramen-bowl.png`: generated from text, no input image. Displayed as menu art, in the serving close-up, and beside the resident while eating. Steam and serving motion are implemented in code.
-- `assets/images/characters/mofumofu-fur.png`: edit mode, referenced original `assets/images/characters/odango.png`. Face-free texture for the existing volume model; eyes, cheeks, mouth, pose and silhouette remain code-driven. The original mascot asset is unchanged.
+- `assets/images/characters/mofumofu-fur.png`: edit mode, referenced original `assets/images/characters/odango.png`. Retained source art; its 1,637,567-byte PNG is no longer downloaded by the volume model as of 2026-10-09. `utils/odangoCoat.ts` embeds a 320px, 7,774-byte JPEG encoding (white matte, quality 80) in the character bundle. The SVG samples only its opaque central fibres at 160% scale, keeping the image's original circular edge outside the body's single silhouette. Rounded tufts and curved surface fibres finish the coat. No separate network request; the original mascot asset is unchanged.
 
 ## Ramen prompt
 
