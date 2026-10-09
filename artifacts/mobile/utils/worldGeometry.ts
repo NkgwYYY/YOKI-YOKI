@@ -15,6 +15,18 @@ export function fitWorld(width: number, height: number) {
   const sceneHeight = sceneWidth * 1.5;
   return {width: sceneWidth, height: sceneHeight, left: ((wide ? width * 0.62 : width) - sceneWidth) / 2, top: Math.min(0, (height - sceneHeight) * 0.38)};
 }
+/** One continuous, aspect-preserving scene covers the entire outdoor viewport. */
+export function fitOutdoorWorld(width: number, height: number) {
+  if (width <= 0 || height <= 0) return {width:0,height:0,left:0,top:0};
+  const sceneWidth=Math.max(width,height*2/3),sceneHeight=sceneWidth*1.5;
+  return {width:sceneWidth,height:sceneHeight,left:(width-sceneWidth)/2,
+    top:Math.max(height-sceneHeight,Math.min(0,height*.55-sceneHeight*.57))};
+}
+/** Follow only inside the illustration's spare height, so no background edge opens. */
+export function outdoorCameraOffset(y:number,height:number,viewportHeight:number,frameTop:number,clearBottom:number) {
+  'worklet';
+  return Math.max(viewportHeight-height-frameTop,Math.min(-frameTop,Math.min(0,clearBottom-frameTop-y*height)));
+}
 export function safeWorldPoint(point: RoomPoint): RoomPoint {
   const y = Math.max(0.43, Math.min(0.71, point.y));
   let x = Math.max(0.34, Math.min(0.72, point.x));

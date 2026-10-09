@@ -73,7 +73,7 @@ export function useWorldResident(p: Props) {
         : worldActivity(period, daySeed, turn.current);
       // In daylight the resident also visits the terrace/path without a new screen.
       const stroll = !resting && !mealPending && !restPending && period !== 'night' && turn.current % 3 === 2;
-      const target = map==='home' ? (stroll ? WORLD_TRAIL.garden.point : WORLD_PLACES[activity]) : {x:turn.current%2?.55:.46,y:turn.current%2?.72:.56};
+      const target = map==='home' ? (stroll ? WORLD_TRAIL.garden.point : WORLD_PLACES[activity]) : map==='fortune'?{x:turn.current%2?.74:.72,y:turn.current%2?.68:.70}:map==='ramen'?{x:.60,y:turn.current%2?.66:.61}:map==='tobacco'?{x:turn.current%2?.52:.48,y:turn.current%2?.72:.67}:{x:turn.current%2?.60:.52,y:turn.current%2?.70:.64};
       const finish = () => {
         if (!alive) return;
         setPose((map==='ramen'||map==='diner')&&mealPending?'eating':map!=='home'?'watching':stroll ? 'watching' : activity === 'meal' ? 'eating' : activity === 'bed' ? 'sleeping' : activity === 'window' ? 'watching' : 'idle');

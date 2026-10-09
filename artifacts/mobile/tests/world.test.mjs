@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getWorldTime } from '../utils/worldTime.ts';
-import { fitWorld, safeWorldPoint, WORLD_PLACES, worldResidentSteps, worldGroundPoint, isWorldGround, WORLD_TRAIL, worldWalkingRoute, worldResidentScale, worldCameraOffset } from '../utils/worldGeometry.ts';
+import { fitWorld, fitOutdoorWorld, outdoorCameraOffset, safeWorldPoint, WORLD_PLACES, worldResidentSteps, worldGroundPoint, isWorldGround, WORLD_TRAIL, worldWalkingRoute, worldResidentScale, worldCameraOffset } from '../utils/worldGeometry.ts';
 
 test('local day/night boundaries and daily variation never depend on rewards', () => {
   for (const [hour, period] of [[4,'night'],[5,'morning'],[10,'morning'],[11,'day'],[16,'day'],[17,'dusk'],[19,'dusk'],[20,'night']]) {
@@ -66,6 +66,26 @@ test('perspective is bounded and camera keeps the path clear of the bottom contr
     for (const stop of Object.values(WORLD_TRAIL)) {
       const y = f.top + f.height * stop.point.y + worldCameraOffset(stop.point.y,f.height,h,f.top);
       assert.ok(y > 120 && y < h - 130, `${w}x${h}: destination remains visible at ${y}`);
+    }
+  }
+});
+
+
+test('outdoor scenery covers every edge without stretching or an inset frame',()=>{
+  for(const [w,h] of [[320,568],[390,697],[390,844],[430,932],[640,800],[844,390]]){
+    const f=fitOutdoorWorld(w,h);
+    assert.ok(Math.abs(f.height/f.width-1.5)<.0001);
+    assert.ok(f.left<=0&&f.top<=0);
+    assert.ok(f.left+f.width>=w-.001&&f.top+f.height>=h-.001);
+  }
+});
+test('outdoor following never uncovers the top or bottom of the illustration',()=>{
+  for(const [w,h] of [[320,568],[390,697],[390,844],[640,800],[844,390]]){
+    const f=fitOutdoorWorld(w,h);
+    for(const y of [.305,.47,.61,.72,.82]){
+      const offset=outdoorCameraOffset(y,f.height,h,f.top,h-200);
+      assert.ok(f.top+offset<=.001);
+      assert.ok(f.top+offset+f.height>=h-.001);
     }
   }
 });

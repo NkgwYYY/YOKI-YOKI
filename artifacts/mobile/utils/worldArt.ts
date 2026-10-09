@@ -23,7 +23,7 @@ export const OUTDOOR_ART = {
   market: webArt(require('@/assets/images/world/village-square.webp'), require('@/assets/images/world/village-square.jpg')),
   onsen: webArt(require('@/assets/images/world/village-onsen.webp'), require('@/assets/images/world/village-onsen.jpg')),
   village: webArt(require('@/assets/images/world/village-neighbors.webp'), require('@/assets/images/world/village-neighbors.jpg')),
-  ramen: webArt(require('@/assets/images/world/village-ramen.webp'), require('@/assets/images/world/village-ramen.jpg')),
+  ramen: webArt(require('@/assets/images/world/village-ramen-chuka.webp'), require('@/assets/images/world/village-ramen-chuka.jpg')),
   bowling: webArt(require('@/assets/images/world/village-bowling-long.webp'), require('@/assets/images/world/village-bowling-long.jpg')),
   tobacco: webArt(require('@/assets/images/world/village-tobacco-nook-mobile.webp'), require('@/assets/images/world/village-tobacco-nook.jpg')),
 };

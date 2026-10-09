@@ -26,7 +26,7 @@ const GATES: Record<WorldMapId, Point[]> = {
   diner: [{x:.50,y:.80}],
   workshop: [{x:.50,y:.80}],
   bowling: [{x:.70,y:.765}],
-  ramen: [{x:.35,y:.58}],
+  ramen: [{x:.50,y:.69}],
   forest: [{x:.51,y:.80},{x:.51,y:.445}],
   onsen: [{x:.42,y:.80},{x:.76,y:.60}],
   village: [{x:.50,y:.80},{x:.23,y:.60}],

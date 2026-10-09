@@ -2,7 +2,7 @@ export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'vill
 export const WORLD_MAPS = [
   {id:'home',name:'おうち',level:1,description:'いつでも帰れる、小さなおうち。'},
   {id:'market',name:'こもれび広場',level:1,description:'噴水のそばから、お店や路地へ。'},
-  {id:'ramen',name:'もふもふラーメン',level:1,description:'湯気の向こうで、もふもふ店長がお出迎え。'},
+  {id:'ramen',name:'もふもふラーメン',level:1,description:'赤い提灯が灯る町中華。もふもふ店長がお出迎え。'},
   {id:'bowling',name:'ころころボウリング',level:1,description:'受付の店員に話しかけて、1日1投のボウリング。'},
   {id:'tobacco',name:'こかげのタバコ屋',level:1,description:'お店のとなりに、小さな屋外喫煙所。'},
   {id:'homewares',name:'暮らしのお店',level:1,description:'ほうき、リネン、小さな暮らしの道具。'},
@@ -25,7 +25,7 @@ export function mapGroundBounds(map: WorldMapId, y: number) {
     return {minX:.44,maxX:.66,minY:.43,maxY:.79};
   }
   if(map==='forest')return {minX:y<.52?.43:.36,maxX:y<.52?.61:.66,minY:.44,maxY:.81};
-  if(map==='ramen')return {minX:.34,maxX:.66,minY:.47,maxY:.64};
+  if(map==='ramen')return {minX:.34,maxX:.68,minY:.47,maxY:.70};
   if(map==='onsen')return {minX:.23,maxX:.77,minY:.49,maxY:.81};
   if(map==='fortune')return {minX:.25,maxX:.75,minY:.615,maxY:.81};
   if(map==='tobacco')return {minX:.22,maxX:.78,minY:.55,maxY:.81};
@@ -43,8 +43,10 @@ export function mapGroundPoint(map: WorldMapId, point: {x:number;y:number}) {
 export function isMapGround(map: WorldMapId, point: {x:number;y:number}) {
   'worklet';const p=mapGroundPoint(map,point);return Math.abs(p.x-point.x)<.001&&Math.abs(p.y-point.y)<.001;
 }
-export function mapStart(map: WorldMapId) {return map==='fortune'?{x:.72,y:.75}:map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.52,y:.56}:{x:.52,y:.61};}
+export function mapStart(map: WorldMapId) {return map==='fortune'?{x:.72,y:.70}:map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.63,y:.66}:{x:.52,y:.61};}
 export function mapRoute(map: WorldMapId, from:{x:number;y:number}, to:{x:number;y:number}) {
   const target=mapGroundPoint(map,to);
-  return [{x:.52,y:from.y},{x:.52,y:target.y},target];
+  // Keep the approach clear of the cat and the ramen counter's staff.
+  const passage=map==='fortune'?.72:map==='ramen'?.60:.52;
+  return [{x:passage,y:from.y},{x:passage,y:target.y},target];
 }

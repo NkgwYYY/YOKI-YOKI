@@ -17,7 +17,7 @@ import { StaticMascot } from '@/components/Mascot';
 import type { MascotStage } from '@/utils/mascotUtils';
 import { type ResidentItem, type ResidentInteraction } from '@/components/room/RoomResident';
 import { RoomFurnitureArt, RoomFlowerArt } from '@/components/room/RoomFurnitureArt';
-import { fitWorld, WORLD_PLACES, WORLD_TRAIL, worldCameraOffset, type WorldDestination } from '@/utils/worldGeometry';
+import { fitWorld, fitOutdoorWorld, outdoorCameraOffset, WORLD_PLACES, WORLD_TRAIL, worldCameraOffset, type WorldDestination } from '@/utils/worldGeometry';
 import type { WorldPeriod } from '@/utils/worldTime';
 import { WorldAmbient } from './WorldAmbient';
 import {TobaccoHaze} from './TobaccoHaze';
@@ -98,10 +98,9 @@ export function WorldHome(props: Props) {
   const tight=away&&bounds.height<660;
   const dockBottom=72+Math.max(12,insets.bottom);
   const stageTop=insets.top+(tight?136:186);
-  const stageBottom=dockBottom+116;
-  const sceneHeight=away?Math.max(100,bounds.height-stageTop-stageBottom):bounds.height;
-  const fittedHeight=Math.min(bounds.width*1.5,sceneHeight/.7);
-  const frame = away?{width:bounds.width,height:fittedHeight,left:0,top:(sceneHeight-fittedHeight*.7)/2-fittedHeight*.18}:fitWorld(bounds.width,bounds.height);
+  const clearBottom=bounds.height-dockBottom-116;
+  const sceneHeight=bounds.height;
+  const frame = away?fitOutdoorWorld(bounds.width,bounds.height):fitWorld(bounds.width,bounds.height);
   const {width, height} = frame;
   const viewportHeight = sceneHeight, frameTop = frame.top;
   const view = useWorldCamera({...frame,active,reduceMotion});
@@ -162,9 +161,9 @@ export function WorldHome(props: Props) {
   useEffect(()=>{setBowlingOpen(false);setFortuneOpen(false);setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
   useAnimatedReaction(() => ({y: footY.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active}), state => {
     if (!state.active) {cancelAnimation(camera); return;}
-    const offset=away?0:worldCameraOffset(state.y,height,viewportHeight,frameTop);
+    const offset=away?outdoorCameraOffset(state.y,height,viewportHeight,frameTop,clearBottom):worldCameraOffset(state.y,height,viewportHeight,frameTop);
     if (!state.held && !state.cameraTouch && state.zoom < 1.02) camera.value = withTiming(offset, {duration: reduceMotion ? 0 : 350});
-  }, [height, viewportHeight, frameTop, reduceMotion, active,map,away]);
+  }, [height, viewportHeight, frameTop, clearBottom, reduceMotion, active,map,away]);
 
   const walkTo = (point: {x: number; y: number},throughGate=false) => {
     if (active&&!cleanTool&&!riding&&!props.food&&(!experience||experience==='smoke')&&!bowlingBusy) {portalTravel.value=throughGate;pending.current=null;setDestination({id:++destinationId.current,point:mapGroundPoint(map,point)});}
@@ -226,8 +225,8 @@ export function WorldHome(props: Props) {
   </Pressable>;
   const speaker=VILLAGERS.find(n=>n.id===neighbor);
   return <View style={s.root} testID="room-scene" onLayout={e => setBounds(e.nativeEvent.layout)}>
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="cover" blurRadius={18} style={[s.art, {opacity: 0.8}]} /></View>
-    {width > 0 && <GestureDetector gesture={view.gesture}><View testID="world-viewport" style={away?{position:'absolute',left:0,right:0,top:stageTop,bottom:stageBottom,overflow:'hidden',borderRadius:18,marginHorizontal:8}:StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, view.style]}>
+    {map==='home'&&<View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="cover" style={s.art}/></View>}
+    {width > 0 && <GestureDetector gesture={view.gesture}><View testID="world-viewport" style={StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, view.style]}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="stretch" style={s.art} accessible={false} /></View>
       {!['home','homewares','diner'].includes(map)&&night&&<View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#35234922'}]}/>}
       {props.period === 'dusk' && map!=='tobacco' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: '#B5646028'}]} />}
@@ -253,11 +252,11 @@ export function WorldHome(props: Props) {
       </>}
       {map==='lake'&&<VillageWheel width={width} height={height} active={active} reduceMotion={reduceMotion} riding={experience==='wheel'} onFinish={finishExperience}/>}
       {map==='village'&&<VillageNeighbors width={width} height={height} active={active&&!experience} reduceMotion={reduceMotion} onTalk={id=>{const n=VILLAGERS.find(p=>p.id===id)!;request({x:n.x+.06,y:n.y+.035},{kind:'neighbor',id});}}/>}
-      {map==='fortune'&&<FortuneCat width={width} height={height} disabled={!active||!!props.food} onPress={()=>openMerchant('fortune',{x:.5,y:.47})}/>}
+      {map==='fortune'&&<FortuneCat width={width} height={height} clearTop={stageTop-frame.top} clearBottom={clearBottom-frame.top} disabled={!active||!!props.food} onPress={()=>openMerchant('fortune',{x:.4,y:.51})}/>}
       {map==='homewares'&&merchant('shop','暮らしのお店',{x:.50,y:.49},'stage3','shop')}
       {map==='diner'&&merchant('food','ごはんのお店',{x:.52,y:.49},'egg','food')}
       {map==='workshop'&&merchant('egg-job','工房の店長',{x:.50,y:.48},'egg','job')}
-      {map==='ramen'&&merchant('ramen','ラーメン屋',{x:.40,y:.50},'odango','ramen')}
+      {map==='ramen'&&merchant('ramen','ラーメン屋',{x:.38,y:.57},'odango','ramen')}
       {map==='bowling'&&merchant('bowling','受付スタッフ',{x:.72,y:.57},'egg','bowling')}
       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
@@ -285,7 +284,7 @@ export function WorldHome(props: Props) {
       </View>
     </Modal>
     {!experience&&map==='bowling'&&<View style={[s.placeAction,{bottom:dockBottom+26,left:132}]}><WorldPill testID="bowling-reception" label="店員に話しかける" icon="message-circle" onPress={()=>openMerchant('bowling',{x:.72,y:.57})} disabled={!active||!!props.food}/></View>}
-    {!experience&&map==='fortune'&&<View style={[s.placeAction,{bottom:dockBottom+26,left:132}]}><WorldPill testID="fortune-open" label="ルナに占ってもらう" icon="moon" onPress={()=>openMerchant('fortune',{x:.4,y:.5})} disabled={!active||!!props.food}/></View>}
+    {!experience&&map==='fortune'&&<View style={[s.placeAction,{bottom:dockBottom+26,left:132}]}><WorldPill testID="fortune-open" label="占ってもらう" icon="moon" onPress={()=>openMerchant('fortune',{x:.4,y:.51})} disabled={!active||!!props.food}/></View>}
     {!experience&&['onsen','lake'].includes(map)&&<View style={[s.placeAction,{bottom:dockBottom+26}]}>
       <WorldPill testID={map==='onsen'?'village-bath':'village-ride'} primary label={map==='onsen'?'温泉に入る':'観覧車に乗る'} icon={map==='onsen'?'sun':'disc'} disabled={!active||!!props.food}
         onPress={()=>request({x:map==='lake'?.61:.51,y:.5},{kind:map==='onsen'?'bath':'wheel'})}/>
