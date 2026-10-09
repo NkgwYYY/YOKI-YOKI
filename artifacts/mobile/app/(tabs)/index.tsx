@@ -120,7 +120,7 @@ export default function HomeScreen() {
     clearTimeout(speechTimer.current); setSpeech(text);
     speechTimer.current = setTimeout(() => setSpeech(''), duration);
   };
-  const interact = (kind: ResidentInteraction) => {voice.play(kind==='held'?'surprise':kind==='pet'?'happy':kind==='land'?'land':kind==='space'?'soft':'greet');say({
+  const interact = (kind: ResidentInteraction) => {voice.play(kind==='held'?'surprise':kind==='pet'?'happy':kind==='land'?'land':kind==='space'?'soft':'greet','interaction');say({
     greet: 'あ、きてくれた。うれしいな。', pet: 'なでなで、きもちいい。',
     space: 'くすぐったいよ。ゆっくりで大丈夫。', held: 'ふわっ。そっと、抱っこしてね。', land: 'ぽふっ。ただいま。', roll:'ころころ。ちょっと、ひなたぼっこ。',
   }[kind]);};
@@ -128,7 +128,7 @@ export default function HomeScreen() {
   const restTogether = () => {voice.play('soft');setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome',true);say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={bathReturn??'world'} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <WorldHome welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={bathReturn??'world'} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
@@ -189,7 +189,8 @@ export default function HomeScreen() {
       {menuRow('help-circle', hints ? '家具のヒントを隠す' : '家具のヒントを表示', () => { toggleHints(); close(); })}
       {menuRow('home', '部屋の模様替え', () => {setAtelierCategory('furniture');setSheet('atelier');})}
       {menuRow(voice.enabled?'volume-2':'volume-x',`鳴き声：${voice.enabled?'オン':'オフ'}`,voice.toggle)}
-      {voice.enabled&&menuRow('music','鳴き声を聞く',()=>voice.play('chat',true))}
+      {voice.enabled&&menuRow('music','鳴き声を聞く',()=>voice.play('chat','preview'))}
+      {voice.enabled&&<Text testID="voice-pacing-hint" style={{color:'#C8B9D4',fontSize:12,lineHeight:19,paddingLeft:34}}>タップの鳴き声は、ときどき。続けて触っても鳴きすぎないよ。</Text>}
       {!!voice.error&&<Text style={{color:'#DFC8DB'}}>{voice.error}</Text>}
       {menuRow('edit-3', 'なまえをつける', () => { setName(mascotName); setNameError(''); setSheet('name'); })}
       {menuRow('clock', '記録する時間', () => { close(); router.push('/profile'); })}

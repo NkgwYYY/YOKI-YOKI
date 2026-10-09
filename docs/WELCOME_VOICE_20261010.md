@@ -7,3 +7,8 @@
 - Web voice playback retains the saved mute preference. First-visit autoplay rejection is silent; an immediate user gesture can start the pending welcome voice for up to four seconds, then it expires. Native playback also respects the hydrated preference.
 - Seven targeted tests pass for visit gating, movement bounds/grounding and existing robot motion; mobile TypeScript passes locally and on Replit. Preview browser checks verified actual jumping, changes to ground position, menu interruption without replay and welcome audio completing at 1.028 seconds without a media error. Existing test guest only; no physical iPhone audio/gesture test claimed.
 - Replit development preview updated; production republishing remains with the user. Preserve Replit's existing auth changes. Temporary mobile preview wrapper and own attachment are removed before commit.
+
+## Follow-up — quieter touch reactions
+- Kept all seven voice clips. Ordinary touches/petting/lifting use a one-in-three draw and wait at least ten seconds after any previous voice. Silent interactions still animate/respond and do not stop an already playing sound.
+- Welcome, meals and other meaningful events retain their voices with a 1.8-second spacing. Explicit preview/toggle-on listening and the short Safari welcome retry bypass pacing while respecting mute and foreground checks.
+- Web/native share the same pure pacing rule. Five targeted tests cover rapid tapping, random rejection, spacing after events and explicit listening; mobile TypeScript passes.
