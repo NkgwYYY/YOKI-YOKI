@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CLEANING_TOOLS,DUST_SPOTS,readHousekeeping,roomDirt,sweptSpots,prepareCleaning,BODY_WASH_SPOTS,rubBody,isBodyWashComplete,bodyWashPercent} from '../utils/housekeeping.ts';
 import {hygieneValue,DAY_MS,BATH_SKIP} from '../utils/hygiene.ts';
-import {prepareHappiness,HAPPY_REWARDS} from '../utils/happiness.ts';
+import {prepareHappiness,HAPPY_REWARDS,prepareSmoking} from './careModules.mjs';
 import {createRecoverableStorage} from '../utils/recoverableStorage.ts';
 const now=Date.parse('2026-10-08T10:00:00Z'),key='@mentore/feed_state_v1';
 const feed={points:300,lastFeedTime:'2026-10-08T08:00:00Z',satietyAtFeed:100,happiness:{value:75,updatedOn:'2026-10-08',days:{'2026-10-08':['visit']}}};
@@ -88,8 +88,9 @@ test('only complete rubbing can save cleanliness; repeat receipt never cleans la
  assert.equal(hygieneValue(washed.feed.hygiene,100,now),100);
  assert.equal(washed.feed.hygiene.protectedUntil,dirty.hygiene.protectedUntil);
  assert.equal(washed.feed.points,feed.points);assert.deepEqual(washed.feed.happiness,feed.happiness);
- await store.transaction(values=>prepareHappiness(values,'smoke','2026-10-08',feed,now+1,'smoke-after'));
- const retry=await store.transaction(values=>prepareCleaning(values,{kind:'bodyWash',id:'wash-a',coverage:fullyWashed()},now+2,feed));
+ await store.transaction(values=>prepareSmoking(values,{kind:'start',id:'smoke-after'},'2026-10-08',now+1,feed));
+ await store.transaction(values=>prepareSmoking(values,{kind:'finish',id:'smoke-after',elapsedMs:15000},'2026-10-08',now+15001,feed));
+ const retry=await store.transaction(values=>prepareCleaning(values,{kind:'bodyWash',id:'wash-a',coverage:fullyWashed()},now+15002,feed));
  assert.equal(retry.changed,false);assert.equal(retry.feed.hygiene.smokeDirt,3);
 });
 test('a failed wash save recovers its receipt exactly once on retry',async()=>{

@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import ts from 'typescript';
 import * as energy from '../utils/lightEnergy.ts';
 import * as game from '../utils/gameLogic.ts';
-import * as happiness from '../utils/happiness.ts';
+import * as happiness from './careModules.mjs';
 import { createRecoverableStorage } from '../utils/recoverableStorage.ts';
 
 // Load the production helper with its real pure energy/level dependencies.

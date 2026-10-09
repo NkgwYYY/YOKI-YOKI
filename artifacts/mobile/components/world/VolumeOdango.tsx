@@ -2,6 +2,7 @@ import React,{useId} from 'react';
 import Svg,{ClipPath,Defs,G,Image,Path,Pattern,RadialGradient,Stop} from 'react-native-svg';
 import Animated,{useAnimatedProps,useDerivedValue,type SharedValue} from 'react-native-reanimated';
 import {projectOdango} from '@/utils/evolvedVolume';
+import {CigaretteFeatures} from './CigaretteFeatures';
 import {mealSample} from '@/utils/residentMeal';
 import type {MascotMood} from '@/utils/mascotUtils';
 import {ODANGO_COAT_URI} from '@/utils/odangoCoat';
@@ -12,9 +13,9 @@ function Feature({projection,part,fill,stroke,width,opacity=1}: {projection:Shar
   return <APath animatedProps={props} fill={fill} stroke={stroke} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round"/>;
 }
 /** Broad, furry odango, with face attached to its surface rather than a billboard. */
-export function VolumeOdango({size,rx,ry,rz,blink,mood,night=false,mealProgress}: {size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>}) {
+export function VolumeOdango({size,rx,ry,rz,blink,mood,night=false,mealProgress,smoking=false,active=true,reduceMotion=false}: {size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean}) {
   const id=useId().replace(/[^a-zA-Z0-9]/g,'');
-  const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectOdango(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew);});
+  const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectOdango(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew,smoking);});
   return <Svg testID="resident-volume-odango" width={size} height={size} viewBox="0 0 100 100" accessible={false}>
     <Defs>
       <RadialGradient id={`${id}fur`} gradientUnits="userSpaceOnUse" cx="42" cy="38" rx="59" ry="57"><Stop offset="0" stopColor={night?'#F3F5F6':'#FFFFFC'}/><Stop offset=".58" stopColor={night?'#E3E8EB':'#F3F3EF'}/><Stop offset="1" stopColor={night?'#AAB6C2':'#C7C9C3'}/></RadialGradient>
@@ -40,5 +41,6 @@ export function VolumeOdango({size,rx,ry,rz,blink,mood,night=false,mealProgress}
     <Feature projection={projection} part="leftShine" fill="#FFFFFF"/><Feature projection={projection} part="rightShine" fill="#FFFFFF"/>
     <Feature projection={projection} part="mouth" fill="none" stroke="#22271F" width={1.8}/>
     <Feature projection={projection} part="openMouth" fill="#61433D" stroke="#332A24" width={.6}/>
+    {smoking&&<CigaretteFeatures projection={projection} active={active} reduceMotion={reduceMotion}/>}
   </Svg>;
 }

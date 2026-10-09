@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import ts from 'typescript';
 import * as energy from '../utils/lightEnergy.ts';
 import * as game from '../utils/gameLogic.ts';
-import * as happiness from '../utils/happiness.ts';
+import * as happiness from './careModules.mjs';
 import { createRecoverableStorage } from '../utils/recoverableStorage.ts';
 const code=ts.transpileModule(fs.readFileSync(new URL('../utils/checklistTransaction.ts',import.meta.url),'utf8'),{
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},

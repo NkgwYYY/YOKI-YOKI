@@ -2,6 +2,7 @@ import React,{useId} from 'react';
 import Svg,{Defs,Path,RadialGradient,Stop} from 'react-native-svg';
 import Animated,{useAnimatedProps,useDerivedValue,type SharedValue} from 'react-native-reanimated';
 import {projectEgg} from '@/utils/residentVolume';
+import {CigaretteFeatures} from './CigaretteFeatures';
 import {mealSample} from '@/utils/residentMeal';
 import type {MascotMood} from '@/utils/mascotUtils';
 const APath=Animated.createAnimatedComponent(Path);
@@ -12,9 +13,9 @@ function Feature({projection,part,fill,stroke,width}: {projection:SharedValue<Pr
 }
 /** The original egg's rounded silhouette, crack, eyes and blush, modeled in 3D.
  * Other evolved art keeps its original renderer until a matching model exists. */
-export function VolumeEgg({size,rx,ry,rz,blink,mood,night=false,mealProgress}: {size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>}) {
+export function VolumeEgg({size,rx,ry,rz,blink,mood,night=false,mealProgress,smoking=false,active=true,reduceMotion=false}: {size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean}) {
   const id=useId().replace(/[^a-zA-Z0-9]/g,'');
-  const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectEgg(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew);});
+  const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectEgg(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew,smoking);});
   return <Svg testID="resident-volume" width={size} height={size} viewBox="0 0 100 100" accessible={false}>
     <Defs>
       <RadialGradient id={`${id}shell`} gradientUnits="userSpaceOnUse" cx="42" cy="40" fx="30" fy="24" rx="53" ry="61"><Stop offset="0" stopColor={night?'#F8F7EF':'#FFFFF8'}/><Stop offset=".42" stopColor={night?'#E9EBE6':'#F4F3E9'}/><Stop offset=".74" stopColor={night?'#CCD4D7':'#DFDFD2'}/><Stop offset="1" stopColor={night?'#A3B1BB':'#B7B9AB'}/></RadialGradient>
@@ -31,5 +32,6 @@ export function VolumeEgg({size,rx,ry,rz,blink,mood,night=false,mealProgress}: {
     <Feature projection={projection} part="rightShine" fill="#FCFDF1"/>
     <Feature projection={projection} part="mouth" fill="none" stroke="#141A13" width={1.7}/>
     <Feature projection={projection} part="openMouth" fill="#61433D" stroke="#332A24" width={.6}/>
+    {smoking&&<CigaretteFeatures projection={projection} active={active} reduceMotion={reduceMotion}/>}
   </Svg>;
 }

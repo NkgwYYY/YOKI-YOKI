@@ -38,6 +38,18 @@ test('travel yaw faces the direction of ground motion with scene aspect',()=>{
   assert.equal(residentWalkYaw(1,0,2),Math.PI/2);assert.equal(residentWalkYaw(-1,0,2),-Math.PI/2);
   assert.equal(residentWalkYaw(0,1,2),0);assert.equal(residentWalkYaw(0,-1,2),Math.PI);
 });
+test('the cigarette follows each real face through turns without replacing or resizing either character',()=>{
+ for(const project of [base.projectEgg,projectOdango]){
+  for(const yaw of [0,.4,1,-.4,-1,Math.PI]){
+   const normal=project(0,yaw,0,0,true),smoking=project(0,yaw,0,0,true,false,0,0,true);
+   for(const key of ['body','mouth','leftEye','rightEye','furHalo'])assert.equal(smoking[key],normal[key]);
+   assert.equal(normal.cigarettePaper,'');
+   if(yaw===Math.PI){assert.equal(smoking.cigarettePaper,'');assert.equal(smoking.cigaretteSmoke,'');}
+   else {assert.ok(smoking.cigarettePaper);assert.ok(smoking.cigaretteFilter);assert.ok(!/NaN|Infinity/.test(smoking.cigaretteSmoke));}
+  }
+  assert.notEqual(project(0,0,0,0,true,false,0,0,true).cigarettePaper,project(0,.4,0,0,true,false,0,0,true).cigarettePaper);
+ }
+});
 test('meal opens the surface mouth and puffs cheeks without changing body proportions',()=>{
   const front=projectOdango(0,0,0),bite=projectOdango(0,0,0,0,false,false,1),chew=projectOdango(0,0,0,0,false,false,0,1);
   assert.equal(front.openMouth,'');assert.ok(bite.openMouth);assert.equal(chew.openMouth,'');

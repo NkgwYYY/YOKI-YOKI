@@ -11,6 +11,7 @@ import {mapRoute,type WorldMapId} from '@/utils/worldMaps';
 type Props = {
   map: WorldMapId;
   active: boolean; interacting: boolean; reduceMotion: boolean; resting: boolean;
+  manualOnly?: boolean;
   meal: number; rest: number; period: WorldPeriod; daySeed: number;
   x: SharedValue<number>; y: SharedValue<number>; walking: SharedValue<number>;
   destination: WorldDestination | null; onMealFinished?: () => void; onDestinationReached?:(id:number)=>void;
@@ -23,7 +24,7 @@ export function useWorldResident(p: Props) {
   const turn = useRef(0);
   const complete = useRef(p.onMealFinished); complete.current = p.onMealFinished;
   const arrived=useRef(p.onDestinationReached);arrived.current=p.onDestinationReached;
-  const {map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination} = p;
+  const {map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination,manualOnly} = p;
   useEffect(()=>{if(map!=='home')handled.current.rest=rest;setPose('idle');},[map]);
   useEffect(() => {
     if (interacting) setPose('idle');
@@ -65,7 +66,7 @@ export function useWorldResident(p: Props) {
         walk(destination.point, () => {handled.current.destination=destination.id;setPose('idle'); arrived.current?.(destination.id); later(run, 18000);});
         return;
       }
-      if(map==='bowling'){setPose('idle');return;}
+      if(map==='bowling'||manualOnly){setPose('idle');return;}
       if (reduceMotion && !mealPending && !restPending && !resting) {setPose('idle'); return;}
       const activity = mealPending || restPending || resting
         ? chooseResidentActivity({meal, rest}, handled.current, resting, turn.current)
@@ -89,6 +90,6 @@ export function useWorldResident(p: Props) {
     const requested = meal > handled.current.meal || rest > handled.current.rest || (destination && destination.id > handled.current.destination);
     later(run, requested ? 60 : 6500);
     return () => {alive = false; clearTimeout(timer); cancelAnimation(x); cancelAnimation(y); walking.value = 0;};
-  }, [map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination]);
+  }, [map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination,manualOnly]);
   return interacting ? 'idle' : pose;
 }

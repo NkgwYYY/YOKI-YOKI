@@ -15,6 +15,7 @@ import {HappinessGauge} from '@/components/world/HappinessGauge';
 import {useWorldHappiness} from '@/components/world/useWorldHappiness';
 import {useVillageBgm} from '@/components/world/useVillageBgm';
 import {HAPPY_REWARDS,type HappyAction} from '@/utils/happiness';
+import {SmokingCare} from '@/components/world/SmokingCare';
 import { WorldPill } from '@/components/world/WorldPill';
 import { WorldHome } from '@/components/world/WorldHome';
 import { useWorldTime } from '@/components/world/useWorldTime';
@@ -153,7 +154,7 @@ export default function HomeScreen() {
     <View pointerEvents="box-none" style={[s.footer, {bottom: tabHeight + 12}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
       {invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => setSheet('record')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
         <Text style={s.residentName}>{mascotName || 'よっきー'}</Text>
-        <Text testID="world-speech" style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{speech || (today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : time.moment)}</Text>
+        <Text testID="world-speech" style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{speech || (happiness.smoking.craving?'たばこ、ほしいな…。ほかの楽しみで気をまぎらわせよう。':today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : time.moment)}</Text>
       </View>}
       <View style={[s.quickActions, wide && {flexDirection: 'column', alignItems: 'center'}]}>
         <Pressable testID="home-daily-record" accessibilityRole="button" accessibilityLabel="今日の記録を開く" onPress={() => setSheet('record')} style={({pressed}) => [s.noteButton, pressed && {opacity: 0.8}]}>
@@ -169,8 +170,9 @@ export default function HomeScreen() {
     </BottomSheet>}
     {sheet === 'happiness' && <BottomSheet visible onClose={close} title="うれしい気持ち" subtitle="会いに来てくれることが、いちばんうれしい。">
       <Text style={s.chatText}>幸福度 {happiness.value}%</Text>
-      <Text style={{color:'#C1B2CA',fontSize:13,lineHeight:22}}>同じ楽しみの加点は、1日1回。毎日記録できなくても、自分のペースで会いに来てね。</Text>
-      {(Object.entries({visit:'会いに来てくれた',record:'今日のことを教えてくれた',ramen:'ラーメンを食べた',bath:'温泉でひと休み',homeBath:'おうちのおふろ',meal:'一緒にごはん',smoke:'喫煙所で一服'}) as [HappyAction,string][]).map(([action,label])=><View key={action} style={s.menuRow}>
+      {(happiness.smoking.dependent||happiness.smoking.recovered)&&<><SmokingCare status={happiness.smoking}/>{happiness.smoking.dependent&&<View style={{gap:8}}><WorldPill label="ごはんで気分転換" icon="coffee" onPress={()=>setSheet('feed')}/><WorldPill label="今日のことを記録する" icon="edit-3" onPress={()=>setSheet('record')}/><WorldPill label="おふろでひと休み" icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/></View>}</>}
+      <Text style={{color:'#C1B2CA',fontSize:13,lineHeight:22}}>下の楽しみの加点は、1日1回。喫煙は吸っている時間に応じて変わるよ。</Text>
+      {(Object.entries({visit:'会いに来てくれた',record:'今日のことを教えてくれた',ramen:'ラーメンを食べた',bath:'温泉でひと休み',homeBath:'おうちのおふろ',meal:'一緒にごはん'}) as [HappyAction,string][]).map(([action,label])=><View key={action} style={s.menuRow}>
         <Icon name={happiness.actions.includes(action)?'check-circle':'circle'} color="#A07DAA"/><Text style={s.menuText}>{label}</Text><Text style={{color:'#CDB68E'}}>＋{HAPPY_REWARDS[action]}</Text>
       </View>)}
       {!!happiness.error&&<><Text accessibilityRole="alert">{happiness.error}</Text><Button label="もう一度保存する" onPress={happiness.retry}/></>}

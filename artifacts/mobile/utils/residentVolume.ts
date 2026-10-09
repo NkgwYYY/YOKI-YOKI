@@ -27,7 +27,15 @@ function hull(points:Point3[]) {
 }
 function path(points:Point3[],closed=true) {'worklet';return points.map((p,i)=>`${i?'L':'M'}${(50+p.x).toFixed(2)} ${(50+p.y).toFixed(2)}`).join(' ')+(closed?' Z':'');}
 const FRONT_BODY=path(hull(MODEL));
-export function projectEgg(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0) {
+export function cigaretteProjection(anchor:Point3,rx:number,ry:number,rz:number,originY=50,visible=true){
+  'worklet';
+  if(!visible)return {cigarettePaper:'',cigaretteFilter:'',cigaretteEmber:'',cigaretteSmoke:''};
+  const at=(length:number)=>{'worklet';const p=rotatePoint({x:anchor.x+length,y:anchor.y-length*.04,z:anchor.z+1+length*.22},rx,ry,rz);return {x:50+p.x,y:originY+p.y};};
+  const a=at(0),b=at(5),c=at(18),tip=at(19.5);
+  const line=(a:{x:number;y:number},b:{x:number;y:number})=>{'worklet';return `M${a.x.toFixed(2)} ${a.y.toFixed(2)} L${b.x.toFixed(2)} ${b.y.toFixed(2)}`;};
+  return {cigaretteFilter:line(a,b),cigarettePaper:line(b,c),cigaretteEmber:line(c,tip),cigaretteSmoke:`M${tip.x.toFixed(2)} ${(tip.y-3).toFixed(2)} C${(tip.x+8).toFixed(2)} ${(tip.y-14).toFixed(2)} ${(tip.x-5).toFixed(2)} ${(tip.y-17).toFixed(2)} ${(tip.x+2).toFixed(2)} ${(tip.y-28).toFixed(2)} S${(tip.x-3).toFixed(2)} ${(tip.y-40).toFixed(2)} ${(tip.x+2).toFixed(2)} ${(tip.y-46).toFixed(2)}`};
+}
+export function projectEgg(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
   'worklet';
   const rot=(p:Point3)=>{'worklet';return rotatePoint(p,rx,ry,rz);};
   const patch=(x:number,y:number,wx:number,hy:number)=>{
@@ -50,5 +58,6 @@ export function projectEgg(rx:number,ry:number,rz:number,blink=0,happy=false,sle
     leftCheek:patch(-17,13,6.3+chew*1.7,3.6+chew),rightCheek:patch(17,13,6.3+chew*1.7,3.6+chew),
     mouth:line(mouth),openMouth:mouthOpen>.02?patch(0,17,3.5+mouthOpen*2,1+mouthOpen*4):'',crack:line([[-4,-32],[-6,-26],[-2,-23],[-5,-17]]),
     facing:rot({x:0,y:0,z:1}).z,
+    ...cigaretteProjection(surface(7,17),rx,ry,rz,50,smoking&&rot({x:7/33,y:17/50,z:1}).z>.05),
   };
 }

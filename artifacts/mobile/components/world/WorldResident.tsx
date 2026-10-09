@@ -1,3 +1,4 @@
+import {StaticSmokingAccessory} from './CigaretteFeatures';
 import {ResidentDust} from './ResidentDust';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
@@ -23,7 +24,7 @@ import type {WorldBowlingInput} from '@/utils/bowling';
 import type {WorldBowlingMotion} from './useWorldBowling';
 
 type Props = {
-  riding:boolean;cleanliness:number;
+  riding:boolean;cleanliness:number;smoking?:boolean;
   happinessValue:number;
   portalTravel:SharedValue<boolean>;
   bowling:WorldBowlingMotion; bowlingBusy:boolean; onBowlingRoll:(input:WorldBowlingInput)=>void; onBowlingFinished:()=>void;
@@ -69,7 +70,7 @@ export function WorldResident(p: Props) {
     rolling.value=0;idleTime.value=0;setRollingLabel(false);setInteracting(false);
     cancelAnimation(x);cancelAnimation(y);
   },[p.destination?.id]);
-  const pose = useWorldResident({...p, x, y, walking, interacting:interacting||manual||p.riding||!!experience||p.bowlingBusy});
+  const pose = useWorldResident({...p, x, y, walking, manualOnly:!!p.smoking, interacting:interacting||manual||p.riding||!!experience||p.bowlingBusy});
   useAnimatedReaction(()=>Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
   const portals=mapPortals(map);
   const onPortal=p.onPortal;
@@ -140,7 +141,7 @@ export function WorldResident(p: Props) {
   },[active,pose,reduceMotion,rx,ry,rz]);
   const launchRoll=(speedX:number,speedY:number,automatic=false)=>{
     'worklet';
-    if(p.riding||!available.value||(reduceMotion&&map!=='bowling')||cameraTouch.value||experience||food||p.bowlingBusy)return;
+    if(p.riding||!available.value||(reduceMotion&&map!=='bowling')||cameraTouch.value||experience||p.smoking||food||p.bowlingBusy)return;
     if(map==='bowling'){
       if(automatic)return;
       rollAge.value=0;
@@ -156,7 +157,7 @@ export function WorldResident(p: Props) {
     runOnJS(setInteracting)(true);runOnJS(setRollingLabel)(true);
     if(!automatic)runOnJS(notify)('roll');
   };
-  useEffect(()=>{idleAllowed.value=active&&!reduceMotion&&!interacting&&!manual&&!experience&&!food&&!p.resting&&(pose==='idle'||pose==='watching');},[active,reduceMotion,interacting,manual,experience,food,p.resting,pose]);
+  useEffect(()=>{idleAllowed.value=active&&!reduceMotion&&!interacting&&!manual&&!experience&&!p.smoking&&!food&&!p.resting&&(pose==='idle'||pose==='watching');},[active,reduceMotion,interacting,manual,experience,p.smoking,food,p.resting,pose]);
   const physics=useFrameCallback(frame=>{
     'worklet';
     if(!available.value||cameraTouch.value)return;
@@ -332,7 +333,7 @@ export function WorldResident(p: Props) {
     blink.value = withRepeat(withDelay(4100, withSequence(withTiming(1, {duration: 80}), withTiming(0, {duration: 130}))), -1);
     return () => cancelAnimation(blink);
   }, [active, reduceMotion, mood, blink]);
-  const activity = p.riding?'掃除機に乗っています':manual?'おさんぽしています':rollingLabel ? 'ころころしています' : pose === 'walking' ? 'おさんぽしています' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'eating' ? 'おやつの時間' : pose === 'watching' ? '景色を眺めています' : 'のんびりしています';
+  const activity = p.smoking?'一服しながらおさんぽできます':p.riding?'掃除機に乗っています':manual?'おさんぽしています':rollingLabel ? 'ころころしています' : pose === 'walking' ? 'おさんぽしています' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'eating' ? 'おやつの時間' : pose === 'watching' ? '景色を眺めています' : 'のんびりしています';
   const acknowledge = (kind: ResidentInteraction) => {
     if (!active || experience || food) return;
     notify(kind);
@@ -357,7 +358,8 @@ export function WorldResident(p: Props) {
       <Animated.View pointerEvents="none" style={perspective}>
         <Animated.View testID="resident-body" style={body}>
           {p.effect && <Image source={{uri: p.effect.uri}} resizeMode="contain" style={{position: 'absolute', width: size * p.effect.scale * 1.3, height: size * p.effect.scale * 1.3, left: -size * 0.15 + p.effect.x, top: -size * 0.15 + p.effect.y}}/>}
-          {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} mealProgress={pose==='eating'?mealProgress:undefined}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
+          {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} smoking={p.smoking} active={active} reduceMotion={reduceMotion} mealProgress={pose==='eating'?mealProgress:undefined}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
+          {p.smoking&&!volumetric&&<StaticSmokingAccessory size={size} active={active} reduceMotion={reduceMotion}/>}
           <ResidentDust value={p.cleanliness} size={size}/>
           {!volumetric&&<View style={[StyleSheet.absoluteFill, {opacity: p.period === 'night' ? 0.18 : 0.13}]} >
             <StaticMascot stage={p.stage} mood={mood} size={size} tintColor={p.period === 'night' ? '#717CAB' : '#DFB878'}/>

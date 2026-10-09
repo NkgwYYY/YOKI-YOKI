@@ -1,4 +1,4 @@
-import {rotatePoint, type Point3} from './residentVolume';
+import {rotatePoint,cigaretteProjection, type Point3} from './residentVolume';
 
 /** Shape/face coordinates traced against assets/images/characters/odango.png
  * (512px square). Back fur is inferred: no turnaround art is supplied. Keep
@@ -50,7 +50,7 @@ function hull(points:Point3[]) {
   for(let i=sorted.length-1;i>=0;i--){const p=sorted[i];while(hi.length>1&&cross(hi[hi.length-2],hi[hi.length-1],p)<=0)hi.pop();hi.push(p);}
   lo.pop();hi.pop();return lo.concat(hi);
 }
-export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeometry>,rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0) {
+export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeometry>,rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
   'worklet';
   const model=geometry.model,r=model.radius,f=model.face;
   const rot=(p:Point3)=>{'worklet';return rotatePoint(p,rx,ry,rz);};
@@ -109,11 +109,12 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
     leftEye:patch(-f.eyeX,f.eyeY,f.eyeWidth,eyeHeight),rightEye:patch(f.eyeX,f.eyeY,f.eyeWidth,eyeHeight),
     leftShine:shut>.5?'':patch(-f.eyeX+1.1,f.eyeY-1.8,1,1.1),rightShine:shut>.5?'':patch(f.eyeX+1.1,f.eyeY-1.8,1,1.1),mouth,
     openMouth:mouthOpen>.02?patch(0,f.mouthY,3.5+mouthOpen*2,1+mouthOpen*4):'',
+    ...cigaretteProjection(surface(model,7.5,f.mouthY),rx,ry,rz,originY,smoking&&normal(surface(model,7.5,f.mouthY))>0),
   };
 }
-export function projectOdango(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0) {
+export function projectOdango(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
   'worklet';
-  return projectEvolvedVolume(ODANGO_GEOMETRY,rx,ry,rz,blink,happy,sleepy,mouthOpen,chew);
+  return projectEvolvedVolume(ODANGO_GEOMETRY,rx,ry,rz,blink,happy,sleepy,mouthOpen,chew,smoking);
 }
 /** Only compression is allowed; spring undershoot and held poses cannot stretch
  * an evolved mascot vertically. Compensation uses its original foot anchor. */
