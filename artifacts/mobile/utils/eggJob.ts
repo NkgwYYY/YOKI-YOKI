@@ -10,6 +10,8 @@ export const EGG_DIFFICULTIES=[
   {id:'brisk',name:'はやめ',stars:1,limitMs:6000,perfectMs:140,goodMs:360,perfectPay:30,goodPay:12,color:'#B7DBC1'},
   {id:'rush',name:'高速',stars:2,limitMs:4200,perfectMs:90,goodMs:240,perfectPay:50,goodPay:22,color:'#DEC0F3'},
   {id:'master',name:'職人級',stars:3,limitMs:2800,perfectMs:60,goodMs:150,perfectPay:80,goodPay:36,color:'#F4CF8B'},
+  {id:'expert',name:'達人級',stars:4,limitMs:2000,perfectMs:42,goodMs:110,perfectPay:120,goodPay:56,color:'#FFC095'},
+  {id:'legend',name:'神業級',stars:5,limitMs:1400,perfectMs:28,goodMs:75,perfectPay:180,goodPay:84,color:'#FFABCD'},
 ] as const;
 export type EggDifficultyId=typeof EGG_DIFFICULTIES[number]['id'];
 const LEGACY_RULES={name:'従来のご注文',stars:0,limitMs:EGG_JOB_LIMIT_MS,perfectMs:220,goodMs:650,perfectPay:30,goodPay:12,color:'#D6BB91'};

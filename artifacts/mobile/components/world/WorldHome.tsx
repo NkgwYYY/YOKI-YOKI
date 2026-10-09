@@ -140,22 +140,23 @@ export function WorldHome(props: Props) {
   useEffect(()=>{if(!canVisitMap(map,props.level))setMap('home');},[map,props.level]);
   useEffect(()=>{if(props.meal){setExperience(null);setNeighbor(null);if(map!=='ramen'&&map!=='diner')setMap('home');}},[props.meal]);
   useEffect(()=>{if(props.rest){setExperience(null);setNeighbor(null);setMap('home');}},[props.rest]);
-  // Warm the atlas, the likely exit, then the compact alley art while idle.
-  // Keep this bounded and sequential instead of downloading every shop.
+  // Let the visible scene finish first; warm only the atlas and likely exit.
   useEffect(()=>{
     if(!props.active||mapOpen||transition.busy)return;
     let cancelled=false;
     const timer=setTimeout(()=>{
       void (async()=>{
+        try { await prepareWorldArt(map,props.period==='night'); } catch { return; }
+        if(cancelled)return;
         try { await prepareVillageAtlas(); } catch {}
         if(cancelled)return;
         const target=map==='home'?'market':map==='market'?'home':'market';
-        for(const next of new Set([target,'tobacco'] as WorldMapId[])){
+        for(const next of [target] as WorldMapId[]){
           if(cancelled)return;
           if(next!==map&&canVisitMap(next,props.level))try { await prepareWorldArt(next,props.period==='night'); } catch {}
         }
       })();
-    },700);
+    },2000);
     return()=>{cancelled=true;clearTimeout(timer);};
   },[map,mapOpen,props.active,props.period,props.level,transition.busy]);
   useEffect(()=>{setBowlingOpen(false);setFortuneOpen(false);setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);

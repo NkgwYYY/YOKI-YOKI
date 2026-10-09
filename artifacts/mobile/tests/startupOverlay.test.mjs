@@ -31,7 +31,7 @@ function fixture() {
   const render = () => { cursor = 0; const tree = exports.StartupLoadingOverlay(); while (effects.length) effects.shift()(); return tree; };
   const fire = delay => { for (const [id, timer] of [...timers]) if (timer.delay === delay) { timers.delete(id); timer.fn(); } };
   const flush = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); };
-  const ready = async () => { loads.at(-1).resolve(); fire(2200); await flush(); };
+  const ready = async () => { loads.at(-1).resolve(); await flush(); };
   return { render, fire, ready, flush, loads, animations, timers, writes: () => writes, cleanup: () => slots.forEach(s => s?.cleanup?.()) };
 }
 for (const completion of ['success', 'interrupted', 'missing']) test(`startup releases touch input with ${completion} animation completion`, async () => {

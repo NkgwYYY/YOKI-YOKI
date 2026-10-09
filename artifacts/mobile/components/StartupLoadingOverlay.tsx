@@ -10,12 +10,9 @@ import {
 import { colors, homePalette, radius, space, typography } from '@/constants/theme';
 import { preloadStartupImages } from '@/utils/startupAssets';
 
-const MINIMUM_LOADING_TIME_MS = 2200;
-
 export function StartupLoadingOverlay() {
   const opacity = useRef(new Animated.Value(1)).current;
   const attempt = useRef(0);
-  const minimumTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visible, setVisible] = useState(true);
   const [ready, setReady] = useState(false);
@@ -23,24 +20,13 @@ export function StartupLoadingOverlay() {
 
   const load = useCallback(() => {
     const currentAttempt = ++attempt.current;
-    if (minimumTimer.current) clearTimeout(minimumTimer.current);
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
     dismissTimer.current = null;
     setReady(false);
     setError(false);
     opacity.setValue(1);
 
-    const minimumWait = new Promise<void>((resolve) => {
-      minimumTimer.current = setTimeout(() => {
-        minimumTimer.current = null;
-        resolve();
-      }, MINIMUM_LOADING_TIME_MS);
-    });
-
-    Promise.all([
-      preloadStartupImages(),
-      minimumWait,
-    ])
+    preloadStartupImages()
       .then(() => {
         if (attempt.current !== currentAttempt) return;
         // Animation completion is cosmetic, not a prerequisite for using HOME.
@@ -54,14 +40,12 @@ export function StartupLoadingOverlay() {
         dismissTimer.current = setTimeout(dismiss, 500);
         Animated.timing(opacity, {
           toValue: 0,
-          duration: 320,
+          duration: 180,
           useNativeDriver: Platform.OS !== 'web',
         }).start(dismiss);
       })
       .catch(() => {
         if (attempt.current === currentAttempt) {
-          if (minimumTimer.current) clearTimeout(minimumTimer.current);
-          minimumTimer.current = null;
           setError(true);
         }
       });
@@ -71,8 +55,6 @@ export function StartupLoadingOverlay() {
     load();
     return () => {
       attempt.current += 1;
-      if (minimumTimer.current) clearTimeout(minimumTimer.current);
-      minimumTimer.current = null;
       if (dismissTimer.current) clearTimeout(dismissTimer.current);
       dismissTimer.current = null;
       opacity.stopAnimation();

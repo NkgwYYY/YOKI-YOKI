@@ -67,7 +67,7 @@ test('an interrupted start recovers its original countdown and does not reroll',
 test('all recipes keep their identity and scaled target after reload at every difficulty',async()=>{
   for(const recipe of EGG_RECIPES){
     const seen=new Set();
-    for(let i=0;i<30&&seen.size<3;i++){
+    for(let i=0;i<80&&seen.size<EGG_DIFFICULTIES.length;i++){
       const {store,data}=setup(),id=`${recipe.id}-${i}`;
       const start=await store.transaction(values=>prepareEggJob(values,{kind:'start',id,recipe:recipe.id},now,feed));
       const pot=readEggJob(JSON.parse(data.get(key)).eggJob).active,rules=eggRules(pot.difficulty);
@@ -77,7 +77,7 @@ test('all recipes keep their identity and scaled target after reload at every di
       const at=endAt(pot),done=await store.transaction(values=>prepareEggJob(values,{kind:'finish',id,finishedAt:at},at,feed));
       assert.equal(done.receipt.grade,'perfect');assert.equal(done.receipt.recipe,recipe.id);assert.equal(done.receipt.difficulty,pot.difficulty);assert.equal(done.receipt.targetMs,pot.targetMs);assert.equal(done.feed.points,70+rules.perfectPay);
     }
-    assert.equal(seen.size,3);
+    assert.equal(seen.size,EGG_DIFFICULTIES.length);
   }
 });
 test('a pot saved by the old version remains playable without adopting a faster tier',async()=>{

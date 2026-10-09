@@ -154,6 +154,7 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.gif': 'image/gif',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
@@ -262,8 +263,10 @@ function serveWebApp(req, pathname, res) {
     if (fs.existsSync(normalizedFilePath) && !fs.statSync(normalizedFilePath).isDirectory()) {
       const ext = path.extname(normalizedFilePath).toLowerCase();
       const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-      // Hashed bundles under _expo/static can be cached forever; everything else must revalidate
-      const cacheControl = pathname.includes('/_expo/static/')
+      // Expo changes the content hash when an image/font changes. Keep those
+      // immutable assets on-device across visits; HTML and named files stay fresh.
+      const hashedAsset = /\/assets\/.*\.[a-f0-9]{32}\.[a-z0-9]+$/i.test(pathname);
+      const cacheControl = pathname.includes('/_expo/static/') || hashedAsset
         ? 'public, max-age=31536000, immutable'
         : 'no-cache';
       sendFile(req, res, normalizedFilePath, contentType, cacheControl);

@@ -15,12 +15,8 @@ export function VillageMap({current,night,level,disabled,onSelect,onClose}:{curr
  const width=Math.min(window.width,640),height=Math.max(560,Math.min(750,window.height-insets.top-insets.bottom-225));
  const [atlasReady,setAtlasReady]=useState(false);
  useEffect(()=>{
-  let cancelled=false;
-  void prepareVillageAtlas().then(()=>{
-   if(!cancelled&&canVisitMap('tobacco',level))return prepareWorldArt('tobacco',night);
-  }).catch(()=>{});
-  return()=>{cancelled=true;};
- },[level,night]);
+  void prepareVillageAtlas().catch(()=>{});
+ },[]);
  useEffect(()=>{if(canVisitMap(selected,level))void prepareWorldArt(selected,night).catch(()=>{});},[selected,level,night]);
  const place=WORLD_MAPS.find(p=>p.id===selected)!,open=canVisitMap(selected,level);
  return <Modal transparent={false} animationType="fade" onRequestClose={onClose}><View style={s.root}>

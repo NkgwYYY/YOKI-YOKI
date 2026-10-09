@@ -14,6 +14,8 @@ async function fixture(t, basePath = '/') {
   const write = (name, data) => { const target = path.join(root, name); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, data); };
   write('web/index.html', '<!doctype html><html lang="ja">YOKI QA</html>');
   write('web/assets/相棒 の部屋.png', 'web-image');
+  write('web/assets/home.0123456789abcdef0123456789abcdef.webp', 'day-webp');
+  write('web/assets/home.abcdef0123456789abcdef0123456789.webp', 'updated-webp');
   write('1790000000000-12/assets/ios/icons/相棒 の部屋@3x.png', 'native-image-3x');
   write('1790000000000-12/_expo/static/js/ios/bundle.js', 'console.log("native QA");');
   write('ios/manifest.json', JSON.stringify({ launchAsset: { url: '/1790000000000-12/_expo/static/js/ios/bundle.js' } }));
@@ -69,4 +71,17 @@ test('configured base path has a segment boundary and retains deep-link routing'
   assert.equal((await fetch(origin + '/mobile/guide')).status, 200);
   assert.equal((await fetch(origin + '/mobile/assets/' + encodeURIComponent('相棒 の部屋.png'))).status, 200);
   assert.equal((await fetch(origin + '/mobile-other/guide')).status, 404);
+});
+
+test('hashed WebP images are reusable across launches and updated hashes get distinct content',async t=>{
+ const {origin}=await fixture(t);
+ for(const [hash,body] of [['0123456789abcdef0123456789abcdef','day-webp'],['abcdef0123456789abcdef0123456789','updated-webp']]){
+  const response=await fetch(origin+'/assets/home.'+hash+'.webp');
+  assert.equal(response.headers.get('content-type'),'image/webp');
+  assert.equal(response.headers.get('cache-control'),'public, max-age=31536000, immutable');
+  assert.equal(await response.text(),body);
+ }
+ const named=await fetch(origin+'/assets/'+encodeURIComponent('相棒 の部屋.png'));
+ assert.equal(named.headers.get('cache-control'),'no-cache');
+ const html=await fetch(origin+'/');assert.match(html.headers.get('cache-control'),/no-store/);
 });
