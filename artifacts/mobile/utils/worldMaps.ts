@@ -3,7 +3,7 @@ export const WORLD_MAPS = [
   {id:'home',name:'おうち',level:1,description:'いつでも帰れる、小さなおうち。'},
   {id:'market',name:'こもれび広場',level:1,description:'噴水のそばから、お店や路地へ。'},
   {id:'ramen',name:'もふもふラーメン',level:1,description:'湯気の向こうで、もふもふ店長がお出迎え。'},
-  {id:'bowling',name:'ころころボウリング',level:1,description:'方向とパワーを決めて、奥のピンへころがろう。'},
+  {id:'bowling',name:'ころころボウリング',level:1,description:'受付の店員に話しかけて、1日1投のボウリング。'},
   {id:'tobacco',name:'こかげのタバコ屋',level:1,description:'お店のとなりに、小さな屋外喫煙所。'},
   {id:'homewares',name:'暮らしのお店',level:1,description:'ほうき、リネン、小さな暮らしの道具。'},
   {id:'diner',name:'ごはんのお店',level:1,description:'炊きたてのごはんと、あたたかいおかず。'},
