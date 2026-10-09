@@ -13,6 +13,8 @@ import { fitRoom } from '@/utils/roomGeometry';
 import { useApp } from '@/contexts/AppContext';
 import { EquipmentSlot, Item, ItemCategory, resolveItemAssetUrl, useItems } from '@/contexts/ItemContext';
 import { getMascotStage } from '@/utils/mascotUtils';
+import {useVillageMusic} from '@/contexts/VillageMusicContext';
+import {WorldPill} from '@/components/world/WorldPill';
 
 type ShopGenre = 'furniture' | 'flower' | 'cleaning' | 'wear' | 'decor';
 type ItemPlacement = { x: number; y: number; scale: number };
@@ -68,6 +70,7 @@ function HomeScenePreview({
 }
 
 export default function ShopScreen() {
+  const music = useVillageMusic();
   const router = useRouter(); const { isSignedIn } = useAuth();
   const { width, fontScale } = useWindowDimensions();
   const stackCards = width < 360 || fontScale >= 1.4;
@@ -211,7 +214,8 @@ export default function ShopScreen() {
   return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.wrap}>
     {actionError && <Text accessibilityRole="alert" style={s.error}>{actionError}</Text>}
     <View style={s.head}><Pressable accessibilityRole="button" accessibilityLabel="戻る" style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => backToRoom(router)}><Text style={s.back}>‹ 戻る</Text></Pressable><Text style={s.title}>暮らしのお店</Text></View>
-    <Text style={s.points}>✦ {feedState.points} YOKI pt</Text>
+    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><WorldPill testID="shop-bgm-toggle" label="BGM" icon={music.enabled?'volume-2':'volume-x'} accessibilityLabel={music.enabled?'BGMを止める':'BGMを流す'} onPress={music.toggle} disabled={music.busy}/><Text style={s.points}>✦ {feedState.points} YOKI pt</Text></View>
+    {!!music.error&&<Text style={s.guestNote}>{music.error}</Text>}
     {!isSignedIn && (
       <Text style={s.guestNote}>
         {Platform.OS === 'ios'

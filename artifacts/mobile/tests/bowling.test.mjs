@@ -5,6 +5,8 @@ import {
   prepareBowlingPlay,
   readBowlingState,
   bowlingPlayedToday,
+  bowlingDayStatus,
+  BOWLING_DAILY_LIMIT,
   BOWLING_KEY,
   groundRollStep,
   canStartWorldBowling,
@@ -71,7 +73,7 @@ test('the stored date chooses the mission and reload replays exactly the paid re
     assert.equal(receipt.earned,simulateBowling(receipt).earned);
     assert.equal(JSON.parse(values[feedKey]).points,feed.points+receipt.earned);
     assert.deepEqual(prepareBowlingPlay(values,receipt.id,missionShot('spare'),date,feed).entries,[]);
-    assert.equal(prepareBowlingPlay(values,'second',missionShot('spare'),date,feed).result.accepted,false);
+    assert.equal(prepareBowlingPlay(values,'second',missionShot('spare'),date,feed).result.accepted,true);
   }
 });
 test('old long-lane receipts keep their original rules, result, wallet and used day',()=>{
@@ -80,7 +82,10 @@ test('old long-lane receipts keep their original rules, result, wallet and used 
   const values={[BOWLING_KEY]:JSON.stringify({plays:{[today]:legacy}}),[feedKey]:JSON.stringify({...feed,points:73})};
   assert.deepEqual(readBowlingState(JSON.parse(values[BOWLING_KEY])).plays[today],legacy);
   assert.equal(simulateBowling(legacy).earned,50);
-  assert.deepEqual(prepareBowlingPlay(values,'again',missionShot('split'),today,feed).entries,[]);
+  assert.equal(bowlingDayStatus(readBowlingState(JSON.parse(values[BOWLING_KEY])),today).remaining,4);
+  const next=prepareBowlingPlay(values,'again',missionShot('split'),today,feed);
+  assert.deepEqual(next.result.state.plays[today],legacy);
+  assert.equal(next.result.feed.points,73+next.result.receipt.earned);
   const invalid={...legacy,rulesVersion:2,mission:dailyBowlingMission(today),missionComplete:true,earned:999};
   assert.throws(()=>readBowlingState({plays:{[today]:invalid}}));
 });
@@ -89,8 +94,8 @@ test('mission bonus is credited once across interrupted writes, retries and simu
     const f=fixture(failAt),shot=missionShot('strike');
     await assert.rejects(play(f.open(),'mission',today,shot));
     const reloaded=f.open();await reloaded.recover();
-    const [retry,other]=await Promise.all([play(reloaded,'mission',today,shot),play(reloaded,'new-id',today,shot)]);
-    assert.equal(retry.receipt.missionComplete,true);assert.equal(other.accepted,false);
+    const [retry,other]=await Promise.all([play(reloaded,'mission',today,shot),play(reloaded,'mission',today,shot)]);
+    assert.equal(retry.receipt.missionComplete,true);assert.equal(other.accepted,true);assert.equal(other.newlyGranted,false);
     assert.equal(JSON.parse(f.data.get(feedKey)).points,feed.points+retry.receipt.earned);
     assert.equal(Object.keys(JSON.parse(f.data.get(BOWLING_KEY)).plays).length,1);
   }
@@ -122,7 +127,7 @@ test('long-lane receipts remain replayable and keep the same daily grant across 
   assert.equal(saved.world.layout,'garden-long');
   assert.equal(saved.pins,simulateBowling(saved).pins);
   assert.equal(saved.earned,simulateBowling(saved).earned);
-  assert.equal(prepareBowlingPlay(values,'long-again',longShot(),today,feed).result.accepted,false);
+  assert.equal(prepareBowlingPlay(values,'long-again',longShot(),today,feed).result.accepted,true);
   assert.deepEqual(prepareBowlingPlay(values,'long',longShot(),today,feed).entries,[]);
 });
 test('world flick keeps the home trajectory until physical pin contact',()=>{
@@ -147,7 +152,7 @@ test('world receipts survive reload, preserve the actual flick, and share the ex
   const restored=readBowlingState(JSON.parse(values[BOWLING_KEY]));
   assert.deepEqual(restored.plays[today].world,worldShot().world);
   const again=prepareBowlingPlay(values,'new-flick',worldShot(.7),today,feed);
-  assert.equal(again.result.accepted,false);assert.deepEqual(again.entries,[]);
+  assert.equal(again.result.accepted,true);assert.equal(again.entries.length,2);
   assert.equal(again.result.feed.points,feed.points+50);
   for(const invalid of [{vx:Infinity},{y:-1},{radius:1},{aspect:0}])assert.throws(()=>simulateBowling({...worldShot(),world:{...worldShot().world,...invalid}}));
 });
@@ -193,17 +198,18 @@ test("visible collision results exactly match reward, with strike, partial hit a
       simulateBowling({ aim: 0.5, power: 0.8 }).pins < 10,
   );
 });
-test("double click, different request and reload cannot add another reward today", async () => {
+test("duplicate clicks and reload retry one attempt; a new request can use the next attempt", async () => {
   const f = fixture(),
     store = f.open();
-  const [a, b] = await Promise.all([play(store), play(store, "second")]);
+  const [a, b] = await Promise.all([play(store), play(store)]);
   assert.equal(a.newlyGranted, true);
-  assert.equal(b.accepted, false);
+  assert.equal(b.accepted, true);assert.equal(b.newlyGranted,false);
   const retry = await play(f.open());
   assert.equal(retry.accepted, true);
   assert.equal(retry.newlyGranted, false);
   assert.deepEqual(JSON.parse(f.data.get(feedKey)), { ...feed, points: 73 });
-  assert.equal((await play(f.open(), "third")).accepted, false);
+  assert.equal((await play(f.open(), "third")).accepted, true);
+  assert.equal(bowlingDayStatus(readBowlingState(JSON.parse(f.data.get(BOWLING_KEY))),today).remaining,3);
 });
 for (const failAt of [1, 2, 3, 4])
   test(`interrupted bowling write ${failAt} recovers the same result exactly once`, async () => {
@@ -221,13 +227,14 @@ for (const failAt of [1, 2, 3, 4])
     assert.equal((await play(reloaded)).newlyGranted, false);
     assert.equal(f.data.has("bowling-journal"), false);
   });
-test("a gutter consumes today; next calendar day unlocks; rolling the clock back does not", async () => {
+test("each gutter consumes one of five attempts; next day unlocks; clock rollback does not", async () => {
   const f = fixture(),
     store = f.open();
   assert.equal(
     (await play(store, "gutter", today, { aim: 1, power: 0.8 })).receipt.earned,
     0,
   );
+  for(let i=1;i<5;i++) assert.equal((await play(store, "gutter-"+i, today, {aim:1,power:.8})).accepted,true);
   assert.equal((await play(store, "again")).accepted, false);
   assert.equal(
     (await play(store, "tomorrow", "2026-10-09")).newlyGranted,
@@ -290,7 +297,7 @@ test("home food is everyday food; ramen requires the restaurant; rich legacy foo
     for (const venue of ["home", "ramen"])
       assert.equal(canServeFood(id, venue), false);
 });
-test("independent browser stores share a Web Lock and grant only one daily reward", async () => {
+test("independent browser stores serialize ten requests and grant exactly five daily rewards", async () => {
   const old = Object.getOwnPropertyDescriptor(navigator, "locks");
   let queue = Promise.resolve();
   Object.defineProperty(navigator, "locks", {
@@ -305,12 +312,11 @@ test("independent browser stores share a Web Lock and grant only one daily rewar
   });
   try {
     const f = fixture();
-    const results = await Promise.all([
-      play(f.open(), "tab-a"),
-      play(f.open(), "tab-b"),
-    ]);
-    assert.equal(results.filter((r) => r.newlyGranted).length, 1);
-    assert.equal(JSON.parse(f.data.get(feedKey)).points, 73);
+    const results = await Promise.all(Array.from({length:10},(_,i)=>play(f.open(),`tab-${i}`)));
+    assert.equal(results.filter((r) => r.newlyGranted).length, BOWLING_DAILY_LIMIT);
+    assert.equal(results.filter((r) => !r.accepted).length, 5);
+    assert.equal(JSON.parse(f.data.get(feedKey)).points, feed.points+250);
+    assert.equal(bowlingDayStatus(readBowlingState(JSON.parse(f.data.get(BOWLING_KEY))),today).remaining,0);
   } finally {
     if (old) Object.defineProperty(navigator, "locks", old);
     else delete navigator.locks;
@@ -331,7 +337,7 @@ test('tree-sized pins collide visibly, support all daily missions, and preserve 
  const saved=prepareBowlingPlay({},'giant',shot,'2026-10-09',feed);
  const receipt=readBowlingState(saved.result.state).plays['2026-10-09'];
  assert.equal(receipt.rulesVersion,3);assert.equal(receipt.earned,simulateBowling(receipt).earned);
- assert.equal(prepareBowlingPlay(Object.fromEntries(saved.entries),'again',shot,'2026-10-09',feed).result.accepted,false);
+ assert.equal(prepareBowlingPlay(Object.fromEntries(saved.entries),'again',shot,'2026-10-09',feed).result.accepted,true);
 });
 
 test('v4 lane needs pace and a pocket angle: weak, gutter, partial and strike are distinct',()=>{
@@ -345,7 +351,7 @@ test('v4 lane needs pace and a pocket angle: weak, gutter, partial and strike ar
  assert.ok(new Set(samples).size>=5);
  assert.ok(samples.filter(n=>n===10).length<samples.length/3);
 });
-test('v4 daily reward is still once, selects today’s rack and replays after reload',()=>{
+test('v4 rewards each distinct attempt once, selects today’s rack and replays after reload',()=>{
  const input={aim:-.14,power:.8,curve:0,rulesVersion:4,mission:'strike'};
  for(const date of ['2026-10-09','2026-10-10','2026-10-11']){
   const first=prepareBowlingPlay({[feedKey]:JSON.stringify(feed)},`lane-${date}`,input,date,feed);
@@ -354,7 +360,7 @@ test('v4 daily reward is still once, selects today’s rack and replays after re
   const replay=simulateBowling(saved);assert.equal(replay.pins,saved.pins);assert.equal(replay.earned,saved.earned);
   assert.equal(replay.pins,replay.frames.at(-1).pins.filter(p=>!p.hidden&&p.down).length);
   assert.equal(JSON.parse(values[feedKey]).points,feed.points+saved.earned);
-  assert.equal(prepareBowlingPlay(values,'another',input,date,feed).result.accepted,false);
+  assert.equal(prepareBowlingPlay(values,'another',input,date,feed).result.accepted,true);
   assert.deepEqual(prepareBowlingPlay(values,saved.id,input,date,feed).entries,[]);
  }
 });

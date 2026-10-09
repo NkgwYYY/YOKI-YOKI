@@ -65,7 +65,6 @@ export const VILLAGERS = [
   {
     id: "suzu",
     stage: "egg",
-    name: "すず",
     color: "#B6CBB5",
     x: 0.32,
     y: 0.52,
@@ -84,7 +83,6 @@ export const VILLAGERS = [
   {
     id: "kohaku",
     stage: "odango",
-    name: "こはく",
     color: "#DCC094",
     x: 0.7,
     y: 0.55,
@@ -103,7 +101,6 @@ export const VILLAGERS = [
   {
     id: "nagi",
     stage: "stage3",
-    name: "なぎ",
     color: "#B6A7D0",
     x: 0.36,
     y: 0.61,
@@ -120,7 +117,7 @@ export const VILLAGERS = [
     ],
   },
   {
-    id: "iroha", name: "いろは", stage: "stage4", color: "#D7A9C9", x: 0.68, y: 0.64,
+    id: "iroha", stage: "stage4", color: "#D7A9C9", x: 0.68, y: 0.64,
     intro: "きょうのお花、いろんな色でかわいいね。どの色が好き？",
     choices: [
       { label: "むらさきが好き", reply: "わたしも。夕方の空みたいで、ほっとするね。" },

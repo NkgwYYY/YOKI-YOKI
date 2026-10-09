@@ -10,7 +10,7 @@ export function useVillageBgm(active:boolean) {
     alive.current=true;touched.current=false;let current=true;
     void AsyncStorage.getItem(KEY).then(value=>{if(current&&alive.current&&!touched.current)setEnabled(value==='on');}).catch(()=>{});
     return()=>{current=false;alive.current=false;generation.current++;void sound.current?.unloadAsync();sound.current=null;};
-  },[active]);
+  },[]);
   useEffect(()=>{
     const id=++generation.current;
     if(!enabled||!active){void sound.current?.pauseAsync().catch(()=>{});setBusy(false);return;}

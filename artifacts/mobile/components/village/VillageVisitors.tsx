@@ -2,6 +2,7 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import Animated from 'react-native-reanimated';
 import type {WorldMapId} from '@/utils/worldMaps';
+import {getStageName} from '@/utils/mascotUtils';
 import {visitorReply, visitorsAt, type VillageVisit} from '@/utils/villageVisitors';
 import {VillageResident} from './VillageActors';
 import {useResidentIdle} from './useResidentIdle';
@@ -10,12 +11,12 @@ const VisitorActor = React.memo(function VisitorActor({visit, size, active, redu
   visit: VillageVisit; size: number; active: boolean; reduceMotion: boolean; greeting: number; onTalk: () => void;
 }) {
   const motion = useResidentIdle({active, reduceMotion, size, tempo: 1800 + visit.lineOffset % 1100, greeting});
-  return <Pressable testID={`village-visitor-${visit.visitor.id}`} accessibilityRole="button" accessibilityLabel={`${visit.visitor.name}と話す`} disabled={!active} onPress={onTalk} style={{alignItems: 'center', minWidth: 44, minHeight: 44}}>
+  return <Pressable testID={`village-visitor-${visit.visitor.id}`} accessibilityRole="button" accessibilityLabel={`${getStageName(visit.visitor.stage)}の村人と話す`} disabled={!active} onPress={onTalk} style={{alignItems: 'center', minWidth: 44, minHeight: 44}}>
     <View pointerEvents="none" style={[s.shadow, {width: size * .64, bottom: 23}]}/>
     <Animated.View pointerEvents="none" style={motion}>
       <VillageResident stage={visit.visitor.stage} size={size} active={active} reduceMotion={reduceMotion} scarf={visit.visitor.color}/>
     </Animated.View>
-    <Text style={s.name}>{visit.visitor.name} ···</Text>
+    <Text style={s.name}>···</Text>
   </Pressable>;
 });
 
@@ -45,12 +46,12 @@ export function VillageVisitors({map, daySeed, width, height, clearTop, viewport
     {visits.map(visit => <View key={visit.visitor.id} style={{position: 'absolute', left: width * visit.point.x - size / 2, top: height * visit.point.y - size * .91, zIndex: Math.round(visit.point.y * 1000)}}>
       <VisitorActor visit={visit} size={size} active={active} reduceMotion={reduceMotion} greeting={spoken?.visit.visitor.id === visit.visitor.id ? spoken.turn : 0} onTalk={() => talk(visit)}/>
     </View>)}
-    {spoken && active && <Pressable testID="village-visitor-dialogue" accessibilityRole="button" accessibilityLabel={`${spoken.visit.visitor.name}：${spoken.text} 会話を閉じる`} onPress={() => setSpoken(null)} style={[s.bubble, {
+    {spoken && active && <Pressable testID="village-visitor-dialogue" accessibilityRole="button" accessibilityLabel={`${getStageName(spoken.visit.visitor.stage)}の村人：${spoken.text} 会話を閉じる`} onPress={() => setSpoken(null)} style={[s.bubble, {
       width: bubbleWidth,
       left: Math.max(viewportLeft + 12, Math.min(viewportLeft + viewportWidth - bubbleWidth - 12, width * spoken.visit.point.x - bubbleWidth / 2)),
       top: Math.max(clearTop + 6, height * spoken.visit.point.y - size - 98),
     }]}>
-      <View style={s.bubbleHeader}><Text style={s.speaker}>{spoken.visit.visitor.name}</Text><Text style={s.close}>×</Text></View>
+      <View style={s.bubbleHeader}><Text style={s.speaker}>{getStageName(spoken.visit.visitor.stage)}の村人</Text><Text style={s.close}>×</Text></View>
       <Text accessibilityLiveRegion="polite" style={s.reply}>{spoken.text}</Text>
     </Pressable>}
   </>;

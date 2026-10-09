@@ -127,7 +127,7 @@ export function VillageNeighbors({
           key={n.id}
           testID={`village-neighbor-${n.id}`}
           accessibilityRole="button"
-          accessibilityLabel={`${n.name}とお話しする`}
+          accessibilityLabel={`${getStageName(n.stage)}の村人とお話しする`}
           disabled={!active}
           onPress={() => onTalk(n.id)}
           style={{
@@ -157,7 +157,7 @@ export function VillageNeighbors({
             reduceMotion={reduceMotion}
             scarf={n.color}
           />
-          <Text style={s.name}>{n.name}</Text>
+          <Text style={s.name}>···</Text>
         </Pressable>
       ))}
     </>

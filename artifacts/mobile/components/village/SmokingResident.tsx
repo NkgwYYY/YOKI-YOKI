@@ -25,11 +25,3 @@ export function SmokingResident({stage,width,height,active,reduceMotion,x=.60,y=
     </Svg></Animated.View>
   </View>;
 }
-
-/** Familiar village forms, with their own pace; the centre path stays open. */
-export function TobaccoPatrons(props:Pick<Props,'width'|'height'|'active'|'reduceMotion'>){
- return <>
-  <SmokingResident {...props} testID="tobacco-patron-egg" stage="egg" x={.72} y={.555} relativeSize={.13} pace={5300}/>
-  <SmokingResident {...props} testID="tobacco-patron-mofumofu" stage="odango" x={.69} y={.68} relativeSize={.16} pace={7100}/>
- </>;
-}

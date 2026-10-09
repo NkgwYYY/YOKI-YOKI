@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {prepareSmoking,readHappiness,grantHappiness,prepareHappiness} from './careModules.mjs';
-import {smokingStatus,CRAVING_INTERVAL_MS,QUIT_DURATION_MS,SMOKE_LIMIT_MS} from '../utils/smokingState.ts';
+import {smokingStatus,smokingGiftPatron,canReceiveSmokingGift,readSmoking,CRAVING_INTERVAL_MS,QUIT_DURATION_MS,SMOKE_LIMIT_MS} from '../utils/smokingState.ts';
 import {hygieneValue} from '../utils/hygiene.ts';
 import {prepareCleaning,BODY_WASH_SPOTS} from '../utils/housekeeping.ts';
 import {createRecoverableStorage} from '../utils/recoverableStorage.ts';
@@ -11,6 +11,8 @@ const feed={points:72,lastFeedTime:'unchanged',satietyAtFeed:83,happiness:{value
 const apply=(f,op,t)=>prepareSmoking({[key]:JSON.stringify(f)},op,day(t),t,feed).result;
 const puff=(f,id,t,ms=5000)=>apply(apply(f,{kind:'start',id},t).feed,{kind:'finish',id,elapsedMs:ms},t+ms).feed;
 const dependent=()=>puff(puff(puff(feed,'a',now),'b',now+10000),'c',now+20000);
+const giftDate=Array.from({length:28},(_,i)=>`2026-10-${String(i+1).padStart(2,'0')}`).find(date=>smokingGiftPatron(date));
+const giftTime=Date.parse(giftDate+'T12:00:00Z'),giftPatron=smokingGiftPatron(giftDate);
 function memory(initial){const data=new Map([[key,JSON.stringify(initial)]]);let fail=false;const store=createRecoverableStorage({getItem:async k=>data.get(k)??null,setItem:async(k,v)=>{if(k===key&&fail){fail=false;throw Error('disk');}data.set(k,v);},removeItem:async k=>data.delete(k)},'journal',[key]);return {data,store,fail:()=>{fail=true;}};}
 
 test('each full five seconds adds happiness and dirt; only the first tick counts a session',()=>{
@@ -114,4 +116,42 @@ test('a delayed finish retry keeps the actual last puff time instead of restarti
  assert.equal(result.feed.happiness.smoking.lastSmokedAt,now+10000);
  assert.equal(result.receipt.gained,2);assert.equal(result.receipt.dirt,2);
  assert.throws(()=>apply(f,{kind:'finish',id:'delayed',elapsedMs:5000,at:now+20000},now+10000),/時間/);
+});
+
+test('offers are occasional and date-stable; accepting or declining does not count as smoking',()=>{
+ const dates=Array.from({length:28},(_,i)=>`2026-10-${String(i+1).padStart(2,'0')}`);
+ assert.equal(new Set(dates.map(smokingGiftPatron)).size,3);
+ const original=apply(feed,{kind:'recover'},giftTime).feed;
+ assert.equal(canReceiveSmokingGift(original.happiness.smoking,giftDate,giftPatron),true);
+ assert.equal(smokingGiftPatron(giftDate),giftPatron);
+ const received=apply(original,{kind:'gift',patron:giftPatron},giftTime).feed;
+ assert.equal(received.happiness.smoking.giftCigarettes,1);
+ assert.equal(received.happiness.smoking.sessions,0);
+ assert.equal(received.happiness.smoking.lastSmokedAt,0);
+ assert.equal(received.happiness.value,original.happiness.value);
+ assert.equal(received.hygiene.smokeDirt,original.hygiene.smokeDirt);
+ assert.equal(received.points,original.points);
+ assert.equal(canReceiveSmokingGift(received.happiness.smoking,giftDate,giftPatron),false);
+ assert.equal(apply(received,{kind:'gift',patron:giftPatron},giftTime).state.giftCigarettes,1);
+ assert.equal(apply(original,{kind:'gift',patron:giftPatron==='egg'?'mofumofu':'egg'},giftTime).state.giftCigarettes,0);
+});
+test('gift receipt survives retries and reload; starting one session uses only one gifted cigarette',async()=>{
+ const {data,store,fail}=memory(feed);
+ const tx=(op,t=giftTime)=>store.transaction(values=>prepareSmoking(values,op,giftDate,t,feed));
+ fail();await assert.rejects(tx({kind:'gift',patron:giftPatron}),/disk/);
+ await Promise.all(Array.from({length:6},()=>tx({kind:'gift',patron:giftPatron})));
+ let saved=JSON.parse(data.get(key));
+ assert.equal(readSmoking(saved.happiness.smoking).giftCigarettes,1);
+ await tx({kind:'start',id:'gifted-session'});
+ await tx({kind:'start',id:'gifted-session'});
+ saved=JSON.parse(data.get(key));
+ assert.equal(saved.happiness.smoking.giftCigarettes,0);
+ assert.equal(saved.happiness.smoking.active.gifted,true);
+ await tx({kind:'finish',id:'gifted-session',elapsedMs:5000},giftTime+5000);
+ await tx({kind:'start',id:'gifted-session'},giftTime+5000);
+ saved=JSON.parse(data.get(key));
+ assert.equal(saved.happiness.smoking.sessions,1);
+ assert.equal(saved.happiness.smoking.giftCigarettes,0);
+ assert.equal(saved.happiness.smoking.active,null);
+ assert.equal(canReceiveSmokingGift(saved.happiness.smoking,'2026-09-01',smokingGiftPatron('2026-09-01')),false);
 });

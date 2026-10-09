@@ -17,7 +17,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp, type RoomCustomization } from '@/contexts/AppContext';
 import { StaticMascot } from '@/components/Mascot';
-import type { MascotStage } from '@/utils/mascotUtils';
+import {getStageName, type MascotStage} from '@/utils/mascotUtils';
 import { type ResidentItem, type ResidentInteraction } from '@/components/room/RoomResident';
 import { RoomFurnitureArt, RoomFlowerArt } from '@/components/room/RoomFurnitureArt';
 import { fitWorld, fitOutdoorWorld, outdoorCameraOffset, WORLD_PLACES, WORLD_TRAIL, worldCameraOffset, type WorldDestination } from '@/utils/worldGeometry';
@@ -41,7 +41,7 @@ import { RamenArt } from '@/components/village/RamenArt';
 import { useSceneTransition } from './useSceneTransition';
 import {BowlingGame} from './BowlingGame';
 import {VillageMap} from './VillageMap';
-import {TobaccoPatrons} from '@/components/village/SmokingResident';
+import {TobaccoPatrons} from '@/components/village/TobaccoPatrons';
 import {Icon as DoorIcon} from '@/components/ui/Icon';
 import {useSmoking} from './useSmoking';
 import {SmokingCare} from './SmokingCare';
@@ -272,7 +272,7 @@ export function WorldHome(props: Props) {
       {map==='ramen'&&merchant('ramen','ラーメン屋',{x:.38,y:.57},'odango','ramen')}
       {map==='bowling'&&merchant('bowling','受付スタッフ',{x:.72,y:.57},'egg','bowling')}
       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
-      {map==='tobacco'&&<TobaccoPatrons width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
+      {map==='tobacco'&&<TobaccoPatrons width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>}
       <VillageVisitors map={map} daySeed={props.daySeed} width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food&&!experience&&!bowlingBusy} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>
       {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
       <WorldResident {...props} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
@@ -322,6 +322,7 @@ export function WorldHome(props: Props) {
     </BottomSheet>}
     {placesOpen&&<BottomSheet visible title="琥珀通りのタバコ屋" subtitle="店主・スモーク / 路地裏の小さな休憩所" onClose={()=>{setPlacesOpen(false);view.reset();}}>
       <View style={{alignItems:'center'}}><MerchantResident kind="tobacco" size={112} active={props.active} reduceMotion={reduceMotion}/></View><Text style={s.mapCopy}>5秒ごとに幸福 ＋1 / 清潔 −1。1回60秒まで。汚れはおふろのタオルで洗い流せるよ。</Text>
+      <Text testID="tobacco-gift-stock" style={s.mapCopy}>もらったたばこ：{smokingStatus(feedState.happiness?.smoking,Date.now()).state.giftCigarettes}本</Text>
       <SmokingCare status={smokingStatus(feedState.happiness?.smoking,Date.now())}/>
       {!!smoking.error&&<Text accessibilityRole="alert" style={s.mapCopy}>{smoking.error}</Text>}
       <WorldPill testID="tobacco-smoke" label={smoking.busy?'準備中…':'喫煙所で一服する'} disabled={smoking.busy} icon="wind" onPress={()=>{void smoking.start().then(ok=>{if(ok){setPlacesOpen(false);view.reset();setExperience('smoke');}});}}/>
@@ -338,7 +339,7 @@ export function WorldHome(props: Props) {
       <Pressable testID="village-experience-exit" accessibilityRole="button" disabled={experience==='smoke'&&smoking.busy} onPress={finishExperience} style={s.exit}><Text style={s.exitText}>{experience==='bath'?'お湯からあがる':experience==='smoke'?smoking.busy?'保存中…':smoking.running?'一服を終える':'戻る':'観覧車から降りる'}</Text></Pressable>
     </View>}
     {!riding&&!props.careInvitation&&(!experience||experience==='smoke')&&!cleanTool&&<View style={{position:'absolute',left:16,bottom:away?dockBottom:bounds.height<600?170:230}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowlingBusy} onStart={()=>{portalTravel.value=!riding&&experience!=='smoke';pending.current=null;setDestination(null);}} onStep={(dx,dy)=>{walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04},experience!=='smoke');}}/></View>}
-    {speaker&&<BottomSheet visible title={speaker.name} subtitle="となりの村の住人" onClose={()=>setNeighbor(null)}><View style={{alignItems:'center'}}><VillageResident stage={speaker.stage} size={112} active={props.active} reduceMotion={reduceMotion} scarf={speaker.color}/></View><Text testID="village-dialogue" accessibilityLiveRegion="polite" style={s.dialogue}>{reply||speaker.intro}</Text>{speaker.choices.map(choice=><Pressable key={choice.label} accessibilityRole="button" onPress={()=>setReply(choice.reply)} style={s.mapRow}><Text style={s.mapCopy}>{choice.label}</Text></Pressable>)}<Pressable accessibilityRole="button" onPress={()=>setNeighbor(null)} style={s.exit}><Text style={s.exitText}>またね</Text></Pressable></BottomSheet>}
+    {speaker&&<BottomSheet visible title={`${getStageName(speaker.stage)}の村人`} subtitle="となりの村の住人" onClose={()=>setNeighbor(null)}><View style={{alignItems:'center'}}><VillageResident stage={speaker.stage} size={112} active={props.active} reduceMotion={reduceMotion} scarf={speaker.color}/></View><Text testID="village-dialogue" accessibilityLiveRegion="polite" style={s.dialogue}>{reply||speaker.intro}</Text>{speaker.choices.map(choice=><Pressable key={choice.label} accessibilityRole="button" onPress={()=>setReply(choice.reply)} style={s.mapRow}><Text style={s.mapCopy}>{choice.label}</Text></Pressable>)}<Pressable accessibilityRole="button" onPress={()=>setNeighbor(null)} style={s.exit}><Text style={s.exitText}>またね</Text></Pressable></BottomSheet>}
     {transition.overlay}
 
   </View>;

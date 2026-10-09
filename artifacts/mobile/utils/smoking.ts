@@ -2,8 +2,8 @@ import type {FeedState} from '../contexts/AppContext';
 import type {StorageEntry} from './recoverableStorage';
 import {readHappiness} from './happiness';
 import {readHygiene} from './hygiene';
-import {readSmoking,SMOKE_STEP_MS,SMOKE_LIMIT_MS,type SmokingState,type SmokeReceipt} from './smokingState';
-export type SmokingOperation={kind:'start';id:string}|{kind:'progress'|'finish';id:string;elapsedMs:number;at?:number}|{kind:'recover'};
+import {readSmoking,canReceiveSmokingGift,SMOKE_STEP_MS,SMOKE_LIMIT_MS,type TobaccoPatron,type SmokingState,type SmokeReceipt} from './smokingState';
+export type SmokingOperation={kind:'start';id:string}|{kind:'progress'|'finish';id:string;elapsedMs:number;at?:number}|{kind:'recover'}|{kind:'gift';patron:TobaccoPatron};
 export type SmokingResult={state:SmokingState;receipt:SmokeReceipt|null;changed:boolean};
 export function prepareSmoking(values:Record<string,string|null>,op:SmokingOperation,today:string,now:number,defaultFeed:FeedState){
  if(!Number.isFinite(now)||now<0||('id' in op&&(!op.id||op.id.length>100)))throw Error('喫煙の記録を確認できません');
@@ -12,7 +12,12 @@ export function prepareSmoking(values:Record<string,string|null>,op:SmokingOpera
  const happiness=readHappiness(feed.happiness,today,now),state=readSmoking(happiness.smoking),hygiene=readHygiene(feed.hygiene,now);
  let receipt:SmokeReceipt|null=null;
  const close=()=>{if(!state.active)return;const {startedAt,...r}=state.active;receipt=r;state.receipts=[...state.receipts,r].slice(-40);state.active=null;};
- if(op.kind==='recover'){
+ if(op.kind==='gift'){
+  if(canReceiveSmokingGift(state,today,op.patron)){
+   state.giftCigarettes++;
+   state.giftDays=[...state.giftDays,today].sort().slice(-32);
+  }
+ }else if(op.kind==='recover'){
   // An abandoned screen only keeps time already confirmed while it was visible.
   close();
  }else if(op.kind==='start'){
@@ -20,7 +25,11 @@ export function prepareSmoking(values:Record<string,string|null>,op:SmokingOpera
   receipt=state.receipts.find(r=>r.id===op.id)??null;
   if(!receipt){
    if(state.active&&state.active.id!==op.id)throw Error('前の一服を終えてから始めてください');
-   state.active??={id:op.id,startedAt:now,elapsedMs:0,gained:0,dirt:0,counted:false};
+   if(!state.active){
+    const gifted=state.giftCigarettes>0;
+    if(gifted)state.giftCigarettes--;
+    state.active={id:op.id,startedAt:now,elapsedMs:0,gained:0,dirt:0,counted:false,...(gifted?{gifted:true}:{})};
+   }
   }
  }else{
   receipt=state.receipts.find(r=>r.id===op.id)??null;

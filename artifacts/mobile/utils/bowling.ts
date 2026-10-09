@@ -4,6 +4,7 @@ import type { StorageEntry } from "./recoverableStorage";
 export const BOWLING_KEY = "@yoki/bowling_v1";
 const FEED_KEY = "@mentore/feed_state_v1";
 export const POINTS_PER_PIN = 5;
+export const BOWLING_DAILY_LIMIT = 5;
 export const BOWLING_DURATION = 3200;
 export type WorldBowlingInput = { x:number; y:number; vx:number; vy:number; aspect:number; radius:number; layout?:'garden'|'garden-long' };
 export type BowlingMissionId = 'strike' | 'split' | 'spare';
@@ -236,13 +237,16 @@ export function readBowlingState(raw: unknown): BowlingState {
   )
     throw new Error("ボウリングの記録を確認できません");
   const plays = raw.plays as Record<string, BowlingReceipt>;
-  for (const [date, receipt] of Object.entries(plays)) {
+  const ids = new Set<string>();
+  for (const [key, receipt] of Object.entries(plays)) {
+    const date = key.split('#')[0];
     if (
-      !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+      !/^\d{4}-\d{2}-\d{2}(?:#[2-5])?$/.test(key) ||
       !receipt ||
       receipt.date !== date ||
       typeof receipt.id !== "string" ||
       !receipt.id ||
+      ids.has(receipt.id) ||
       !Number.isInteger(receipt.pins) ||
       receipt.pins < 0 ||
       receipt.pins > 10 ||
@@ -251,13 +255,20 @@ export function readBowlingState(raw: unknown): BowlingState {
     )
       throw new Error("ボウリングの記録を確認できません");
     validateBowlingInput(receipt);
+    ids.add(receipt.id);
   }
   return { plays };
 }
 export function bowlingPlayedToday(state: BowlingState, today: string) {
-  return Object.keys(state.plays).some((date) => date >= today);
+  return bowlingDayStatus(state, today).remaining === 0;
 }
-/** Consume the daily throw and credit its result in one journalled, retryable write. */
+export function bowlingDayStatus(state: BowlingState, today: string) {
+  const receipts = Object.entries(state.plays).sort(([a],[b]) => a.localeCompare(b)).map(([,receipt])=>receipt);
+  const current = receipts.filter(receipt => receipt.date === today);
+  const clockBack = receipts.some(receipt => receipt.date > today);
+  return {played:current.length, remaining:clockBack?0:Math.max(0,BOWLING_DAILY_LIMIT-current.length), latest:current.at(-1), clockBack};
+}
+/** One attempt and its reward are committed together; request retries never use another turn. */
 export function prepareBowlingPlay(
   values: Record<string, string | null>,
   id: string,
@@ -277,9 +288,10 @@ export function prepareBowlingPlay(
   if (!feed || !Number.isFinite(feed.points) || feed.points < 0)
     throw new Error("ポイントを確認できません");
   const duplicate = Object.values(state.plays).find((play) => play.id === id);
+  const status = bowlingDayStatus(state,today);
   const previous = Object.entries(state.plays)
     .sort(([a], [b]) => b.localeCompare(a))
-    .find(([date]) => date >= today)?.[1];
+    .find(([,receipt]) => receipt.date > today || (status.remaining===0&&receipt.date===today))?.[1];
   if (duplicate || previous)
     return {
       entries: [] as StorageEntry[],
@@ -303,11 +315,12 @@ export function prepareBowlingPlay(
     earned: result.earned,
     ...(acceptedInput.rulesVersion?{missionComplete:result.missionComplete}:{}),
   };
+  const key = Array.from({length:BOWLING_DAILY_LIMIT},(_,i)=>i===0?today:`${today}#${i+1}`).find(key=>!state.plays[key])!;
   const next = {
     plays: Object.fromEntries(
-      [...Object.entries(state.plays), [today, receipt]]
+      [...Object.entries(state.plays), [key, receipt]]
         .sort(([a], [b]) => String(a).localeCompare(String(b)))
-        .slice(-32),
+        .slice(-160),
     ),
   };
   const nextFeed = { ...feed, points: feed.points + result.earned };

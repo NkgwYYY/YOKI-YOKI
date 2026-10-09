@@ -4,7 +4,7 @@ import {BowlingLane} from './BowlingLane';
 import Animated,{cancelAnimation,Easing,runOnJS,useAnimatedReaction,useAnimatedStyle,useSharedValue,withRepeat,withTiming} from 'react-native-reanimated';
 import {useApp} from '@/contexts/AppContext';
 import {getTodayDate} from '@/utils/dateUtils';
-import {BOWLING_MISSIONS,dailyBowlingMission,lanePinPositions,projectLane,simulateBowling,type BowlingFrame,type BowlingInput} from '@/utils/bowling';
+import {BOWLING_MISSIONS,BOWLING_DAILY_LIMIT,bowlingDayStatus,dailyBowlingMission,lanePinPositions,projectLane,simulateBowling,type BowlingFrame,type BowlingInput} from '@/utils/bowling';
 import {WorldBowlingPins} from './WorldBowling';
 import {StaticMascot} from '@/components/Mascot';
 import {VolumeResident,hasResidentVolume} from './VolumeResident';
@@ -23,8 +23,8 @@ export function BowlingGame(p:Props){
 export function BowlingGameView(p:Props&Pick<ReturnType<typeof useApp>,'bowlingState'|'playBowling'>){
  const {bowlingState,playBowling}=p;
  const [today,setToday]=useState(getTodayDate);
- const receipt=Object.values(bowlingState.plays).find(r=>r.date>=today);
- const mission=receipt?.mission??dailyBowlingMission(today),info=BOWLING_MISSIONS[mission];
+ const status=bowlingDayStatus(bowlingState,today),receipt=status.latest,exhausted=status.remaining===0;
+ const mission=dailyBowlingMission(today),info=BOWLING_MISSIONS[mission];
  const [aim,setAim]=useState(0),[curve,setCurve]=useState(0),[phase,setPhase]=useState<'aim'|'charge'|'saving'|'rolling'|'result'>('aim');
  const [message,setMessage]=useState(''),[resultCount,setResultCount]=useState<number|null>(null),[lastPower,setLastPower]=useState<number|null>(null);
  const [bounds,setBounds]=useState({width:0,height:0}),[trackWidth,setTrackWidth]=useState(1);
@@ -39,7 +39,7 @@ export function BowlingGameView(p:Props&Pick<ReturnType<typeof useApp>,'bowlingS
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;running.value=false;cancelAnimation(power);};},[]);
  useEffect(()=>{if(!p.active||busy)return;setToday(getTodayDate());const t=setInterval(()=>setToday(getTodayDate()),15000);return()=>clearInterval(t);},[p.active,busy]);
  useEffect(()=>{if(!p.active&&phase==='charge'){cancelAnimation(power);setPhase('aim');}},[p.active,phase,power]);
- const reset=()=>{const saved=receipt?.rulesVersion===4?simulateBowling(receipt).frames.at(-1):undefined;frames.value=[saved??{x:0,y:0,pins:lanePinPositions(mission)}];index.value=0;age.value=0;rx.value=0;rz.value=0;setPhase('aim');setMessage('');setResultCount(null);pendingShot.current=null;locked.current=false;};
+ const reset=()=>{cancelAnimation(power);running.value=false;const saved=exhausted&&receipt?.rulesVersion===4?simulateBowling(receipt).frames.at(-1):undefined;frames.value=[saved??{x:0,y:0,pins:lanePinPositions(mission)}];index.value=0;age.value=0;rx.value=0;rz.value=0;setPhase('aim');setMessage('');setResultCount(null);pendingShot.current=null;locked.current=false;};
  useEffect(()=>{reset();},[today]);
  useEffect(()=>{
   if(phase!=='rolling'||!p.active){cancelAnimation(age);return;}
@@ -60,14 +60,14 @@ export function BowlingGameView(p:Props&Pick<ReturnType<typeof useApp>,'bowlingS
  });
  const fill=useAnimatedStyle(()=>({width:`${power.value*100}%`}));
  const throwShot=async()=>{
-  if(locked.current||!p.active||(receipt&&receipt.id!==pendingShot.current?.id))return;
+  if(locked.current||!p.active||(exhausted&&!pendingShot.current))return;
   cancelAnimation(power);locked.current=true;setPhase('saving');setMessage('');
   const input:BowlingInput={aim,power:p.reduceMotion?manualPower:clamp(power.value,.15,1),curve,rulesVersion:4,mission};
   if(!pendingShot.current)pendingShot.current={id:`lane-${Date.now()}-${Math.random().toString(36).slice(2,9)}`,input};
   const shot=pendingShot.current;setLastPower(shot.input.power);
   try{
    let actual=shot.input,earned=0;
-   const saved=await playBowling(shot.id,shot.input);if(!mounted.current)return;if(!saved.accepted){locked.current=false;setPhase('result');setMessage('今日の挑戦はおしまい。また明日、受付で待っているね。');return;}actual=saved.receipt;earned=saved.receipt.earned;
+   const saved=await playBowling(shot.id,shot.input);if(!mounted.current)return;if(!saved.accepted){pendingShot.current=null;locked.current=false;setPhase('result');setMessage('今日は5回遊んだね。また明日、受付で待っているよ。');return;}actual=saved.receipt;earned=saved.receipt.earned;
    if(!mounted.current)return;
    const result=simulateBowling(actual);setResultCount(result.pins);
    const praise=result.pins===10?'STRIKE！':result.missionComplete?'CLEAR！':result.pins===0?'ガター / 届かず':`${result.pins}本ヒット！`;
@@ -75,16 +75,16 @@ export function BowlingGameView(p:Props&Pick<ReturnType<typeof useApp>,'bowlingS
    frames.value=result.frames;index.value=0;age.value=0;running.value=true;setPhase('rolling');pendingShot.current=null;
   }catch{if(mounted.current){locked.current=false;setPhase('aim');setMessage('保存できませんでした。「もう一度保存」で同じ投球を再試行できます。');}}
  };
- const startCharge=()=>{if(!p.active||busy||receipt)return;if(p.reduceMotion){power.value=manualPower;void throwShot();return;}if(pendingShot.current){void throwShot();return;}setPhase('charge');power.value=.15;if(!p.reduceMotion)power.value=withRepeat(withTiming(1,{duration:850,easing:Easing.linear}),-1,true);};
- const controlsDisabled=!p.active||busy||!!receipt||phase==='charge'||!!pendingShot.current;
+ const startCharge=()=>{if(!p.active||busy||(exhausted&&!pendingShot.current))return;if(phase==='result'){reset();return;}if(p.reduceMotion){power.value=manualPower;void throwShot();return;}if(pendingShot.current){void throwShot();return;}setPhase('charge');power.value=.15;if(!p.reduceMotion)power.value=withRepeat(withTiming(1,{duration:850,easing:Easing.linear}),-1,true);};
+ const controlsDisabled=!p.active||busy||exhausted||phase==='charge'||phase==='result'||!!pendingShot.current;
  const steer=(value:number)=>{if(!controlsDisabled)setAim(Math.round(clamp(value)*100)/100);};
  return <View testID="bowling-game" style={s.root}>
   <View style={s.heading}>
-   <View style={{flex:1}}><Text style={s.kicker}>YOKI BOWL · {busy?'ただいま投球中':receipt?'今日は挑戦済み':'本番・1日1投'}</Text><Text style={s.title}>{info.name} {phase==='result'&&resultCount!==null?`${resultCount} / ${info.pins}`:''}</Text></View>
+   <View style={{flex:1}}><Text style={s.kicker}>YOKI BOWL · {busy?'ただいま投球中':`本番・1日${BOWLING_DAILY_LIMIT}回まで`} · あと{status.remaining}回</Text><Text style={s.title}>{info.name} {phase==='result'&&resultCount!==null?`${resultCount} / ${info.pins}`:''}</Text></View>
    <Pressable testID="bowling-close" accessibilityRole="button" accessibilityLabel="受付へ戻る" disabled={busy} onPress={p.onClose} style={[s.chip,busy&&{opacity:.4}]}><Text style={s.copy}>‹ 受付へ戻る</Text></Pressable>
   </View>
   <View testID="bowling-lane" style={s.lane} onLayout={e=>setBounds(e.nativeEvent.layout)}>
-   <BowlingLane aim={aim} curve={curve} guide={!receipt&&(phase==='aim'||phase==='charge')}/>
+   <BowlingLane aim={aim} curve={curve} guide={!exhausted&&(phase==='aim'||phase==='charge')}/>
    {bounds.width>0&&<><WorldBowlingPins motion={{frames,index,running}} width={bounds.width} height={bounds.height}/>
     <Animated.View testID="bowling-player" accessibilityLabel={`${p.mascotName}がボウリングに挑戦`} pointerEvents="none" style={[{position:'absolute',width:avatarSize,height:avatarSize,transformOrigin:'50% 85%'},avatar]}>
      <View style={{position:'absolute',bottom:0,left:avatarSize*.18,width:avatarSize*.64,height:avatarSize*.1,borderRadius:99,backgroundColor:'#27312755'}}/>
@@ -112,9 +112,9 @@ export function BowlingGameView(p:Props&Pick<ReturnType<typeof useApp>,'bowlingS
    <View style={s.row}>
     <View style={{flex:1,gap:5}}><View style={s.power}><View style={s.powerZone}/><Animated.View style={[s.powerFill,fill]}/></View><Text style={s.small}>{phase==='charge'?'好きな強さで止めて投球':lastPower!==null?`前のパワー ${Math.round(lastPower*100)}%`:'方向 → カーブ → パワー'}</Text></View>
     {p.reduceMotion&&<><Pressable accessibilityRole="button" accessibilityLabel="パワーを下げる" onPress={()=>{const n=clamp(manualPower-.1,.15,1);setManualPower(n);power.value=n;}} disabled={controlsDisabled} style={s.curve}><Text style={s.copy}>−</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="パワーを上げる" onPress={()=>{const n=clamp(manualPower+.1,.15,1);setManualPower(n);power.value=n;}} disabled={controlsDisabled} style={s.curve}><Text style={s.copy}>＋</Text></Pressable></>}
-    <Pressable testID="bowling-throw" accessibilityRole="button" disabled={!p.active||busy||!!receipt} onPress={()=>{if(phase==='charge'){void throwShot();}else startCharge();}} style={[s.throw,(!p.active||busy||!!receipt)&&{opacity:.5}]}><Text style={s.throwText}>{phase==='saving'?'保存中…':phase==='rolling'?'ころころ…':receipt?'本日は終了':pendingShot.current?'もう一度保存':phase==='charge'?'ここで投げる！':p.reduceMotion?'この強さで投げる':'パワーを決める'}</Text></Pressable>
+    <Pressable testID="bowling-throw" accessibilityRole="button" disabled={!p.active||busy||(exhausted&&!pendingShot.current)} onPress={()=>{if(phase==='charge'){void throwShot();}else startCharge();}} style={[s.throw,(!p.active||busy||(exhausted&&!pendingShot.current))&&{opacity:.5}]}><Text style={s.throwText}>{phase==='saving'?'保存中…':phase==='rolling'?'ころころ…':pendingShot.current?'もう一度保存':exhausted?'今日は5回終了':phase==='result'?'もう1回遊ぶ':phase==='charge'?'ここで投げる！':p.reduceMotion?'この強さで投げる':'パワーを決める'}</Text></Pressable>
    </View>
-   <Text testID="bowling-feedback" accessibilityLiveRegion="polite" numberOfLines={2} style={s.feedback}> {message||(phase==='rolling'?'ピンの行方を見守ろう…':receipt?`今日の結果 ${receipt.pins}本・＋${receipt.earned} pt。また明日！`:'いらっしゃい！ 狙いと強さを決めて一投勝負。1本5 pt。')}</Text>
+   <Text testID="bowling-feedback" accessibilityLiveRegion="polite" numberOfLines={2} style={s.feedback}> {message||(phase==='rolling'?'ピンの行方を見守ろう…':exhausted?'今日の5回はおしまい。また明日！':receipt?`前の結果 ${receipt.pins}本・＋${receipt.earned} pt。あと${status.remaining}回遊べるよ。`:'いらっしゃい！ 1日5回まで。狙いと強さを決めよう。1本5 pt。')}</Text>
   </View>
  </View>;
 }

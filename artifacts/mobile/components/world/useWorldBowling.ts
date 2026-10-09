@@ -7,7 +7,7 @@ import type {WorldMapId} from '@/utils/worldMaps';
 
 export type WorldBowlingMotion={frames:SharedValue<BowlingFrame[]>;index:SharedValue<number>;running:SharedValue<boolean>};
 const readyFrame=(date=getTodayDate()):BowlingFrame=>({x:.455,y:.715,pins:missionPinPositions(dailyBowlingMission(date),true)});
-const resultLabel=(receipt:BowlingReceipt)=>`${receipt.missionComplete?'ミッション達成！':receipt.pins===10?'ストライク！':`${receipt.pins}本たおれた！`} ＋${receipt.earned} pt${receipt.missionComplete?`（達成ボーナス${BOWLING_MISSIONS[receipt.mission!].bonus} pt込み）`:''}。また明日！`;
+const resultLabel=(receipt:BowlingReceipt)=>`${receipt.missionComplete?'ミッション達成！':receipt.pins===10?'ストライク！':`${receipt.pins}本たおれた！`} ＋${receipt.earned} pt${receipt.missionComplete?`（達成ボーナス${BOWLING_MISSIONS[receipt.mission!].bonus} pt込み）`:''}。`;
 export function useWorldBowling(map:WorldMapId,active:boolean){
   const {bowlingState,playBowling}=useApp();
   const frames=useSharedValue<BowlingFrame[]>([readyFrame()]);
@@ -29,7 +29,7 @@ export function useWorldBowling(map:WorldMapId,active:boolean){
   const roll=useCallback(async(world:WorldBowlingInput)=>{
     if(latest.current.map!=='bowling'||lock.current)return;
     const date=getTodayDate();
-    if(bowlingPlayedToday(latest.current.bowlingState,date)){setMessage('今日の一投はおしまい。また明日、ころころしよう。');return;}
+    if(bowlingPlayedToday(latest.current.bowlingState,date)){setMessage('今日の5回はおしまい。また明日、ころころしよう。');return;}
     if(!canStartWorldBowling(world)){setMessage('手前のスタートラインの後ろから、ピンに向かって投げてね。');return;}
     lock.current=true;setBusy(true);setMessage('');
     const current=generation.current;
@@ -37,7 +37,7 @@ export function useWorldBowling(map:WorldMapId,active:boolean){
       const input={aim:0,power:.8,world,rulesVersion:3 as const,mission:dailyBowlingMission(date)};
       const result=await latest.current.playBowling(`world-${Date.now()}-${Math.random().toString(36).slice(2,10)}`,input);
       if(current!==generation.current)return;
-      if(!result.accepted){setMessage('今日の一投はおしまい。また明日、遊ぼう。');lock.current=false;setBusy(false);return;}
+      if(!result.accepted){setMessage('今日の5回はおしまい。また明日、遊ぼう。');lock.current=false;setBusy(false);return;}
       const simulation=simulateBowling(result.receipt);
       resultText.current=resultLabel(result.receipt);
       frames.value=simulation.frames;index.value=0;running.value=true;
@@ -46,5 +46,5 @@ export function useWorldBowling(map:WorldMapId,active:boolean){
   const finish=useCallback(()=>{lock.current=false;setBusy(false);setMessage(resultText.current);},[]);
   const receipt=Object.values(bowlingState.plays).find(p=>p.date>=today);
   const mission=BOWLING_MISSIONS[receipt?.mission??dailyBowlingMission(today)];
-  return {motion:{frames,index,running},roll,finish,busy,played:!!receipt,mission,message:message||(busy?'いくよ、体当たり！':receipt?resultLabel(receipt):'自分を奥へスワイプして巨大ピンに体当たり！ 1日1投・1本5 pt')};
+  return {motion:{frames,index,running},roll,finish,busy,played:bowlingPlayedToday(bowlingState,today),mission,message:message||(busy?'いくよ、体当たり！':receipt?resultLabel(receipt):'自分を奥へスワイプして巨大ピンに体当たり！ 1日5回・1本5 pt')};
 }

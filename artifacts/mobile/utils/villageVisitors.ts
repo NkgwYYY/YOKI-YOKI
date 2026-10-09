@@ -2,15 +2,15 @@ import type {MascotStage} from './mascotUtils';
 import type {WorldMapId} from './worldMaps';
 
 // These villagers live elsewhere; the four neighbours in the village stay at home.
-export const VISITORS: ReadonlyArray<{id: string; name: string; stage: MascotStage; color: string}> = [
-  {id: 'maru', name: 'まる', stage: 'egg', color: '#C18F6B'},
-  {id: 'komugi', name: 'こむぎ', stage: 'odango', color: '#DEB75F'},
-  {id: 'nico', name: 'にこ', stage: 'egg', color: '#D99AB1'},
-  {id: 'moka', name: 'モカ', stage: 'odango', color: '#7AB7B2'},
-  {id: 'futaba', name: 'ふたば', stage: 'stage3', color: '#D6AF6D'},
-  {id: 'koharu', name: 'こはる', stage: 'stage4', color: '#B4A0D3'},
-  {id: 'tamaki', name: 'たまき', stage: 'egg', color: '#98AECF'},
-  {id: 'fuwa', name: 'ふわ', stage: 'odango', color: '#AFC7A2'},
+export const VISITORS: ReadonlyArray<{id: string; stage: MascotStage; color: string}> = [
+  {id: 'maru', stage: 'egg', color: '#C18F6B'},
+  {id: 'komugi', stage: 'odango', color: '#DEB75F'},
+  {id: 'nico', stage: 'egg', color: '#D99AB1'},
+  {id: 'moka', stage: 'odango', color: '#7AB7B2'},
+  {id: 'futaba', stage: 'stage3', color: '#D6AF6D'},
+  {id: 'koharu', stage: 'stage4', color: '#B4A0D3'},
+  {id: 'tamaki', stage: 'egg', color: '#98AECF'},
+  {id: 'fuwa', stage: 'odango', color: '#AFC7A2'},
 ];
 export const VISITOR_SPOTS = {
   ramen: [{x: .64, y: .52}, {x: .36, y: .645}],

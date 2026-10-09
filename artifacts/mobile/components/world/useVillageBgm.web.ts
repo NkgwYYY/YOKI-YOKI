@@ -25,7 +25,7 @@ export function useVillageBgm(active:boolean) {
     alive.current=true;touched.current=false;let current=true;
     void AsyncStorage.getItem(KEY).then(value=>{if(current&&alive.current){if(!touched.current)setEnabled(value==='on');setReady(true);}},()=>{if(alive.current)setReady(true);});
     return()=>{current=false;alive.current=false;generation.current++;player.current?.pause();player.current?.remove();player.current=null;};
-  },[active]);
+  },[]);
   useEffect(()=>{
     if(ready&&enabled&&active)play();
     else {generation.current++;player.current?.pause();}
