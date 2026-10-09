@@ -8,6 +8,9 @@ import {
   BOWLING_KEY,
   groundRollStep,
   canStartWorldBowling,
+  dailyBowlingMission,
+  missionPinPositions,
+  BOWLING_MISSIONS,
 } from "../utils/bowling.ts";
 import { createRecoverableStorage } from "../utils/recoverableStorage.ts";
 import fs from "node:fs";
@@ -33,6 +36,65 @@ const today = "2026-10-08",
   input = { aim: 0, power: 0.8 };
 const worldShot=(vx=0,vy=-.9)=>({...input,world:{x:.505,y:.49,vx,vy,aspect:1.5,radius:.045,layout:'garden'}});
 const longShot=(vx=.2,vy=-1.1)=>({...input,world:{x:.455,y:.715,vx,vy,aspect:1.5,radius:.045,layout:'garden-long'}});
+const missionShot=(mission,vx=0,vy=-.55)=>({...longShot(vx,vy),rulesVersion:2,mission});
+test('missions change each calendar day, stay stable on reload, and use distinct target racks',()=>{
+  const dates=['2026-10-09','2026-10-10','2026-10-11'];
+  assert.equal(new Set(dates.map(dailyBowlingMission)).size,3);
+  for(const date of dates){
+    const id=dailyBowlingMission(date),pins=missionPinPositions(id).filter(p=>!p.hidden);
+    assert.equal(dailyBowlingMission(date),id);
+    assert.equal(pins.length,BOWLING_MISSIONS[id].pins);
+    if(id==='split')assert.ok(Math.abs(pins[0].x-pins[1].x)>.06);
+  }
+  assert.notEqual(dailyBowlingMission('2026-12-31'),dailyBowlingMission('2027-01-01'));
+});
+test('larger mission pins and assistance make a modest forward swipe reachable, without rescuing every direction',()=>{
+  assert.equal(simulateBowling(longShot(0,-.55)).pins,0);
+  for(const mission of ['strike','split','spare']){
+    const result=simulateBowling(missionShot(mission));
+    assert.equal(result.pins,BOWLING_MISSIONS[mission].pins);
+    assert.equal(result.missionComplete,true);
+    assert.equal(result.earned,result.pins*5+BOWLING_MISSIONS[mission].bonus);
+    assert.equal(result.pins,result.frames.at(-1).pins.filter(p=>!p.hidden&&p.down).length);
+    assert.equal(simulateBowling(missionShot(mission,-.6,-.55)).pins,0);
+    assert.equal(simulateBowling(missionShot(mission,0,.55)).pins,0);
+  }
+  const partial=simulateBowling(missionShot('split',.3,-.8));
+  assert.equal(partial.pins,1);assert.equal(partial.earned,5);assert.equal(partial.missionComplete,false);
+});
+test('the stored date chooses the mission and reload replays exactly the paid result',()=>{
+  for(const date of ['2026-10-09','2026-10-10','2026-10-11']){
+    const first=prepareBowlingPlay({[feedKey]:JSON.stringify(feed)},'daily-'+date,missionShot('strike'),date,feed);
+    const values=Object.fromEntries(first.entries),receipt=readBowlingState(JSON.parse(values[BOWLING_KEY])).plays[date];
+    assert.equal(receipt.mission,dailyBowlingMission(date));
+    assert.equal(receipt.rulesVersion,2);assert.equal(receipt.missionComplete,true);
+    assert.equal(receipt.earned,simulateBowling(receipt).earned);
+    assert.equal(JSON.parse(values[feedKey]).points,feed.points+receipt.earned);
+    assert.deepEqual(prepareBowlingPlay(values,receipt.id,missionShot('spare'),date,feed).entries,[]);
+    assert.equal(prepareBowlingPlay(values,'second',missionShot('spare'),date,feed).result.accepted,false);
+  }
+});
+test('old long-lane receipts keep their original rules, result, wallet and used day',()=>{
+  const shot=longShot(),result=simulateBowling(shot);
+  const legacy={...shot,id:'legacy',date:today,pins:result.pins,earned:result.earned};
+  const values={[BOWLING_KEY]:JSON.stringify({plays:{[today]:legacy}}),[feedKey]:JSON.stringify({...feed,points:73})};
+  assert.deepEqual(readBowlingState(JSON.parse(values[BOWLING_KEY])).plays[today],legacy);
+  assert.equal(simulateBowling(legacy).earned,50);
+  assert.deepEqual(prepareBowlingPlay(values,'again',missionShot('split'),today,feed).entries,[]);
+  const invalid={...legacy,rulesVersion:2,mission:dailyBowlingMission(today),missionComplete:true,earned:999};
+  assert.throws(()=>readBowlingState({plays:{[today]:invalid}}));
+});
+test('mission bonus is credited once across interrupted writes, retries and simultaneous calls',async()=>{
+  for(const failAt of [1,2,3,4]){
+    const f=fixture(failAt),shot=missionShot('strike');
+    await assert.rejects(play(f.open(),'mission',today,shot));
+    const reloaded=f.open();await reloaded.recover();
+    const [retry,other]=await Promise.all([play(reloaded,'mission',today,shot),play(reloaded,'new-id',today,shot)]);
+    assert.equal(retry.receipt.missionComplete,true);assert.equal(other.accepted,false);
+    assert.equal(JSON.parse(f.data.get(feedKey)).points,feed.points+retry.receipt.earned);
+    assert.equal(Object.keys(JSON.parse(f.data.get(BOWLING_KEY)).plays).length,1);
+  }
+});
 test('long lane needs both aim and speed; a weak throw stops short and an off-angle throw gutters',()=>{
   const old=simulateBowling(worldShot()),long=simulateBowling(longShot());
   const distance=frame=>Math.hypot(frame.x-frame.pins[0].x,(frame.y-frame.pins[0].y)*1.5);

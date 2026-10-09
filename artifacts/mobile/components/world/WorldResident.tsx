@@ -164,7 +164,8 @@ export function WorldResident(p: Props) {
     const dt=Math.min(1/30,(frame.timeSincePreviousFrame??16.67)/1000);
     if(map==='bowling'&&p.bowling.running.value){
       const frames=p.bowling.frames.value;
-      rollAge.value+=dt;
+      // Replay precomputed frames by elapsed time, even on a slow device.
+      rollAge.value+=Math.max(0,(frame.timeSincePreviousFrame??16.67)/1000);
       const index=reduceMotion?frames.length-1:Math.min(frames.length-1,Math.floor(rollAge.value*60));
       const next=frames[index],radius=size*(stage==='odango'?.45:.33)/width;
       if(!reduceMotion){if(stage==='odango')ry.value+=(next.x-x.value)/radius;else rz.value+=(next.x-x.value)/radius;rx.value-=(next.y-y.value)*(height/width)/radius;}

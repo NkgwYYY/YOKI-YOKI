@@ -272,7 +272,12 @@ export function WorldHome(props: Props) {
     {map!=='home'&&map!=='bowling'&&<View pointerEvents="none" style={[s.sceneTitle,{top:insets.top+171}]}><Text style={s.sceneKicker}>{map==='market'?'VILLAGE SQUARE':map==='workshop'?'EGG ATELIER':'YOKI YOKI / TOWN'}</Text><Text style={s.sceneName}>{WORLD_MAPS.find(p=>p.id===map)?.name}</Text></View>}
     {!experience&&(map==='home'||map==='market'||map==='workshop')&&<View style={{position:'absolute',right:20,bottom:bounds.height<600?177:244}}><WorldPill testID="world-go-work" label={map==='workshop'?'仕事を始める':'バイトする'} icon="briefcase" onPress={()=>map==='workshop'?openMerchant('job',{x:.5,y:.48}):enterMap('workshop')} disabled={!active||!!props.food||riding||!!cleanTool}/></View>}
     {!!props.music.error&&<Text style={[s.musicNotice,{top:insets.top+162}]}>{props.music.error}</Text>}
-    {map==='bowling'&&<View pointerEvents="none" testID="world-bowling-status" style={[s.bowlingStatus,{top:insets.top+166,maxWidth:Math.min(240,Math.max(132,bounds.width*.35))}]}><Text accessibilityLiveRegion="polite" style={s.mapCopy}>{bowling.message}</Text></View>}
+    {map==='bowling'&&<View pointerEvents="none" testID="world-bowling-status" style={[s.bowlingStatus,{top:insets.top+166,maxWidth:Math.min(240,Math.max(156,bounds.width*.4))}]}>
+      <Text style={{fontSize:10,color:'#DEC995',letterSpacing:1.2}}>TODAY'S MISSION</Text>
+      <Text style={{fontSize:16,color:'#FFF1D9',fontFamily:'NotoSansJP_700Bold',marginTop:4}}>{bowling.mission.name}</Text>
+      <Text style={{fontSize:11,lineHeight:18,color:'#E6DCD0',marginVertical:5}}>{bowling.mission.goal} · 達成＋{bowling.mission.bonus} pt</Text>
+      <Text accessibilityLiveRegion="polite" style={{fontSize:11,lineHeight:18,color:'#C4B8CC'}}>{bowling.message}</Text>
+    </View>}
     {!experience&&['onsen','lake'].includes(map)&&<View style={[s.placeAction,{bottom:bounds.height<600?172:236}]}>
       <WorldPill testID={map==='onsen'?'village-bath':'village-ride'} primary label={map==='onsen'?'温泉に入る':'観覧車に乗る'} icon={map==='onsen'?'sun':'disc'} disabled={!active||!!props.food}
         onPress={()=>request({x:map==='lake'?.61:.51,y:.5},{kind:map==='onsen'?'bath':'wheel'})}/>
