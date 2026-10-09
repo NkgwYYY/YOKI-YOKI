@@ -1,3 +1,4 @@
+import {preparePlazaEvent,type PlazaState,type PlazaOperation,type PlazaResult} from '@/utils/plazaEvents';
 import {prepareFortune,type FortuneInput,type FortuneState,type FortuneResult} from '@/utils/dailyFortune';
 import {prepareEggJob,type EggJobState,type EggJobOperation,type EggJobResult} from '@/utils/eggJob';
 import type {HygieneState} from '@/utils/hygiene';
@@ -147,6 +148,7 @@ export interface UnlockedBadge {
 }
 
 export interface FeedState {
+  plazaEvents?: PlazaState;
   fortune?: FortuneState;
   happiness?: HappinessState;
   housekeeping?: HousekeepingState;
@@ -220,6 +222,7 @@ interface AppContextType {
   newlyUnlockedBadge: string | null;
   mascotName: string;
   feedState: FeedState;
+  runPlazaEvent: (operation: PlazaOperation) => Promise<PlazaResult>;
   runEggJob: (operation: EggJobOperation) => Promise<EggJobResult>;
   drawFortune: (input: FortuneInput) => Promise<FortuneResult>;
   runSmoking: (operation: SmokingOperation) => Promise<SmokingResult>;
@@ -1132,6 +1135,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return {state:saved.state,receipt:saved.receipt,newlyGranted:saved.newlyGranted};
   }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
 
+  const runPlazaEvent = useCallback(async (operation: PlazaOperation) => {
+    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      return preparePlazaEvent(values, operation, getTodayDate(), Date.now(), defaultFeedState);
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (saved.changed) void pushDataToCloud().catch(() => {});
+    return {state:saved.state,changed:saved.changed};
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
+
   const drawFortune = useCallback(async (input: FortuneInput) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
@@ -1234,6 +1250,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         awardHappiness,
         cleanRoom,
         runEggJob,
+        runPlazaEvent,
         runSmoking,
         drawFortune,
         syncFeedPoints,

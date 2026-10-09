@@ -1,7 +1,7 @@
 export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'diner' | 'workshop' | 'fortune';
 export const WORLD_MAPS = [
   {id:'home',name:'おうち',level:1,description:'いつでも帰れる、小さなおうち。'},
-  {id:'market',name:'こもれび広場',level:1,description:'噴水のそばから、お店や路地へ。'},
+  {id:'market',name:'こもれび広場',level:1,description:'風船の子ども、旅人、あやしい儲け話。ときどき出会いが待っている。'},
   {id:'ramen',name:'もふもふラーメン',level:1,description:'赤い提灯が灯る町中華。もふもふ店長がお出迎え。'},
   {id:'bowling',name:'ころころボウリング',level:1,description:'受付の店員に話しかけて、1日1投のボウリング。'},
   {id:'tobacco',name:'こかげのタバコ屋',level:1,description:'お店のとなりに、小さな屋外喫煙所。'},
