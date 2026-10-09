@@ -2,6 +2,7 @@ import {usePlazaEvents} from './usePlazaEvents';
 import {PlazaActors,PlazaDialogue} from './PlazaEncounter';
 import {FortuneCat,FortuneHall} from './FortuneHall';
 import {MerchantResident} from '@/components/village/MerchantResident';
+import {VillageVisitors} from '@/components/village/VillageVisitors';
 import {WorldGate} from './WorldGate';
 import {useHousekeeping} from './useHousekeeping';
 import {HouseDust} from './HouseDust';
@@ -66,6 +67,7 @@ export function WorldHome(props: Props) {
   const {reduceMotion} = props;
   const {awardHappiness,feedState}=useApp();
   const [zooming,setZooming]=useState(false);
+  const [merchantGreeting,setMerchantGreeting]=useState({kind:'',count:0});
   const [cleanOpen,setCleanOpen]=useState(false),[cleanTool,setCleanTool]=useState<CleaningTool|null>(null),[riding,setRiding]=useState(false);
   const [experienceMessage,setExperienceMessage]=useState('');
   const shopTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
@@ -129,6 +131,7 @@ export function WorldHome(props: Props) {
   },[experience,active,awardHappiness]);
   const openMerchant=(kind:'shop'|'food'|'ramen'|'tobacco'|'job'|'bowling'|'fortune'|'bowling',point:{x:number;y:number})=>{
     if(!active||props.food||experience||bowlingBusy)return;
+    setMerchantGreeting(current=>({kind,count:current.count+1}));
     portalTravel.value=false;steering.value={x:0,y:0};pending.current=null;setDestination(null);
     setZooming(true);view.focusAt(point,{width:bounds.width,height:sceneHeight});
     clearTimeout(shopTimer.current);
@@ -229,7 +232,7 @@ export function WorldHome(props: Props) {
   const merchant=(id:string,label:string,point:{x:number;y:number},stage:MascotStage,kind:'shop'|'food'|'ramen'|'tobacco'|'job'|'bowling')=><Pressable
     key={id} testID={`merchant-${id}`} accessibilityRole="button" accessibilityLabel={`${kind==='job'||kind==='bowling'?label:label+'の店員'}。タップして話しかける`} disabled={!active||!!props.food||!!experience}
     onPress={()=>openMerchant(kind,point)} style={{position:'absolute',left:width*point.x-width*.12,top:height*point.y-width*.23,width:width*.24,minWidth:44,minHeight:44,alignItems:'center',zIndex:850}}>
-    <MerchantResident kind={kind} size={width*.24} active={active} reduceMotion={reduceMotion}/>
+    <MerchantResident kind={kind} size={width*.24} active={props.active&&(active||zooming)} reduceMotion={reduceMotion} greeting={merchantGreeting.kind===kind?merchantGreeting.count:0}/>
     <Text style={s.merchantLabel}>{label}</Text>
   </Pressable>;
   const speaker=VILLAGERS.find(n=>n.id===neighbor);
@@ -262,7 +265,7 @@ export function WorldHome(props: Props) {
       {map==='market'&&plaza.current&&<PlazaActors encounter={plaza.current} width={width} height={height} active={active} reduceMotion={reduceMotion} animating={plaza.animating} onTalk={()=>request({x:.48,y:.56},{kind:'plaza'})}/>}
       {map==='lake'&&<VillageWheel width={width} height={height} active={active} reduceMotion={reduceMotion} riding={experience==='wheel'} onFinish={finishExperience}/>}
       {map==='village'&&<VillageNeighbors width={width} height={height} active={active&&!experience} reduceMotion={reduceMotion} onTalk={id=>{const n=VILLAGERS.find(p=>p.id===id)!;request({x:n.x+.06,y:n.y+.035},{kind:'neighbor',id});}}/>}
-      {map==='fortune'&&<FortuneCat width={width} height={height} clearTop={stageTop-frame.top} clearBottom={clearBottom-frame.top} disabled={!active||!!props.food} onPress={()=>openMerchant('fortune',{x:.4,y:.51})}/>}
+      {map==='fortune'&&<FortuneCat width={width} height={height} clearTop={stageTop-frame.top} clearBottom={clearBottom-frame.top} disabled={!active||!!props.food} active={props.active&&(active||zooming)} reduceMotion={reduceMotion} greeting={merchantGreeting.kind==='fortune'?merchantGreeting.count:0} onPress={()=>openMerchant('fortune',{x:.4,y:.51})}/>}
       {map==='homewares'&&merchant('shop','暮らしのお店',{x:.50,y:.49},'stage3','shop')}
       {map==='diner'&&merchant('food','ごはんのお店',{x:.52,y:.49},'egg','food')}
       {map==='workshop'&&merchant('egg-job','工房の店長',{x:.50,y:.48},'egg','job')}
@@ -270,6 +273,7 @@ export function WorldHome(props: Props) {
       {map==='bowling'&&merchant('bowling','受付スタッフ',{x:.72,y:.57},'egg','bowling')}
       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
+      <VillageVisitors map={map} daySeed={props.daySeed} width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food&&!experience&&!bowlingBusy} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>
       {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
       <WorldResident {...props} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}

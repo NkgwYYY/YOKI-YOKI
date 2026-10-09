@@ -8,13 +8,16 @@ import {FORTUNE_CAT_ART} from '@/utils/worldArt';
 import {latestFortune,normalizeFortuneInput} from '@/utils/dailyFortune';
 import {formatMbti} from '@/utils/mbti';
 import {getTodayDate} from '@/utils/dateUtils';
+import Animated from 'react-native-reanimated';
+import {useResidentIdle} from '@/components/village/useResidentIdle';
 
-export function FortuneCat({width,height,clearTop,clearBottom,disabled,onPress}:{width:number;height:number;clearTop:number;clearBottom:number;disabled:boolean;onPress:()=>void}){
+export function FortuneCat({width,height,clearTop,clearBottom,disabled,active,reduceMotion,greeting,onPress}:{width:number;height:number;clearTop:number;clearBottom:number;disabled:boolean;active:boolean;reduceMotion:boolean;greeting:number;onPress:()=>void}){
  const top=Math.max(height*.25,clearTop+8);
  const size=Math.min(width*.52,Math.max(110,clearBottom-top-30));
+ const motion=useResidentIdle({active,reduceMotion,size,tempo:3200,greeting,strength:.35});
  return <Pressable testID="merchant-fortune" accessibilityRole="button" accessibilityLabel="大きな猫の占い師。今日の運勢を占う" disabled={disabled} onPress={onPress}
   style={{position:'absolute',left:width*.17,top,width:size,height:size,zIndex:535}}>
-  <Image source={FORTUNE_CAT_ART} resizeMode="contain" style={{width:'100%',height:'100%'}}/>
+  <Animated.View testID="merchant-motion-fortune" pointerEvents="none" style={[{width:size,height:size},motion]}><Image source={FORTUNE_CAT_ART} resizeMode="contain" style={{width:'100%',height:'100%'}}/></Animated.View>
   <Text style={s.catLabel}>猫の占い師・ルナ</Text>
  </Pressable>;
 }

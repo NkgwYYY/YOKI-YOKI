@@ -40,7 +40,8 @@ test('image timeout releases the cache; a late decode cannot poison the retry', 
   let calls = 0;
   const f = fixture(() => ++calls === 1 ? new Promise(resolve => { complete = resolve; }) : Promise.resolve(true));
   const first = f.prepare('bowling');
-  await Promise.resolve();
+  // Let the successfully decoded attendant clear its own timeout first.
+  for(let i=0;i<12;i++)await Promise.resolve();
   const rejected = assert.rejects(first, /timed out/);
   for (const callback of [...f.timers]) callback();
   await rejected;
@@ -48,7 +49,7 @@ test('image timeout releases the cache; a late decode cannot poison the retry', 
   complete(true);
   await Promise.resolve();
   await f.prepare('bowling');
-  assert.equal(calls, 2);
+  assert.equal(calls, 3); // The independently decoded bowling attendant stays cached across retry.
   assert.equal(f.timers.size, 0);
 });
 

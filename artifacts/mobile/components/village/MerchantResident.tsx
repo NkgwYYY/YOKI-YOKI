@@ -1,12 +1,11 @@
-import React,{useEffect} from 'react';
+import React from 'react';
 import {Image,View} from 'react-native';
-import Animated,{cancelAnimation,useAnimatedStyle,useSharedValue,withRepeat,withSequence,withTiming} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import {MERCHANT_ART} from '@/utils/worldArt';
-export type MerchantKind='shop'|'food'|'ramen'|'tobacco'|'job'|'bowling';
-const PORTRAITS={...MERCHANT_ART,job:MERCHANT_ART.food,bowling:MERCHANT_ART.shop};
-export const MerchantResident=React.memo(function MerchantResident({kind,size,active,reduceMotion}:{kind:MerchantKind;size:number;active:boolean;reduceMotion:boolean}){
- const breath=useSharedValue(0);
- useEffect(()=>{if(active&&!reduceMotion)breath.value=withRepeat(withSequence(withTiming(1,{duration:2100}),withTiming(0,{duration:2600})),-1);return()=>cancelAnimation(breath);},[active,reduceMotion]);
- const style=useAnimatedStyle(()=>({transform:[{scaleX:1+breath.value*.008}]}));
- return <View pointerEvents="none" style={{width:size,height:size}}><View style={{position:'absolute',bottom:size*.02,left:size*.23,width:size*.55,height:size*.08,borderRadius:100,backgroundColor:'#140D1875'}}/><Animated.View style={[{width:size,height:size},style]}><Image source={PORTRAITS[kind]} resizeMode="contain" style={{width:'100%',height:'100%'}}/></Animated.View></View>;
+import {useResidentIdle} from './useResidentIdle';
+export type MerchantKind=keyof typeof MERCHANT_ART;
+const TEMPO:Record<MerchantKind,number>={shop:2700,food:2200,ramen:2400,tobacco:3100,job:1850,bowling:1600};
+export const MerchantResident=React.memo(function MerchantResident({kind,size,active,reduceMotion,greeting=0}:{kind:MerchantKind;size:number;active:boolean;reduceMotion:boolean;greeting?:number}){
+ const style=useResidentIdle({active,reduceMotion,size,tempo:TEMPO[kind],greeting});
+ return <View pointerEvents="none" style={{width:size,height:size}}><View style={{position:'absolute',bottom:size*.02,left:size*.23,width:size*.55,height:size*.08,borderRadius:100,backgroundColor:'#140D1875'}}/><Animated.View testID={`merchant-motion-${kind}`} style={[{width:size,height:size},style]}><Image source={MERCHANT_ART[kind]} resizeMode="contain" style={{width:'100%',height:'100%'}}/></Animated.View></View>;
 });

@@ -10,6 +10,8 @@ export const MERCHANT_ART = {
   food: webArt(require('@/assets/images/world/diner-chef.webp'), require('@/assets/images/world/diner-chef.png')),
   ramen: webArt(require('@/assets/images/world/ramen-master.webp'), require('@/assets/images/world/ramen-master.png')),
   tobacco: webArt(require('@/assets/images/world/tobacco-keeper.webp'), require('@/assets/images/world/tobacco-keeper.png')),
+  job: webArt(require('@/assets/images/world/egg-artisan.webp'), require('@/assets/images/world/egg-artisan.png')),
+  bowling: webArt(require('@/assets/images/world/bowling-attendant.webp'), require('@/assets/images/world/bowling-attendant.png')),
 };
 export const FORTUNE_CAT_ART = webArt(require('@/assets/images/world/fortune-cat.webp'), require('@/assets/images/world/fortune-cat.png'));
 export const HOME_ART = { day: webArt(require('@/assets/images/world/home-day.webp'), require('@/assets/images/world/home-day.jpg')), night: webArt(require('@/assets/images/world/home-night.webp'), require('@/assets/images/world/home-night.jpg')) };
@@ -49,7 +51,7 @@ export function prepareWorldArt(map: WorldMapId, night = false): Promise<void> {
   const key = `${map}:${map === 'home' && night}`;
   const existing = scenes.get(key);
   if (existing) return existing;
-  const portrait = map === 'fortune' ? FORTUNE_CAT_ART : map === 'homewares' ? MERCHANT_ART.shop : map === 'diner' || map === 'workshop' ? MERCHANT_ART.food : map === 'ramen' ? MERCHANT_ART.ramen : map === 'tobacco' ? MERCHANT_ART.tobacco : undefined;
+  const portrait = map === 'fortune' ? FORTUNE_CAT_ART : map === 'homewares' ? MERCHANT_ART.shop : map === 'diner' ? MERCHANT_ART.food : map === 'workshop' ? MERCHANT_ART.job : map === 'bowling' ? MERCHANT_ART.bowling : map === 'ramen' ? MERCHANT_ART.ramen : map === 'tobacco' ? MERCHANT_ART.tobacco : undefined;
   const sources = [worldArt(map, night), ...(portrait ? [portrait] : [])];
   const promise = Promise.all(sources.map(prepareImage)).then(() => {}).catch(error => { scenes.delete(key); throw error; });
   scenes.set(key, promise);

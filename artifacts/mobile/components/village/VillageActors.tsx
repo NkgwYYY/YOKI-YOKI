@@ -57,6 +57,8 @@ export function VillageResident({
     return () => {
       cancelAnimation(breath);
       cancelAnimation(blink);
+      breath.value = 0;
+      blink.value = 0;
     };
   }, [active, reduceMotion, breath, blink]);
   const style = useAnimatedStyle(() => ({
@@ -77,6 +79,8 @@ export function VillageResident({
         ry={zero}
         rz={zero}
         blink={blink}
+        active={active}
+        reduceMotion={reduceMotion}
         mood={asleep ? "sleepy" : "happy"}
       /> : <StaticMascot stage={stage} mood={asleep ? "sleepy" : "happy"} size={size} />}
       {scarf && (
