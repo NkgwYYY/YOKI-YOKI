@@ -1,0 +1,982 @@
+diff --git a/artifacts/mobile/app/(tabs)/index.tsx b/artifacts/mobile/app/(tabs)/index.tsx
+index 3ab1a29..7881de2 100644
+--- a/artifacts/mobile/app/(tabs)/index.tsx
++++ b/artifacts/mobile/app/(tabs)/index.tsx
+@@ -15,6 +15,7 @@ import {HappinessGauge} from '@/components/world/HappinessGauge';
+ import {useWorldHappiness} from '@/components/world/useWorldHappiness';
+ import {useVillageBgm} from '@/components/world/useVillageBgm';
+ import {HAPPY_REWARDS,type HappyAction} from '@/utils/happiness';
++import {SmokingCare} from '@/components/world/SmokingCare';
+ import { WorldPill } from '@/components/world/WorldPill';
+ import { WorldHome } from '@/components/world/WorldHome';
+ import { useWorldTime } from '@/components/world/useWorldTime';
+@@ -154,7 +155,7 @@ export default function HomeScreen() {
+     <View pointerEvents="box-none" style={[s.footer, {bottom: tabHeight + 12}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
+       {invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => setSheet('record')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
+         <Text style={s.residentName}>{mascotName || 'よっきー'}</Text>
+-        <Text testID="world-speech" style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{speech || (today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : time.moment)}</Text>
++        <Text testID="world-speech" style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{speech || (happiness.smoking.craving?'たばこ、ほしいな…。ほかの楽しみで気をまぎらわせよう。':today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : time.moment)}</Text>
+       </View>}
+       <View style={[s.quickActions, wide && {flexDirection: 'column', alignItems: 'center'}]}>
+         <Pressable testID="home-daily-record" accessibilityRole="button" accessibilityLabel="今日の記録を開く" onPress={() => setSheet('record')} style={({pressed}) => [s.noteButton, pressed && {opacity: 0.8}]}>
+@@ -170,8 +171,9 @@ export default function HomeScreen() {
+     </BottomSheet>}
+     {sheet === 'happiness' && <BottomSheet visible onClose={close} title="うれしい気持ち" subtitle="会いに来てくれることが、いちばんうれしい。">
+       <Text style={s.chatText}>幸福度 {happiness.value}%</Text>
+-      <Text style={{color:'#C1B2CA',fontSize:13,lineHeight:22}}>同じ楽しみの加点は、1日1回。毎日記録できなくても、自分のペースで会いに来てね。</Text>
+-      {(Object.entries({visit:'会いに来てくれた',record:'今日のことを教えてくれた',ramen:'ラーメンを食べた',bath:'温泉でひと休み',homeBath:'おうちのおふろ',meal:'一緒にごはん',smoke:'喫煙所で一服'}) as [HappyAction,string][]).map(([action,label])=><View key={action} style={s.menuRow}>
++      {(happiness.smoking.dependent||happiness.smoking.recovered)&&<><SmokingCare status={happiness.smoking}/>{happiness.smoking.dependent&&<View style={{gap:8}}><WorldPill label="ごはんで気分転換" icon="coffee" onPress={()=>setSheet('feed')}/><WorldPill label="今日のことを記録する" icon="edit-3" onPress={()=>setSheet('record')}/><WorldPill label="おふろでひと休み" icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/></View>}</>}
++      <Text style={{color:'#C1B2CA',fontSize:13,lineHeight:22}}>下の楽しみの加点は、1日1回。喫煙は吸っている時間に応じて変わるよ。</Text>
++      {(Object.entries({visit:'会いに来てくれた',record:'今日のことを教えてくれた',ramen:'ラーメンを食べた',bath:'温泉でひと休み',homeBath:'おうちのおふろ',meal:'一緒にごはん'}) as [HappyAction,string][]).map(([action,label])=><View key={action} style={s.menuRow}>
+         <Icon name={happiness.actions.includes(action)?'check-circle':'circle'} color="#A07DAA"/><Text style={s.menuText}>{label}</Text><Text style={{color:'#CDB68E'}}>＋{HAPPY_REWARDS[action]}</Text>
+       </View>)}
+       {!!happiness.error&&<><Text accessibilityRole="alert">{happiness.error}</Text><Button label="もう一度保存する" onPress={happiness.retry}/></>}
+diff --git a/artifacts/mobile/components/world/CigaretteFeatures.tsx b/artifacts/mobile/components/world/CigaretteFeatures.tsx
+new file mode 100644
+index 0000000..e68d178
+--- /dev/null
++++ b/artifacts/mobile/components/world/CigaretteFeatures.tsx
+@@ -0,0 +1,21 @@
++import React,{useEffect} from 'react';
++import {StyleSheet} from 'react-native';
++import Svg,{Path} from 'react-native-svg';
++import Animated,{cancelAnimation,useAnimatedProps,useDerivedValue,useSharedValue,withRepeat,withTiming} from 'react-native-reanimated';
++import {cigaretteProjection} from '@/utils/residentVolume';
++const APath=Animated.createAnimatedComponent(Path);
++type Projection=ReturnType<typeof cigaretteProjection>;
++function Part({projection,part,color,width}:{projection:{value:Projection};part:keyof Projection;color:string;width:number}){
++ const props=useAnimatedProps(()=>({d:projection.value[part]||'M0 0',opacity:projection.value[part]?1:0}));
++ return <APath animatedProps={props} stroke={color} strokeWidth={width} strokeLinecap="round" fill="none"/>;
++}
++export function CigaretteFeatures({projection,active,reduceMotion}:{projection:{value:Projection};active:boolean;reduceMotion:boolean}){
++ const drift=useSharedValue(0);
++ useEffect(()=>{drift.value=active&&!reduceMotion?withRepeat(withTiming(1,{duration:3800}),-1,false):0;return()=>cancelAnimation(drift);},[active,reduceMotion]);
++ const smoke=useAnimatedProps(()=>({d:projection.value.cigaretteSmoke||'M0 0',opacity:projection.value.cigaretteSmoke?(reduceMotion?.55:.2+Math.sin(Math.PI*drift.value)*.6):0}));
++ return <><Part projection={projection} part="cigarettePaper" color="#F7EEE0" width={3.5}/><Part projection={projection} part="cigaretteFilter" color="#D2A56C" width={3.7}/><Part projection={projection} part="cigaretteEmber" color="#DF8B65" width={3.3}/><APath animatedProps={smoke} fill="none" stroke="#FCF5ED" strokeWidth={1.7} strokeLinecap="round"/></>;
++}
++export function StaticSmokingAccessory({size,active,reduceMotion}:{size:number;active:boolean;reduceMotion:boolean}){
++ const projection=useDerivedValue(()=>cigaretteProjection({x:7,y:12,z:0},0,0,0));
++ return <Svg testID="resident-cigarette" width={size} height={size} viewBox="0 0 100 100" style={StyleSheet.absoluteFill} accessible={false}><CigaretteFeatures projection={projection} active={active} reduceMotion={reduceMotion}/></Svg>;
++}
+diff --git a/artifacts/mobile/components/world/SmokingCare.tsx b/artifacts/mobile/components/world/SmokingCare.tsx
+new file mode 100644
+index 0000000..c64619f
+--- /dev/null
++++ b/artifacts/mobile/components/world/SmokingCare.tsx
+@@ -0,0 +1,16 @@
++import React from 'react';
++import {StyleSheet,Text,View} from 'react-native';
++import {smokingStatus} from '@/utils/smokingState';
++export function SmokingCare({status}:{status:ReturnType<typeof smokingStatus>}){
++ const hours=Math.ceil(status.remainingMs/3600000),days=Math.floor(hours/24),rest=hours%24;
++ return <View testID="smoking-care" style={s.card}>
++  <Text style={s.title}>{status.dependent?'喫煙者 · 禁煙チャレンジ':status.recovered?'5日間の禁煙、達成！':`喫煙 ${Math.min(3,status.state.sessions)} / 3回`}</Text>
++  {status.dependent?<>
++   <Text style={s.copy}>{status.craving?'たばこが恋しくて、少しそわそわ。':'今は、気持ちが落ち着いているよ。'}</Text>
++   <View accessibilityLabel={`禁煙${status.quitDays}日、5日で回復`} style={s.row}>{[0,1,2,3,4].map(i=><View key={i} style={[s.day,i<status.quitDays&&s.done]}/>)}</View>
++   <Text style={s.copy}>禁煙 {status.quitDays} / 5日 · 回復まであと{days?`${days}日`:''}{rest?`${rest}時間`:''}</Text>
++   <Text style={s.copy}>吸わずに過ごす間は、ごはん・今日の記録・おふろで幸福度を補おう。吸うと5日間は最初から。</Text>
++  </>:<Text style={s.copy}>{status.recovered?'たばこを求める状態から回復したよ。':'5秒以上の喫煙を3回すると喫煙者に。最後の喫煙から4時間ごとに幸福 −3、5日間吸わなければ回復するよ。'}</Text>}
++ </View>;
++}
++const s=StyleSheet.create({card:{gap:8,padding:14,borderWidth:1,borderColor:'#B7A48266',borderRadius:7,backgroundColor:'#382D43'},title:{fontSize:13,fontWeight:'600',color:'#E8CFA8'},copy:{fontSize:12,lineHeight:20,color:'#D0BED6'},row:{flexDirection:'row',gap:6},day:{height:5,flex:1,borderRadius:3,backgroundColor:'#59475F'},done:{backgroundColor:'#B8D2BA'}});
+diff --git a/artifacts/mobile/components/world/VolumeEgg.tsx b/artifacts/mobile/components/world/VolumeEgg.tsx
+index 542fa34..2e4abfc 100644
+--- a/artifacts/mobile/components/world/VolumeEgg.tsx
++++ b/artifacts/mobile/components/world/VolumeEgg.tsx
+@@ -2,6 +2,7 @@ import React,{useId} from 'react';
+ import Svg,{Defs,Path,RadialGradient,Stop} from 'react-native-svg';
+ import Animated,{useAnimatedProps,useDerivedValue,type SharedValue} from 'react-native-reanimated';
+ import {projectEgg} from '@/utils/residentVolume';
++import {CigaretteFeatures} from './CigaretteFeatures';
+ import {mealSample} from '@/utils/residentMeal';
+ import type {MascotMood} from '@/utils/mascotUtils';
+ const APath=Animated.createAnimatedComponent(Path);
+@@ -12,9 +13,9 @@ function Feature({projection,part,fill,stroke,width}: {projection:SharedValue<Pr
+ }
+ /** The original egg's rounded silhouette, crack, eyes and blush, modeled in 3D.
+  * Other evolved art keeps its original renderer until a matching model exists. */
+-export function VolumeEgg({size,rx,ry,rz,blink,mood,night=false,mealProgress}: {size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>}) {
++export function VolumeEgg({size,rx,ry,rz,blink,mood,night=false,mealProgress,smoking=false,active=true,reduceMotion=false}: {size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean}) {
+   const id=useId().replace(/[^a-zA-Z0-9]/g,'');
+-  const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectEgg(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew);});
++  const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectEgg(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew,smoking);});
+   return <Svg testID="resident-volume" width={size} height={size} viewBox="0 0 100 100" accessible={false}>
+     <Defs>
+       <RadialGradient id={`${id}shell`} gradientUnits="userSpaceOnUse" cx="42" cy="40" fx="30" fy="24" rx="53" ry="61"><Stop offset="0" stopColor={night?'#F8F7EF':'#FFFFF8'}/><Stop offset=".42" stopColor={night?'#E9EBE6':'#F4F3E9'}/><Stop offset=".74" stopColor={night?'#CCD4D7':'#DFDFD2'}/><Stop offset="1" stopColor={night?'#A3B1BB':'#B7B9AB'}/></RadialGradient>
+@@ -31,5 +32,6 @@ export function VolumeEgg({size,rx,ry,rz,blink,mood,night=false,mealProgress}: {
+     <Feature projection={projection} part="rightShine" fill="#FCFDF1"/>
+     <Feature projection={projection} part="mouth" fill="none" stroke="#141A13" width={1.7}/>
+     <Feature projection={projection} part="openMouth" fill="#61433D" stroke="#332A24" width={.6}/>
++    {smoking&&<CigaretteFeatures projection={projection} active={active} reduceMotion={reduceMotion}/>}
+   </Svg>;
+ }
+diff --git a/artifacts/mobile/components/world/VolumeOdango.tsx b/artifacts/mobile/components/world/VolumeOdango.tsx
+index b764f3c..62bece1 100644
+--- a/artifacts/mobile/components/world/VolumeOdango.tsx
++++ b/artifacts/mobile/components/world/VolumeOdango.tsx
+@@ -2,6 +2,7 @@ import React,{useId} from 'react';
+ import Svg,{ClipPath,Defs,G,Image,Path,Pattern,RadialGradient,Stop} from 'react-native-svg';
+ import Animated,{useAnimatedProps,useDerivedValue,type SharedValue} from 'react-native-reanimated';
+ import {projectOdango} from '@/utils/evolvedVolume';
++import {CigaretteFeatures} from './CigaretteFeatures';
+ import {mealSample} from '@/utils/residentMeal';
+ import type {MascotMood} from '@/utils/mascotUtils';
+ import {ODANGO_COAT_URI} from '@/utils/odangoCoat';
+@@ -12,9 +13,9 @@ function Feature({projection,part,fill,stroke,width,opacity=1}: {projection:Shar
+   return <APath animatedProps={props} fill={fill} stroke={stroke} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round"/>;
+ }
+ /** Broad, furry odango, with face attached to its surface rather than a billboard. */
+-export function VolumeOdango({size,rx,ry,rz,blink,mood,night=false,mealProgress}: {size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>}) {
++export function VolumeOdango({size,rx,ry,rz,blink,mood,night=false,mealProgress,smoking=false,active=true,reduceMotion=false}: {size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean}) {
+   const id=useId().replace(/[^a-zA-Z0-9]/g,'');
+-  const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectOdango(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew);});
++  const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectOdango(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew,smoking);});
+   return <Svg testID="resident-volume-odango" width={size} height={size} viewBox="0 0 100 100" accessible={false}>
+     <Defs>
+       <RadialGradient id={`${id}fur`} gradientUnits="userSpaceOnUse" cx="42" cy="38" rx="59" ry="57"><Stop offset="0" stopColor={night?'#F3F5F6':'#FFFFFC'}/><Stop offset=".58" stopColor={night?'#E3E8EB':'#F3F3EF'}/><Stop offset="1" stopColor={night?'#AAB6C2':'#C7C9C3'}/></RadialGradient>
+@@ -40,5 +41,6 @@ export function VolumeOdango({size,rx,ry,rz,blink,mood,night=false,mealProgress}
+     <Feature projection={projection} part="leftShine" fill="#FFFFFF"/><Feature projection={projection} part="rightShine" fill="#FFFFFF"/>
+     <Feature projection={projection} part="mouth" fill="none" stroke="#22271F" width={1.8}/>
+     <Feature projection={projection} part="openMouth" fill="#61433D" stroke="#332A24" width={.6}/>
++    {smoking&&<CigaretteFeatures projection={projection} active={active} reduceMotion={reduceMotion}/>}
+   </Svg>;
+ }
+diff --git a/artifacts/mobile/components/world/WorldHome.tsx b/artifacts/mobile/components/world/WorldHome.tsx
+index 15e1ae8..cdf7adc 100644
+--- a/artifacts/mobile/components/world/WorldHome.tsx
++++ b/artifacts/mobile/components/world/WorldHome.tsx
+@@ -38,8 +38,11 @@ import { useSceneTransition } from './useSceneTransition';
+ import {WorldBowlingPins} from './WorldBowling';
+ import {useWorldBowling} from './useWorldBowling';
+ import {VillageMap} from './VillageMap';
+-import {SmokingResident,TobaccoPatrons} from '@/components/village/SmokingResident';
++import {TobaccoPatrons} from '@/components/village/SmokingResident';
+ import {Icon as DoorIcon} from '@/components/ui/Icon';
++import {useSmoking} from './useSmoking';
++import {SmokingCare} from './SmokingCare';
++import {smokingStatus} from '@/utils/smokingState';
+ export { HOME_ART } from '@/utils/worldArt';
+ type VillageAction={kind:'portal';map:WorldMapId}|{kind:'bath'|'wheel'|'smoke'|'shop'|'feed'|'ramen-meal'}|{kind:'neighbor';id:VillagerId};
+ type Props = {
+@@ -57,16 +60,16 @@ type Props = {
+ 
+ export function WorldHome(props: Props) {
+   const {reduceMotion} = props;
+-  const {awardHappiness}=useApp();
++  const {awardHappiness,feedState}=useApp();
+   const [zooming,setZooming]=useState(false);
+   const [cleanOpen,setCleanOpen]=useState(false),[cleanTool,setCleanTool]=useState<CleaningTool|null>(null),[riding,setRiding]=useState(false);
+   const [experienceMessage,setExperienceMessage]=useState('');
+-  const smokeSession=useRef('');
+   const shopTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+   const returning=useRef(false);
+   const latestActive=useRef(props.active);latestActive.current=props.active;
+   const portalTravel=useSharedValue(false);
+   const [map,setMap]=useState<WorldMapId>(props.initialMap??'home');
++  const smoking=useSmoking(props.active&&map==='tobacco');
+   const [mapOpen,setMapOpen]=useState(false);
+   const [placesOpen,setPlacesOpen]=useState(false),[viewOpen,setViewOpen]=useState(false);
+   const [experience,setExperience]=useState<VillageExperience|null>(null);
+@@ -98,12 +101,12 @@ export function WorldHome(props: Props) {
+     else if(returning.current){returning.current=false;view.reset();}
+   },[props.active]);
+   useEffect(()=>{
+-    if(!experience||experience==='wheel'||!active)return;
++    if(experience!=='bath'||!active)return;
+     setExperienceMessage('のんびり、ひと休み。');
+     let alive=true;
+     const timer=setTimeout(()=>{
+-      void awardHappiness(experience==='bath'?'bath':'smoke',experience==='smoke'?smokeSession.current:undefined).then(result=>{
+-        if(alive)setExperienceMessage(result.gained>0?`幸福 ＋${result.gained}${experience==='smoke'?' / 清潔 −3':''}`:experience==='smoke'?'ゆっくり一服。清潔 −3':'お湯でのんびり。からだを洗うのは、おうちのおふろで。');
++      void awardHappiness('bath').then(result=>{
++        if(alive)setExperienceMessage(result.gained>0?`幸福 ＋${result.gained}`:'お湯でのんびり。からだを洗うのは、おうちのおふろで。');
+       }).catch(()=>{if(alive)setExperienceMessage('保存できませんでした。一度戻って、もう一度お試しください。');});
+     },8000);
+     return()=>{alive=false;clearTimeout(timer);};
+@@ -158,7 +161,7 @@ export function WorldHome(props: Props) {
+   }, [height, viewportHeight, frameTop, reduceMotion, active,map,insets.top]);
+ 
+   const walkTo = (point: {x: number; y: number},throughGate=false) => {
+-    if (active&&!cleanTool&&!riding&&!props.food&&!experience&&!bowling.busy) {portalTravel.value=throughGate;pending.current=null;setDestination({id:++destinationId.current,point:mapGroundPoint(map,point)});}
++    if (active&&!cleanTool&&!riding&&!props.food&&(!experience||experience==='smoke')&&!bowling.busy) {portalTravel.value=throughGate;pending.current=null;setDestination({id:++destinationId.current,point:mapGroundPoint(map,point)});}
+   };
+   const enterMap=(target:WorldMapId,fromMap=false)=>{
+     if(!props.active||cleanTool||riding||neighbor||transition.busy||(!fromMap&&(mapOpen||placesOpen||viewOpen))||props.food||experience)return;
+@@ -191,12 +194,12 @@ export function WorldHome(props: Props) {
+     else if(a.kind==='feed')props.onFeed();
+     else if(a.kind==='neighbor'){setNeighbor(a.id);setReply('');}
+   };
+-  const finishExperience=()=>{setExperience(null);setDestination(null);};
++  const finishExperience=()=>{if(experience==='smoke'){void smoking.finish().then(ok=>{if(ok){setExperience(null);setDestination(null);}});}else{setExperience(null);setDestination(null);}};
+   const groundTap = (x: number, y: number) => {
+     const point = {x: x / width, y: y / height};
+     if (isMapGround(map,point)) walkTo(point);
+   };
+-  const groundGesture = Gesture.Tap().enabled(active&&!cleanTool&&!riding&&!props.food&&!experience&&!bowling.busy).simultaneousWithExternalGesture(view.pinch).maxDuration(250).maxDistance(10).onEnd((event, success) => {
++  const groundGesture = Gesture.Tap().enabled(active&&!cleanTool&&!riding&&!props.food&&(!experience||experience==='smoke')&&!bowling.busy).simultaneousWithExternalGesture(view.pinch).maxDuration(250).maxDistance(10).onEnd((event, success) => {
+     if (success) runOnJS(groundTap)(event.x, event.y);
+   });
+   const night = props.period === 'night'||map==='tobacco';
+@@ -252,8 +255,7 @@ export function WorldHome(props: Props) {
+       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
+       {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowling.busy} onPress={()=>walkTo(gate.point,true)}/>;})}
+       {map==='bowling'&&<WorldBowlingPins motion={bowling.motion} width={width} height={height}/>}
+-      <WorldResident {...props} riding={riding} portalTravel={portalTravel} bowling={bowling.motion} bowlingBusy={bowling.busy} onBowlingRoll={input=>{pending.current=null;setDestination(null);steering.value={x:0,y:0};void bowling.roll(input);}} onBowlingFinished={bowling.finish} footX={footX} steering={steering} experience={experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
+-      {experience==='smoke'&&<SmokingResident stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
++      <WorldResident {...props} riding={riding} portalTravel={portalTravel} bowling={bowling.motion} bowlingBusy={bowling.busy} onBowlingRoll={input=>{pending.current=null;setDestination(null);steering.value={x:0,y:0};void bowling.roll(input);}} onBowlingFinished={bowling.finish} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
+       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
+       {map==='tobacco'&&<TobaccoHaze active={active} reduceMotion={reduceMotion}/>}
+     </Animated.View></View></GestureDetector>}
+@@ -293,13 +295,19 @@ export function WorldHome(props: Props) {
+       {map==='home'&&Object.entries(WORLD_TRAIL).map(([id,place])=><WorldPill key={id} testID={'world-travel-'+id} label={place.label+'へ歩く'} icon="navigation" onPress={()=>{setViewOpen(false);setDestination({id:++destinationId.current,point:mapGroundPoint(map,place.point)});}}/>)}
+     </BottomSheet>}
+     {placesOpen&&<BottomSheet visible title="琥珀通りのタバコ屋" subtitle="店主・スモーク / 路地裏の小さな休憩所" onClose={()=>{setPlacesOpen(false);view.reset();}}>
+-      <View style={{alignItems:'center'}}><MerchantResident kind="tobacco" size={148} active={props.active} reduceMotion={reduceMotion}/></View><Text style={s.mapCopy}>「いらっしゃい。今夜も、ゆっくりしていきな。」</Text><Text style={s.mapCopy}>一服で幸福 ＋2（1日1回） / 清潔 −3。おふろのタオルでさっぱり。</Text>
+-      <WorldPill testID="tobacco-smoke" label="喫煙所で一服する" icon="wind" onPress={()=>{smokeSession.current=`smoke-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;setPlacesOpen(false);view.reset();setExperience('smoke');}}/>
++      <View style={{alignItems:'center'}}><MerchantResident kind="tobacco" size={112} active={props.active} reduceMotion={reduceMotion}/></View><Text style={s.mapCopy}>5秒ごとに幸福 ＋1 / 清潔 −1。1回60秒まで。汚れはおふろのタオルで洗い流せるよ。</Text>
++      <SmokingCare status={smokingStatus(feedState.happiness?.smoking,Date.now())}/>
++      {!!smoking.error&&<Text accessibilityRole="alert" style={s.mapCopy}>{smoking.error}</Text>}
++      <WorldPill testID="tobacco-smoke" label={smoking.busy?'準備中…':'喫煙所で一服する'} disabled={smoking.busy} icon="wind" onPress={()=>{void smoking.start().then(ok=>{if(ok){setPlacesOpen(false);view.reset();setExperience('smoke');}});}}/>
+     </BottomSheet>}
+     {mapOpen&&<VillageMap current={map} night={night} level={props.level} disabled={!!experience||!!props.food||transition.busy} onSelect={id=>enterMap(id,true)} onClose={()=>setMapOpen(false)}/>}
+     {!!mapMessage&&!mapOpen&&<Pressable accessibilityRole="button" accessibilityLabel="道の案内を閉じる" onPress={()=>setMapMessage('')} style={[s.notice,{top:insets.top+166}]}><Text accessibilityLiveRegion="polite" style={s.trailText}>{mapMessage}　×</Text></Pressable>}
+-    {experience&&<View testID="village-experience" style={[s.experience,{bottom:bounds.height<600?160:210}]}><Text style={s.experienceText}>{experience==='wheel'?'空から、いつもの世界を眺めよう。':experienceMessage}</Text><Pressable testID="village-experience-exit" accessibilityRole="button" onPress={finishExperience} style={s.exit}><Text style={s.exitText}>{experience==='bath'?'お湯からあがる':experience==='smoke'?'一服を終える':'観覧車から降りる'}</Text></Pressable></View>}
+-    {!props.careInvitation&&!experience&&!cleanTool&&<View style={{position:'absolute',left:20,bottom:bounds.height<600?170:230}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowling.busy} onStart={()=>{portalTravel.value=!riding;pending.current=null;setDestination(null);}} onStep={(dx,dy)=>{if(riding){footX.value=Math.max(.40,Math.min(.65,footX.value+dx*.045));footY.value=Math.max(.44,Math.min(.55,footY.value+dy*.03));}else walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04},true);}}/></View>}
++    {experience&&<View testID="village-experience" style={[s.experience,{bottom:bounds.height<600?160:210},experience==='smoke'&&{left:140,right:18,padding:10}]}>
++      <Text testID="village-experience-status" style={s.experienceText}>{experience==='smoke'?`${smoking.running?'喫煙中':'一服おわり'} ${Math.floor(smoking.elapsedMs/1000)} / 60秒\n幸福 ＋${smoking.receipt?.gained??0} / 清潔 −${smoking.receipt?.dirt??0}${(feedState.happiness?.smoking?.sessions??0)>=3?'\n喫煙者 · 5日間吸わなければ回復':''}`:experience==='wheel'?'空から、いつもの世界を眺めよう。':experienceMessage}</Text>
++      {!!smoking.error&&experience==='smoke'&&<><Text accessibilityRole="alert" style={s.experienceText}>{smoking.error}</Text><WorldPill label="同じ時間で保存し直す" onPress={()=>{void smoking.retry();}} disabled={smoking.busy}/></>}
++      <Pressable testID="village-experience-exit" accessibilityRole="button" disabled={experience==='smoke'&&smoking.busy} onPress={finishExperience} style={s.exit}><Text style={s.exitText}>{experience==='bath'?'お湯からあがる':experience==='smoke'?smoking.busy?'保存中…':smoking.running?'一服を終える':'戻る':'観覧車から降りる'}</Text></Pressable>
++    </View>}
++    {!props.careInvitation&&(!experience||experience==='smoke')&&!cleanTool&&<View style={{position:'absolute',left:20,bottom:bounds.height<600?170:230}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowling.busy} onStart={()=>{portalTravel.value=!riding&&experience!=='smoke';pending.current=null;setDestination(null);}} onStep={(dx,dy)=>{if(riding){footX.value=Math.max(.40,Math.min(.65,footX.value+dx*.045));footY.value=Math.max(.44,Math.min(.55,footY.value+dy*.03));}else walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04},experience!=='smoke');}}/></View>}
+     {speaker&&<BottomSheet visible title={speaker.name} subtitle="となりの村の住人" onClose={()=>setNeighbor(null)}><View style={{alignItems:'center'}}><VillageResident stage={speaker.stage} size={112} active={props.active} reduceMotion={reduceMotion} scarf={speaker.color}/></View><Text testID="village-dialogue" accessibilityLiveRegion="polite" style={s.dialogue}>{reply||speaker.intro}</Text>{speaker.choices.map(choice=><Pressable key={choice.label} accessibilityRole="button" onPress={()=>setReply(choice.reply)} style={s.mapRow}><Text style={s.mapCopy}>{choice.label}</Text></Pressable>)}<Pressable accessibilityRole="button" onPress={()=>setNeighbor(null)} style={s.exit}><Text style={s.exitText}>またね</Text></Pressable></BottomSheet>}
+     {transition.overlay}
+ 
+diff --git a/artifacts/mobile/components/world/WorldResident.tsx b/artifacts/mobile/components/world/WorldResident.tsx
+index bf9f05a..204027e 100644
+--- a/artifacts/mobile/components/world/WorldResident.tsx
++++ b/artifacts/mobile/components/world/WorldResident.tsx
+@@ -1,3 +1,4 @@
++import {StaticSmokingAccessory} from './CigaretteFeatures';
+ import {ResidentDust} from './ResidentDust';
+ import React, { useCallback, useEffect, useRef, useState } from 'react';
+ import { Image, Platform, StyleSheet, View } from 'react-native';
+@@ -23,7 +24,7 @@ import type {WorldBowlingInput} from '@/utils/bowling';
+ import type {WorldBowlingMotion} from './useWorldBowling';
+ 
+ type Props = {
+-  riding:boolean;cleanliness:number;
++  riding:boolean;cleanliness:number;smoking?:boolean;
+   happinessValue:number;
+   portalTravel:SharedValue<boolean>;
+   bowling:WorldBowlingMotion; bowlingBusy:boolean; onBowlingRoll:(input:WorldBowlingInput)=>void; onBowlingFinished:()=>void;
+@@ -69,7 +70,7 @@ export function WorldResident(p: Props) {
+     rolling.value=0;idleTime.value=0;setRollingLabel(false);setInteracting(false);
+     cancelAnimation(x);cancelAnimation(y);
+   },[p.destination?.id]);
+-  const pose = useWorldResident({...p, x, y, walking, interacting:interacting||manual||p.riding||!!experience||p.bowlingBusy});
++  const pose = useWorldResident({...p, x, y, walking, manualOnly:!!p.smoking, interacting:interacting||manual||p.riding||!!experience||p.bowlingBusy});
+   useAnimatedReaction(()=>Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
+   const portals=mapPortals(map);
+   const onPortal=p.onPortal;
+@@ -140,7 +141,7 @@ export function WorldResident(p: Props) {
+   },[active,pose,reduceMotion,rx,ry,rz]);
+   const launchRoll=(speedX:number,speedY:number,automatic=false)=>{
+     'worklet';
+-    if(p.riding||!available.value||(reduceMotion&&map!=='bowling')||cameraTouch.value||experience||food||p.bowlingBusy)return;
++    if(p.riding||!available.value||(reduceMotion&&map!=='bowling')||cameraTouch.value||experience||p.smoking||food||p.bowlingBusy)return;
+     if(map==='bowling'){
+       if(automatic)return;
+       rollAge.value=0;
+@@ -156,7 +157,7 @@ export function WorldResident(p: Props) {
+     runOnJS(setInteracting)(true);runOnJS(setRollingLabel)(true);
+     if(!automatic)runOnJS(notify)('roll');
+   };
+-  useEffect(()=>{idleAllowed.value=active&&!reduceMotion&&!interacting&&!manual&&!experience&&!food&&!p.resting&&(pose==='idle'||pose==='watching');},[active,reduceMotion,interacting,manual,experience,food,p.resting,pose]);
++  useEffect(()=>{idleAllowed.value=active&&!reduceMotion&&!interacting&&!manual&&!experience&&!p.smoking&&!food&&!p.resting&&(pose==='idle'||pose==='watching');},[active,reduceMotion,interacting,manual,experience,p.smoking,food,p.resting,pose]);
+   const physics=useFrameCallback(frame=>{
+     'worklet';
+     if(!available.value||cameraTouch.value)return;
+@@ -332,7 +333,7 @@ export function WorldResident(p: Props) {
+     blink.value = withRepeat(withDelay(4100, withSequence(withTiming(1, {duration: 80}), withTiming(0, {duration: 130}))), -1);
+     return () => cancelAnimation(blink);
+   }, [active, reduceMotion, mood, blink]);
+-  const activity = p.riding?'掃除機に乗っています':manual?'おさんぽしています':rollingLabel ? 'ころころしています' : pose === 'walking' ? 'おさんぽしています' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'eating' ? 'おやつの時間' : pose === 'watching' ? '景色を眺めています' : 'のんびりしています';
++  const activity = p.smoking?'一服しながらおさんぽできます':p.riding?'掃除機に乗っています':manual?'おさんぽしています':rollingLabel ? 'ころころしています' : pose === 'walking' ? 'おさんぽしています' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'eating' ? 'おやつの時間' : pose === 'watching' ? '景色を眺めています' : 'のんびりしています';
+   const acknowledge = (kind: ResidentInteraction) => {
+     if (!active || experience || food) return;
+     notify(kind);
+@@ -357,7 +358,8 @@ export function WorldResident(p: Props) {
+       <Animated.View pointerEvents="none" style={perspective}>
+         <Animated.View testID="resident-body" style={body}>
+           {p.effect && <Image source={{uri: p.effect.uri}} resizeMode="contain" style={{position: 'absolute', width: size * p.effect.scale * 1.3, height: size * p.effect.scale * 1.3, left: -size * 0.15 + p.effect.x, top: -size * 0.15 + p.effect.y}}/>}
+-          {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} mealProgress={pose==='eating'?mealProgress:undefined}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
++          {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} smoking={p.smoking} active={active} reduceMotion={reduceMotion} mealProgress={pose==='eating'?mealProgress:undefined}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
++          {p.smoking&&!volumetric&&<StaticSmokingAccessory size={size} active={active} reduceMotion={reduceMotion}/>}
+           <ResidentDust value={p.cleanliness} size={size}/>
+           {!volumetric&&<View style={[StyleSheet.absoluteFill, {opacity: p.period === 'night' ? 0.18 : 0.13}]} >
+             <StaticMascot stage={p.stage} mood={mood} size={size} tintColor={p.period === 'night' ? '#717CAB' : '#DFB878'}/>
+diff --git a/artifacts/mobile/components/world/useSmoking.ts b/artifacts/mobile/components/world/useSmoking.ts
+new file mode 100644
+index 0000000..1ad118c
+--- /dev/null
++++ b/artifacts/mobile/components/world/useSmoking.ts
+@@ -0,0 +1,67 @@
++import {useEffect,useRef,useState} from 'react';
++import {useApp} from '@/contexts/AppContext';
++import {SMOKE_LIMIT_MS,SMOKE_STEP_MS,type SmokeReceipt} from '@/utils/smokingState';
++import type {SmokingOperation} from '@/utils/smoking';
++
++/** Count only the time the scene is visible; never keep smoking in a closed app. */
++export function useSmoking(active:boolean){
++ const {runSmoking,privateCache,isLoading,cloudSynced}=useApp();
++ const [elapsedMs,setElapsed]=useState(0),[running,setRunning]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[receipt,setReceipt]=useState<SmokeReceipt|null>(null);
++ const alive=useRef(true),visible=useRef(active);visible.current=active;
++ const session=useRef<{id:string;clock:number;elapsed:number;queued:number;stoppedAt:number;save:typeof runSmoking}|null>(null);
++ const pending=useRef<{op:SmokingOperation;save:typeof runSmoking}|null>(null),starting=useRef(false),generation=useRef(0);
++ const elapsed=()=>{const s=session.current;return s?Math.min(SMOKE_LIMIT_MS,s.elapsed+(s.clock?Math.max(0,Date.now()-s.clock):0)):0;};
++ const pause=()=>{const s=session.current;if(s?.clock){s.elapsed=elapsed();s.stoppedAt=Date.now();s.clock=0;}if(alive.current)setRunning(false);};
++ const finish=async()=>{
++  const s=session.current;if(!s)return true;
++  const g=generation.current;
++  pause();const op:SmokingOperation={kind:'finish',id:s.id,elapsedMs:s.elapsed,at:s.stoppedAt};pending.current={op,save:s.save};
++  if(alive.current){setBusy(true);setElapsed(s.elapsed);}
++  try{const result=await s.save(op);if(session.current===s){session.current=null;pending.current=null;if(alive.current){setReceipt(result.receipt);setError('');}}return true;}
++  catch{if(alive.current&&session.current===s)setError('保存できませんでした。喫煙は止めています。もう一度保存してね。');return false;}
++  finally{if(alive.current&&g===generation.current)setBusy(false);}
++ };
++ const finishRef=useRef(finish);finishRef.current=finish;
++ useEffect(()=>{alive.current=true;return()=>{alive.current=false;void finishRef.current();};},[]);
++ useEffect(()=>{
++  generation.current++;session.current=null;pending.current=null;starting.current=false;setRunning(false);setBusy(false);setElapsed(0);setReceipt(null);setError('');
++ },[privateCache]);
++ // On reopen, close any abandoned session at its last confirmed checkpoint.
++ useEffect(()=>{
++  if(isLoading||!privateCache||session.current||starting.current)return;
++  const g=generation.current;
++  void runSmoking({kind:'recover'}).catch(()=>{if(alive.current&&generation.current===g)setError('前の一服を確認できませんでした。もう一度お試しください。');});
++ },[privateCache,isLoading,cloudSynced]);
++ useEffect(()=>{
++  if(!active){void finishRef.current();return;}
++  const timer=setInterval(()=>{
++   const s=session.current;if(!s?.clock)return;
++   const ms=elapsed();setElapsed(ms);
++   if(ms>=SMOKE_LIMIT_MS){void finishRef.current();return;}
++   const step=Math.floor(ms/SMOKE_STEP_MS);
++   if(step>s.queued){s.queued=step;const op:SmokingOperation={kind:'progress',id:s.id,elapsedMs:ms,at:Date.now()};
++    void s.save(op).then(result=>{if(alive.current&&session.current===s)setReceipt(result.state.active??result.receipt);}).catch(()=>{if(session.current===s){pause();pending.current={op:{kind:'finish',id:s.id,elapsedMs:s.elapsed,at:s.stoppedAt},save:s.save};if(alive.current)setError('保存できませんでした。喫煙は止めています。もう一度保存してね。');}});
++   }
++  },250);
++  return()=>clearInterval(timer);
++ },[active]);
++ const start=async()=>{
++  if(starting.current||session.current||!visible.current||!privateCache?.isCurrent())return false;
++  starting.current=true;setBusy(true);setError('');setReceipt(null);setElapsed(0);
++  const g=generation.current,id=`smoke-${Date.now()}-${Math.random().toString(36).slice(2,9)}`,save=runSmoking;
++  try{
++   await save({kind:'recover'});
++   const result=await save({kind:'start',id});
++   if(!result.state.active||result.state.active.id!==id)throw Error('Start failed');
++   if(!alive.current||generation.current!==g||!visible.current){await save({kind:'finish',id,elapsedMs:0});return false;}
++   session.current={id,clock:Date.now(),elapsed:0,queued:0,stoppedAt:0,save};setRunning(true);return true;
++  }catch{if(alive.current&&generation.current===g)setError('一服を始められませんでした。もう一度お試しください。');return false;}
++  finally{if(generation.current===g){starting.current=false;if(alive.current)setBusy(false);}}
++ };
++ const retry=async()=>{
++  if(session.current)return finish();
++  if(pending.current){const p=pending.current;try{await p.save(p.op);pending.current=null;setError('');return true;}catch{return false;}}
++  return start();
++ };
++ return {start,finish,retry,elapsedMs,running,busy,error,receipt};
++}
+diff --git a/artifacts/mobile/components/world/useWorldHappiness.ts b/artifacts/mobile/components/world/useWorldHappiness.ts
+index 1d43403..78d2269 100644
+--- a/artifacts/mobile/components/world/useWorldHappiness.ts
++++ b/artifacts/mobile/components/world/useWorldHappiness.ts
+@@ -3,21 +3,24 @@ import {useApp} from '@/contexts/AppContext';
+ import {useAuth} from '@/contexts/AuthContext';
+ import {getTodayDate} from '@/utils/dateUtils';
+ import {readHappiness} from '@/utils/happiness';
++import {smokingStatus} from '@/utils/smokingState';
+ 
+ export function useWorldHappiness(active:boolean) {
+   const {feedState,awardHappiness,isLoading,cloudSynced}=useApp();
+   const {isSignedIn,isLoading:authLoading}=useAuth();
+   const [today,setToday]=useState(getTodayDate);
++  const [now,setNow]=useState(Date.now);
+   const [error,setError]=useState('');
+   const [retry,setRetry]=useState(0);
+   const ready=!isLoading&&!authLoading&&(!isSignedIn||cloudSynced);
+   useEffect(()=>{
+     if(!active)return;
+     setToday(getTodayDate());
+-    const timer=setInterval(()=>setToday(getTodayDate()),30000);
++    setNow(Date.now());
++    const timer=setInterval(()=>{setToday(getTodayDate());setNow(Date.now());},30000);
+     return()=>clearInterval(timer);
+   },[active]);
+-  const state=readHappiness(feedState.happiness,today);
++  const state=readHappiness(feedState.happiness,today,now);
+   const visited=state.days[today]?.includes('visit')??false;
+   useEffect(()=>{
+     if(!active||!ready||visited)return;
+@@ -25,5 +28,5 @@ export function useWorldHappiness(active:boolean) {
+     void awardHappiness('visit').then(()=>{if(current)setError('');},()=>{if(current)setError('うれしい気持ちを保存できませんでした。もう一度お試しください。');});
+     return()=>{current=false;};
+   },[active,ready,visited,today,awardHappiness,retry]);
+-  return {value:state.value,actions:state.days[today]??[],error,retry:()=>setRetry(n=>n+1)};
++  return {value:state.value,actions:state.days[today]??[],smoking:smokingStatus(state.smoking,now),error,retry:()=>setRetry(n=>n+1)};
+ }
+diff --git a/artifacts/mobile/components/world/useWorldResident.ts b/artifacts/mobile/components/world/useWorldResident.ts
+index 680588b..635bdcc 100644
+--- a/artifacts/mobile/components/world/useWorldResident.ts
++++ b/artifacts/mobile/components/world/useWorldResident.ts
+@@ -11,6 +11,7 @@ import {mapRoute,type WorldMapId} from '@/utils/worldMaps';
+ type Props = {
+   map: WorldMapId;
+   active: boolean; interacting: boolean; reduceMotion: boolean; resting: boolean;
++  manualOnly?: boolean;
+   meal: number; rest: number; period: WorldPeriod; daySeed: number;
+   x: SharedValue<number>; y: SharedValue<number>; walking: SharedValue<number>;
+   destination: WorldDestination | null; onMealFinished?: () => void; onDestinationReached?:(id:number)=>void;
+@@ -23,7 +24,7 @@ export function useWorldResident(p: Props) {
+   const turn = useRef(0);
+   const complete = useRef(p.onMealFinished); complete.current = p.onMealFinished;
+   const arrived=useRef(p.onDestinationReached);arrived.current=p.onDestinationReached;
+-  const {map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination} = p;
++  const {map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination,manualOnly} = p;
+   useEffect(()=>{if(map!=='home')handled.current.rest=rest;setPose('idle');},[map]);
+   useEffect(() => {
+     if (interacting) setPose('idle');
+@@ -65,7 +66,7 @@ export function useWorldResident(p: Props) {
+         walk(destination.point, () => {handled.current.destination=destination.id;setPose('idle'); arrived.current?.(destination.id); later(run, 18000);});
+         return;
+       }
+-      if(map==='bowling'){setPose('idle');return;}
++      if(map==='bowling'||manualOnly){setPose('idle');return;}
+       if (reduceMotion && !mealPending && !restPending && !resting) {setPose('idle'); return;}
+       const activity = mealPending || restPending || resting
+         ? chooseResidentActivity({meal, rest}, handled.current, resting, turn.current)
+@@ -89,6 +90,6 @@ export function useWorldResident(p: Props) {
+     const requested = meal > handled.current.meal || rest > handled.current.rest || (destination && destination.id > handled.current.destination);
+     later(run, requested ? 60 : 6500);
+     return () => {alive = false; clearTimeout(timer); cancelAnimation(x); cancelAnimation(y); walking.value = 0;};
+-  }, [map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination]);
++  }, [map,active, interacting, reduceMotion, resting, meal, rest, period, daySeed, x, y, walking, destination,manualOnly]);
+   return interacting ? 'idle' : pose;
+ }
+diff --git a/artifacts/mobile/contexts/AppContext.tsx b/artifacts/mobile/contexts/AppContext.tsx
+index 6e665c0..9872748 100644
+--- a/artifacts/mobile/contexts/AppContext.tsx
++++ b/artifacts/mobile/contexts/AppContext.tsx
+@@ -1,5 +1,6 @@
+ import {prepareEggJob,type EggJobState,type EggJobOperation,type EggJobResult} from '@/utils/eggJob';
+ import type {HygieneState} from '@/utils/hygiene';
++import {prepareSmoking,type SmokingOperation,type SmokingResult} from '@/utils/smoking';
+ import {prepareCleaning, type HousekeepingState, type CleaningOperation} from '@/utils/housekeeping';
+ import { privateCacheStorage } from '@/utils/privateCacheStorage';
+ import type { PrivateCache } from '@/utils/privateCache';
+@@ -202,6 +203,7 @@ interface AppContextType {
+   mascotName: string;
+   feedState: FeedState;
+   runEggJob: (operation: EggJobOperation) => Promise<EggJobResult>;
++  runSmoking: (operation: SmokingOperation) => Promise<SmokingResult>;
+   cleanRoom: (operation: CleaningOperation) => Promise<{spent:number;removed:number}>;
+   awardHappiness: (action: HappyAction, eventId?: string) => Promise<{gained:number;newlyGranted:boolean}>;
+   /** サーバーで確定したショップ購入後のポイント残高を端末側にも同期する */
+@@ -1156,6 +1158,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
+     return {state:saved.state,receipt:saved.receipt,newlyGranted:saved.newlyGranted};
+   }, [privateCache, pushDataToCloud]);
+ 
++  const runSmoking = useCallback(async (operation: SmokingOperation) => {
++    if (!privateCache) throw new Error('データの準備ができていません');
++    const owner = privateCache;
++    const saved = await AsyncStorage.transaction(values => {
++      if (!owner.isCurrent()) throw new Error('Account changed');
++      return prepareSmoking(values, operation, getTodayDate(), Date.now(), defaultFeedState);
++    });
++    if (!owner.isCurrent()) throw new Error('Account changed');
++    feedStateRef.current = saved.feed; setFeedState(saved.feed);
++    if (saved.changed) void pushDataToCloud().catch(() => {});
++    return {state:saved.state,receipt:saved.receipt,changed:saved.changed};
++  }, [privateCache, pushDataToCloud]);
++
+   const cleanRoom = useCallback(async (operation: CleaningOperation) => {
+     if (!privateCache) throw new Error('データの準備ができていません');
+     const owner = privateCache;
+@@ -1233,6 +1248,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
+         awardHappiness,
+         cleanRoom,
+         runEggJob,
++        runSmoking,
+         syncFeedPoints,
+         spendFeedPoints,
+         purchaseGuestItem,
+diff --git a/artifacts/mobile/tests/careModules.mjs b/artifacts/mobile/tests/careModules.mjs
+new file mode 100644
+index 0000000..ca216ac
+--- /dev/null
++++ b/artifacts/mobile/tests/careModules.mjs
+@@ -0,0 +1,9 @@
++import fs from 'node:fs';
++import ts from 'typescript';
++import * as smokingState from '../utils/smokingState.ts';
++import * as hygiene from '../utils/hygiene.ts';
++// Use the production modules with their real pure dependencies, as in the record tests.
++function load(path,deps){const out={};const code=ts.transpileModule(fs.readFileSync(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;new Function('require','exports',code)(name=>{if(!Object.hasOwn(deps,name))throw Error('Unexpected dependency '+name);return deps[name];},out);return out;}
++export const happiness=load('../utils/happiness.ts',{'./smokingState':smokingState});
++export const {HAPPY_REWARDS,grantHappiness,readHappiness,prepareHappiness}=happiness;
++export const {prepareSmoking}=load('../utils/smoking.ts',{'./smokingState':smokingState,'./happiness':happiness,'./hygiene':hygiene});
+diff --git a/artifacts/mobile/tests/checklistTransaction.test.mjs b/artifacts/mobile/tests/checklistTransaction.test.mjs
+index 7b9813a..eeb7b90 100644
+--- a/artifacts/mobile/tests/checklistTransaction.test.mjs
++++ b/artifacts/mobile/tests/checklistTransaction.test.mjs
+@@ -4,7 +4,7 @@ import fs from 'node:fs';
+ import ts from 'typescript';
+ import * as energy from '../utils/lightEnergy.ts';
+ import * as game from '../utils/gameLogic.ts';
+-import * as happiness from '../utils/happiness.ts';
++import * as happiness from './careModules.mjs';
+ import { createRecoverableStorage } from '../utils/recoverableStorage.ts';
+ const code=ts.transpileModule(fs.readFileSync(new URL('../utils/checklistTransaction.ts',import.meta.url),'utf8'),{
+   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
+diff --git a/artifacts/mobile/tests/dailyRecordTransaction.test.mjs b/artifacts/mobile/tests/dailyRecordTransaction.test.mjs
+index 06a0d0b..27be1df 100644
+--- a/artifacts/mobile/tests/dailyRecordTransaction.test.mjs
++++ b/artifacts/mobile/tests/dailyRecordTransaction.test.mjs
+@@ -4,7 +4,7 @@ import fs from 'node:fs';
+ import ts from 'typescript';
+ import * as energy from '../utils/lightEnergy.ts';
+ import * as game from '../utils/gameLogic.ts';
+-import * as happiness from '../utils/happiness.ts';
++import * as happiness from './careModules.mjs';
+ import { createRecoverableStorage } from '../utils/recoverableStorage.ts';
+ 
+ // Load the production helper with its real pure energy/level dependencies.
+diff --git a/artifacts/mobile/tests/evolvedVolume.test.mjs b/artifacts/mobile/tests/evolvedVolume.test.mjs
+index c7b931e..4cf5d6b 100644
+--- a/artifacts/mobile/tests/evolvedVolume.test.mjs
++++ b/artifacts/mobile/tests/evolvedVolume.test.mjs
+@@ -38,6 +38,18 @@ test('travel yaw faces the direction of ground motion with scene aspect',()=>{
+   assert.equal(residentWalkYaw(1,0,2),Math.PI/2);assert.equal(residentWalkYaw(-1,0,2),-Math.PI/2);
+   assert.equal(residentWalkYaw(0,1,2),0);assert.equal(residentWalkYaw(0,-1,2),Math.PI);
+ });
++test('the cigarette follows each real face through turns without replacing or resizing either character',()=>{
++ for(const project of [base.projectEgg,projectOdango]){
++  for(const yaw of [0,.4,1,-.4,-1,Math.PI]){
++   const normal=project(0,yaw,0,0,true),smoking=project(0,yaw,0,0,true,false,0,0,true);
++   for(const key of ['body','mouth','leftEye','rightEye','furHalo'])assert.equal(smoking[key],normal[key]);
++   assert.equal(normal.cigarettePaper,'');
++   if(yaw===Math.PI){assert.equal(smoking.cigarettePaper,'');assert.equal(smoking.cigaretteSmoke,'');}
++   else {assert.ok(smoking.cigarettePaper);assert.ok(smoking.cigaretteFilter);assert.ok(!/NaN|Infinity/.test(smoking.cigaretteSmoke));}
++  }
++  assert.notEqual(project(0,0,0,0,true,false,0,0,true).cigarettePaper,project(0,.4,0,0,true,false,0,0,true).cigarettePaper);
++ }
++});
+ test('meal opens the surface mouth and puffs cheeks without changing body proportions',()=>{
+   const front=projectOdango(0,0,0),bite=projectOdango(0,0,0,0,false,false,1),chew=projectOdango(0,0,0,0,false,false,0,1);
+   assert.equal(front.openMouth,'');assert.ok(bite.openMouth);assert.equal(chew.openMouth,'');
+diff --git a/artifacts/mobile/tests/happiness.test.mjs b/artifacts/mobile/tests/happiness.test.mjs
+index 32995f1..eb8cb9b 100644
+--- a/artifacts/mobile/tests/happiness.test.mjs
++++ b/artifacts/mobile/tests/happiness.test.mjs
+@@ -1,6 +1,6 @@
+ import test from 'node:test';
+ import assert from 'node:assert/strict';
+-import {HAPPY_REWARDS,grantHappiness,readHappiness,prepareHappiness} from '../utils/happiness.ts';
++import {HAPPY_REWARDS,grantHappiness,readHappiness,prepareHappiness} from './careModules.mjs';
+ import {createRecoverableStorage} from '../utils/recoverableStorage.ts';
+ const date='2026-10-08',key='@mentore/feed_state_v1';
+ const feed={points:72,lastFeedTime:'2026-10-08T08:00:00Z',satietyAtFeed:100};
+@@ -45,17 +45,6 @@ test('interrupted happiness save recovers exactly once without overwriting balan
+   assert.equal(retry.newlyGranted,false);assert.equal(retry.feed.happiness.value,75);assert.equal(retry.feed.points,72);
+ });
+ 
+-test('smoking dirt is per session and retry-safe, while happiness remains once a day',()=>{
+- const now=Date.parse(date+'T10:00:00Z'),fresh={...feed,hygiene:{lastBathAt:now,protectedUntil:now+86400000}};
+- const values=f=>({[key]:JSON.stringify(f)});
+- const first=prepareHappiness(values(fresh),'smoke',date,fresh,now,'smoke-a').result;
+- assert.equal(first.feed.hygiene.smokeDirt,3);assert.equal(first.gained,2);
+- const retry=prepareHappiness(values(first.feed),'smoke',date,fresh,now+1,'smoke-a').result;
+- assert.equal(retry.changed,false);assert.equal(retry.feed.hygiene.smokeDirt,3);
+- const second=prepareHappiness(values(retry.feed),'smoke',date,fresh,now+2,'smoke-b').result;
+- assert.equal(second.feed.hygiene.smokeDirt,6);assert.equal(second.gained,0);assert.equal(second.feed.points,72);
+- const bath=prepareHappiness(values(second.feed),'homeBath',date,fresh,now+300,'bath-a').result;
+- assert.equal(bath.feed.hygiene.smokeDirt,6);assert.equal(bath.feed.hygiene.protectedUntil,fresh.hygiene.protectedUntil);
+- const delayedRetry=prepareHappiness(values(bath.feed),'smoke',date,fresh,now+301,'smoke-a').result;
+- assert.equal(delayedRetry.feed.hygiene.smokeDirt,6);assert.equal(delayedRetry.feed.points,72);
++test('the old one-off smoke reward is no longer accepted',()=>{
++ assert.throws(()=>prepareHappiness({[key]:JSON.stringify(feed)},'smoke',date,feed),/Invalid happiness action/);
+ });
+diff --git a/artifacts/mobile/tests/housekeeping.test.mjs b/artifacts/mobile/tests/housekeeping.test.mjs
+index 4ba1580..0965535 100644
+--- a/artifacts/mobile/tests/housekeeping.test.mjs
++++ b/artifacts/mobile/tests/housekeeping.test.mjs
+@@ -2,7 +2,7 @@ import test from 'node:test';
+ import assert from 'node:assert/strict';
+ import {CLEANING_TOOLS,DUST_SPOTS,readHousekeeping,roomDirt,sweptSpots,prepareCleaning,BODY_WASH_SPOTS,rubBody,isBodyWashComplete,bodyWashPercent} from '../utils/housekeeping.ts';
+ import {hygieneValue,DAY_MS,BATH_SKIP} from '../utils/hygiene.ts';
+-import {prepareHappiness,HAPPY_REWARDS} from '../utils/happiness.ts';
++import {prepareHappiness,HAPPY_REWARDS,prepareSmoking} from './careModules.mjs';
+ import {createRecoverableStorage} from '../utils/recoverableStorage.ts';
+ const now=Date.parse('2026-10-08T10:00:00Z'),key='@mentore/feed_state_v1';
+ const feed={points:300,lastFeedTime:'2026-10-08T08:00:00Z',satietyAtFeed:100,happiness:{value:75,updatedOn:'2026-10-08',days:{'2026-10-08':['visit']}}};
+@@ -88,8 +88,9 @@ test('only complete rubbing can save cleanliness; repeat receipt never cleans la
+  assert.equal(hygieneValue(washed.feed.hygiene,100,now),100);
+  assert.equal(washed.feed.hygiene.protectedUntil,dirty.hygiene.protectedUntil);
+  assert.equal(washed.feed.points,feed.points);assert.deepEqual(washed.feed.happiness,feed.happiness);
+- await store.transaction(values=>prepareHappiness(values,'smoke','2026-10-08',feed,now+1,'smoke-after'));
+- const retry=await store.transaction(values=>prepareCleaning(values,{kind:'bodyWash',id:'wash-a',coverage:fullyWashed()},now+2,feed));
++ await store.transaction(values=>prepareSmoking(values,{kind:'start',id:'smoke-after'},'2026-10-08',now+1,feed));
++ await store.transaction(values=>prepareSmoking(values,{kind:'finish',id:'smoke-after',elapsedMs:15000},'2026-10-08',now+15001,feed));
++ const retry=await store.transaction(values=>prepareCleaning(values,{kind:'bodyWash',id:'wash-a',coverage:fullyWashed()},now+15002,feed));
+  assert.equal(retry.changed,false);assert.equal(retry.feed.hygiene.smokeDirt,3);
+ });
+ test('a failed wash save recovers its receipt exactly once on retry',async()=>{
+diff --git a/artifacts/mobile/tests/smoking.test.mjs b/artifacts/mobile/tests/smoking.test.mjs
+new file mode 100644
+index 0000000..5ddb8f6
+--- /dev/null
++++ b/artifacts/mobile/tests/smoking.test.mjs
+@@ -0,0 +1,117 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import {prepareSmoking,readHappiness,grantHappiness,prepareHappiness} from './careModules.mjs';
++import {smokingStatus,CRAVING_INTERVAL_MS,QUIT_DURATION_MS,SMOKE_LIMIT_MS} from '../utils/smokingState.ts';
++import {hygieneValue} from '../utils/hygiene.ts';
++import {prepareCleaning,BODY_WASH_SPOTS} from '../utils/housekeeping.ts';
++import {createRecoverableStorage} from '../utils/recoverableStorage.ts';
++const now=Date.parse('2026-10-09T00:00:00Z'),date='2026-10-09',key='@mentore/feed_state_v1';
++const day=t=>new Date(t).toISOString().slice(0,10);
++const feed={points:72,lastFeedTime:'unchanged',satietyAtFeed:83,happiness:{value:70,updatedOn:date,days:{}},hygiene:{lastBathAt:now,protectedUntil:0,smokeDirt:0}};
++const apply=(f,op,t)=>prepareSmoking({[key]:JSON.stringify(f)},op,day(t),t,feed).result;
++const puff=(f,id,t,ms=5000)=>apply(apply(f,{kind:'start',id},t).feed,{kind:'finish',id,elapsedMs:ms},t+ms).feed;
++const dependent=()=>puff(puff(puff(feed,'a',now),'b',now+10000),'c',now+20000);
++function memory(initial){const data=new Map([[key,JSON.stringify(initial)]]);let fail=false;const store=createRecoverableStorage({getItem:async k=>data.get(k)??null,setItem:async(k,v)=>{if(k===key&&fail){fail=false;throw Error('disk');}data.set(k,v);},removeItem:async k=>data.delete(k)},'journal',[key]);return {data,store,fail:()=>{fail=true;}};}
++
++test('each full five seconds adds happiness and dirt; only the first tick counts a session',()=>{
++ let f=apply(feed,{kind:'start',id:'duration'},now).feed;
++ f=apply(f,{kind:'progress',id:'duration',elapsedMs:4999},now+4999).feed;
++ assert.equal(f.happiness.value,70);assert.equal(f.happiness.smoking.sessions,0);
++ f=apply(f,{kind:'progress',id:'duration',elapsedMs:5000},now+5000).feed;
++ assert.equal(f.happiness.value,71);assert.equal(f.hygiene.smokeDirt,1);assert.equal(f.happiness.smoking.sessions,1);
++ f=apply(f,{kind:'finish',id:'duration',elapsedMs:16999},now+16999).feed;
++ assert.equal(f.happiness.value,73);assert.equal(f.hygiene.smokeDirt,3);assert.equal(f.happiness.smoking.sessions,1);
++ assert.equal(f.happiness.smoking.lastSmokedAt,now+16999);assert.equal(hygieneValue(f.hygiene,0,now+16999),97);
++ assert.equal(f.points,feed.points);assert.equal(f.satietyAtFeed,feed.satietyAtFeed);assert.equal(f.lastFeedTime,feed.lastFeedTime);
++});
++test('leaving before five seconds does not count, and the third separate session creates dependence',()=>{
++ let f=puff(feed,'short',now,4999);assert.equal(f.happiness.smoking.sessions,0);
++ for(let i=1;i<=3;i++){f=puff(f,'count-'+i,now+i*10000);assert.equal(smokingStatus(f.happiness.smoking,now+i*10000+5000).dependent,i===3);}
++ assert.equal(f.happiness.smoking.sessions,3);
++});
++test('time and rewards cap at sixty seconds; full happiness never prevents dirt or habit formation',()=>{
++ let f={...feed,happiness:{...feed.happiness,value:100},hygiene:{...feed.hygiene,smokeDirt:80}};
++ f=puff(f,'cap',now,180000);
++ assert.equal(f.happiness.value,100);assert.equal(f.hygiene.smokeDirt,85);assert.equal(f.happiness.smoking.sessions,1);
++ assert.equal(f.happiness.smoking.receipts[0].elapsedMs,SMOKE_LIMIT_MS);
++ assert.equal(hygieneValue(f.hygiene,100,now+180000),15);
++});
++test('four-hour craving boundaries deduct once and cannot be replayed or reversed by the clock',()=>{
++ const f=dependent(),last=f.happiness.smoking.lastSmokedAt;
++ assert.equal(readHappiness(f.happiness,day(last),last+CRAVING_INTERVAL_MS-1).value,73);
++ const at=readHappiness(f.happiness,day(last),last+CRAVING_INTERVAL_MS);
++ assert.equal(at.value,70);assert.equal(smokingStatus(at.smoking,last+CRAVING_INTERVAL_MS).craving,true);
++ assert.equal(readHappiness(at,day(last),last+CRAVING_INTERVAL_MS).value,70);
++ assert.equal(readHappiness(at,day(last),last).value,70);
++ assert.equal(readHappiness(at,day(last),last+CRAVING_INTERVAL_MS*2).value,67);
++ assert.equal(smokingStatus(puff(feed,'one',now).happiness.smoking,now+CRAVING_INTERVAL_MS*2).craving,false);
++});
++test('five full days cures dependence offline, resets the count and stops withdrawal',()=>{
++ const f=dependent(),last=f.happiness.smoking.lastSmokedAt,end=last+QUIT_DURATION_MS;
++ assert.equal(smokingStatus(f.happiness.smoking,end-1).dependent,true);
++ const h=readHappiness(f.happiness,day(end),end),status=smokingStatus(h.smoking,end);
++ assert.equal(status.dependent,false);assert.equal(status.craving,false);assert.equal(status.recovered,true);assert.equal(h.smoking.sessions,0);assert.equal(h.value,40);
++ const later=readHappiness({...h,value:85},day(end),end+CRAVING_INTERVAL_MS*2);assert.equal(later.value,85);
++ const next=puff({...f,happiness:h},'after-quit',end+1);assert.equal(next.happiness.smoking.sessions,1);assert.equal(smokingStatus(next.happiness.smoking,end+5001).dependent,false);
++});
++test('smoking again restarts the five-day clock and calms craving; other happiness helps without resetting abstinence',()=>{
++ const f=dependent(),last=f.happiness.smoking.lastSmokedAt,t=last+CRAVING_INTERVAL_MS;
++ for(const action of ['meal','record','homeBath','bath','ramen','visit']){
++  const reward=grantHappiness(f.happiness,action,day(t),t);
++  assert.ok(reward.gained>0);assert.equal(reward.state.smoking.lastSmokedAt,last);assert.equal(smokingStatus(reward.state.smoking,t).craving,true);
++ }
++ const next=puff(f,'relapse',t);assert.equal(next.happiness.smoking.lastSmokedAt,t+5000);
++ assert.equal(smokingStatus(next.happiness.smoking,t+5000).craving,false);
++ assert.equal(smokingStatus(next.happiness.smoking,last+QUIT_DURATION_MS).dependent,true);
++ assert.equal(smokingStatus(next.happiness.smoking,t+5000+QUIT_DURATION_MS).dependent,false);
++});
++test('washing removes dirt without curing dependence or moving the quit clock',()=>{
++ const f=dependent(),t=now+30000;
++ const result=prepareCleaning({[key]:JSON.stringify(f)},{kind:'bodyWash',id:'wash',coverage:BODY_WASH_SPOTS.map(()=>1)},t,feed).result;
++ assert.equal(result.feed.hygiene.smokeDirt,0);assert.deepEqual(result.feed.happiness.smoking,f.happiness.smoking);
++});
++test('reopening an abandoned session uses only confirmed time, not hours spent away',()=>{
++ let f=apply(feed,{kind:'start',id:'abandoned'},now).feed;
++ f=apply(f,{kind:'progress',id:'abandoned',elapsedMs:10000},now+10000).feed;
++ const result=apply(f,{kind:'recover'},now+CRAVING_INTERVAL_MS);
++ assert.equal(result.receipt.elapsedMs,10000);assert.equal(result.feed.happiness.value,72);assert.equal(result.feed.hygiene.smokeDirt,2);assert.equal(result.feed.happiness.smoking.lastSmokedAt,now+10000);
++ assert.equal(apply(result.feed,{kind:'recover'},now+CRAVING_INTERVAL_MS).changed,false);
++});
++test('duplicate and out-of-order checkpoints and concurrent finishes never add rewards twice',async()=>{
++ const {data,store}=memory(feed);
++ const tx=(op,t)=>store.transaction(values=>prepareSmoking(values,op,day(t),t,feed));
++ await tx({kind:'start',id:'once'},now);
++ await tx({kind:'progress',id:'once',elapsedMs:10000},now+10000);
++ await tx({kind:'progress',id:'once',elapsedMs:5000},now+10000);
++ await Promise.all(Array.from({length:8},()=>tx({kind:'finish',id:'once',elapsedMs:15000},now+15000)));
++ const f=JSON.parse(data.get(key));assert.equal(f.happiness.value,73);assert.equal(f.hygiene.smokeDirt,3);assert.equal(f.happiness.smoking.sessions,1);assert.equal(f.happiness.smoking.receipts.length,1);
++ assert.equal(apply(f,{kind:'start',id:'once'},now+15000).state.active,null);
++ assert.throws(()=>apply(f,{kind:'finish',id:'missing',elapsedMs:5000},now+20000),/終了/);
++});
++test('an interrupted checkpoint is recovered before retry; later care is preserved',async()=>{
++ const {data,store,fail}=memory(feed),tx=(op,t)=>store.transaction(values=>prepareSmoking(values,op,day(t),t,feed));
++ await tx({kind:'start',id:'recover'},now);fail();
++ await assert.rejects(tx({kind:'progress',id:'recover',elapsedMs:5000},now+5000),/disk/);
++ await tx({kind:'progress',id:'recover',elapsedMs:5000},now+5000);
++ await store.transaction(values=>prepareHappiness(values,'record',date,feed,now+6000));
++ await tx({kind:'finish',id:'recover',elapsedMs:10000},now+10000);
++ const f=JSON.parse(data.get(key));assert.equal(f.happiness.value,84);assert.equal(f.hygiene.smokeDirt,2);assert.equal(f.happiness.smoking.sessions,1);assert.equal(f.points,72);assert.equal(data.has('journal'),false);
++});
++test('bad elapsed times, overlapping sessions and clock rollback cannot credit smoking',()=>{
++ const f=apply(feed,{kind:'start',id:'valid'},now).feed;
++ for(const elapsedMs of [-1,NaN,Infinity,10001])assert.throws(()=>apply(f,{kind:'progress',id:'valid',elapsedMs},now+10000),/時間/);
++ assert.throws(()=>apply(f,{kind:'start',id:'other'},now),/前の一服/);
++ const done=puff(feed,'clock',now);assert.throws(()=>apply(done,{kind:'start',id:'backward'},now),/時刻/);
++});
++test('old smoking dirt is preserved without inventing dated sessions or dependence',()=>{
++ const old={...feed,hygiene:{...feed.hygiene,smokeDirt:9,smokeReceipts:['old-a','old-b','old-c']}};
++ const migrated=apply(old,{kind:'recover'},now).feed;
++ assert.equal(migrated.hygiene.smokeDirt,9);assert.equal(migrated.happiness.smoking.sessions,0);assert.equal(migrated.happiness.value,70);
++});
++test('a delayed finish retry keeps the actual last puff time instead of restarting abstinence',()=>{
++ const f=apply(feed,{kind:'start',id:'delayed'},now).feed;
++ const result=apply(f,{kind:'finish',id:'delayed',elapsedMs:10000,at:now+10000},now+3600000);
++ assert.equal(result.feed.happiness.smoking.lastSmokedAt,now+10000);
++ assert.equal(result.receipt.gained,2);assert.equal(result.receipt.dirt,2);
++ assert.throws(()=>apply(f,{kind:'finish',id:'delayed',elapsedMs:5000,at:now+20000},now+10000),/時間/);
++});
+diff --git a/artifacts/mobile/utils/evolvedVolume.ts b/artifacts/mobile/utils/evolvedVolume.ts
+index 92c2c1c..59a4f41 100644
+--- a/artifacts/mobile/utils/evolvedVolume.ts
++++ b/artifacts/mobile/utils/evolvedVolume.ts
+@@ -1,4 +1,4 @@
+-import {rotatePoint, type Point3} from './residentVolume';
++import {rotatePoint,cigaretteProjection, type Point3} from './residentVolume';
+ 
+ /** Shape/face coordinates traced against assets/images/characters/odango.png
+  * (512px square). Back fur is inferred: no turnaround art is supplied. Keep
+@@ -50,7 +50,7 @@ function hull(points:Point3[]) {
+   for(let i=sorted.length-1;i>=0;i--){const p=sorted[i];while(hi.length>1&&cross(hi[hi.length-2],hi[hi.length-1],p)<=0)hi.pop();hi.push(p);}
+   lo.pop();hi.pop();return lo.concat(hi);
+ }
+-export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeometry>,rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0) {
++export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeometry>,rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
+   'worklet';
+   const model=geometry.model,r=model.radius,f=model.face;
+   const rot=(p:Point3)=>{'worklet';return rotatePoint(p,rx,ry,rz);};
+@@ -109,11 +109,12 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
+     leftEye:patch(-f.eyeX,f.eyeY,f.eyeWidth,eyeHeight),rightEye:patch(f.eyeX,f.eyeY,f.eyeWidth,eyeHeight),
+     leftShine:shut>.5?'':patch(-f.eyeX+1.1,f.eyeY-1.8,1,1.1),rightShine:shut>.5?'':patch(f.eyeX+1.1,f.eyeY-1.8,1,1.1),mouth,
+     openMouth:mouthOpen>.02?patch(0,f.mouthY,3.5+mouthOpen*2,1+mouthOpen*4):'',
++    ...cigaretteProjection(surface(model,7.5,f.mouthY),rx,ry,rz,originY,smoking&&normal(surface(model,7.5,f.mouthY))>0),
+   };
+ }
+-export function projectOdango(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0) {
++export function projectOdango(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
+   'worklet';
+-  return projectEvolvedVolume(ODANGO_GEOMETRY,rx,ry,rz,blink,happy,sleepy,mouthOpen,chew);
++  return projectEvolvedVolume(ODANGO_GEOMETRY,rx,ry,rz,blink,happy,sleepy,mouthOpen,chew,smoking);
+ }
+ /** Only compression is allowed; spring undershoot and held poses cannot stretch
+  * an evolved mascot vertically. Compensation uses its original foot anchor. */
+diff --git a/artifacts/mobile/utils/happiness.ts b/artifacts/mobile/utils/happiness.ts
+index f889d05..0e67cff 100644
+--- a/artifacts/mobile/utils/happiness.ts
++++ b/artifacts/mobile/utils/happiness.ts
+@@ -1,11 +1,12 @@
+ import type {FeedState} from '../contexts/AppContext';
+ import type {StorageEntry} from './recoverableStorage';
++import {settleSmoking,type SmokingState} from './smokingState';
+ 
+-export const HAPPY_REWARDS={visit:35,record:12,ramen:6,bath:18,homeBath:4,meal:3,smoke:2} as const;
++export const HAPPY_REWARDS={visit:35,record:12,ramen:6,bath:18,homeBath:4,meal:3} as const;
+ export type HappyAction=keyof typeof HAPPY_REWARDS;
+-export type HappinessState={value:number;updatedOn:string;days:Record<string,HappyAction[]>};
++export type HappinessState={value:number;updatedOn:string;days:Record<string,HappyAction[]>;smoking?:SmokingState};
+ const validDate=(value:unknown):value is string=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value));
+-export function readHappiness(raw:unknown,today:string):HappinessState {
++export function readHappiness(raw:unknown,today:string,now=Date.now()):HappinessState {
+   if(!validDate(today))throw new Error('Invalid happiness date');
+   const input=raw as Partial<HappinessState>|null;
+   const value=typeof input?.value==='number'&&Number.isFinite(input.value)?Math.max(40,Math.min(100,input.value)):40;
+@@ -16,28 +17,25 @@ export function readHappiness(raw:unknown,today:string):HappinessState {
+   // Do not punish missed visits or reset happiness at midnight. It settles gently toward 40.
+   const updatedOn=validDate(input?.updatedOn)?input.updatedOn:today;
+   const elapsed=Math.max(0,Math.floor((Date.parse(today)-Date.parse(updatedOn))/86400000));
+-  return {value:Math.max(40,Math.round(value-elapsed*4)),updatedOn:updatedOn>today?updatedOn:today,days};
++  const settled=input?.smoking?settleSmoking(input.smoking,now):null;
++  return {value:Math.max(40,Math.round(value-elapsed*4-(settled?.loss??0))),updatedOn:updatedOn>today?updatedOn:today,days,...(settled?{smoking:settled.state}:{})};
+ }
+-export function grantHappiness(raw:unknown,action:HappyAction,today:string) {
++export function grantHappiness(raw:unknown,action:HappyAction,today:string,now=Date.now()) {
+   if(!Object.hasOwn(HAPPY_REWARDS,action))throw new Error('Invalid happiness action');
+-  const state=readHappiness(raw,today);
++  const state=readHappiness(raw,today,now);
+   if(state.updatedOn>today||state.days[today]?.includes(action))return {state,gained:0,newlyGranted:false};
+   const value=Math.min(100,state.value+HAPPY_REWARDS[action]);
+   const days={...state.days,[today]:[...(state.days[today]??[]),action]};
+   const retained=Object.fromEntries(Object.entries(days).sort(([a],[b])=>b.localeCompare(a)).slice(0,32));
+-  return {state:{value,updatedOn:today,days:retained},gained:value-state.value,newlyGranted:true};
++  return {state:{...state,value,updatedOn:today,days:retained},gained:value-state.value,newlyGranted:true};
+ }
+ export function prepareHappiness(values:Record<string,string|null>,action:HappyAction,today:string,defaultFeed:FeedState,now=Date.now(),eventId?:string) {
+   const key='@mentore/feed_state_v1';
+   const feed:FeedState=values[key]?JSON.parse(values[key]!):defaultFeed;
+   if(!feed||!Number.isFinite(feed.points)||feed.points<0)throw new Error('データを確認できません');
+-  const reward=grantHappiness(feed.happiness,action,today);
+-  const old=feed.hygiene??{lastBathAt:now,protectedUntil:0};
+-  const smokeKey=eventId||`daily-smoke-${today}`;
+-  const smoked=action==='smoke'&&!old.smokeReceipts?.includes(smokeKey);
+-  const hygiene=smoked?{...old,smokeDirt:Math.min(30,(old.smokeDirt??0)+3),smokeReceipts:[...(old.smokeReceipts??[]),smokeKey].slice(-40)}:feed.hygiene;
+-  const changed=reward.newlyGranted||smoked;
+-  const next={...feed,happiness:reward.state,...(hygiene?{hygiene}:{})};
++  const reward=grantHappiness(feed.happiness,action,today,now);
++  const changed=reward.newlyGranted||JSON.stringify(reward.state)!==JSON.stringify(feed.happiness);
++  const next={...feed,happiness:reward.state};
+   const entries:StorageEntry[]=changed?[[key,JSON.stringify(next)]]:[];
+   return {entries,result:{feed:changed?next:feed,...reward,changed}};
+ }
+diff --git a/artifacts/mobile/utils/hygiene.ts b/artifacts/mobile/utils/hygiene.ts
+index 24f9be9..cf6defe 100644
+--- a/artifacts/mobile/utils/hygiene.ts
++++ b/artifacts/mobile/utils/hygiene.ts
+@@ -4,7 +4,7 @@ export const DAY_MS=86400000;
+ export function readHygiene(raw:unknown,now:number):HygieneState {
+   const input=raw as Partial<HygieneState>|undefined;
+   const valid=(x:unknown):x is number=>typeof x==='number'&&Number.isFinite(x)&&x>=0;
+-  return {lastBathAt:valid(input?.lastBathAt)?input.lastBathAt:now,protectedUntil:valid(input?.protectedUntil)?input.protectedUntil:0,smokeDirt:valid(input?.smokeDirt)?Math.min(30,input.smokeDirt):0,washReceipts:Array.isArray(input?.washReceipts)?input.washReceipts.filter(x=>typeof x==='string').slice(-32):[],smokeReceipts:Array.isArray(input?.smokeReceipts)?input.smokeReceipts.filter(x=>typeof x==='string').slice(-40):[]};
++  return {lastBathAt:valid(input?.lastBathAt)?input.lastBathAt:now,protectedUntil:valid(input?.protectedUntil)?input.protectedUntil:0,smokeDirt:valid(input?.smokeDirt)?Math.min(85,input.smokeDirt):0,washReceipts:Array.isArray(input?.washReceipts)?input.washReceipts.filter(x=>typeof x==='string').slice(-32):[],smokeReceipts:Array.isArray(input?.smokeReceipts)?input.smokeReceipts.filter(x=>typeof x==='string').slice(-40):[]};
+ }
+ export function hygieneValue(raw:unknown,roomDirty:number,now:number){
+   const state=readHygiene(raw,now);
+diff --git a/artifacts/mobile/utils/residentVolume.ts b/artifacts/mobile/utils/residentVolume.ts
+index 95fbdfd..8b80908 100644
+--- a/artifacts/mobile/utils/residentVolume.ts
++++ b/artifacts/mobile/utils/residentVolume.ts
+@@ -27,7 +27,15 @@ function hull(points:Point3[]) {
+ }
+ function path(points:Point3[],closed=true) {'worklet';return points.map((p,i)=>`${i?'L':'M'}${(50+p.x).toFixed(2)} ${(50+p.y).toFixed(2)}`).join(' ')+(closed?' Z':'');}
+ const FRONT_BODY=path(hull(MODEL));
+-export function projectEgg(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0) {
++export function cigaretteProjection(anchor:Point3,rx:number,ry:number,rz:number,originY=50,visible=true){
++  'worklet';
++  if(!visible)return {cigarettePaper:'',cigaretteFilter:'',cigaretteEmber:'',cigaretteSmoke:''};
++  const at=(length:number)=>{'worklet';const p=rotatePoint({x:anchor.x+length,y:anchor.y-length*.04,z:anchor.z+1+length*.22},rx,ry,rz);return {x:50+p.x,y:originY+p.y};};
++  const a=at(0),b=at(5),c=at(18),tip=at(19.5);
++  const line=(a:{x:number;y:number},b:{x:number;y:number})=>{'worklet';return `M${a.x.toFixed(2)} ${a.y.toFixed(2)} L${b.x.toFixed(2)} ${b.y.toFixed(2)}`;};
++  return {cigaretteFilter:line(a,b),cigarettePaper:line(b,c),cigaretteEmber:line(c,tip),cigaretteSmoke:`M${tip.x.toFixed(2)} ${(tip.y-3).toFixed(2)} C${(tip.x+8).toFixed(2)} ${(tip.y-14).toFixed(2)} ${(tip.x-5).toFixed(2)} ${(tip.y-17).toFixed(2)} ${(tip.x+2).toFixed(2)} ${(tip.y-28).toFixed(2)} S${(tip.x-3).toFixed(2)} ${(tip.y-40).toFixed(2)} ${(tip.x+2).toFixed(2)} ${(tip.y-46).toFixed(2)}`};
++}
++export function projectEgg(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
+   'worklet';
+   const rot=(p:Point3)=>{'worklet';return rotatePoint(p,rx,ry,rz);};
+   const patch=(x:number,y:number,wx:number,hy:number)=>{
+@@ -50,5 +58,6 @@ export function projectEgg(rx:number,ry:number,rz:number,blink=0,happy=false,sle
+     leftCheek:patch(-17,13,6.3+chew*1.7,3.6+chew),rightCheek:patch(17,13,6.3+chew*1.7,3.6+chew),
+     mouth:line(mouth),openMouth:mouthOpen>.02?patch(0,17,3.5+mouthOpen*2,1+mouthOpen*4):'',crack:line([[-4,-32],[-6,-26],[-2,-23],[-5,-17]]),
+     facing:rot({x:0,y:0,z:1}).z,
++    ...cigaretteProjection(surface(7,17),rx,ry,rz,50,smoking&&rot({x:7/33,y:17/50,z:1}).z>.05),
+   };
+ }
+diff --git a/artifacts/mobile/utils/smoking.ts b/artifacts/mobile/utils/smoking.ts
+new file mode 100644
+index 0000000..a295fb6
+--- /dev/null
++++ b/artifacts/mobile/utils/smoking.ts
+@@ -0,0 +1,50 @@
++import type {FeedState} from '../contexts/AppContext';
++import type {StorageEntry} from './recoverableStorage';
++import {readHappiness} from './happiness';
++import {readHygiene} from './hygiene';
++import {readSmoking,SMOKE_STEP_MS,SMOKE_LIMIT_MS,type SmokingState,type SmokeReceipt} from './smokingState';
++export type SmokingOperation={kind:'start';id:string}|{kind:'progress'|'finish';id:string;elapsedMs:number;at?:number}|{kind:'recover'};
++export type SmokingResult={state:SmokingState;receipt:SmokeReceipt|null;changed:boolean};
++export function prepareSmoking(values:Record<string,string|null>,op:SmokingOperation,today:string,now:number,defaultFeed:FeedState){
++ if(!Number.isFinite(now)||now<0||('id' in op&&(!op.id||op.id.length>100)))throw Error('喫煙の記録を確認できません');
++ const key='@mentore/feed_state_v1',feed:FeedState=values[key]?JSON.parse(values[key]!):defaultFeed;
++ if(!feed||!Number.isFinite(feed.points)||feed.points<0)throw Error('データを確認できません');
++ const happiness=readHappiness(feed.happiness,today,now),state=readSmoking(happiness.smoking),hygiene=readHygiene(feed.hygiene,now);
++ let receipt:SmokeReceipt|null=null;
++ const close=()=>{if(!state.active)return;const {startedAt,...r}=state.active;receipt=r;state.receipts=[...state.receipts,r].slice(-40);state.active=null;};
++ if(op.kind==='recover'){
++  // An abandoned screen only keeps time already confirmed while it was visible.
++  close();
++ }else if(op.kind==='start'){
++  if(now<state.lastSmokedAt)throw Error('喫煙の時刻を確認できません');
++  receipt=state.receipts.find(r=>r.id===op.id)??null;
++  if(!receipt){
++   if(state.active&&state.active.id!==op.id)throw Error('前の一服を終えてから始めてください');
++   state.active??={id:op.id,startedAt:now,elapsedMs:0,gained:0,dirt:0,counted:false};
++  }
++ }else{
++  receipt=state.receipts.find(r=>r.id===op.id)??null;
++  if(!receipt){
++   const current=state.active;
++   if(!current||current.id!==op.id)throw Error('この一服は終了しています');
++   const at=op.at??now;
++   if(!Number.isFinite(at)||at>now||at<current.startedAt||!Number.isFinite(op.elapsedMs)||op.elapsedMs<0||op.elapsedMs>Math.max(0,at-current.startedAt))throw Error('喫煙の時間を確認できません');
++   const elapsed=Math.max(current.elapsedMs,Math.min(SMOKE_LIMIT_MS,Math.floor(op.elapsedMs)));
++   const steps=Math.floor(elapsed/SMOKE_STEP_MS)-Math.floor(current.elapsedMs/SMOKE_STEP_MS);
++   if(steps>0){
++    const gain=Math.min(100-happiness.value,steps),dirt=Math.min(85-(hygiene.smokeDirt??0),steps);
++    happiness.value+=gain;hygiene.smokeDirt=(hygiene.smokeDirt??0)+dirt;
++    current.gained+=gain;current.dirt+=dirt;
++    if(!current.counted){state.sessions++;current.counted=true;}
++   }
++   if(current.counted&&elapsed>current.elapsedMs){state.lastSmokedAt=Math.max(state.lastSmokedAt,at-Math.max(0,op.elapsedMs-SMOKE_LIMIT_MS));state.withdrawalSteps=0;state.recoveredAt=0;}
++   current.elapsedMs=elapsed;
++   if(op.kind==='finish'||elapsed>=SMOKE_LIMIT_MS)close();
++  }
++ }
++ happiness.smoking=state;
++ const next={...feed,happiness,hygiene};
++ const changed=JSON.stringify(next)!==JSON.stringify(feed);
++ const entries:StorageEntry[]=changed?[[key,JSON.stringify(next)]]:[];
++ return {entries,result:{feed:changed?next:feed,state,receipt,changed}};
++}
+diff --git a/artifacts/mobile/utils/smokingState.ts b/artifacts/mobile/utils/smokingState.ts
+new file mode 100644
+index 0000000..e8f7541
+--- /dev/null
++++ b/artifacts/mobile/utils/smokingState.ts
+@@ -0,0 +1,30 @@
++export const SMOKE_STEP_MS=5000;
++export const SMOKE_LIMIT_MS=60000;
++export const SMOKER_THRESHOLD=3;
++export const CRAVING_INTERVAL_MS=4*60*60*1000;
++export const CRAVING_LOSS=3;
++export const QUIT_DURATION_MS=5*24*60*60*1000;
++export type SmokeReceipt={id:string;elapsedMs:number;gained:number;dirt:number;counted:boolean};
++export type SmokeSession=SmokeReceipt&{startedAt:number};
++export type SmokingState={sessions:number;lastSmokedAt:number;withdrawalSteps:number;recoveredAt:number;active:SmokeSession|null;receipts:SmokeReceipt[]};
++const finite=(n:unknown):n is number=>typeof n==='number'&&Number.isFinite(n)&&n>=0;
++const validReceipt=(r:SmokeReceipt)=>r&&typeof r.id==='string'&&finite(r.elapsedMs)&&r.elapsedMs<=SMOKE_LIMIT_MS&&finite(r.gained)&&finite(r.dirt)&&typeof r.counted==='boolean';
++export function readSmoking(raw:unknown):SmokingState{
++ const s=raw as Partial<SmokingState>|undefined;
++ return {sessions:finite(s?.sessions)?Math.floor(s.sessions):0,lastSmokedAt:finite(s?.lastSmokedAt)?s.lastSmokedAt:0,withdrawalSteps:finite(s?.withdrawalSteps)?Math.floor(s.withdrawalSteps):0,recoveredAt:finite(s?.recoveredAt)?s.recoveredAt:0,active:s?.active&&validReceipt(s.active)&&finite(s.active.startedAt)?s.active:null,receipts:Array.isArray(s?.receipts)?s.receipts.filter(validReceipt).slice(-40):[]};
++}
++/** Pure elapsed-time settlement. Reading repeatedly never charges the same interval twice. */
++export function settleSmoking(raw:unknown,now:number){
++ const state=readSmoking(raw),age=state.lastSmokedAt?Math.max(0,now-state.lastSmokedAt):0;
++ const dependent=state.sessions>=SMOKER_THRESHOLD;
++ const steps=dependent?Math.floor(Math.min(age,QUIT_DURATION_MS-1)/CRAVING_INTERVAL_MS):0;
++ const loss=Math.max(0,steps-state.withdrawalSteps)*CRAVING_LOSS;
++ state.withdrawalSteps=Math.max(state.withdrawalSteps,steps);
++ if(state.sessions>0&&age>=QUIT_DURATION_MS){state.sessions=0;state.withdrawalSteps=0;state.recoveredAt=state.lastSmokedAt+QUIT_DURATION_MS;}
++ return {state,loss};
++}
++export function smokingStatus(raw:unknown,now:number){
++ const {state}=settleSmoking(raw,now),dependent=state.sessions>=SMOKER_THRESHOLD;
++ const elapsed=state.lastSmokedAt?Math.max(0,now-state.lastSmokedAt):0;
++ return {state,dependent,craving:dependent&&elapsed>=CRAVING_INTERVAL_MS,quitDays:dependent?Math.min(5,Math.floor(elapsed/86400000)):0,remainingMs:dependent?Math.max(0,QUIT_DURATION_MS-elapsed):0,recovered:!!state.recoveredAt&&!state.sessions};
++}
