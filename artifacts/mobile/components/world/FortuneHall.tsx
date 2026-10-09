@@ -10,8 +10,9 @@ import {formatMbti} from '@/utils/mbti';
 import {getTodayDate} from '@/utils/dateUtils';
 
 export function FortuneCat({width,height,disabled,onPress}:{width:number;height:number;disabled:boolean;onPress:()=>void}){
+ const size=Math.min(width*.58,height*.43);
  return <Pressable testID="merchant-fortune" accessibilityRole="button" accessibilityLabel="大きな猫の占い師。今日の運勢を占う" disabled={disabled} onPress={onPress}
-  style={{position:'absolute',left:width*.21,top:height*.20,width:width*.58,height:width*.58,zIndex:535}}>
+  style={{position:'absolute',left:width*.12,top:height*.22,width:size,height:size,zIndex:535}}>
   <Image source={FORTUNE_CAT_ART} resizeMode="contain" style={{width:'100%',height:'100%'}}/>
   <Text style={s.catLabel}>猫の占い師・ルナ</Text>
  </Pressable>;

@@ -7,7 +7,7 @@ export const POINTS_PER_PIN = 5;
 export const BOWLING_DURATION = 3200;
 export type WorldBowlingInput = { x:number; y:number; vx:number; vy:number; aspect:number; radius:number; layout?:'garden'|'garden-long' };
 export type BowlingMissionId = 'strike' | 'split' | 'spare';
-export type BowlingInput = { aim: number; power: number; world?: WorldBowlingInput; rulesVersion?: 2 | 3; mission?: BowlingMissionId };
+export type BowlingInput = { aim: number; power: number; world?: WorldBowlingInput; rulesVersion?: 2 | 3 | 4; curve?: number; mission?: BowlingMissionId };
 export type PinPose = { x: number; y: number; rotation: number; down: boolean; hidden?: boolean };
 export type BowlingFrame = { x: number; y: number; pins: PinPose[] };
 export type BowlingResult = {
@@ -54,8 +54,8 @@ export function bowlingReward(pins:number, mission?:BowlingMissionId) {
 }
 
 export function validateBowlingInput(input: BowlingInput) {
-  if(input?.rulesVersion!==undefined&&(![2,3].includes(input.rulesVersion)||!input.mission||!Object.prototype.hasOwnProperty.call(BOWLING_MISSIONS,input.mission)||input.world?.layout!=='garden-long'))throw new Error('今日のミッションを確認できません');
-  if(input?.mission!==undefined&&input.rulesVersion!==2&&input.rulesVersion!==3)throw new Error('今日のミッションを確認できません');
+  if(input?.rulesVersion!==undefined&&(![2,3,4].includes(input.rulesVersion)||!input.mission||!Object.prototype.hasOwnProperty.call(BOWLING_MISSIONS,input.mission)||(input.rulesVersion!==4&&input.world?.layout!=='garden-long')))throw new Error('今日のミッションを確認できません');
+  if(input?.mission!==undefined&&input.rulesVersion!==2&&input.rulesVersion!==3&&input.rulesVersion!==4)throw new Error('今日のミッションを確認できません');
   if (
     !input ||
     !Number.isFinite(input.aim) ||
@@ -66,6 +66,7 @@ export function validateBowlingInput(input: BowlingInput) {
     input.power > 1
   )
     throw new Error("投げ方を確認できません");
+  if(input.rulesVersion===4&&(input.world!==undefined||!Number.isFinite(input.curve??0)||Math.abs(input.curve??0)>1))throw new Error('投げ方を確認できません');
   if(input.world){
     const p=input.world;
     if(![p.x,p.y,p.vx,p.vy,p.aspect,p.radius].every(Number.isFinite)||p.x<.22||p.x>.78||p.y<.305||p.y>.8||Math.abs(p.vx)>1.25||Math.abs(p.vy)>1.25||p.aspect<1||p.aspect>2||p.radius<.025||p.radius>.09||(p.layout!==undefined&&p.layout!=='garden'&&p.layout!=='garden-long'))throw new Error("投げ方を確認できません");
@@ -150,6 +151,7 @@ export function pinPositions() {
 /** Fixed-step collisions determine both the visible pin fall and the saved reward. */
 export function simulateBowling(input: BowlingInput): BowlingResult {
   validateBowlingInput(input);
+  if(input.rulesVersion===4)return simulateLaneBowling(input);
   if(input.world)return simulateWorldBowling(input.world,input.rulesVersion?input.mission:undefined,input.rulesVersion===3);
   const ball = {
     x: 0,
@@ -290,7 +292,7 @@ export function prepareBowlingPlay(
       },
     };
   // The saved date chooses the mission; callers cannot select a more rewarding rack.
-  const acceptedInput:BowlingInput=input.world?.layout==='garden-long'
+  const acceptedInput:BowlingInput=input.rulesVersion===4?{...input,mission:dailyBowlingMission(today)}:input.world?.layout==='garden-long'
     ? {...input,rulesVersion:input.rulesVersion===3?3:2,mission:dailyBowlingMission(today)} : input;
   const result = simulateBowling(acceptedInput);
   const receipt: BowlingReceipt = {
@@ -322,4 +324,58 @@ export function prepareBowlingPlay(
       accepted: true,
     },
   };
+}
+
+
+/** Version 4 uses a physical lane, independent of device shape and world walking.
+ * No target attraction: direction, release speed, hook and collisions own the result.
+ * Earlier rule versions stay unchanged so saved receipts replay identically. */
+export function lanePinPositions(mission:BowlingMissionId):PinPose[]{
+  const rack=Array.from({length:4},(_,row)=>Array.from({length:row+1},(_,col)=>({
+    x:(col-row/2)*.43,y:9.6+row*.38,rotation:0,down:false,
+  }))).flat();
+  const targets=mission==='split'?[{x:-.32,y:10},{x:.32,y:10.35}]:[{x:0,y:9.6},{x:-.43,y:10.36},{x:.43,y:10.36}];
+  return mission==='strike'?rack:rack.map((p,i)=>({...p,...targets[i],hidden:i>=targets.length}));
+}
+/** Project a long, wide lane into the available scene. All art shares this transform. */
+export function projectLane(x:number,y:number){
+  'worklet';
+  const depth=Math.max(0,Math.min(1,y/12));
+  const scale=1/(1+depth*1.55);
+  return {x:.5+x*.385*scale,y:.95-(1-scale)/(.608)*.63,scale};
+}
+function simulateLaneBowling(input:BowlingInput):BowlingResult{
+  const pins=lanePinPositions(input.mission!).map(p=>({...p,vx:0,vy:0}));
+  const ball={x:0,y:0,vx:input.aim*1.13,vy:1.6+input.power*8.2};
+  const frames:BowlingFrame[]=[];
+  const dt=1/120,ballRadius=.18,pinRadius=.115;
+  let gutter=false;
+  const collide=(a:typeof ball,b:typeof pins[number],radius:number,mass:number)=>{
+    if(b.hidden)return;
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),contact=radius+pinRadius;
+    if(d>=contact||d<.000001)return;
+    const nx=dx/d,ny=dy/d,speed=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+    if(speed<=0)return;
+    const impulse=1.72*speed/(1/mass+1);
+    a.vx-=impulse*nx/mass;a.vy-=impulse*ny/mass;b.vx+=impulse*nx;b.vy+=impulse*ny;
+    b.x+=nx*(contact-d)*.65;b.y+=ny*(contact-d)*.65;
+    if(Math.hypot(b.vx,b.vy)>.48)b.down=true;
+  };
+  for(let tick=0;tick<=600;tick++){
+    if(tick%2===0)frames.push({x:ball.x,y:ball.y,pins:pins.map(({vx,vy,...pin})=>({...pin}))});
+    if(!gutter&&ball.y>4&&ball.y<10)ball.vx+=(input.curve??0)*.65*dt;
+    const drag=Math.exp(-.22*dt);ball.vx*=drag;ball.vy=Math.max(0,ball.vy-.72*dt);
+    ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;
+    if(Math.abs(ball.x)>1){gutter=true;ball.x=Math.sign(ball.x)*1.095;ball.vx=0;}
+    if(!gutter)for(const pin of pins)collide(ball,pin,ballRadius,3);
+    for(let i=0;i<pins.length;i++)for(let j=i+1;j<pins.length;j++)if(!pins[i].hidden)collide(pins[i],pins[j],pinRadius,1);
+    for(const p of pins){
+      if(Math.hypot(p.vx,p.vy)>.48)p.down=true;
+      p.x=Math.max(-1.45,Math.min(1.45,p.x+p.vx*dt));p.y=Math.max(8.4,Math.min(12.4,p.y+p.vy*dt));
+      p.vx*=Math.exp(-2.3*dt);p.vy*=Math.exp(-2.3*dt);
+      if(p.down)p.rotation=Math.min(86,p.rotation+230*dt);
+    }
+  }
+  const count=pins.filter(p=>!p.hidden&&p.down).length;
+  return {frames,pins:count,...bowlingReward(count,input.mission)};
 }

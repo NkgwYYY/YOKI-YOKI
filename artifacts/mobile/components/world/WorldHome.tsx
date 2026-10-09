@@ -36,7 +36,7 @@ import { WorldPill, worldUI } from './WorldPill';
 import { Icon } from '@/components/ui/Icon';
 import { RamenArt } from '@/components/village/RamenArt';
 import { useSceneTransition } from './useSceneTransition';
-import {WorldBowlingPins} from './WorldBowling';
+import {BowlingGame} from './BowlingGame';
 import {useWorldBowling} from './useWorldBowling';
 import {VillageMap} from './VillageMap';
 import {TobaccoPatrons} from '@/components/village/SmokingResident';
@@ -47,6 +47,7 @@ import {smokingStatus} from '@/utils/smokingState';
 export { HOME_ART } from '@/utils/worldArt';
 type VillageAction={kind:'portal';map:WorldMapId}|{kind:'bath'|'wheel'|'smoke'|'shop'|'feed'|'ramen-meal'}|{kind:'neighbor';id:VillagerId};
 type Props = {
+  onMapChange:(map:WorldMapId)=>void;
   cleanliness:number;
   happinessValue:number;
   music:{enabled:boolean;busy:boolean;toggle:()=>void;error:string};
@@ -70,6 +71,7 @@ export function WorldHome(props: Props) {
   const latestActive=useRef(props.active);latestActive.current=props.active;
   const portalTravel=useSharedValue(false);
   const [map,setMap]=useState<WorldMapId>(props.initialMap??'home');
+  useEffect(()=>props.onMapChange(map),[map,props.onMapChange]);
   const smoking=useSmoking(props.active&&map==='tobacco');
   const [mapOpen,setMapOpen]=useState(false);
   const [fortuneOpen,setFortuneOpen]=useState(false);
@@ -82,7 +84,9 @@ export function WorldHome(props: Props) {
   const transition=useSceneTransition(reduceMotion,()=>setMapMessage('景色を読み込めませんでした。もう一度、行き先を選んでね。'));
   const active=props.active&&!cleanOpen&&!fortuneOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!transition.busy&&!zooming;
   const housekeeping=useHousekeeping(props.active);
-  const bowling=useWorldBowling(map,active);
+  const legacyBowling=useWorldBowling('home',false);
+  const [bowlingBusy,setBowlingBusy]=useState(false);
+  const bowling={...legacyBowling,busy:bowlingBusy};
   const footX=useSharedValue(.5);
   const steering=useSharedValue({x:0,y:0});
   useEffect(()=>{props.onSceneBusy(!!experience||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[experience,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
@@ -92,9 +96,16 @@ export function WorldHome(props: Props) {
   const insets = useSafeAreaInsets();
   const footY = useSharedValue(WORLD_PLACES.idle.y);
   const holding = useSharedValue(0);
-  const frame = fitWorld(bounds.width, bounds.height);
+  const away=map!=='home';
+  const tight=away&&bounds.height<660;
+  const dockBottom=72+Math.max(12,insets.bottom);
+  const stageTop=insets.top+(tight?136:186);
+  const stageBottom=dockBottom+116;
+  const sceneHeight=away?Math.max(100,bounds.height-stageTop-stageBottom):bounds.height;
+  const fittedHeight=Math.min(bounds.width*1.5,sceneHeight/.7);
+  const frame = away?{width:bounds.width,height:fittedHeight,left:0,top:(sceneHeight-fittedHeight*.7)/2-fittedHeight*.18}:fitWorld(bounds.width,bounds.height);
   const {width, height} = frame;
-  const viewportHeight = bounds.height, frameTop = frame.top;
+  const viewportHeight = sceneHeight, frameTop = frame.top;
   const view = useWorldCamera({...frame,active,reduceMotion});
   const {follow:camera,zoom,touching}=view;
   useEffect(()=>()=>clearTimeout(shopTimer.current),[]);
@@ -116,7 +127,7 @@ export function WorldHome(props: Props) {
   const openMerchant=(kind:'shop'|'food'|'ramen'|'tobacco'|'job'|'fortune',point:{x:number;y:number})=>{
     if(!active||props.food||experience||bowling.busy)return;
     portalTravel.value=false;steering.value={x:0,y:0};pending.current=null;setDestination(null);
-    setZooming(true);view.focusAt(point,bounds);
+    setZooming(true);view.focusAt(point,{width:bounds.width,height:sceneHeight});
     clearTimeout(shopTimer.current);
     shopTimer.current=setTimeout(()=>{
       if(!latestActive.current)return;
@@ -152,16 +163,9 @@ export function WorldHome(props: Props) {
   useEffect(()=>{setFortuneOpen(false);setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
   useAnimatedReaction(() => ({y: footY.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active}), state => {
     if (!state.active) {cancelAnimation(camera); return;}
-    // Keep both ends of the longer lane in the usual overview on a tall screen.
-    // Compact landscape retains the normal character-follow camera.
-    let offset=worldCameraOffset(map==='fortune'?.68:state.y,height,viewportHeight,frameTop);
-    if(map==='bowling'&&viewportHeight>=600){
-      const minOffset=insets.top+206-frameTop-height*.22;
-      const maxOffset=viewportHeight-136-frameTop-height*.715;
-      offset=Math.min(maxOffset,Math.max(0,minOffset));
-    }
+    const offset=away?0:worldCameraOffset(state.y,height,viewportHeight,frameTop);
     if (!state.held && !state.cameraTouch && state.zoom < 1.02) camera.value = withTiming(offset, {duration: reduceMotion ? 0 : 350});
-  }, [height, viewportHeight, frameTop, reduceMotion, active,map,insets.top]);
+  }, [height, viewportHeight, frameTop, reduceMotion, active,map,away]);
 
   const walkTo = (point: {x: number; y: number},throughGate=false) => {
     if (active&&!cleanTool&&!riding&&!props.food&&(!experience||experience==='smoke')&&!bowling.busy) {portalTravel.value=throughGate;pending.current=null;setDestination({id:++destinationId.current,point:mapGroundPoint(map,point)});}
@@ -224,7 +228,7 @@ export function WorldHome(props: Props) {
   const speaker=VILLAGERS.find(n=>n.id===neighbor);
   return <View style={s.root} testID="room-scene" onLayout={e => setBounds(e.nativeEvent.layout)}>
     <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="cover" blurRadius={18} style={[s.art, {opacity: 0.8}]} /></View>
-    {width > 0 && <GestureDetector gesture={view.gesture}><View style={StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, view.style]}>
+    {width > 0 && map!=='bowling' && <GestureDetector gesture={view.gesture}><View testID="world-viewport" style={away?{position:'absolute',left:0,right:0,top:stageTop,bottom:stageBottom,overflow:'hidden',borderRadius:18,marginHorizontal:8}:StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, view.style]}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="stretch" style={s.art} accessible={false} /></View>
       {!['home','homewares','diner'].includes(map)&&night&&<View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#35234922'}]}/>}
       {props.period === 'dusk' && map!=='tobacco' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: '#B5646028'}]} />}
@@ -258,34 +262,26 @@ export function WorldHome(props: Props) {
       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
       {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowling.busy} onPress={()=>walkTo(gate.point,true)}/>;})}
-      {map==='bowling'&&<WorldBowlingPins motion={bowling.motion} width={width} height={height}/>}
       <WorldResident {...props} riding={riding} portalTravel={portalTravel} bowling={bowling.motion} bowlingBusy={bowling.busy} onBowlingRoll={input=>{pending.current=null;setDestination(null);steering.value={x:0,y:0};void bowling.roll(input);}} onBowlingFinished={bowling.finish} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
       {map==='tobacco'&&<TobaccoHaze active={active} reduceMotion={reduceMotion}/>}
     </Animated.View></View></GestureDetector>}
     <LinearGradient pointerEvents="none" colors={['#15262A75', 'transparent']} style={s.topShade} />
     <LinearGradient pointerEvents="none" colors={['transparent', '#192D2CB8']} style={s.bottomShade} />
-    <View style={[s.toolbar,{top:insets.top+114}]} pointerEvents="box-none">
+    <View style={[s.toolbar,{top:insets.top+(map==='bowling'||tight?64:114)}]} pointerEvents="box-none">
       <Pressable testID="world-map-open" accessibilityRole="button" accessibilityLabel="おでかけ。村の地図を開く" accessibilityState={{disabled:!active||bowling.busy}} disabled={!active||!!cleanTool||riding||bowling.busy} onPress={()=>{steering.value={x:0,y:0};setMapOpen(true);}} style={({pressed})=>[s.travelButton,{opacity:(!active||bowling.busy)?0.5:pressed?0.85:1}]}>
         <DoorIcon name="log-out" size={18} color="#DDCBA6"/>
         <Text style={s.travelTitle}>おでかけ</Text>
       </Pressable>
       <View style={{flexDirection:'row',gap:8}}>{map==='home'&&<WorldPill compact testID="room-clean-open" label="部屋のお掃除" icon="wind" disabled={!active||!!props.food||!!experience||riding} onPress={()=>setCleanOpen(true)}/>}<WorldPill testID="world-bgm-toggle" label="BGM" icon={props.music.enabled?'volume-2':'volume-x'} accessibilityLabel={props.music.enabled?'BGMを止める':'BGMを流す'} disabled={props.music.busy} onPress={props.music.toggle} style={{paddingHorizontal:11}}/>
-      <WorldPill compact icon="sliders" label="景色の見かた" disabled={!active||bowling.busy} onPress={()=>setViewOpen(true)} /></View>
+      {map!=='bowling'&&<WorldPill compact icon="sliders" label="景色の見かた" disabled={!active||bowling.busy} onPress={()=>setViewOpen(true)} />}</View>
     </View>
-    {map!=='home'&&map!=='bowling'&&<View pointerEvents="none" style={[s.sceneTitle,{top:insets.top+171}]}><Text style={s.sceneKicker}>{map==='market'?'VILLAGE SQUARE':map==='workshop'?'EGG ATELIER':'YOKI YOKI / TOWN'}</Text><Text style={s.sceneName}>{WORLD_MAPS.find(p=>p.id===map)?.name}</Text></View>}
-    {!experience&&(map==='home'||map==='market'||map==='workshop')&&<View style={{position:'absolute',right:20,bottom:bounds.height<600?177:244}}><WorldPill testID="world-go-work" label={map==='workshop'?'仕事を始める':'バイトする'} icon="briefcase" onPress={()=>map==='workshop'?openMerchant('job',{x:.5,y:.48}):enterMap('workshop')} disabled={!active||!!props.food||riding||!!cleanTool}/></View>}
-    {!!props.music.error&&<Text style={[s.musicNotice,{top:insets.top+162}]}>{props.music.error}</Text>}
-    {map==='bowling'&&<View pointerEvents="none" testID="world-bowling-status" style={[s.bowlingStatus,{top:insets.top+166,maxWidth:Math.min(240,Math.max(156,bounds.width*.4))}]}>
-      <Text style={{fontSize:10,color:'#DEC995',letterSpacing:1.2}}>TODAY'S MISSION</Text>
-      <Text style={{fontSize:16,color:'#FFF1D9',fontFamily:'NotoSansJP_700Bold',marginTop:4}}>{bowling.mission.name}</Text>
-      <Text style={{fontSize:11,lineHeight:18,color:'#E6DCD0',marginVertical:5}}>{bowling.mission.goal} · 達成＋{bowling.mission.bonus} pt</Text>
-      <Text accessibilityLiveRegion="polite" style={{fontSize:11,lineHeight:18,color:'#C4B8CC'}}>{bowling.message}</Text>
-    </View>}
-    {map==='bowling'&&<View style={[s.placeAction,{bottom:bounds.height<600?172:236}]}>
-      <WorldPill testID="world-bowling-charge" primary label={bowling.busy?'体当たり中…':bowling.played?'今日の挑戦はおしまい':'体当たり！'} icon="navigation" accessibilityLabel="巨大ピンに体当たり" disabled={!active||bowling.busy||bowling.played} onPress={()=>void bowling.roll({x:footX.value,y:footY.value,vx:.18,vy:-.85,aspect:height/width,radius:.045,layout:'garden-long'})}/>
-    </View>}
-    {!experience&&['onsen','lake'].includes(map)&&<View style={[s.placeAction,{bottom:bounds.height<600?172:236}]}>
+    {map!=='home'&&map!=='bowling'&&<View pointerEvents="none" style={[s.sceneTitle,{top:insets.top+(tight?115:165)}]}><Text style={[s.sceneName,{fontSize:13}]}>{WORLD_MAPS.find(p=>p.id===map)?.name}</Text></View>}
+    {!experience&&(map==='home'||map==='market'||map==='workshop')&&<View style={{position:'absolute',right:20,bottom:away?dockBottom+30:bounds.height<600?177:244}}><WorldPill testID="world-go-work" label={map==='workshop'?'仕事を始める':'バイトする'} icon="briefcase" onPress={()=>map==='workshop'?openMerchant('job',{x:.5,y:.48}):enterMap('workshop')} disabled={!active||!!props.food||riding||!!cleanTool}/></View>}
+    {!!props.music.error&&<Text style={[s.musicNotice,{top:insets.top+(tight?112:162)}]}>{props.music.error}</Text>}
+    {map==='bowling'&&<View style={{position:'absolute',left:12,right:12,top:insets.top+116,bottom:dockBottom}}><BowlingGame active={active} stage={props.stage} wear={props.wear} effect={props.effect} mascotName={props.mascotName} reduceMotion={reduceMotion} onBusy={setBowlingBusy}/></View>}
+    {!experience&&map==='fortune'&&<View style={[s.placeAction,{bottom:dockBottom+26,left:132}]}><WorldPill testID="fortune-open" label="ルナに占ってもらう" icon="moon" onPress={()=>openMerchant('fortune',{x:.4,y:.5})} disabled={!active||!!props.food}/></View>}
+    {!experience&&['onsen','lake'].includes(map)&&<View style={[s.placeAction,{bottom:dockBottom+26}]}>
       <WorldPill testID={map==='onsen'?'village-bath':'village-ride'} primary label={map==='onsen'?'温泉に入る':'観覧車に乗る'} icon={map==='onsen'?'sun':'disc'} disabled={!active||!!props.food}
         onPress={()=>request({x:map==='lake'?.61:.51,y:.5},{kind:map==='onsen'?'bath':'wheel'})}/>
     </View>}
@@ -315,12 +311,12 @@ export function WorldHome(props: Props) {
     {fortuneOpen&&<FortuneHall onClose={()=>{setFortuneOpen(false);view.reset();}}/>}
     {mapOpen&&<VillageMap current={map} night={night} level={props.level} disabled={!!experience||!!props.food||transition.busy} onSelect={id=>enterMap(id,true)} onClose={()=>setMapOpen(false)}/>}
     {!!mapMessage&&!mapOpen&&<Pressable accessibilityRole="button" accessibilityLabel="道の案内を閉じる" onPress={()=>setMapMessage('')} style={[s.notice,{top:insets.top+166}]}><Text accessibilityLiveRegion="polite" style={s.trailText}>{mapMessage}　×</Text></Pressable>}
-    {experience&&<View testID="village-experience" style={[s.experience,{bottom:bounds.height<600?160:210},experience==='smoke'&&{left:140,right:18,padding:10}]}>
-      <Text testID="village-experience-status" style={s.experienceText}>{experience==='smoke'?`${smoking.running?'喫煙中':'一服おわり'} ${Math.floor(smoking.elapsedMs/1000)} / 60秒\n幸福 ＋${smoking.receipt?.gained??0} / 清潔 −${smoking.receipt?.dirt??0}${(feedState.happiness?.smoking?.sessions??0)>=3?'\n喫煙者 · 5日間吸わなければ回復':''}`:experience==='wheel'?'空から、いつもの世界を眺めよう。':experienceMessage}</Text>
+    {experience&&<View testID="village-experience" style={[s.experience,{bottom:dockBottom+4,left:132,right:16,padding:10,gap:5}]}>
+      <Text testID="village-experience-status" style={s.experienceText}>{experience==='smoke'?`${smoking.running?'喫煙中':'一服おわり'} ${Math.floor(smoking.elapsedMs/1000)}/60秒 · 幸福＋${smoking.receipt?.gained??0} 清潔−${smoking.receipt?.dirt??0}`:experience==='wheel'?'空から、いつもの世界を眺めよう。':experienceMessage}</Text>
       {!!smoking.error&&experience==='smoke'&&<><Text accessibilityRole="alert" style={s.experienceText}>{smoking.error}</Text><WorldPill label="同じ時間で保存し直す" onPress={()=>{void smoking.retry();}} disabled={smoking.busy}/></>}
       <Pressable testID="village-experience-exit" accessibilityRole="button" disabled={experience==='smoke'&&smoking.busy} onPress={finishExperience} style={s.exit}><Text style={s.exitText}>{experience==='bath'?'お湯からあがる':experience==='smoke'?smoking.busy?'保存中…':smoking.running?'一服を終える':'戻る':'観覧車から降りる'}</Text></Pressable>
     </View>}
-    {!props.careInvitation&&(!experience||experience==='smoke')&&!cleanTool&&<View style={{position:'absolute',left:20,bottom:bounds.height<600?170:230}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowling.busy} onStart={()=>{portalTravel.value=!riding&&experience!=='smoke';pending.current=null;setDestination(null);}} onStep={(dx,dy)=>{if(riding){footX.value=Math.max(.40,Math.min(.65,footX.value+dx*.045));footY.value=Math.max(.44,Math.min(.55,footY.value+dy*.03));}else walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04},experience!=='smoke');}}/></View>}
+    {map!=='bowling'&&!props.careInvitation&&(!experience||experience==='smoke')&&!cleanTool&&<View style={{position:'absolute',left:16,bottom:away?dockBottom:bounds.height<600?170:230}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowling.busy} onStart={()=>{portalTravel.value=!riding&&experience!=='smoke';pending.current=null;setDestination(null);}} onStep={(dx,dy)=>{if(riding){footX.value=Math.max(.40,Math.min(.65,footX.value+dx*.045));footY.value=Math.max(.44,Math.min(.55,footY.value+dy*.03));}else walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04},experience!=='smoke');}}/></View>}
     {speaker&&<BottomSheet visible title={speaker.name} subtitle="となりの村の住人" onClose={()=>setNeighbor(null)}><View style={{alignItems:'center'}}><VillageResident stage={speaker.stage} size={112} active={props.active} reduceMotion={reduceMotion} scarf={speaker.color}/></View><Text testID="village-dialogue" accessibilityLiveRegion="polite" style={s.dialogue}>{reply||speaker.intro}</Text>{speaker.choices.map(choice=><Pressable key={choice.label} accessibilityRole="button" onPress={()=>setReply(choice.reply)} style={s.mapRow}><Text style={s.mapCopy}>{choice.label}</Text></Pressable>)}<Pressable accessibilityRole="button" onPress={()=>setNeighbor(null)} style={s.exit}><Text style={s.exitText}>またね</Text></Pressable></BottomSheet>}
     {transition.overlay}
 

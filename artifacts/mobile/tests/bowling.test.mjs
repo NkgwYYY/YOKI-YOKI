@@ -333,3 +333,44 @@ test('tree-sized pins collide visibly, support all daily missions, and preserve 
  assert.equal(receipt.rulesVersion,3);assert.equal(receipt.earned,simulateBowling(receipt).earned);
  assert.equal(prepareBowlingPlay(Object.fromEntries(saved.entries),'again',shot,'2026-10-09',feed).result.accepted,false);
 });
+
+test('v4 lane needs pace and a pocket angle: weak, gutter, partial and strike are distinct',()=>{
+ const shot=(aim,power=.8,curve=0,mission='strike')=>({aim,power,curve,mission,rulesVersion:4});
+ assert.equal(simulateBowling(shot(0,.15)).pins,0);
+ assert.equal(simulateBowling(shot(1,.4)).pins,0);
+ const center=simulateBowling(shot(0));assert.ok(center.pins>0&&center.pins<10);
+ assert.equal(simulateBowling(shot(-.14)).pins,10);
+ assert.notEqual(simulateBowling(shot(-.14,.8,1)).pins,10);
+ const samples=[];for(let i=-20;i<=20;i++)samples.push(simulateBowling(shot(i/20)).pins);
+ assert.ok(new Set(samples).size>=5);
+ assert.ok(samples.filter(n=>n===10).length<samples.length/3);
+});
+test('v4 daily reward is still once, selects today’s rack and replays after reload',()=>{
+ const input={aim:-.14,power:.8,curve:0,rulesVersion:4,mission:'strike'};
+ for(const date of ['2026-10-09','2026-10-10','2026-10-11']){
+  const first=prepareBowlingPlay({[feedKey]:JSON.stringify(feed)},`lane-${date}`,input,date,feed);
+  const values=Object.fromEntries(first.entries),saved=readBowlingState(JSON.parse(values[BOWLING_KEY])).plays[date];
+  assert.equal(saved.rulesVersion,4);assert.equal(saved.mission,dailyBowlingMission(date));
+  const replay=simulateBowling(saved);assert.equal(replay.pins,saved.pins);assert.equal(replay.earned,saved.earned);
+  assert.equal(replay.pins,replay.frames.at(-1).pins.filter(p=>!p.hidden&&p.down).length);
+  assert.equal(JSON.parse(values[feedKey]).points,feed.points+saved.earned);
+  assert.equal(prepareBowlingPlay(values,'another',input,date,feed).result.accepted,false);
+  assert.deepEqual(prepareBowlingPlay(values,saved.id,input,date,feed).entries,[]);
+ }
+});
+test('v4 accepts no shortcut world start and rejects invalid curve values',()=>{
+ const input={aim:0,power:.8,curve:0,rulesVersion:4,mission:'strike'};
+ for(const curve of [NaN,Infinity,2,-2])assert.throws(()=>simulateBowling({...input,curve}));
+ assert.throws(()=>simulateBowling({...input,world:longShot().world}));
+});
+test('all v4 mission layouts can be cleared with a deliberate shot',()=>{
+ for(const mission of ['strike','spare','split']){
+  let best=0;
+  for(let i=-20;i<=20;i++)for(const power of [.5,.8,1]){
+   const result=simulateBowling({aim:i/20,power,curve:0,rulesVersion:4,mission});
+   best=Math.max(best,result.pins);
+   assert.ok(result.frames.every(f=>Number.isFinite(f.x)&&Number.isFinite(f.y)&&f.pins.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))));
+  }
+  assert.equal(best,BOWLING_MISSIONS[mission].pins,mission);
+ }
+});
