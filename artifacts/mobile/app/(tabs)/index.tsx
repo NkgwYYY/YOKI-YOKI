@@ -32,13 +32,14 @@ import { getTodayDate } from '@/utils/dateUtils';
 
 import { useRecordPrompt } from '@/contexts/RecordPromptContext';
 import { isRecordPromptDue } from '@/utils/recordPrompt';
+import { useDailyBath } from '@/components/world/useDailyBath';
 import { DailyRecordInvitation } from '@/components/record/DailyRecordInvitation';
 
 const HINT_KEY = '@yoki/world_hints_v3';
 type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | null;
 export default function HomeScreen() {
   const router = useRouter();
-  const {place}=useLocalSearchParams<{place?:string}>();
+  const {place,bathReturn}=useLocalSearchParams<{place?:string;bathReturn?:string}>();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const compact = window.height < 600;
@@ -53,6 +54,7 @@ export default function HomeScreen() {
   const [feedVenue,setFeedVenue]=useState<'ramen'|undefined>(undefined);
   const [sheet, setSheet] = useState<Sheet>(null);
   const happiness=useWorldHappiness(active);
+  const bathCompleted=useDailyBath();
   const [hygieneNow,setHygieneNow]=useState(Date.now);
   useEffect(()=>{if(!active)return;setHygieneNow(Date.now());const timer=setInterval(()=>setHygieneNow(Date.now()),60000);return()=>clearInterval(timer);},[active]);
   const dust=roomDirt(readHousekeeping(feedState.housekeeping,hygieneNow),hygieneNow);
@@ -136,7 +138,7 @@ export default function HomeScreen() {
   const restTogether = () => {setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <WorldHome key={bathReturn??'world'} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
@@ -166,11 +168,11 @@ export default function HomeScreen() {
     {sheet==='hygiene'&&<BottomSheet visible title="からだの清潔度" onClose={()=>setSheet(null)}>
       <Text style={s.chatText}>清潔度 {hygiene}%</Text><Text style={s.chatText}>3日以上からだを洗わないと、少しずつ薄汚れていくよ。おふろのタオルを選んで、指でからだをこすって洗おう。お湯に浸かるだけでは汚れは落ちません。</Text>
       {hygieneState.protectedUntil>hygieneNow&&<Text style={s.chatText}>風呂キャン中。あと{Math.ceil((hygieneState.protectedUntil-hygieneNow)/86400000)}日間は、入浴しなくてもさっぱり。</Text>}
-      <WorldPill label="おうちのおふろへ" icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/>
+      <WorldPill disabled={bathCompleted} label={bathCompleted?'今日は入浴済み。また明日':'おうちのおふろへ'} icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/>
     </BottomSheet>}
     {sheet === 'happiness' && <BottomSheet visible onClose={close} title="うれしい気持ち" subtitle="会いに来てくれることが、いちばんうれしい。">
       <Text style={s.chatText}>幸福度 {happiness.value}%</Text>
-      {(happiness.smoking.dependent||happiness.smoking.recovered)&&<><SmokingCare status={happiness.smoking}/>{happiness.smoking.dependent&&<View style={{gap:8}}><WorldPill label="ごはんで気分転換" icon="coffee" onPress={()=>setSheet('feed')}/><WorldPill label="今日のことを記録する" icon="edit-3" onPress={()=>setSheet('record')}/><WorldPill label="おふろでひと休み" icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/></View>}</>}
+      {(happiness.smoking.dependent||happiness.smoking.recovered)&&<><SmokingCare status={happiness.smoking}/>{happiness.smoking.dependent&&<View style={{gap:8}}><WorldPill label="ごはんで気分転換" icon="coffee" onPress={()=>setSheet('feed')}/><WorldPill label="今日のことを記録する" icon="edit-3" onPress={()=>setSheet('record')}/><WorldPill disabled={bathCompleted} label={bathCompleted?'今日は入浴済み':'おふろでひと休み'} icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/></View>}</>}
       <Text style={{color:'#C1B2CA',fontSize:13,lineHeight:22}}>下の楽しみの加点は、1日1回。喫煙は吸っている時間に応じて変わるよ。</Text>
       {(Object.entries({visit:'会いに来てくれた',record:'今日のことを教えてくれた',ramen:'ラーメンを食べた',bath:'温泉でひと休み',homeBath:'おうちのおふろ',meal:'一緒にごはん'}) as [HappyAction,string][]).map(([action,label])=><View key={action} style={s.menuRow}>
         <Icon name={happiness.actions.includes(action)?'check-circle':'circle'} color="#A07DAA"/><Text style={s.menuText}>{label}</Text><Text style={{color:'#CDB68E'}}>＋{HAPPY_REWARDS[action]}</Text>

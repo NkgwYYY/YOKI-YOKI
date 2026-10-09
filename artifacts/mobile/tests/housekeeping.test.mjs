@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CLEANING_TOOLS,DUST_SPOTS,readHousekeeping,roomDirt,sweptSpots,prepareCleaning,BODY_WASH_SPOTS,rubBody,isBodyWashComplete,bodyWashPercent} from '../utils/housekeeping.ts';
-import {hygieneValue,DAY_MS,BATH_SKIP} from '../utils/hygiene.ts';
+import {CLEANING_TOOLS,DUST_SPOTS,readHousekeeping,roomDirt,sweptSpots,prepareCleaning,BODY_WASH_SPOTS,rubBody,isBodyWashComplete,bodyWashPercent,hasBathedToday,bathDateKey} from '../utils/housekeeping.ts';
+import {hygieneValue,readHygiene,DAY_MS,BATH_SKIP} from '../utils/hygiene.ts';
 import {prepareHappiness,HAPPY_REWARDS,prepareSmoking} from './careModules.mjs';
 import {createRecoverableStorage} from '../utils/recoverableStorage.ts';
 const now=Date.parse('2026-10-08T10:00:00Z'),key='@mentore/feed_state_v1';
@@ -57,6 +57,33 @@ test('an interrupted purchase recovers the item and exact debit on retry',async(
 });
 
 const fullyWashed=()=>BODY_WASH_SPOTS.map(()=>1);
+test('only a completed body wash locks the bath until the next local calendar day',()=>{
+ const late=new Date(2026,9,9,23,59,59).getTime(),midnight=new Date(2026,9,10,0,0,0).getTime();
+ assert.equal(hasBathedToday(undefined,late),false);
+ const initialized=prepareCleaning({}, {kind:'init'},late,feed).result.feed;
+ assert.equal(hasBathedToday(initialized.hygiene,late),false);
+ const skipped=prepareCleaning({}, {kind:'bathSkip'},late,feed).result.feed;
+ assert.equal(hasBathedToday(skipped.hygiene,late),false);
+ const saved=prepareCleaning({}, {kind:'bodyWash',id:'daily-wash',coverage:fullyWashed()},late,feed).result.feed;
+ assert.equal(saved.hygiene.completedBathDate,bathDateKey(late));
+ assert.equal(hasBathedToday(readHygiene(saved.hygiene,late),late),true);
+ assert.equal(hasBathedToday(saved.hygiene,midnight),false);
+ assert.equal(hasBathedToday(saved.hygiene,late-DAY_MS),true);
+ const legacy={lastBathAt:late,protectedUntil:0,washReceipts:['old-wash']};
+ assert.equal(hasBathedToday(legacy,late),true);assert.equal(hasBathedToday(legacy,midnight),false);
+});
+test('a new wash id cannot bypass today after getting dirty; tomorrow allows one fresh wash',async()=>{
+ const dirty={...feed,hygiene:{lastBathAt:now-7*DAY_MS,protectedUntil:0,smokeDirt:10}};
+ const {store,data}=memory(dirty);
+ await Promise.all(['first','second'].map(id=>store.transaction(values=>prepareCleaning(values,{kind:'bodyWash',id,coverage:fullyWashed()},now,feed))));
+ assert.equal(JSON.parse(data.get(key)).hygiene.washReceipts.length,1);
+ await store.transaction(values=>prepareSmoking(values,{kind:'start',id:'after-bath'},bathDateKey(now),now+1,feed));
+ await store.transaction(values=>prepareSmoking(values,{kind:'finish',id:'after-bath',elapsedMs:5000},bathDateKey(now),now+5001,feed));
+ const repeat=await store.transaction(values=>prepareCleaning(values,{kind:'bodyWash',id:'third',coverage:fullyWashed()},now+10000,feed));
+ assert.equal(repeat.changed,false);assert.equal(repeat.feed.hygiene.smokeDirt,1);assert.equal(hasBathedToday(repeat.feed.hygiene,now),true);
+ const next=await store.transaction(values=>prepareCleaning(values,{kind:'bodyWash',id:'tomorrow',coverage:fullyWashed()},now+DAY_MS,feed));
+ assert.equal(next.changed,true);assert.equal(next.feed.hygiene.smokeDirt,0);assert.equal(next.feed.hygiene.washReceipts.length,2);
+});
 test('touch without movement, off-body gestures and a single patch cannot wash the whole body',()=>{
  const empty=BODY_WASH_SPOTS.map(()=>0);
  assert.deepEqual(rubBody(empty,{x:.5,y:.5},{x:.5,y:.5}),empty);

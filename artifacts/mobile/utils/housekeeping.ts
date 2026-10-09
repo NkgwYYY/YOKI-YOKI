@@ -10,6 +10,17 @@ export type CleaningTool=keyof typeof CLEANING_TOOLS;
 export type HousekeepingState={startedAt:number;updatedAt:number;owned:CleaningTool[];cleaned:Record<string,number>};
 export const DUST_SPOTS=[{x:.42,y:.443},{x:.50,y:.445},{x:.59,y:.444},{x:.43,y:.474},{x:.51,y:.475},{x:.60,y:.478},{x:.42,y:.507},{x:.50,y:.508},{x:.62,y:.513},{x:.44,y:.54},{x:.53,y:.542},{x:.63,y:.54}];
 const DAY=86400000;
+export function bathDateKey(now:number) {
+  const date=new Date(now);
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+export function hasBathedToday(raw:unknown,now:number) {
+  const hygiene=raw as FeedState['hygiene'];
+  // Older versions saved a wash receipt and its timestamp, but no calendar key.
+  const previous=typeof hygiene?.completedBathDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(hygiene.completedBathDate)?hygiene.completedBathDate:
+    Array.isArray(hygiene?.washReceipts)&&hygiene.washReceipts.length>0&&Number.isFinite(hygiene.lastBathAt)?bathDateKey(hygiene.lastBathAt):'';
+  return !!previous&&previous>=bathDateKey(now);
+}
 export function readHousekeeping(raw:unknown,now:number):HousekeepingState {
   if(!Number.isFinite(now)||now<0)throw new Error('Invalid cleaning time');
   const data=raw as Partial<HousekeepingState>|undefined;
@@ -47,8 +58,8 @@ export function prepareCleaning(values:Record<string,string|null>,operation:Clea
   if(!feed.hygiene)changed=true;
   if(operation.kind==='bodyWash'){
     if(!operation.id||operation.id.length>160||!isBodyWashComplete(operation.coverage))throw new Error('体を全体までこすって洗ってね');
-    if(!hygiene.washReceipts?.includes(operation.id)){
-      hygiene={...hygiene,lastBathAt:Math.max(now,hygiene.lastBathAt),smokeDirt:0,washReceipts:[...(hygiene.washReceipts??[]),operation.id].slice(-32)};
+    if(!hygiene.washReceipts?.includes(operation.id)&&!hasBathedToday(hygiene,now)){
+      hygiene={...hygiene,lastBathAt:Math.max(now,hygiene.lastBathAt),completedBathDate:bathDateKey(now),smokeDirt:0,washReceipts:[...(hygiene.washReceipts??[]),operation.id].slice(-32)};
       changed=true;
     }
   }else if(operation.kind==='bathSkip'){

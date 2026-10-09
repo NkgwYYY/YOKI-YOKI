@@ -4,7 +4,7 @@ import {useAuth} from '@/contexts/AuthContext';
 import {BODY_WASH_SPOTS,bodyWashPercent,isBodyWashComplete,rubBody} from '@/utils/housekeeping';
 
 type Point={x:number;y:number};
-export function useBodyWash(active:boolean,cleanliness:number){
+export function useBodyWash(active:boolean,completedToday:boolean){
  const {cleanRoom}=useApp();
  const {user,isSignedIn,isLoading}=useAuth();
  const account=isLoading?'loading':isSignedIn?`user:${user?.id??'pending'}`:'guest';
@@ -25,11 +25,11 @@ export function useBodyWash(active:boolean,cleanliness:number){
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  useEffect(()=>{
   if(!active){previous.current=null;setTowel(null);}
-  else if(done.current&&cleanliness<100)reset();
- },[active,cleanliness]);
- const start=(point:Point)=>{if(!active||isLoading||pending.current||done.current)return;previous.current=point;setTowel(point);};
+  else if(done.current&&!completedToday)reset();
+ },[active,completedToday]);
+ const start=(point:Point)=>{if(!active||completedToday||isLoading||pending.current||done.current)return;previous.current=point;setTowel(point);};
  const move=(point:Point)=>{
-  if(!active||isLoading||pending.current||done.current||!previous.current)return;
+  if(!active||completedToday||isLoading||pending.current||done.current||!previous.current)return;
   const next=rubBody(current.current,previous.current,point);
   previous.current=point;current.current=next;setCoverage(next);setTowel(point);
  };

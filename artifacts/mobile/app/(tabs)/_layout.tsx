@@ -1,3 +1,4 @@
+import { useDailyBath } from '@/components/world/useDailyBath';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Redirect, Tabs } from 'expo-router';
@@ -12,6 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 type DockProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
 function WorldDock({state, navigation}: DockProps) {
   const insets = useSafeAreaInsets();
+  const bathCompleted=useDailyBath();
+  const leavingBath=bathCompleted&&state.routes[state.index].name==='plant';
   const places = [{name: 'index', label: 'おうち', icon: 'home'}, {name: 'plant', label: 'おふろ', icon: 'droplet'}, {name: 'growth', label: '思い出', icon: 'book-open'}] as const;
   return <View pointerEvents="box-none" style={{position: 'absolute', bottom: Math.max(12, insets.bottom), left: 16, right: 16, alignItems: 'center'}}>
     <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 7, backgroundColor: '#211B30F2', borderWidth: 1, borderColor: '#B7A48290', shadowColor:'#50355F', shadowOpacity:.16, shadowRadius:18, shadowOffset:{width:0,height:5}}}>
@@ -19,12 +22,13 @@ function WorldDock({state, navigation}: DockProps) {
         const route = state.routes.find(r => r.name === place.name);
         if (!route) return null;
         const selected = state.routes[state.index].key === route.key;
-        return <Pressable key={route.key} accessibilityRole="tab" accessibilityLabel={place.label} accessibilityState={{selected}}
+        const disabled=leavingBath||(place.name==='plant'&&bathCompleted);
+        return <Pressable key={route.key} disabled={disabled} accessibilityRole="tab" accessibilityLabel={place.name==='plant'&&bathCompleted?'おふろ、今日は入浴済み。また明日':place.label} accessibilityState={{selected,disabled}}
           onPress={() => {const event = navigation.emit({type: 'tabPress', target: route.key, canPreventDefault: true}); if (!selected && !event.defaultPrevented) navigation.navigate(route.name, route.params);}}
           onLongPress={() => navigation.emit({type: 'tabLongPress', target: route.key})}
-          style={({pressed}) => ({flex: 1, minHeight: 48, borderRadius: 7, alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: selected ? '#66507688' : 'transparent', opacity: pressed ? 0.7 : 1})}>
+          style={({pressed}) => ({flex: 1, minHeight: 48, borderRadius: 7, alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: selected ? '#66507688' : 'transparent', opacity: disabled ? .45 : pressed ? 0.7 : 1})}>
           <Icon name={place.icon} size={20} color={selected ? '#F0DDAE' : '#B2A4BD'} />
-          <Text style={{fontSize: 10, color: selected ? '#F0DDAE' : '#B2A4BD'}}>{place.label}</Text>
+          <Text style={{fontSize: 10, color: selected ? '#F0DDAE' : '#B2A4BD'}}>{place.name==='plant'&&bathCompleted?'入浴済み':place.label}</Text>
         </Pressable>;
       })}
     </View>

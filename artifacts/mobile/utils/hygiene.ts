@@ -1,10 +1,10 @@
-export type HygieneState={lastBathAt:number;protectedUntil:number;smokeDirt?:number;smokeReceipts?:string[];washReceipts?:string[]};
+export type HygieneState={lastBathAt:number;protectedUntil:number;smokeDirt?:number;smokeReceipts?:string[];washReceipts?:string[];completedBathDate?:string};
 export const BATH_SKIP={name:'風呂キャン',cost:60,days:7} as const;
 export const DAY_MS=86400000;
 export function readHygiene(raw:unknown,now:number):HygieneState {
   const input=raw as Partial<HygieneState>|undefined;
   const valid=(x:unknown):x is number=>typeof x==='number'&&Number.isFinite(x)&&x>=0;
-  return {lastBathAt:valid(input?.lastBathAt)?input.lastBathAt:now,protectedUntil:valid(input?.protectedUntil)?input.protectedUntil:0,smokeDirt:valid(input?.smokeDirt)?Math.min(85,input.smokeDirt):0,washReceipts:Array.isArray(input?.washReceipts)?input.washReceipts.filter(x=>typeof x==='string').slice(-32):[],smokeReceipts:Array.isArray(input?.smokeReceipts)?input.smokeReceipts.filter(x=>typeof x==='string').slice(-40):[]};
+  return {lastBathAt:valid(input?.lastBathAt)?input.lastBathAt:now,protectedUntil:valid(input?.protectedUntil)?input.protectedUntil:0,smokeDirt:valid(input?.smokeDirt)?Math.min(85,input.smokeDirt):0,washReceipts:Array.isArray(input?.washReceipts)?input.washReceipts.filter(x=>typeof x==='string').slice(-32):[],smokeReceipts:Array.isArray(input?.smokeReceipts)?input.smokeReceipts.filter(x=>typeof x==='string').slice(-40):[],...(typeof input?.completedBathDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(input.completedBathDate)?{completedBathDate:input.completedBathDate}:{})};
 }
 export function hygieneValue(raw:unknown,roomDirty:number,now:number){
   const state=readHygiene(raw,now);
