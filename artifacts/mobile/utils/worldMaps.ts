@@ -27,7 +27,7 @@ export function mapGroundBounds(map: WorldMapId, y: number) {
   if(map==='forest')return {minX:y<.52?.43:.36,maxX:y<.52?.61:.66,minY:.44,maxY:.81};
   if(map==='ramen')return {minX:.34,maxX:.66,minY:.47,maxY:.64};
   if(map==='onsen')return {minX:.23,maxX:.77,minY:.49,maxY:.81};
-  if(map==='fortune')return {minX:.25,maxX:.75,minY:.56,maxY:.81};
+  if(map==='fortune')return {minX:.25,maxX:.75,minY:.615,maxY:.81};
   if(map==='tobacco')return {minX:.22,maxX:.78,minY:.55,maxY:.81};
   if(map==='homewares'||map==='diner'||map==='workshop')return {minX:.26,maxX:.74,minY:.49,maxY:.81};
   if(map==='market')return {minX:.23,maxX:.77,minY:.46,maxY:.81};

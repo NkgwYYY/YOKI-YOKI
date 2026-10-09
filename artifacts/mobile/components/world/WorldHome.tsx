@@ -154,7 +154,7 @@ export function WorldHome(props: Props) {
     if (!state.active) {cancelAnimation(camera); return;}
     // Keep both ends of the longer lane in the usual overview on a tall screen.
     // Compact landscape retains the normal character-follow camera.
-    let offset=worldCameraOffset(state.y,height,viewportHeight,frameTop);
+    let offset=worldCameraOffset(map==='fortune'?.68:state.y,height,viewportHeight,frameTop);
     if(map==='bowling'&&viewportHeight>=600){
       const minOffset=insets.top+206-frameTop-height*.22;
       const maxOffset=viewportHeight-136-frameTop-height*.715;
