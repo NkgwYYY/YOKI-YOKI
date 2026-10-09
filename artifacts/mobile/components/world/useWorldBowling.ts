@@ -6,7 +6,7 @@ import {BOWLING_MISSIONS,bowlingPlayedToday,canStartWorldBowling,dailyBowlingMis
 import type {WorldMapId} from '@/utils/worldMaps';
 
 export type WorldBowlingMotion={frames:SharedValue<BowlingFrame[]>;index:SharedValue<number>;running:SharedValue<boolean>};
-const readyFrame=(date=getTodayDate()):BowlingFrame=>({x:.455,y:.715,pins:missionPinPositions(dailyBowlingMission(date))});
+const readyFrame=(date=getTodayDate()):BowlingFrame=>({x:.455,y:.715,pins:missionPinPositions(dailyBowlingMission(date),true)});
 const resultLabel=(receipt:BowlingReceipt)=>`${receipt.missionComplete?'ミッション達成！':receipt.pins===10?'ストライク！':`${receipt.pins}本たおれた！`} ＋${receipt.earned} pt${receipt.missionComplete?`（達成ボーナス${BOWLING_MISSIONS[receipt.mission!].bonus} pt込み）`:''}。また明日！`;
 export function useWorldBowling(map:WorldMapId,active:boolean){
   const {bowlingState,playBowling}=useApp();
@@ -20,9 +20,9 @@ export function useWorldBowling(map:WorldMapId,active:boolean){
   useEffect(()=>{
     generation.current++;running.value=false;lock.current=false;setBusy(false);setMessage('');
     const receipt=Object.values(latest.current.bowlingState.plays).find(p=>p.date>=today);
-    const frame=receipt?.world?.layout==='garden-long'?simulateBowling(receipt).frames.at(-1)!:readyFrame(today);
+    const frame=receipt?.rulesVersion===3?simulateBowling(receipt).frames.at(-1)!:readyFrame(today);
     // Earlier saved games used a different lane; keep their earned result and used day.
-    if(receipt&&receipt.world?.layout!=='garden-long')frame.pins=frame.pins.map((pin,i)=>({...pin,down:i<receipt.pins,rotation:i<receipt.pins?84:0}));
+    if(receipt&&receipt.rulesVersion!==3)frame.pins=frame.pins.map((pin,i)=>({...pin,down:i<receipt.pins,rotation:i<receipt.pins?84:0}));
     frames.value=[frame];index.value=0;
     return()=>{generation.current++;running.value=false;};
   },[map,today,frames,index,running]);
@@ -34,7 +34,7 @@ export function useWorldBowling(map:WorldMapId,active:boolean){
     lock.current=true;setBusy(true);setMessage('');
     const current=generation.current;
     try{
-      const input={aim:0,power:.8,world,rulesVersion:2 as const,mission:dailyBowlingMission(date)};
+      const input={aim:0,power:.8,world,rulesVersion:3 as const,mission:dailyBowlingMission(date)};
       const result=await latest.current.playBowling(`world-${Date.now()}-${Math.random().toString(36).slice(2,10)}`,input);
       if(current!==generation.current)return;
       if(!result.accepted){setMessage('今日の一投はおしまい。また明日、遊ぼう。');lock.current=false;setBusy(false);return;}
@@ -46,5 +46,5 @@ export function useWorldBowling(map:WorldMapId,active:boolean){
   const finish=useCallback(()=>{lock.current=false;setBusy(false);setMessage(resultText.current);},[]);
   const receipt=Object.values(bowlingState.plays).find(p=>p.date>=today);
   const mission=BOWLING_MISSIONS[receipt?.mission??dailyBowlingMission(today)];
-  return {motion:{frames,index,running},roll,finish,busy,mission,message:message||(busy?'いくよ、ころころ…':receipt?resultLabel(receipt):'奥へスワイプ。狙いと勢いを少しサポート。1日1投・1本5 pt')};
+  return {motion:{frames,index,running},roll,finish,busy,played:!!receipt,mission,message:message||(busy?'いくよ、体当たり！':receipt?resultLabel(receipt):'自分を奥へスワイプして巨大ピンに体当たり！ 1日1投・1本5 pt')};
 }

@@ -26,9 +26,9 @@ test('persisted invitation validates without silently erasing bad preferences',(
   for(const time of ['24:00','20:60','7:00','-1:00','bad'])assert.throws(()=>parseRecordPrompt(JSON.stringify({...D,time})));
   assert.throws(()=>parseRecordPrompt('{broken'));
 });
-test('twelve distinct maps unlock at saved level, with connected reachable dry-ground routes',()=>{
-  for(const [level,ids] of [[1,['home','market','ramen','bowling','tobacco','homewares','diner','workshop']],[3,['home','market','ramen','bowling','tobacco','homewares','diner','workshop','forest','onsen']],[4,['home','market','ramen','bowling','tobacco','homewares','diner','workshop','forest','onsen','village']],[6,['home','market','ramen','bowling','tobacco','homewares','diner','workshop','forest','onsen','village','lake']],[15,['home','market','ramen','bowling','tobacco','homewares','diner','workshop','forest','onsen','village','lake']]])assert.deepEqual(maps.WORLD_MAPS.filter(m=>maps.canVisitMap(m.id,level)).map(m=>m.id),ids);
-  for(const id of ['forest','lake','market','onsen','village','ramen','bowling','tobacco','homewares','diner','workshop']){
+test('thirteen distinct maps unlock at saved level, with connected reachable dry-ground routes',()=>{
+  for(const [level,ids] of [[1,['home','market','ramen','bowling','tobacco','homewares','diner','workshop','fortune']],[3,['home','market','ramen','bowling','tobacco','homewares','diner','workshop','fortune','forest','onsen']],[4,['home','market','ramen','bowling','tobacco','homewares','diner','workshop','fortune','forest','onsen','village']],[6,['home','market','ramen','bowling','tobacco','homewares','diner','workshop','fortune','forest','onsen','village','lake']],[15,['home','market','ramen','bowling','tobacco','homewares','diner','workshop','fortune','forest','onsen','village','lake']]])assert.deepEqual(maps.WORLD_MAPS.filter(m=>maps.canVisitMap(m.id,level)).map(m=>m.id),ids);
+  for(const id of ['forest','lake','market','onsen','village','ramen','bowling','tobacco','homewares','diner','workshop','fortune']){
     assert.equal(maps.isMapGround(id,{x:.1,y:.2}),false);
     const points=[maps.mapStart(id),maps.mapGroundPoint(id,{x:-1,y:9}),maps.mapGroundPoint(id,{x:9,y:-1})];
     for(const from of points)for(const to of points){let at=from;for(const next of maps.mapRoute(id,from,to)){for(let t=0;t<=1;t+=.02)assert.ok(maps.isMapGround(id,{x:at.x+(next.x-at.x)*t,y:at.y+(next.y-at.y)*t}));at=next;}assert.deepEqual(at,to);}

@@ -5,7 +5,7 @@ import type {WorldBowlingMotion} from './useWorldBowling';
 const AnimatedG=Animated.createAnimatedComponent(G);
 
 function WorldPin({motion,id,width,height}:{motion:WorldBowlingMotion;id:number;width:number;height:number}){
-  const size=width*.046;
+  const size=width*.14;
   const style=useAnimatedStyle(()=>{
     const pin=motion.frames.value[Math.min(motion.index.value,motion.frames.value.length-1)]?.pins[id];
     if(!pin||pin.hidden)return {opacity:0};
@@ -20,7 +20,7 @@ function WorldPin({motion,id,width,height}:{motion:WorldBowlingMotion;id:number;
     return {opacity:pin&&!pin.down&&motion.running.value&&Math.hypot(frame.x-pin.x,(frame.y-pin.y)*height/width)<.16?1:0};
   });
   const fallen=useAnimatedProps(()=>({opacity:motion.frames.value[Math.min(motion.index.value,motion.frames.value.length-1)]?.pins[id]?.down?1:0}));
-  return <Animated.View testID={`world-bowling-pin-${id}`} pointerEvents="none" style={[{position:'absolute',width:size,height:size*1.9},style]}>
+  return <Animated.View testID={`world-bowling-pin-${id}`} pointerEvents="none" style={[{position:'absolute',width:size,height:size*1.9,transformOrigin:'50% 90%'},style]}>
     <Svg width="100%" height="100%" viewBox="0 0 40 76">
       <Defs><LinearGradient id={`pinIvory${id}`} x2="1" y2="0"><Stop stopColor="#D7C5B3"/><Stop offset=".4" stopColor="#FFFAE9"/><Stop offset=".62" stopColor="#FFFFFF"/><Stop offset="1" stopColor="#DACFC0"/></LinearGradient></Defs>
       <Ellipse cx="22" cy="70" rx="17" ry="5" fill="#7E6A69" opacity=".25"/>

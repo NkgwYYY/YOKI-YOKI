@@ -7,7 +7,7 @@ export const POINTS_PER_PIN = 5;
 export const BOWLING_DURATION = 3200;
 export type WorldBowlingInput = { x:number; y:number; vx:number; vy:number; aspect:number; radius:number; layout?:'garden'|'garden-long' };
 export type BowlingMissionId = 'strike' | 'split' | 'spare';
-export type BowlingInput = { aim: number; power: number; world?: WorldBowlingInput; rulesVersion?: 2; mission?: BowlingMissionId };
+export type BowlingInput = { aim: number; power: number; world?: WorldBowlingInput; rulesVersion?: 2 | 3; mission?: BowlingMissionId };
 export type PinPose = { x: number; y: number; rotation: number; down: boolean; hidden?: boolean };
 export type BowlingFrame = { x: number; y: number; pins: PinPose[] };
 export type BowlingResult = {
@@ -37,15 +37,15 @@ export function dailyBowlingMission(date: string): BowlingMissionId {
   const serial = Math.floor(Date.UTC(year, month - 1, day) / 86400000);
   return (['strike', 'split', 'spare'] as const)[((serial % 3) + 3) % 3];
 }
-export function missionPinPositions(mission: BowlingMissionId): PinPose[] {
+export function missionPinPositions(mission: BowlingMissionId, giant = false): PinPose[] {
   const rack = Array.from({length:4},(_,row)=>Array.from({length:row+1},(_,col)=>({
-    x:.557+(col-row/2)*.044, y:.386-row*.022, rotation:0, down:false,
+    x:(giant?.54:.557)+(col-row/2)*(giant?.106:.044), y:(giant?.55:.386)-row*(giant?.052:.022), rotation:0, down:false,
   }))).flat();
   if(mission==='strike')return rack;
   // A small split can be converted by driving one pin across into the other.
   const target = mission==='split'
-    ? [{x:.525,y:.382},{x:.588,y:.36}]
-    : [{x:.537,y:.382},{x:.581,y:.382},{x:.559,y:.356}];
+    ? (giant?[{x:.465,y:.515},{x:.615,y:.515}]:[{x:.525,y:.382},{x:.588,y:.36}])
+    : (giant?[{x:.54,y:.55},{x:.487,y:.485},{x:.593,y:.485}]:[{x:.537,y:.382},{x:.581,y:.382},{x:.559,y:.356}]);
   return rack.map((pin,i)=>({...pin,...target[i],hidden:i>=target.length}));
 }
 export function bowlingReward(pins:number, mission?:BowlingMissionId) {
@@ -54,8 +54,8 @@ export function bowlingReward(pins:number, mission?:BowlingMissionId) {
 }
 
 export function validateBowlingInput(input: BowlingInput) {
-  if(input?.rulesVersion!==undefined&&(input.rulesVersion!==2||!input.mission||!Object.prototype.hasOwnProperty.call(BOWLING_MISSIONS,input.mission)||input.world?.layout!=='garden-long'))throw new Error('今日のミッションを確認できません');
-  if(input?.mission!==undefined&&input.rulesVersion!==2)throw new Error('今日のミッションを確認できません');
+  if(input?.rulesVersion!==undefined&&(![2,3].includes(input.rulesVersion)||!input.mission||!Object.prototype.hasOwnProperty.call(BOWLING_MISSIONS,input.mission)||input.world?.layout!=='garden-long'))throw new Error('今日のミッションを確認できません');
+  if(input?.mission!==undefined&&input.rulesVersion!==2&&input.rulesVersion!==3)throw new Error('今日のミッションを確認できません');
   if (
     !input ||
     !Number.isFinite(input.aim) ||
@@ -93,18 +93,18 @@ export function worldPinPositions(layout:'garden'|'classic'='garden'):PinPose[]{
   return Array.from({length:4},(_,row)=>Array.from({length:row+1},(_,col)=>({x:.5+(col-row/2)*.045,y:.535-row*.026,rotation:0,down:false}))).flat();
 }
 /** Normal scene coordinates. Pin contact, scatter and reward share one trajectory. */
-function simulateWorldBowling(input:WorldBowlingInput,mission?:BowlingMissionId):BowlingResult {
+function simulateWorldBowling(input:WorldBowlingInput,mission?:BowlingMissionId,giant=false):BowlingResult {
   const longLane=input.layout==='garden-long';
   const garden=input.layout==='garden'||longLane;
-  const pinRadius=mission?.020:garden?.013:.021;
-  const pins=(mission?missionPinPositions(mission):worldPinPositions(garden?'garden':'classic')).map(p=>({...p,vx:0,vy:0}));
+  const pinRadius=giant?.049:mission?.020:garden?.013:.021;
+  const pins=(mission?missionPinPositions(mission,giant):worldPinPositions(garden?'garden':'classic')).map(p=>({...p,vx:0,vy:0}));
   let ball={...input,hit:false};
   if(mission&&input.vy<-.35){
     // Keep deliberate direction errors, but help a modest forward swipe reach the rack.
     const vy=Math.min(-1.08,input.vy), vx=input.vx*vy/input.vy;
-    const target=mission==='split'?{x:.525,y:.382}:{x:.557,y:.386};
+    const target=giant?(mission==='split'?{x:.54,y:.515}:{x:.54,y:.55}):mission==='split'?{x:.525,y:.382}:{x:.557,y:.386};
     const ideal=(target.x-input.x)/((input.y-target.y)*input.aspect)*-vy;
-    ball={...ball,vy,vx:Math.abs(vx-ideal)<.25?vx*.4+ideal*.6:vx};
+    ball={...ball,vy,vx:Math.abs(vx-ideal)<(giant?.48:.25)?vx*(giant?.25:.4)+ideal*(giant?.75:.6):vx};
   }
   let gutter=false;
   const frames:BowlingFrame[]=[];
@@ -124,7 +124,7 @@ function simulateWorldBowling(input:WorldBowlingInput,mission?:BowlingMissionId)
     if(longLane&&ball.y<.665){
       const depth=.66-ball.y;
       const grace=mission?.025:0;
-      if(ball.y>(mission?.405:0)&&(ball.x<.325+depth*.64+.008-grace||ball.x>.594+depth*.17-.008+grace))gutter=true;
+      if(ball.y>(giant?.59:mission?.405:0)&&(ball.x<.325+depth*.64+.008-grace||ball.x>.594+depth*.17-.008+grace))gutter=true;
     }else if(garden&&!longLane&&ball.y<.445){
       const depth=.447-ball.y;
       if(ball.x<.423+depth*.64+.008||ball.x>.622+depth*.18-.008)gutter=true;
@@ -150,7 +150,7 @@ export function pinPositions() {
 /** Fixed-step collisions determine both the visible pin fall and the saved reward. */
 export function simulateBowling(input: BowlingInput): BowlingResult {
   validateBowlingInput(input);
-  if(input.world)return simulateWorldBowling(input.world,input.rulesVersion===2?input.mission:undefined);
+  if(input.world)return simulateWorldBowling(input.world,input.rulesVersion?input.mission:undefined,input.rulesVersion===3);
   const ball = {
     x: 0,
     y: 0.1,
@@ -244,8 +244,8 @@ export function readBowlingState(raw: unknown): BowlingState {
       !Number.isInteger(receipt.pins) ||
       receipt.pins < 0 ||
       receipt.pins > 10 ||
-      receipt.earned !== bowlingReward(receipt.pins,receipt.rulesVersion===2?receipt.mission:undefined).earned ||
-      (receipt.rulesVersion===2 && (receipt.mission!==dailyBowlingMission(date)||receipt.pins>BOWLING_MISSIONS[receipt.mission!]?.pins||receipt.missionComplete!==bowlingReward(receipt.pins,receipt.mission).missionComplete))
+      receipt.earned !== bowlingReward(receipt.pins,receipt.rulesVersion?receipt.mission:undefined).earned ||
+      (receipt.rulesVersion && (receipt.mission!==dailyBowlingMission(date)||receipt.pins>BOWLING_MISSIONS[receipt.mission!]?.pins||receipt.missionComplete!==bowlingReward(receipt.pins,receipt.mission).missionComplete))
     )
       throw new Error("ボウリングの記録を確認できません");
     validateBowlingInput(receipt);
@@ -291,7 +291,7 @@ export function prepareBowlingPlay(
     };
   // The saved date chooses the mission; callers cannot select a more rewarding rack.
   const acceptedInput:BowlingInput=input.world?.layout==='garden-long'
-    ? {...input,rulesVersion:2,mission:dailyBowlingMission(today)} : input;
+    ? {...input,rulesVersion:input.rulesVersion===3?3:2,mission:dailyBowlingMission(today)} : input;
   const result = simulateBowling(acceptedInput);
   const receipt: BowlingReceipt = {
     ...acceptedInput,
@@ -299,7 +299,7 @@ export function prepareBowlingPlay(
     date: today,
     pins: result.pins,
     earned: result.earned,
-    ...(acceptedInput.rulesVersion===2?{missionComplete:result.missionComplete}:{}),
+    ...(acceptedInput.rulesVersion?{missionComplete:result.missionComplete}:{}),
   };
   const next = {
     plays: Object.fromEntries(

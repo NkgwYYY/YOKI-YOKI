@@ -316,3 +316,20 @@ test("independent browser stores share a Web Lock and grant only one daily rewar
     else delete navigator.locks;
   }
 });
+
+test('tree-sized pins collide visibly, support all daily missions, and preserve v2 receipt replays',()=>{
+ for(const mission of ['strike','split','spare']){
+  const shot={...missionShot(mission,.1,-.55),rulesVersion:3};
+  const result=simulateBowling(shot),old=simulateBowling({...shot,rulesVersion:2});
+  assert.equal(result.pins,BOWLING_MISSIONS[mission].pins);
+  assert.equal(result.pins,result.frames.at(-1).pins.filter(p=>p.down&&!p.hidden).length);
+  assert.equal(result.earned,result.pins*5+BOWLING_MISSIONS[mission].bonus);
+  assert.equal(simulateBowling({...shot,world:{...shot.world,vx:-.7}}).pins,0);
+  assert.deepEqual(old,simulateBowling({...shot,rulesVersion:2}));
+ }
+ const shot={...missionShot('strike',.1,-.55),rulesVersion:3};
+ const saved=prepareBowlingPlay({},'giant',shot,'2026-10-09',feed);
+ const receipt=readBowlingState(saved.result.state).plays['2026-10-09'];
+ assert.equal(receipt.rulesVersion,3);assert.equal(receipt.earned,simulateBowling(receipt).earned);
+ assert.equal(prepareBowlingPlay(Object.fromEntries(saved.entries),'again',shot,'2026-10-09',feed).result.accepted,false);
+});

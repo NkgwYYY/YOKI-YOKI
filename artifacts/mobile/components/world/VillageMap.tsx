@@ -8,8 +8,8 @@ import {canVisitMap,WORLD_MAPS,type WorldMapId} from '@/utils/worldMaps';
 import {MAP_COORDS,VILLAGE_LINKS} from '@/utils/villageLife';
 import {worldArt,prepareWorldArt,VILLAGE_ATLAS,prepareVillageAtlas} from '@/utils/worldArt';
 import {WorldPill} from './WorldPill';
-const symbols:Record<WorldMapId,IconName>={home:'home',market:'map-pin',forest:'feather',onsen:'sun',village:'users',lake:'droplet',ramen:'coffee',bowling:'circle',tobacco:'wind',homewares:'shopping-bag',diner:'coffee',workshop:'briefcase'};
-const names:Record<WorldMapId,string>={home:'おうち',market:'こもれび広場',forest:'木もれびの森',onsen:'森の温泉',village:'となりの村',lake:'星あかりの湖',ramen:'ラーメン屋',bowling:'ボウリング',tobacco:'路地裏のタバコ屋',homewares:'暮らしのお店',diner:'ごはんのお店',workshop:'ゆでたまご工房'};
+const symbols:Record<WorldMapId,IconName>={fortune:'moon',home:'home',market:'map-pin',forest:'feather',onsen:'sun',village:'users',lake:'droplet',ramen:'coffee',bowling:'circle',tobacco:'wind',homewares:'shopping-bag',diner:'coffee',workshop:'briefcase'};
+const names:Record<WorldMapId,string>={fortune:'占いの館',home:'おうち',market:'こもれび広場',forest:'木もれびの森',onsen:'森の温泉',village:'となりの村',lake:'星あかりの湖',ramen:'ラーメン屋',bowling:'ボウリング',tobacco:'路地裏のタバコ屋',homewares:'暮らしのお店',diner:'ごはんのお店',workshop:'ゆでたまご工房'};
 export function VillageMap({current,night,level,disabled,onSelect,onClose}:{current:WorldMapId;night:boolean;level:number;disabled:boolean;onSelect:(id:WorldMapId)=>void;onClose:()=>void}){
  const window=useWindowDimensions(),insets=useSafeAreaInsets(),[selected,setSelected]=useState(current);
  const width=Math.min(window.width,640),height=Math.max(560,Math.min(750,window.height-insets.top-insets.bottom-225));

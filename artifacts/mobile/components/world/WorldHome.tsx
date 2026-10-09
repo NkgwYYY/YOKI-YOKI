@@ -1,3 +1,4 @@
+import {FortuneCat,FortuneHall} from './FortuneHall';
 import {MerchantResident} from '@/components/village/MerchantResident';
 import {WorldGate} from './WorldGate';
 import {useHousekeeping} from './useHousekeeping';
@@ -71,6 +72,7 @@ export function WorldHome(props: Props) {
   const [map,setMap]=useState<WorldMapId>(props.initialMap??'home');
   const smoking=useSmoking(props.active&&map==='tobacco');
   const [mapOpen,setMapOpen]=useState(false);
+  const [fortuneOpen,setFortuneOpen]=useState(false);
   const [placesOpen,setPlacesOpen]=useState(false),[viewOpen,setViewOpen]=useState(false);
   const [experience,setExperience]=useState<VillageExperience|null>(null);
   const [neighbor,setNeighbor]=useState<VillagerId|null>(null);
@@ -78,12 +80,12 @@ export function WorldHome(props: Props) {
   const pending=useRef<{id:number;action:VillageAction}|null>(null);
   const [mapMessage,setMapMessage]=useState('');
   const transition=useSceneTransition(reduceMotion,()=>setMapMessage('景色を読み込めませんでした。もう一度、行き先を選んでね。'));
-  const active=props.active&&!cleanOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!transition.busy&&!zooming;
+  const active=props.active&&!cleanOpen&&!fortuneOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!transition.busy&&!zooming;
   const housekeeping=useHousekeeping(props.active);
   const bowling=useWorldBowling(map,active);
   const footX=useSharedValue(.5);
   const steering=useSharedValue({x:0,y:0});
-  useEffect(()=>{props.onSceneBusy(!!experience||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[experience,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
+  useEffect(()=>{props.onSceneBusy(!!experience||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[experience,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
   const [bounds, setBounds] = useState({width: 0, height: 0});
   const destinationId=useRef(0);
   const [destination, setDestination] = useState<WorldDestination | null>(null);
@@ -111,7 +113,7 @@ export function WorldHome(props: Props) {
     },8000);
     return()=>{alive=false;clearTimeout(timer);};
   },[experience,active,awardHappiness]);
-  const openMerchant=(kind:'shop'|'food'|'ramen'|'tobacco'|'job',point:{x:number;y:number})=>{
+  const openMerchant=(kind:'shop'|'food'|'ramen'|'tobacco'|'job'|'fortune',point:{x:number;y:number})=>{
     if(!active||props.food||experience||bowling.busy)return;
     portalTravel.value=false;steering.value={x:0,y:0};pending.current=null;setDestination(null);
     setZooming(true);view.focusAt(point,bounds);
@@ -120,6 +122,7 @@ export function WorldHome(props: Props) {
       if(!latestActive.current)return;
       setZooming(false);
       if(kind==='shop')props.onShop();
+      else if(kind==='fortune')setFortuneOpen(true);
       else if(kind==='job')props.onJob();
       else if(kind==='food'||kind==='ramen')props.onFeed(kind==='ramen'?'ramen':undefined);
       else setPlacesOpen(true);
@@ -146,14 +149,14 @@ export function WorldHome(props: Props) {
     },700);
     return()=>{cancelled=true;clearTimeout(timer);};
   },[map,mapOpen,props.active,props.period,props.level,transition.busy]);
-  useEffect(()=>{setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
+  useEffect(()=>{setFortuneOpen(false);setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
   useAnimatedReaction(() => ({y: footY.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active}), state => {
     if (!state.active) {cancelAnimation(camera); return;}
     // Keep both ends of the longer lane in the usual overview on a tall screen.
     // Compact landscape retains the normal character-follow camera.
     let offset=worldCameraOffset(state.y,height,viewportHeight,frameTop);
     if(map==='bowling'&&viewportHeight>=600){
-      const minOffset=insets.top+206-frameTop-height*.29;
+      const minOffset=insets.top+206-frameTop-height*.22;
       const maxOffset=viewportHeight-136-frameTop-height*.715;
       offset=Math.min(maxOffset,Math.max(0,minOffset));
     }
@@ -164,7 +167,7 @@ export function WorldHome(props: Props) {
     if (active&&!cleanTool&&!riding&&!props.food&&(!experience||experience==='smoke')&&!bowling.busy) {portalTravel.value=throughGate;pending.current=null;setDestination({id:++destinationId.current,point:mapGroundPoint(map,point)});}
   };
   const enterMap=(target:WorldMapId,fromMap=false)=>{
-    if(!props.active||cleanTool||riding||neighbor||transition.busy||(!fromMap&&(mapOpen||placesOpen||viewOpen))||props.food||experience)return;
+    if(!props.active||cleanTool||riding||neighbor||transition.busy||(!fromMap&&(mapOpen||placesOpen||viewOpen||fortuneOpen))||props.food||experience)return;
     portalTravel.value=false;steering.value={x:0,y:0};setDestination(null);
     if(!canVisitMap(target,props.level)){const place=WORLD_MAPS.find(p=>p.id===target)!;setMapMessage(`${place.name}はレベル${place.level}でひらきます。`);return;}
     setMapOpen(false);setPlacesOpen(false);setViewOpen(false);
@@ -247,6 +250,7 @@ export function WorldHome(props: Props) {
       </>}
       {map==='lake'&&<VillageWheel width={width} height={height} active={active} reduceMotion={reduceMotion} riding={experience==='wheel'} onFinish={finishExperience}/>}
       {map==='village'&&<VillageNeighbors width={width} height={height} active={active&&!experience} reduceMotion={reduceMotion} onTalk={id=>{const n=VILLAGERS.find(p=>p.id===id)!;request({x:n.x+.06,y:n.y+.035},{kind:'neighbor',id});}}/>}
+      {map==='fortune'&&<FortuneCat width={width} height={height} disabled={!active||!!props.food} onPress={()=>openMerchant('fortune',{x:.5,y:.47})}/>}
       {map==='homewares'&&merchant('shop','暮らしのお店',{x:.50,y:.49},'stage3','shop')}
       {map==='diner'&&merchant('food','ごはんのお店',{x:.52,y:.49},'egg','food')}
       {map==='workshop'&&merchant('egg-job','工房の店長',{x:.50,y:.48},'egg','job')}
@@ -278,6 +282,9 @@ export function WorldHome(props: Props) {
       <Text style={{fontSize:11,lineHeight:18,color:'#E6DCD0',marginVertical:5}}>{bowling.mission.goal} · 達成＋{bowling.mission.bonus} pt</Text>
       <Text accessibilityLiveRegion="polite" style={{fontSize:11,lineHeight:18,color:'#C4B8CC'}}>{bowling.message}</Text>
     </View>}
+    {map==='bowling'&&<View style={[s.placeAction,{bottom:bounds.height<600?172:236}]}>
+      <WorldPill testID="world-bowling-charge" primary label={bowling.busy?'体当たり中…':bowling.played?'今日の挑戦はおしまい':'体当たり！'} icon="navigation" accessibilityLabel="巨大ピンに体当たり" disabled={!active||bowling.busy||bowling.played} onPress={()=>void bowling.roll({x:footX.value,y:footY.value,vx:.18,vy:-.85,aspect:height/width,radius:.045,layout:'garden-long'})}/>
+    </View>}
     {!experience&&['onsen','lake'].includes(map)&&<View style={[s.placeAction,{bottom:bounds.height<600?172:236}]}>
       <WorldPill testID={map==='onsen'?'village-bath':'village-ride'} primary label={map==='onsen'?'温泉に入る':'観覧車に乗る'} icon={map==='onsen'?'sun':'disc'} disabled={!active||!!props.food}
         onPress={()=>request({x:map==='lake'?.61:.51,y:.5},{kind:map==='onsen'?'bath':'wheel'})}/>
@@ -305,6 +312,7 @@ export function WorldHome(props: Props) {
       {!!smoking.error&&<Text accessibilityRole="alert" style={s.mapCopy}>{smoking.error}</Text>}
       <WorldPill testID="tobacco-smoke" label={smoking.busy?'準備中…':'喫煙所で一服する'} disabled={smoking.busy} icon="wind" onPress={()=>{void smoking.start().then(ok=>{if(ok){setPlacesOpen(false);view.reset();setExperience('smoke');}});}}/>
     </BottomSheet>}
+    {fortuneOpen&&<FortuneHall onClose={()=>{setFortuneOpen(false);view.reset();}}/>}
     {mapOpen&&<VillageMap current={map} night={night} level={props.level} disabled={!!experience||!!props.food||transition.busy} onSelect={id=>enterMap(id,true)} onClose={()=>setMapOpen(false)}/>}
     {!!mapMessage&&!mapOpen&&<Pressable accessibilityRole="button" accessibilityLabel="道の案内を閉じる" onPress={()=>setMapMessage('')} style={[s.notice,{top:insets.top+166}]}><Text accessibilityLiveRegion="polite" style={s.trailText}>{mapMessage}　×</Text></Pressable>}
     {experience&&<View testID="village-experience" style={[s.experience,{bottom:bounds.height<600?160:210},experience==='smoke'&&{left:140,right:18,padding:10}]}>

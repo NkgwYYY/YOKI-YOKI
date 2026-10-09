@@ -1,13 +1,14 @@
-export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'diner' | 'workshop';
+export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'diner' | 'workshop' | 'fortune';
 export const WORLD_MAPS = [
   {id:'home',name:'おうち',level:1,description:'いつでも帰れる、小さなおうち。'},
   {id:'market',name:'こもれび広場',level:1,description:'噴水のそばから、お店や路地へ。'},
   {id:'ramen',name:'もふもふラーメン',level:1,description:'湯気の向こうで、もふもふ店長がお出迎え。'},
-  {id:'bowling',name:'ころころボウリング',level:1,description:'いつものようにスワイプ。ピンに向かって、ころころ。'},
+  {id:'bowling',name:'ころころボウリング',level:1,description:'木のような巨大ピンに、自分のからだで体当たり！'},
   {id:'tobacco',name:'こかげのタバコ屋',level:1,description:'お店のとなりに、小さな屋外喫煙所。'},
   {id:'homewares',name:'暮らしのお店',level:1,description:'ほうき、リネン、小さな暮らしの道具。'},
   {id:'diner',name:'ごはんのお店',level:1,description:'炊きたてのごはんと、あたたかいおかず。'},
   {id:'workshop',name:'ゆでたまご工房',level:1,description:'店長の注文を受けて、ひと鍋ずつ働こう。'},
+  {id:'fortune',name:'月あかりの占い館',level:1,description:'大きな猫が、血液型とMBTIから今日の運勢を占う。1日1回。'},
   {id:'forest',name:'木もれびの森',level:3,description:'葉の音を聞きながら、ゆっくりおさんぽ。'},
   {id:'onsen',name:'森の温泉',level:3,description:'お湯にゆられて、ゆっくりひと休み。'},
   {id:'village',name:'となりの村',level:4,description:'たまご・もふもふ・はっぱたちの、小さな村。'},
@@ -26,6 +27,7 @@ export function mapGroundBounds(map: WorldMapId, y: number) {
   if(map==='forest')return {minX:y<.52?.43:.36,maxX:y<.52?.61:.66,minY:.44,maxY:.81};
   if(map==='ramen')return {minX:.34,maxX:.66,minY:.47,maxY:.64};
   if(map==='onsen')return {minX:.23,maxX:.77,minY:.49,maxY:.81};
+  if(map==='fortune')return {minX:.25,maxX:.75,minY:.56,maxY:.81};
   if(map==='tobacco')return {minX:.22,maxX:.78,minY:.55,maxY:.81};
   if(map==='homewares'||map==='diner'||map==='workshop')return {minX:.26,maxX:.74,minY:.49,maxY:.81};
   if(map==='market')return {minX:.23,maxX:.77,minY:.46,maxY:.81};
@@ -41,7 +43,7 @@ export function mapGroundPoint(map: WorldMapId, point: {x:number;y:number}) {
 export function isMapGround(map: WorldMapId, point: {x:number;y:number}) {
   'worklet';const p=mapGroundPoint(map,point);return Math.abs(p.x-point.x)<.001&&Math.abs(p.y-point.y)<.001;
 }
-export function mapStart(map: WorldMapId) {return map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.52,y:.56}:{x:.52,y:.61};}
+export function mapStart(map: WorldMapId) {return map==='fortune'?{x:.50,y:.68}:map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.52,y:.56}:{x:.52,y:.61};}
 export function mapRoute(map: WorldMapId, from:{x:number;y:number}, to:{x:number;y:number}) {
   const target=mapGroundPoint(map,to);
   return [{x:.52,y:from.y},{x:.52,y:target.y},target];
