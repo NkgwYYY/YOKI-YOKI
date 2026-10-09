@@ -48,6 +48,7 @@ import {smokingStatus} from '@/utils/smokingState';
 export { HOME_ART } from '@/utils/worldArt';
 type VillageAction={kind:'portal';map:WorldMapId}|{kind:'bath'|'wheel'|'smoke'|'shop'|'feed'|'ramen-meal'|'plaza'}|{kind:'neighbor';id:VillagerId};
 type Props = {
+  welcomeRequest?:number; onWelcomeStarted?:(id:number)=>void;
   onMapChange:(map:WorldMapId)=>void;
   cleanliness:number;
   happinessValue:number;
@@ -92,6 +93,7 @@ export function WorldHome(props: Props) {
   const footX=useSharedValue(.5);
   const steering=useSharedValue({x:0,y:0});
   useEffect(()=>{props.onSceneBusy(plaza.open||!!experience||bowlingOpen||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[plaza.open,experience,bowlingOpen,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
+  const [loadedArt,setLoadedArt]=useState<ReturnType<typeof worldArt>|null>(null);
   const [bounds, setBounds] = useState({width: 0, height: 0});
   const destinationId=useRef(0);
   const [destination, setDestination] = useState<WorldDestination | null>(null);
@@ -196,6 +198,7 @@ export function WorldHome(props: Props) {
   };
   const arrive=(id:number)=>{
     if(portalTravel.value&&destination?.id===id){const gates=mapPortals(map),gate=nearbyPortalIndex(destination.point,gates);if(gate>=0){enterMap(gates[gate].to);return;}}
+    setDestination(current=>current?.id===id?null:current);
     const next=pending.current;portalTravel.value=false;if(!next||next.id!==id)return;pending.current=null;
     const a=next.action;
     if(a.kind==='portal')enterMap(a.map);
@@ -233,7 +236,7 @@ export function WorldHome(props: Props) {
   return <View style={s.root} testID="room-scene" onLayout={e => setBounds(e.nativeEvent.layout)}>
     {map==='home'&&<View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="cover" style={s.art}/></View>}
     {width > 0 && <GestureDetector gesture={view.gesture}><View testID="world-viewport" style={StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, view.style]}>
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="stretch" style={s.art} accessible={false} /></View>
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} onLoad={()=>setLoadedArt(source)} resizeMode="stretch" style={s.art} accessible={false} /></View>
       {!['home','homewares','diner'].includes(map)&&night&&<View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#35234922'}]}/>}
       {props.period === 'dusk' && map!=='tobacco' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: '#B5646028'}]} />}
       <GestureDetector gesture={groundGesture}><View testID="world-ground" accessible={false} style={StyleSheet.absoluteFill}/></GestureDetector>
@@ -268,7 +271,7 @@ export function WorldHome(props: Props) {
       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
       {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
-      <WorldResident {...props} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
+      <WorldResident {...props} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
       {map==='tobacco'&&<TobaccoHaze active={active} reduceMotion={reduceMotion}/>}
     </Animated.View></View></GestureDetector>}

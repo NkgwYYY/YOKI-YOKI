@@ -1,5 +1,6 @@
 export const VOICE_KEY='@yoki/character_voice_enabled_v1';
 export const CHARACTER_VOICES={
+ welcome:require('@/assets/sounds/character/welcome.mp3'),
  greet:require('@/assets/sounds/character/greet.mp3'),
  happy:require('@/assets/sounds/character/happy.mp3'),
  surprise:require('@/assets/sounds/character/surprise.mp3'),

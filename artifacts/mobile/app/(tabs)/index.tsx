@@ -7,6 +7,7 @@ import { useRouter,useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useCharacterVoice} from '@/components/world/useCharacterVoice';
+import {useWelcomeVisit} from '@/components/world/useWelcomeVisit';
 import { useApp } from '@/contexts/AppContext';
 import { useItems, resolveItemAssetUrl } from '@/contexts/ItemContext';
 import { getMascotStage } from '@/utils/mascotUtils';
@@ -57,6 +58,7 @@ export default function HomeScreen() {
   const [atelierCategory,setAtelierCategory]=useState<AtelierCategory>('furniture');
   useEffect(()=>{if(atelier){setAtelierCategory(['furniture','flower','decor','cleaning'].includes(atelier)?atelier as AtelierCategory:'furniture');setSheet('atelier');router.setParams({atelier:undefined});}},[atelier]);
   const voice=useCharacterVoice(active);
+  const welcome=useWelcomeVisit();
   const happiness=useWorldHappiness(active);
   const bathCompleted=useDailyBath();
   const [hygieneNow,setHygieneNow]=useState(Date.now);
@@ -114,9 +116,9 @@ export default function HomeScreen() {
   const toggleHints = () => {
     setHints(!hints); AsyncStorage.setItem(HINT_KEY, hints ? 'seen' : 'show').catch(() => {});
   };
-  const say = (text: string) => {
+  const say = (text: string, duration=5500) => {
     clearTimeout(speechTimer.current); setSpeech(text);
-    speechTimer.current = setTimeout(() => setSpeech(''), 5500);
+    speechTimer.current = setTimeout(() => setSpeech(''), duration);
   };
   const interact = (kind: ResidentInteraction) => {voice.play(kind==='held'?'surprise':kind==='pet'?'happy':kind==='land'?'land':kind==='space'?'soft':'greet');say({
     greet: 'あ、きてくれた。うれしいな。', pet: 'なでなで、きもちいい。',
@@ -126,7 +128,7 @@ export default function HomeScreen() {
   const restTogether = () => {voice.play('soft');setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome onMapChange={setWorldMap} key={bathReturn??'world'} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <WorldHome welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome',true);say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={bathReturn??'world'} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}

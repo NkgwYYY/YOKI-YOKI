@@ -1,0 +1,9 @@
+# お出迎えと柔らかい鳴き声 — 2026-10-10 JST
+
+- Reworked the six original vocalizations with higher, rounded pitch contours, soft attacks/tails and reduced buzzy upper harmonics. Added a roughly one-second welcome chirp. All seven MP3s together are about 51 KB and remain loaded on demand.
+- On the first app visit and returns after at least 30 seconds away, a pending welcome waits for the visible scene and artwork. The resident hops three times, runs a small figure-eight and makes a final twirl/soft landing. Existing movement owns the feet again when complete.
+- Visits follow app foreground/background state, not sheet visibility or navigation focus. Closing a menu, returning from an in-app screen or remounting the room does not independently create another welcome. No account, wallet, reward or diary writes were added.
+- Touching/steering, opening sheets, riding the vacuum, meals, travel and other activities interrupt or defer the welcome. Reduced-motion mode uses a happy expression/greeting without unsolicited motion. Animation duration follows frame timestamps, so low frame rates do not make it drag on.
+- Web voice playback retains the saved mute preference. First-visit autoplay rejection is silent; an immediate user gesture can start the pending welcome voice for up to four seconds, then it expires. Native playback also respects the hydrated preference.
+- Seven targeted tests pass for visit gating, movement bounds/grounding and existing robot motion; mobile TypeScript passes locally and on Replit. Preview browser checks verified actual jumping, changes to ground position, menu interruption without replay and welcome audio completing at 1.028 seconds without a media error. Existing test guest only; no physical iPhone audio/gesture test claimed.
+- Replit development preview updated; production republishing remains with the user. Preserve Replit's existing auth changes. Temporary mobile preview wrapper and own attachment are removed before commit.

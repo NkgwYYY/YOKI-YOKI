@@ -20,8 +20,10 @@ import {rollStep} from '@/utils/residentPhysics';
 import {VolumeResident,hasResidentVolume} from './VolumeResident';
 import {residentSoftScale,residentWalkYaw} from '@/utils/evolvedVolume';
 import { useWorldResident } from './useWorldResident';
+import {welcomeSample} from '@/utils/residentWelcome';
 
 type Props = {
+  welcomeRequest?:number; onWelcomeStarted?:(id:number)=>void;
   riding:boolean;cleanliness:number;smoking?:boolean;
   happinessValue:number;
   portalTravel:SharedValue<boolean>;
@@ -42,6 +44,11 @@ export function WorldResident(p: Props) {
   const x = p.footX;
   const {steering,experience,food}=p;
   const [manual,setManual]=useState(false);
+  const [welcoming,setWelcoming]=useState(false);
+  const welcomeRunning=useSharedValue(0),welcomeStartedAt=useSharedValue(-1);
+  const welcomeX=useSharedValue(0),welcomeY=useSharedValue(0);
+  const welcomeFromX=useSharedValue(0),welcomeFromY=useSharedValue(0);
+  const welcomed=useRef(0);
   const mealProgress=useSharedValue(0);
   const lift = useSharedValue(0), jelly = useSharedValue(0), lean = useSharedValue(0);
   const breath = useSharedValue(0), gait = useSharedValue(0), walking = useSharedValue(0);
@@ -69,8 +76,35 @@ export function WorldResident(p: Props) {
     rolling.value=0;idleTime.value=0;setRollingLabel(false);setInteracting(false);
     cancelAnimation(x);cancelAnimation(y);
   },[p.destination?.id]);
-  const pose = useWorldResident({...p, x, y, walking, manualOnly:!!p.smoking, interacting:interacting||manual||p.riding||!!experience||p.bowlingBusy});
-  useAnimatedReaction(()=>!p.riding&&Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
+  const pose = useWorldResident({...p, x, y, walking, manualOnly:!!p.smoking, interacting:welcoming||interacting||manual||p.riding||!!experience||p.bowlingBusy});
+  const stopWelcome=()=>{
+    'worklet';
+    if(!welcomeRunning.value)return;
+    welcomeRunning.value=0;lift.value=0;jelly.value=0;lean.value=0;
+    rx.value=0;ry.value=0;rz.value=0;idleTime.value=0;
+    runOnJS(setWelcoming)(false);
+  };
+  useEffect(()=>{
+    const id=p.welcomeRequest??0;
+    if(!id||id===welcomed.current||!active||width<=0||p.riding||experience||food||p.smoking||p.bowlingBusy||p.destination||interacting||manual)return;
+    // Wait until scene artwork and the platform motion preference have settled.
+    const timer=setTimeout(()=>{
+      if(!latest.current.active||holding.value||cameraTouch.value)return;
+      welcomed.current=id;
+      [x,y,lift,jelly,lean,rx,ry,rz].forEach(cancelAnimation);
+      rolling.value=0;walking.value=0;idleTime.value=0;setRollingLabel(false);
+      const at=mapGroundPoint(map,{x:x.value,y:y.value});
+      welcomeFromX.value=x.value;welcomeFromY.value=y.value;
+      welcomeX.value=at.x;welcomeY.value=at.y;welcomeStartedAt.value=-1;
+      welcomeRunning.value=1;setWelcoming(true);
+      latest.current.onWelcomeStarted?.(id);
+    },750);
+    return()=>clearTimeout(timer);
+  },[p.welcomeRequest,active,width,map,p.riding,experience,food,p.smoking,p.bowlingBusy,p.destination,interacting,manual]);
+  useEffect(()=>{
+    if(!active||p.riding||experience||food||p.smoking||p.bowlingBusy||p.destination||interacting||manual)stopWelcome();
+  },[active,p.riding,experience,food,p.smoking,p.bowlingBusy,p.destination,interacting,manual]);
+  useAnimatedReaction(()=>!p.riding&&Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){stopWelcome();cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
   const portals=mapPortals(map);
   const onPortal=p.onPortal;
   useAnimatedReaction(()=>{if(!available.value||!p.portalTravel.value||experience||food||p.bowlingBusy)return -1;const dir=Math.hypot(steering.value.x,steering.value.y)>.05?steering.value:p.destination?{x:p.destination.point.x-x.value,y:p.destination.point.y-y.value}:null;return dir?nearbyPortalIndex({x:x.value,y:y.value},portals,dir):-1;},(index,previous)=>{if(index>=0&&index!==previous){p.portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(x);cancelAnimation(y);walking.value=0;runOnJS(onPortal)(portals[index].to);}},[map,onPortal,experience,food,p.bowlingBusy,p.destination]);
@@ -118,7 +152,7 @@ export function WorldResident(p: Props) {
   }, [p.reaction, active, interacting, reduceMotion, jelly]);
 
   useAnimatedReaction(()=>({x:x.value,y:y.value,walking:walking.value}), (now,previous)=>{
-    if(!previous||!now.walking||holding.value||rolling.value||reduceMotion)return;
+    if(!previous||!now.walking||holding.value||rolling.value||welcomeRunning.value||reduceMotion)return;
     const dx=now.x-previous.x,dy=now.y-previous.y;
     if(Math.hypot(dx,dy)<.00001)return;
     const target=residentWalkYaw(dx,dy,height/width);
@@ -141,6 +175,7 @@ export function WorldResident(p: Props) {
   const launchRoll=(speedX:number,speedY:number,automatic=false)=>{
     'worklet';
     if(p.riding||!available.value||reduceMotion||cameraTouch.value||experience||p.smoking||food||p.bowlingBusy)return;
+    stopWelcome();
     cancelAnimation(x);cancelAnimation(y);cancelAnimation(rx);cancelAnimation(ry);cancelAnimation(rz);
     const point=mapGroundPoint(map,{x:x.value,y:y.value});x.value=point.x;y.value=point.y;
     rolling.value=1;rollAge.value=0;idleTime.value=0;vx.value=Math.max(-1.25,Math.min(1.25,speedX));vy.value=Math.max(-1.25,Math.min(1.25,speedY));
@@ -148,12 +183,26 @@ export function WorldResident(p: Props) {
     runOnJS(setInteracting)(true);runOnJS(setRollingLabel)(true);
     if(!automatic)runOnJS(notify)('roll');
   };
-  useEffect(()=>{idleAllowed.value=active&&!p.riding&&!reduceMotion&&!interacting&&!manual&&!experience&&!p.smoking&&!food&&!p.resting&&(pose==='idle'||pose==='watching');},[active,reduceMotion,interacting,manual,experience,p.smoking,food,p.resting,pose,p.riding]);
+  useEffect(()=>{idleAllowed.value=active&&!welcoming&&!p.riding&&!reduceMotion&&!interacting&&!manual&&!experience&&!p.smoking&&!food&&!p.resting&&(pose==='idle'||pose==='watching');},[active,reduceMotion,interacting,manual,experience,p.smoking,food,p.resting,pose,p.riding,welcoming]);
   const physics=useFrameCallback(frame=>{
     'worklet';
     if(!available.value||cameraTouch.value||p.riding)return;
     const dt=Math.min(1/30,(frame.timeSincePreviousFrame??16.67)/1000);
     if(p.bowlingBusy||p.riding)return;
+    if(welcomeRunning.value){
+      if(welcomeStartedAt.value<0)welcomeStartedAt.value=frame.timestamp;
+      const elapsed=(frame.timestamp-welcomeStartedAt.value)/1000;
+      if(reduceMotion){if(elapsed>=2.8)stopWelcome();return;}
+      const joy=welcomeSample(elapsed);
+      const point=mapGroundPoint(map,{x:welcomeX.value+joy.dx,y:welcomeY.value+joy.dy});
+      const enter=Math.min(1,elapsed/.4);
+      x.value=welcomeFromX.value*(1-enter)+point.x*enter;
+      y.value=welcomeFromY.value*(1-enter)+point.y*enter;
+      lift.value=-size*joy.jump;jelly.value=joy.squash;lean.value=joy.lean;
+      rx.value=0;ry.value=joy.turn;rz.value=0;
+      if(joy.done)stopWelcome();
+      return;
+    }
     if(!experience&&!food&&Math.hypot(steering.value.x,steering.value.y)>.05){const next=steerStep(map,{x:x.value,y:y.value},steering.value,dt,height/width);x.value=p.riding?Math.max(.40,Math.min(.65,next.x)):next.x;y.value=p.riding?Math.max(.44,Math.min(.55,next.y)):next.y;walking.value=1;idleTime.value=0;return;}
     if(reduceMotion||experience||food)return;
     if(!rolling.value){
@@ -173,6 +222,7 @@ export function WorldResident(p: Props) {
   useEffect(()=>{if(reduceMotion){rolling.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);setInteracting(false);}},[reduceMotion]);
   const begin = () => {
     'worklet';
+    stopWelcome();
     cancelAnimation(x); cancelAnimation(y); cancelAnimation(lift);
     rolling.value=0;idleTime.value=0;runOnJS(setRollingLabel)(false);
     walking.value = 0; holding.value = 0; touchMode.value = 1;
@@ -225,6 +275,7 @@ export function WorldResident(p: Props) {
     });
   const stroke = Gesture.Pan().enabled(active&&!p.riding&&!experience&&!food&&!p.bowlingBusy).maxPointers(1).minDistance(10)
     .onStart(event => {
+      stopWelcome();
       cancelAnimation(x); cancelAnimation(y); walking.value = 0;
       touchMode.value = 3; downX.value=event.absoluteX;downY.value=event.absoluteY;petDistance.value=0;strokeVX.value=0;strokeVY.value=0;strokeAt.value=Date.now();
       runOnJS(setInteracting)(true);
@@ -270,11 +321,12 @@ export function WorldResident(p: Props) {
     });
   const tap = Gesture.Tap().enabled(active&&!p.riding&&!experience&&!food&&!p.bowlingBusy).maxDuration(240).maxDistance(10).onEnd((_event, success) => {
     if (!success || !available.value) return;
-    finishTouch(); runOnJS(notify)('greet');
+    stopWelcome();finishTouch(); runOnJS(notify)('greet');
   });
   hold.simultaneousWithExternalGesture(p.cameraGesture);stroke.simultaneousWithExternalGesture(p.cameraGesture);tap.simultaneousWithExternalGesture(p.cameraGesture);
   useAnimatedReaction(()=>cameraTouch.value,value=>{
     if(!value)return;
+    stopWelcome();
     rolling.value=0;idleTime.value=0;runOnJS(setRollingLabel)(false);
     cancelAnimation(lift);cancelAnimation(jelly);holding.value=0;touchMode.value=0;lift.value=0;jelly.value=0;lean.value=0;
     runOnJS(setInteracting)(false);
@@ -307,17 +359,17 @@ export function WorldResident(p: Props) {
     const air = Math.min(1, Math.abs(lift.value) / (size * 0.55));
     return {opacity: 1 - air * 0.65, transform: [{scaleX: worldResidentScale(y.value) * (1 + air * 0.45)}, {scaleY: 1 + air * 0.3}]};
   });
-  const mood: MascotMood = touchMood ?? (interacting || pose === 'eating' ? 'happy' : p.resting || pose === 'sleeping' ? 'sleepy' : p.happinessValue>=75?'happy':'normal');
+  const mood: MascotMood = welcoming?'happy':touchMood ?? (interacting || pose === 'eating' ? 'happy' : p.resting || pose === 'sleeping' ? 'sleepy' : p.happinessValue>=75?'happy':'normal');
   useEffect(() => {
     blink.value = 0;
     if (!active || reduceMotion || mood !== 'normal') return;
     blink.value = withRepeat(withDelay(4100, withSequence(withTiming(1, {duration: 80}), withTiming(0, {duration: 130}))), -1);
     return () => cancelAnimation(blink);
   }, [active, reduceMotion, mood, blink]);
-  const activity = p.smoking?'一服しながらおさんぽできます':p.riding?'掃除機に乗っています':manual?'おさんぽしています':rollingLabel ? 'ころころしています' : pose === 'walking' ? 'おさんぽしています' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'eating' ? 'おやつの時間' : pose === 'watching' ? '景色を眺めています' : 'のんびりしています';
+  const activity = welcoming?'会えたのがうれしくて、お出迎えしています':p.smoking?'一服しながらおさんぽできます':p.riding?'掃除機に乗っています':manual?'おさんぽしています':rollingLabel ? 'ころころしています' : pose === 'walking' ? 'おさんぽしています' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'eating' ? 'おやつの時間' : pose === 'watching' ? '景色を眺めています' : 'のんびりしています';
   const acknowledge = (kind: ResidentInteraction) => {
     if (!active || experience || food) return;
-    notify(kind);
+    stopWelcome();notify(kind);
     if (!reduceMotion) jelly.value = withSequence(withTiming(0.8, {duration: 90}), withSpring(0, SOFT));
   };
   return <GestureDetector gesture={gesture} touchAction="none">
