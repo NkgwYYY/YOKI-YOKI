@@ -1,0 +1,112 @@
+diff --git a/artifacts/mobile/components/village/SmokingResident.tsx b/artifacts/mobile/components/village/SmokingResident.tsx
+index efac635..19a1436 100644
+--- a/artifacts/mobile/components/village/SmokingResident.tsx
++++ b/artifacts/mobile/components/village/SmokingResident.tsx
+@@ -1,20 +1,21 @@
+-import React,{useEffect} from 'react';
++import React,{useEffect,useId} from 'react';
+ import {StyleSheet,View} from 'react-native';
+ import Animated,{cancelAnimation,useAnimatedStyle,useSharedValue,withRepeat,withTiming} from 'react-native-reanimated';
+ import Svg,{Circle,Defs,LinearGradient,Path,Rect,Stop} from 'react-native-svg';
+ import type {MascotStage} from '@/utils/mascotUtils';
+ import {VillageResident} from './VillageActors';
+-export function SmokingResident({stage,width,height,active,reduceMotion}:{stage:MascotStage;width:number;height:number;active:boolean;reduceMotion:boolean}) {
+-  const size=width*.20,drift=useSharedValue(0);
+-  useEffect(()=>{if(active&&!reduceMotion)drift.value=withRepeat(withTiming(1,{duration:3800}),-1,false);else drift.value=0;return()=>cancelAnimation(drift);},[active,reduceMotion]);
++type Props={stage:MascotStage;width:number;height:number;active:boolean;reduceMotion:boolean;x?:number;y?:number;relativeSize?:number;pace?:number;scarf?:string;testID?:string};
++export function SmokingResident({stage,width,height,active,reduceMotion,x=.69,y=.58,relativeSize=.20,pace=3800,scarf,testID='tobacco-smoking-scene'}:Props) {
++  const size=width*relativeSize,drift=useSharedValue(0),id=useId().replace(/[^a-zA-Z0-9]/g,'');
++  useEffect(()=>{if(active&&!reduceMotion)drift.value=withRepeat(withTiming(1,{duration:pace}),-1,false);else drift.value=0;return()=>cancelAnimation(drift);},[active,reduceMotion,pace]);
+   const smoke=useAnimatedStyle(()=>({opacity:reduceMotion?.45:Math.sin(Math.PI*drift.value)*.75,transform:[{translateY:-drift.value*size*.22},{translateX:drift.value*size*.09},{scale:1+drift.value*.22}]}));
+-  return <View testID="tobacco-smoking-scene" pointerEvents="none" style={{position:'absolute',left:width*.69-size/2,top:height*.58-size*.84,width:size,height:size,zIndex:800}}>
+-    <View style={{position:'absolute',left:'14%',right:'14%',bottom:'2%',height:'10%',borderRadius:100,backgroundColor:'#4E344B30'}}/>
+-    <VillageResident stage={stage} size={size} active={active} reduceMotion={reduceMotion}/>
++  return <View testID={testID} pointerEvents="none" style={{position:'absolute',left:width*x-size/2,top:height*y-size*.91,width:size,height:size,zIndex:Math.round(y*1000)}}>
++    <View style={{position:'absolute',left:'19%',right:'19%',top:'87%',height:'8%',borderRadius:100,backgroundColor:'#20182866'}}/>
++    <VillageResident stage={stage} size={size} active={active} reduceMotion={reduceMotion} scarf={scarf}/>
+     <Svg width={size} height={size} viewBox="0 0 100 100" style={StyleSheet.absoluteFill}>
+-      <Defs><LinearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#FFFEF6"/><Stop offset="1" stopColor="#D5C8B2"/></LinearGradient><LinearGradient id="filter" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#F0C381"/><Stop offset="1" stopColor="#B78658"/></LinearGradient></Defs>
+-      <Rect x="58" y="60" width="24" height="5" rx="2.5" fill="url(#paper)" stroke="#C1A994" strokeWidth=".5"/>
+-      <Rect x="58" y="60" width="7" height="5" rx="2" fill="url(#filter)"/>
++      <Defs><LinearGradient id={`${id}paper`} x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#FFFEF6"/><Stop offset="1" stopColor="#D5C8B2"/></LinearGradient><LinearGradient id={`${id}filter`} x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#F0C381"/><Stop offset="1" stopColor="#B78658"/></LinearGradient></Defs>
++      <Rect x="58" y="60" width="24" height="5" rx="2.5" fill={`url(#${id}paper)`} stroke="#C1A994" strokeWidth=".5"/>
++      <Rect x="58" y="60" width="7" height="5" rx="2" fill={`url(#${id}filter)`}/>
+       <Circle cx="81" cy="62.5" r="3.2" fill="#F4AF7640"/><Rect x="80" y="60.4" width="2.2" height="4.2" rx="1" fill="#D48A6E"/>
+     </Svg>
+     <Animated.View style={[StyleSheet.absoluteFill,smoke]}><Svg width={size} height={size} viewBox="0 0 100 100">
+@@ -24,3 +25,11 @@ export function SmokingResident({stage,width,height,active,reduceMotion}:{stage:
+     </Svg></Animated.View>
+   </View>;
+ }
++
++/** Familiar village forms, with their own pace; the centre path stays open. */
++export function TobaccoPatrons(props:Pick<Props,'width'|'height'|'active'|'reduceMotion'>){
++ return <>
++  <SmokingResident {...props} testID="tobacco-patron-egg" stage="egg" x={.73} y={.51} relativeSize={.14} pace={5300} scarf="#726187"/>
++  <SmokingResident {...props} testID="tobacco-patron-mofumofu" stage="odango" x={.30} y={.665} relativeSize={.16} pace={7100} scarf="#8D6355"/>
++ </>;
++}
+diff --git a/artifacts/mobile/components/world/TobaccoHaze.tsx b/artifacts/mobile/components/world/TobaccoHaze.tsx
+index 7d3e992..3493fea 100644
+--- a/artifacts/mobile/components/world/TobaccoHaze.tsx
++++ b/artifacts/mobile/components/world/TobaccoHaze.tsx
+@@ -1,6 +1,6 @@
+ import React,{useEffect,useRef} from 'react';
+ import {Animated,Easing,StyleSheet,View} from 'react-native';
+-import Svg,{Defs,Ellipse,RadialGradient,Stop} from 'react-native-svg';
++import Svg,{Defs,Ellipse,LinearGradient,RadialGradient,Rect,Stop} from 'react-native-svg';
+ 
+ function SmokeVeil({index,active,reduceMotion}:{index:number;active:boolean;reduceMotion:boolean}){
+  const drift=useRef(new Animated.Value(0)).current;
+@@ -13,13 +13,13 @@ function SmokeVeil({index,active,reduceMotion}:{index:number;active:boolean;redu
+   loop.start();return()=>loop.stop();
+  },[active,reduceMotion,index,drift]);
+  const gradient=`alley-smoke-${index}`;
+- return <Animated.View style={{position:'absolute',left:'-18%',width:'136%',height:'34%',top:`${24+index*16}%`,opacity:.64,
++ return <Animated.View style={{position:'absolute',left:'-24%',width:'148%',height:'40%',top:`${16+index*17}%`,opacity:.82,
+   transform:[{translateX:drift.interpolate({inputRange:[0,1],outputRange:index%2?[22,-26]:[-22,26]})},{translateY:drift.interpolate({inputRange:[0,1],outputRange:[8,-20]})}]}}>
+   <Svg width="100%" height="100%" viewBox="0 0 500 250" preserveAspectRatio="none">
+-   <Defs><RadialGradient id={gradient} cx="50%" cy="50%" rx="50%" ry="50%"><Stop offset="0" stopColor="#C4BED2" stopOpacity=".35"/><Stop offset=".4" stopColor="#AFAABE" stopOpacity=".21"/><Stop offset="1" stopColor="#87839D" stopOpacity="0"/></RadialGradient></Defs>
+-   <Ellipse cx="145" cy="108" rx="205" ry="52" fill={`url(#${gradient})`}/>
+-   <Ellipse cx="345" cy="148" rx="210" ry="47" fill={`url(#${gradient})`}/>
+-   <Ellipse cx="260" cy="125" rx="190" ry="27" fill={`url(#${gradient})`}/>
++   <Defs><RadialGradient id={gradient} cx="50%" cy="50%" rx="50%" ry="50%"><Stop offset="0" stopColor="#C4BED2" stopOpacity=".50"/><Stop offset=".4" stopColor="#AFAABE" stopOpacity=".30"/><Stop offset="1" stopColor="#87839D" stopOpacity="0"/></RadialGradient></Defs>
++   <Ellipse cx="145" cy="108" rx="220" ry="65" fill={`url(#${gradient})`}/>
++   <Ellipse cx="345" cy="148" rx="225" ry="59" fill={`url(#${gradient})`}/>
++   <Ellipse cx="260" cy="125" rx="195" ry="38" fill={`url(#${gradient})`}/>
+   </Svg>
+  </Animated.View>;
+ }
+@@ -27,6 +27,10 @@ function SmokeVeil({index,active,reduceMotion}:{index:number;active:boolean;redu
+ /** Always hazy in this alley; independent of the one-puff activity. */
+ export function TobaccoHaze({active,reduceMotion}:{active:boolean;reduceMotion:boolean}){
+  return <View testID="tobacco-haze" pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill,{zIndex:1100,overflow:'hidden'}]}>
+-  {[0,1,2].map(index=><SmokeVeil key={index} index={index} active={active} reduceMotion={reduceMotion}/>)}
++  <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
++   <Defs><LinearGradient id="alley-still-haze" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#A39BB7" stopOpacity="0"/><Stop offset=".45" stopColor="#A39BB7" stopOpacity=".10"/><Stop offset=".8" stopColor="#8C879E" stopOpacity=".14"/><Stop offset="1" stopColor="#8C879E" stopOpacity=".04"/></LinearGradient></Defs>
++   <Rect width="100%" height="100%" fill="url(#alley-still-haze)"/>
++  </Svg>
++  {[0,1,2,3].map(index=><SmokeVeil key={index} index={index} active={active} reduceMotion={reduceMotion}/>)}
+  </View>;
+ }
+diff --git a/artifacts/mobile/components/world/WorldHome.tsx b/artifacts/mobile/components/world/WorldHome.tsx
+index fc80ca4..2242c3d 100644
+--- a/artifacts/mobile/components/world/WorldHome.tsx
++++ b/artifacts/mobile/components/world/WorldHome.tsx
+@@ -38,7 +38,7 @@ import { useSceneTransition } from './useSceneTransition';
+ import {WorldBowlingPins} from './WorldBowling';
+ import {useWorldBowling} from './useWorldBowling';
+ import {VillageMap} from './VillageMap';
+-import {SmokingResident} from '@/components/village/SmokingResident';
++import {SmokingResident,TobaccoPatrons} from '@/components/village/SmokingResident';
+ import {Icon as DoorIcon} from '@/components/ui/Icon';
+ export { HOME_ART } from '@/utils/worldArt';
+ type VillageAction={kind:'portal';map:WorldMapId}|{kind:'bath'|'wheel'|'smoke'|'shop'|'feed'|'ramen-meal'}|{kind:'neighbor';id:VillagerId};
+@@ -246,6 +246,7 @@ export function WorldHome(props: Props) {
+       {map==='workshop'&&merchant('egg-job','工房の店長',{x:.50,y:.48},'egg','job')}
+       {map==='ramen'&&merchant('ramen','ラーメン屋',{x:.40,y:.50},'odango','ramen')}
+       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
++      {map==='tobacco'&&<TobaccoPatrons width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
+       {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowling.busy} onPress={()=>walkTo(gate.point,true)}/>;})}
+       {map==='bowling'&&<WorldBowlingPins motion={bowling.motion} width={width} height={height}/>}
+       <WorldResident {...props} riding={riding} portalTravel={portalTravel} bowling={bowling.motion} bowlingBusy={bowling.busy} onBowlingRoll={input=>{pending.current=null;setDestination(null);steering.value={x:0,y:0};void bowling.roll(input);}} onBowlingFinished={bowling.finish} footX={footX} steering={steering} experience={experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
