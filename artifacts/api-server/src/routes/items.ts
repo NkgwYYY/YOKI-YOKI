@@ -241,7 +241,7 @@ itemRouter.post("/shop/buy", requireAuth, async (req: AuthRequest, res) => {
       const item = (await tx.select().from(items)
         .where(and(eq(items.id, itemId.trim()), eq(items.isActive, true))).limit(1))[0];
       if (!item) throw new ShopError(404, "販売中のアイテムが見つかりません");
-      if (item.category === "food") throw new ShopError(404, "販売中のアイテムが見つかりません");
+      if (item.category !== "accessory" || item.id.startsWith("catalog-effect-")) throw new ShopError(404, "販売中のアイテムが見つかりません");
       const owned = await tx.select({ itemId: userItemInventory.itemId }).from(userItemInventory)
         .where(and(eq(userItemInventory.userId, userId), eq(userItemInventory.itemId, item.id))).limit(1);
       if (owned.length) throw new ShopError(409, "このアイテムはすでに所持しています");

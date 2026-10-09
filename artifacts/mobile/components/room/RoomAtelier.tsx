@@ -1,48 +1,53 @@
-import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { BottomSheet } from '@/components/ui/BottomSheet';
-import { Button } from '@/components/ui/Button';
-import { RoomItemPreview } from '@/components/RoomView';
-import { ROOM_PRICES } from '@/utils/roomPurchase';
-import { EGG_COMPANION_COST, useApp, type RoomFurniture, type RoomFlower, type RoomItemKind } from '@/contexts/AppContext';
-const FURNITURE: { id: RoomFurniture; name: string; cost: number }[] = [
-  { id: 'none', name: '置かない', cost: 0 }, { id: 'sofa', name: 'ソファ', cost: ROOM_PRICES.furniture.sofa },
-  { id: 'vanity', name: 'ドレッサー', cost: ROOM_PRICES.furniture.vanity }, { id: 'bookshelf', name: '本棚', cost: ROOM_PRICES.furniture.bookshelf },
-];
-const FLOWERS: { id: RoomFlower; name: string; cost: number }[] = [
-  { id: 'none', name: '置かない', cost: 0 }, { id: 'pink', name: 'ローズ', cost: ROOM_PRICES.flower.pink },
-  { id: 'violet', name: 'バイオレット', cost: ROOM_PRICES.flower.violet }, { id: 'rainbow', name: 'レインボー', cost: ROOM_PRICES.flower.rainbow },
-];
-export function RoomAtelier({ onClose }: { onClose: () => void }) {
-  const { feedState, roomCustomization: room, selectRoomItem, buyRoomItem, companionState, buyEggCompanion } = useApp();
-  const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
-  const lock = useRef(false);
-  const act = async (task: () => Promise<void>) => {
-    if (lock.current) return;
-    lock.current = true; setBusy(true);
-    try { await task(); } catch { setMessage('保存できませんでした。もう一度お試しください。'); }
-    finally { lock.current = false; setBusy(false); }
-  };
-  const option = (kind: RoomItemKind, item: (typeof FURNITURE)[number] | (typeof FLOWERS)[number]) => {
-    const owned = item.id === 'none' || (kind === 'furniture' ? room.ownedFurniture : room.ownedFlowers).some(id => id === item.id);
-    const selected = room[kind] === item.id;
-    return <Pressable key={item.id} disabled={busy} accessibilityRole="button" accessibilityLabel={`${item.name} ${selected ? '使用中' : owned ? '選ぶ' : `${item.cost}ポイント`}`}
-      accessibilityState={{ selected, disabled: busy }}
-      onPress={() => act(async () => {
-        if (owned) { const saved = await selectRoomItem(kind, item.id); setMessage(saved ? '部屋の模様替えをしました。' : 'このアイテムはまだ持っていません。'); }
-        else { const result = await buyRoomItem(kind, item.id, item.cost); setMessage(result.success ? (kind === 'flower' ? '新しい花を迎えました。' : '新しい家具を迎えました。') : 'ポイントがもう少し必要です。'); }
-      })} style={[s.row, selected && { backgroundColor: '#EEE5F2' }]}>
-      <RoomItemPreview kind={kind} id={item.id} /><Text style={s.name}>{item.name}</Text><Text>{selected ? '使用中' : owned ? '選ぶ' : `${item.cost} pt`}</Text>
-    </Pressable>;
-  };
-  return <BottomSheet visible onClose={onClose} title="部屋の模様替え" subtitle={`${feedState.points} YOKIポイント`}>
-    {message ? <Text accessibilityLiveRegion="polite">{message}</Text> : null}
-    <Text style={s.title}>家具</Text>{FURNITURE.map(item => option('furniture', item))}
-    <Text style={s.title}>花</Text>{FLOWERS.map(item => option('flower', item))}
-    <Text style={s.title}>もうひとつのたまご</Text>
-    <Button label={companionState.extraEggs > 0 ? '一緒に暮らしています' : `${EGG_COMPANION_COST} pt で迎える`} disabled={busy || companionState.extraEggs > 0 || feedState.points < EGG_COMPANION_COST}
-      onPress={() => act(async () => { const result = await buyEggCompanion(); setMessage(result.success ? '新しい仲間がやってきました。' : '今は迎えられませんでした。'); })} />
-  </BottomSheet>;
+import React, {useRef,useState} from 'react';
+import {Image,Pressable,StyleSheet,Text,View} from 'react-native';
+import {useRouter} from 'expo-router';
+import {BottomSheet} from '@/components/ui/BottomSheet';
+import {Button} from '@/components/ui/Button';
+import {RoomItemPreview} from './RoomFurnitureArt';
+import {CleaningToolArt} from '@/components/world/CleaningToolArt';
+import {EGG_COMPANION_COST,useApp,type RoomFurniture,type RoomFlower,type RoomItemKind} from '@/contexts/AppContext';
+import {useItems,resolveItemAssetUrl} from '@/contexts/ItemContext';
+import {ROOM_FURNITURE,ROOM_FLOWERS,homewaresGenre} from '@/utils/homewares';
+import {readHousekeeping} from '@/utils/housekeeping';
+export type AtelierCategory='furniture'|'flower'|'decor'|'cleaning';
+const sections=[{id:'furniture',name:'家具'},{id:'flower',name:'花'},{id:'decor',name:'置物'},{id:'cleaning',name:'掃除'}] as const;
+export function RoomAtelier({onClose,initialCategory='furniture'}:{onClose:()=>void;initialCategory?:AtelierCategory}){
+ const router=useRouter();
+ const {feedState,roomCustomization:room,selectRoomItem,companionState,buyEggCompanion,cleanRoom}=useApp();
+ const {items,shopState,equipItem,updateItemPlacement}=useItems();
+ const [tab,setTab]=useState<AtelierCategory>(initialCategory),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
+ const lock=useRef(false);
+ const act=async(task:()=>Promise<void>)=>{if(lock.current)return;lock.current=true;setBusy(true);setMessage('');try{await task();}catch{setMessage('保存できませんでした。もう一度お試しください。');}finally{lock.current=false;setBusy(false);}};
+ const house=readHousekeeping(feedState.housekeeping,Date.now());
+ const decorations=items.filter(item=>homewaresGenre(item)==='decor'&&shopState.inventory.includes(item.id));
+ const selectedDecor=decorations.find(item=>item.id===shopState.equipped.decor);
+ const row=(id:string,name:string,selected:boolean,art:React.ReactNode,select:()=>Promise<void>)=><Pressable key={id} testID={`atelier-${tab}-${id}`} accessibilityRole="button" accessibilityLabel={`${name}、${selected?'使用中':'選ぶ'}`} accessibilityState={{selected,disabled:busy}} disabled={busy} onPress={()=>void act(select)} style={[s.row,selected&&s.selected]}><View style={s.art}>{art??<Text style={s.empty}>×</Text>}</View><Text style={[s.name,selected&&s.selectedText]}>{name}</Text><Text style={[s.status,selected&&s.selectedText]}>{selected?'使用中':'選ぶ'}</Text></Pressable>;
+ const roomOption=(kind:RoomItemKind,id:RoomFurniture|RoomFlower,name:string)=>row(id,name,room[kind]===id,id==='none'?null:<RoomItemPreview kind={kind} id={id}/>,async()=>{if(!await selectRoomItem(kind,id))throw Error('not owned');setMessage('部屋の模様替えをしました。');});
+ const adjustDecor=async(dx:number,dy:number,ds=0)=>{if(!selectedDecor)return;const p=shopState.placements[selectedDecor.id]??{x:0,y:0,scale:1};await updateItemPlacement(selectedDecor.id,{x:Math.max(-160,Math.min(160,p.x+dx)),y:Math.max(-160,Math.min(160,p.y+dy)),scale:Math.max(.55,Math.min(1.45,p.scale+ds))});setMessage('置物の位置を保存しました。');};
+ return <BottomSheet visible onClose={onClose} title="部屋の模様替え" subtitle="持っているものを、お気に入りの場所へ。" contentStyle={{gap:12}}>
+   <View style={s.tabs} accessibilityRole="tablist">{sections.map(section=><Pressable key={section.id} testID={`atelier-tab-${section.id}`} accessibilityRole="tab" accessibilityLabel={section.name} accessibilityState={{selected:tab===section.id}} onPress={()=>{setTab(section.id);setMessage('');}} style={[s.tab,tab===section.id&&s.tabOn]}><Text style={[s.tabText,tab===section.id&&s.tabTextOn]}>{section.name}</Text></Pressable>)}</View>
+   {!!message&&<Text accessibilityLiveRegion="polite" style={s.message}>{message}</Text>}
+   {(tab==='furniture'||tab==='flower')&&<>
+     {roomOption(tab,'none','置かない')}
+     {(tab==='furniture'?ROOM_FURNITURE:ROOM_FLOWERS).filter(item=>(tab==='furniture'?room.ownedFurniture:room.ownedFlowers).some(id=>id===item.id)).map(item=>roomOption(tab,item.id,item.name))}
+     {(tab==='furniture'?room.ownedFurniture:room.ownedFlowers).length===0&&<Text style={s.help}>まだ{tab==='furniture'?'家具':'花'}を持っていません。暮らしのお店で、お気に入りを探してみよう。</Text>}
+   </>}
+   {tab==='decor'&&<>
+     {row('none','置かない',!shopState.equipped.decor,null,async()=>{await equipItem('decor',null);setMessage('置物をしまいました。');})}
+     {decorations.map(item=>row(item.id,item.name,shopState.equipped.decor===item.id,<Image source={{uri:resolveItemAssetUrl(item.assetUrl)}} resizeMode="contain" style={{width:60,height:60}}/>,async()=>{await equipItem('decor',item.id);setMessage('置物を飾りました。');}))}
+     {!decorations.length&&<Text style={s.help}>ぬいぐるみや観葉植物も、ここからお部屋に飾れます。</Text>}
+     {selectedDecor&&<View style={s.controls}><Text style={s.help}>「{selectedDecor.name}」の位置と大きさ</Text><View style={s.controlRow}>{([{label:'←',name:'置物を左へ',x:-12,y:0},{label:'↑',name:'置物を上へ',x:0,y:-12},{label:'↓',name:'置物を下へ',x:0,y:12},{label:'→',name:'置物を右へ',x:12,y:0}]).map(b=><Pressable key={b.label} accessibilityRole="button" accessibilityLabel={b.name} disabled={busy} onPress={()=>void act(()=>adjustDecor(b.x,b.y))} style={s.control}><Text style={s.controlText}>{b.label}</Text></Pressable>)}</View><View style={s.controlRow}>{[-.1,.1].map(ds=><Pressable key={ds} accessibilityRole="button" disabled={busy} onPress={()=>void act(()=>adjustDecor(0,0,ds))} style={s.control}><Text style={s.controlText}>{ds<0?'− 小さく':'＋ 大きく'}</Text></Pressable>)}</View><Text style={s.help}>閉じると、お部屋全体で確認できます。</Text></View>}
+   </>}
+   {tab==='cleaning'&&<>
+     <Text style={s.help}>ロボット掃除機を置くと、自動でお掃除。タップすると、乗ったままお部屋を巡れるよ。</Text>
+     {row('none','置かない',!house.robotPlaced,null,async()=>{if(house.owned.includes('robot'))await cleanRoom({kind:'placeRobot',placed:false});setMessage('ロボット掃除機をしまいました。');})}
+     {house.owned.includes('robot')?row('robot','ロボット掃除機',house.robotPlaced,<CleaningToolArt tool="robot" size={60}/>,async()=>{await cleanRoom({kind:'placeRobot',placed:true});setMessage('ロボット掃除機を置きました。');}):<Text style={s.help}>暮らしのお店で購入できます。</Text>}
+   </>}
+   <Pressable testID="atelier-shop" accessibilityRole="button" disabled={busy} onPress={()=>{onClose();router.push('/shop');}} style={s.shop}><Text style={s.shopText}>暮らしのお店で探す　›</Text></Pressable>
+   {tab==='furniture'&&<><Text style={s.help}>もうひとつのたまご</Text><Button label={companionState.extraEggs>0?'一緒に暮らしています':`${EGG_COMPANION_COST} pt で迎える`} disabled={busy||companionState.extraEggs>0||feedState.points<EGG_COMPANION_COST} onPress={()=>void act(async()=>{const result=await buyEggCompanion();setMessage(result.success?'新しい仲間がやってきました。':'今は迎えられませんでした。');})}/></>}
+ </BottomSheet>;
 }
-const s = StyleSheet.create({ row: { flexDirection: 'row', alignItems: 'center', minHeight: 64, padding: 8, gap: 12, borderRadius: 12 }, name: { flex: 1, color: '#4B3C52' }, title: { fontWeight: '600', fontSize: 16, color: '#4B3C52', marginTop: 18, marginBottom: 8 } });
+const s=StyleSheet.create({
+ tabs:{flexDirection:'row',backgroundColor:'#30273D',borderRadius:12,padding:4,gap:2},tab:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:9},tabOn:{backgroundColor:'#7C638D'},tabText:{color:'#C6B9D1',fontSize:14},tabTextOn:{color:'#FFF8EF',fontWeight:'600'},
+ row:{flexDirection:'row',alignItems:'center',minHeight:78,padding:10,gap:12,borderRadius:14,borderWidth:1,borderColor:'#504259',backgroundColor:'#2C2438'},selected:{backgroundColor:'#EEE5F2',borderColor:'#DFCCE9'},art:{width:60,height:60,alignItems:'center',justifyContent:'center'},empty:{fontSize:27,color:'#9F84AC'},name:{flex:1,color:'#F4EDF7',fontSize:15},selectedText:{color:'#493653'},status:{color:'#CEB6DA',fontSize:12},help:{color:'#C6BACF',fontSize:13,lineHeight:22},message:{color:'#D8C698',fontSize:13,lineHeight:22},shop:{padding:14,minHeight:48,borderRadius:12,backgroundColor:'#493A57'},shopText:{color:'#F1DFB8',textAlign:'center'},controls:{gap:10},controlRow:{flexDirection:'row',gap:8},control:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:10,backgroundColor:'#493A57'},controlText:{color:'#F4EDF7',fontSize:14},
+});

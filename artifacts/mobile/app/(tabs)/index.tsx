@@ -6,7 +6,7 @@ import { Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimens
 import { useRouter,useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Audio } from 'expo-av';
+import {useCharacterVoice} from '@/components/world/useCharacterVoice';
 import { useApp } from '@/contexts/AppContext';
 import { useItems, resolveItemAssetUrl } from '@/contexts/ItemContext';
 import { getMascotStage } from '@/utils/mascotUtils';
@@ -20,7 +20,7 @@ import { WorldPill } from '@/components/world/WorldPill';
 import { WorldHome } from '@/components/world/WorldHome';
 import { useWorldTime } from '@/components/world/useWorldTime';
 import type { ResidentInteraction } from '@/components/room/RoomResident';
-import { RoomAtelier } from '@/components/room/RoomAtelier';
+import { RoomAtelier, type AtelierCategory } from '@/components/room/RoomAtelier';
 import { useRoomActivity } from '@/components/room/useRoomActivity';
 import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
 import { Icon, type IconName } from '@/components/ui/Icon';
@@ -39,7 +39,7 @@ const HINT_KEY = '@yoki/world_hints_v3';
 type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | null;
 export default function HomeScreen() {
   const router = useRouter();
-  const {place,bathReturn}=useLocalSearchParams<{place?:string;bathReturn?:string}>();
+  const {place,bathReturn,atelier}=useLocalSearchParams<{place?:string;bathReturn?:string;atelier?:string}>();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const compact = window.height < 600;
@@ -54,6 +54,9 @@ export default function HomeScreen() {
   const [worldMap,setWorldMap]=useState('home');
   const [feedVenue,setFeedVenue]=useState<'ramen'|undefined>(undefined);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [atelierCategory,setAtelierCategory]=useState<AtelierCategory>('furniture');
+  useEffect(()=>{if(atelier){setAtelierCategory(['furniture','flower','decor','cleaning'].includes(atelier)?atelier as AtelierCategory:'furniture');setSheet('atelier');router.setParams({atelier:undefined});}},[atelier]);
+  const voice=useCharacterVoice(active);
   const happiness=useWorldHappiness(active);
   const bathCompleted=useDailyBath();
   const [hygieneNow,setHygieneNow]=useState(Date.now);
@@ -78,8 +81,6 @@ export default function HomeScreen() {
   const today = getTodayRecord();
   const prompt = useRecordPrompt();
   const invitation = worldMap==='home' && active && !sheet && !sceneBusy && prompt.ready && isRecordPromptDue(prompt.settings, prompt.now, !!today);
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const soundGeneration = useRef(0);
   const close = () => { nameSession.current++; setSheet(null); };
   const saveName = async () => {
     if (nameBusy.current || !name.trim()) return;
@@ -101,10 +102,6 @@ export default function HomeScreen() {
       .then(value => { if (alive && value) setMessage(value); }).catch(() => {});
     return () => { alive = false; };
   }, [active, sheet, today, mascotName, homeCommentPreferences, getCompletedCount, getTotalCheckCount]);
-  useEffect(() => {
-    if (!active) { soundGeneration.current++; soundRef.current?.unloadAsync().catch(() => {}); soundRef.current = null; }
-    return () => { soundGeneration.current++; soundRef.current?.unloadAsync().catch(() => {}); soundRef.current = null; };
-  }, [active]);
   const equipment = (category: 'wear' | 'effect' | 'decor') => {
     const id = shopState.equipped[category] ?? (category === 'wear' ? shopState.equipped.accessory : null);
     const item = items.find(i => i.id === id);
@@ -113,17 +110,7 @@ export default function HomeScreen() {
     return { id: item.id, uri: resolveItemAssetUrl(item.assetUrl), x: p?.x ?? 0, y: p?.y ?? 0, scale: p?.scale ?? 1 };
   };
   const background = items.find(i => i.id === shopState.equipped.background);
-  const chat = () => {
-    setSheet('chat');
-    const voice = items.find(i => i.id === shopState.equipped.voice);
-    if (!voice?.assetUrl) return;
-    const generation = ++soundGeneration.current;
-    soundRef.current?.unloadAsync().catch(() => {});
-    Audio.Sound.createAsync({ uri: resolveItemAssetUrl(voice.assetUrl) }, { shouldPlay: false }).then(async ({ sound }) => {
-      if (generation !== soundGeneration.current) { await sound.unloadAsync(); return; }
-      soundRef.current = sound; await sound.playAsync();
-    }).catch(() => {});
-  };
+  const chat = () => {setSheet('chat');voice.play('chat');};
   const toggleHints = () => {
     setHints(!hints); AsyncStorage.setItem(HINT_KEY, hints ? 'seen' : 'show').catch(() => {});
   };
@@ -131,12 +118,12 @@ export default function HomeScreen() {
     clearTimeout(speechTimer.current); setSpeech(text);
     speechTimer.current = setTimeout(() => setSpeech(''), 5500);
   };
-  const interact = (kind: ResidentInteraction) => say({
+  const interact = (kind: ResidentInteraction) => {voice.play(kind==='held'?'surprise':kind==='pet'?'happy':kind==='land'?'land':kind==='space'?'soft':'greet');say({
     greet: 'あ、きてくれた。うれしいな。', pet: 'なでなで、きもちいい。',
     space: 'くすぐったいよ。ゆっくりで大丈夫。', held: 'ふわっ。そっと、抱っこしてね。', land: 'ぽふっ。ただいま。', roll:'ころころ。ちょっと、ひなたぼっこ。',
-  }[kind]);
+  }[kind]);};
   const openFeed=(venue?:'ramen')=>{if(food){say('いま、おやつを食べているところだよ。');return;}setFeedVenue(venue);setSheet('feed');};
-  const restTogether = () => {setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
+  const restTogether = () => {voice.play('soft');setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
     <WorldHome onMapChange={setWorldMap} key={bathReturn??'world'} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
@@ -185,7 +172,7 @@ export default function HomeScreen() {
       <QuickAffirmationRecord onComplete={() => { setReaction(n => n + 1); say('今日のこと、教えてくれてありがとう。'); close(); }} />
       {menuRow('book-open', 'もう少し残したいとき', () => { close(); router.push('/(tabs)/record'); })}
     </BottomSheet>}
-    {sheet === 'feed' && <FeedModal visible venue={feedVenue} onClose={close} onFed={id => { setFood(id); setMeal(n => n + 1); say(feedVenue==='ramen'?'いただきます。あったかくて、おいしそう。':'わあ、いいにおい。いま行くね。'); close(); }} />}
+    {sheet === 'feed' && <FeedModal visible venue={feedVenue} onClose={close} onFed={id => { voice.play('happy'); setFood(id); setMeal(n => n + 1); say(feedVenue==='ramen'?'いただきます。あったかくて、おいしそう。':'わあ、いいにおい。いま行くね。'); close(); }} />}
     {sheet === 'chat' && <BottomSheet visible onClose={close} title={mascotName || 'よっきー'}>
       <Text style={s.chatText}>{today && today.mood <= 2 ? '今日は一緒に休もう。話したいことがあったら、ここにいるよ。' : message}</Text>
       <Button label="少し、お話しする" icon="message-circle" onPress={() => { close(); router.push('/(tabs)/chat'); }} />
@@ -198,13 +185,16 @@ export default function HomeScreen() {
       {menuRow('heart', 'そっと、なでる', () => { setReaction(n => n + 1); interact('pet'); close(); })}
       {menuRow('moon', 'ベッドで一緒に休む', () => { restTogether(); close(); })}
       {menuRow('help-circle', hints ? '家具のヒントを隠す' : '家具のヒントを表示', () => { toggleHints(); close(); })}
-      {menuRow('home', '部屋の模様替え', () => setSheet('atelier'))}
+      {menuRow('home', '部屋の模様替え', () => {setAtelierCategory('furniture');setSheet('atelier');})}
+      {menuRow(voice.enabled?'volume-2':'volume-x',`鳴き声：${voice.enabled?'オン':'オフ'}`,voice.toggle)}
+      {voice.enabled&&menuRow('music','鳴き声を聞く',()=>voice.play('chat',true))}
+      {!!voice.error&&<Text style={{color:'#DFC8DB'}}>{voice.error}</Text>}
       {menuRow('edit-3', 'なまえをつける', () => { setName(mascotName); setNameError(''); setSheet('name'); })}
       {menuRow('clock', '記録する時間', () => { close(); router.push('/profile'); })}
       {menuRow('user', 'プロフィール・話しかけ設定', () => { close(); router.push('/profile'); })}
       {menuRow('book-open', '使い方ガイド', () => { close(); router.push('/guide'); })}
     </BottomSheet>}
-    {sheet === 'atelier' && <RoomAtelier onClose={close} />}
+    {sheet === 'atelier' && <RoomAtelier onClose={close} initialCategory={atelierCategory} />}
     {sheet === 'name' && <CenterDialog visible onClose={close}><Text style={s.menuText}>この子を、なんて呼ぼう？</Text>
       <TextInput accessibilityLabel="なかまの名前" editable={!savingName} maxLength={16} value={name} onChangeText={setName} style={s.input} placeholder="よっきー" />
       {nameError ? <Text accessibilityRole="alert">{nameError}</Text> : null}

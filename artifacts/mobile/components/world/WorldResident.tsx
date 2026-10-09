@@ -62,6 +62,7 @@ export function WorldResident(p: Props) {
   const reaction = useRef(p.reaction);
   const volumetric=hasResidentVolume(stage);
   const size = width * 0.135 * Math.max(0.9, Math.min(1.12, p.growthSize));
+  useEffect(()=>{if(p.riding){rolling.value=0;idleTime.value=0;walking.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);setInteracting(false);}},[p.riding]);
   useEffect(()=>{const at=mapStart(map);cancelAnimation(x);cancelAnimation(y);rolling.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);x.value=at.x;y.value=at.y;holding.value=0;setInteracting(false);},[map]);
   useEffect(()=>{
     if(!p.destination)return;
@@ -69,7 +70,7 @@ export function WorldResident(p: Props) {
     cancelAnimation(x);cancelAnimation(y);
   },[p.destination?.id]);
   const pose = useWorldResident({...p, x, y, walking, manualOnly:!!p.smoking, interacting:interacting||manual||p.riding||!!experience||p.bowlingBusy});
-  useAnimatedReaction(()=>Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
+  useAnimatedReaction(()=>!p.riding&&Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
   const portals=mapPortals(map);
   const onPortal=p.onPortal;
   useAnimatedReaction(()=>{if(!available.value||!p.portalTravel.value||experience||food||p.bowlingBusy)return -1;const dir=Math.hypot(steering.value.x,steering.value.y)>.05?steering.value:p.destination?{x:p.destination.point.x-x.value,y:p.destination.point.y-y.value}:null;return dir?nearbyPortalIndex({x:x.value,y:y.value},portals,dir):-1;},(index,previous)=>{if(index>=0&&index!==previous){p.portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(x);cancelAnimation(y);walking.value=0;runOnJS(onPortal)(portals[index].to);}},[map,onPortal,experience,food,p.bowlingBusy,p.destination]);
@@ -147,12 +148,12 @@ export function WorldResident(p: Props) {
     runOnJS(setInteracting)(true);runOnJS(setRollingLabel)(true);
     if(!automatic)runOnJS(notify)('roll');
   };
-  useEffect(()=>{idleAllowed.value=active&&!reduceMotion&&!interacting&&!manual&&!experience&&!p.smoking&&!food&&!p.resting&&(pose==='idle'||pose==='watching');},[active,reduceMotion,interacting,manual,experience,p.smoking,food,p.resting,pose]);
+  useEffect(()=>{idleAllowed.value=active&&!p.riding&&!reduceMotion&&!interacting&&!manual&&!experience&&!p.smoking&&!food&&!p.resting&&(pose==='idle'||pose==='watching');},[active,reduceMotion,interacting,manual,experience,p.smoking,food,p.resting,pose,p.riding]);
   const physics=useFrameCallback(frame=>{
     'worklet';
-    if(!available.value||cameraTouch.value)return;
+    if(!available.value||cameraTouch.value||p.riding)return;
     const dt=Math.min(1/30,(frame.timeSincePreviousFrame??16.67)/1000);
-    if(p.bowlingBusy)return;
+    if(p.bowlingBusy||p.riding)return;
     if(!experience&&!food&&Math.hypot(steering.value.x,steering.value.y)>.05){const next=steerStep(map,{x:x.value,y:y.value},steering.value,dt,height/width);x.value=p.riding?Math.max(.40,Math.min(.65,next.x)):next.x;y.value=p.riding?Math.max(.44,Math.min(.55,next.y)):next.y;walking.value=1;idleTime.value=0;return;}
     if(reduceMotion||experience||food)return;
     if(!rolling.value){

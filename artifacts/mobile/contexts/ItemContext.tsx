@@ -4,6 +4,7 @@ import { SHOP_STORAGE_KEY } from '@/utils/itemPurchase';
 import { API_BASE, useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { mergeOwnedCatalog, readCatalogCache, readLocalInventory } from '@/utils/itemCache';
+import { homewaresGenre } from '@/utils/homewares';
 
 /** food is retained only to safely read legacy catalog/inventory records. */
 export type ItemCategory = 'food' | 'accessory' | 'background' | 'voice';
@@ -135,6 +136,8 @@ export function ItemProvider({ children }: { children: React.ReactNode }) {
   }, [appLoading, storageError, refreshItems]);
   useEffect(() => { if (!isSignedIn) setShopState((prev) => ({ ...prev, points: feedState.points })); }, [feedState.points, isSignedIn]);
   const buyItem = useCallback(async (itemId: string) => {
+    const offered = items.find(item => item.id === itemId);
+    if (!offered || !homewaresGenre(offered)) throw new Error('このアイテムは販売していません');
     if (shopState.inventory.includes(itemId)) return shopState;
     if (!onlineRef.current) throw new Error('お店に再接続してから交換してください。');
     if (!isSignedIn) {

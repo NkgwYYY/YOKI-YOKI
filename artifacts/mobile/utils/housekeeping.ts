@@ -7,7 +7,7 @@ export const CLEANING_TOOLS={
   robot:{name:'ロボット掃除機',cost:180,description:'お部屋を自動でお掃除。乗って移動もできるよ。'},
 } as const;
 export type CleaningTool=keyof typeof CLEANING_TOOLS;
-export type HousekeepingState={startedAt:number;updatedAt:number;owned:CleaningTool[];cleaned:Record<string,number>};
+export type HousekeepingState={startedAt:number;updatedAt:number;owned:CleaningTool[];cleaned:Record<string,number>;robotPlaced:boolean};
 export const DUST_SPOTS=[{x:.42,y:.443},{x:.50,y:.445},{x:.59,y:.444},{x:.43,y:.474},{x:.51,y:.475},{x:.60,y:.478},{x:.42,y:.507},{x:.50,y:.508},{x:.62,y:.513},{x:.44,y:.54},{x:.53,y:.542},{x:.63,y:.54}];
 const DAY=86400000;
 export function bathDateKey(now:number) {
@@ -29,7 +29,9 @@ export function readHousekeeping(raw:unknown,now:number):HousekeepingState {
   const cleaned:Record<string,number>={};
   for(let i=0;i<DUST_SPOTS.length;i++){const time=data?.cleaned?.[i];if(typeof time==='number'&&Number.isFinite(time)&&time>=startedAt)cleaned[i]=time;}
   const owned=Array.isArray(data?.owned)?[...new Set(data.owned.filter((id):id is CleaningTool=>Object.hasOwn(CLEANING_TOOLS,id)))]:[];
-  return {startedAt,updatedAt,owned,cleaned};
+  // Existing owners keep their previously visible robot until they put it away.
+  const robotPlaced=owned.includes('robot')&&data?.robotPlaced!==false;
+  return {startedAt,updatedAt,owned,cleaned,robotPlaced};
 }
 export function roomDirt(state:HousekeepingState,now:number) {
   return DUST_SPOTS.map((_,i)=>{
@@ -47,7 +49,7 @@ export function sweptSpots(from:{x:number;y:number},to:{x:number;y:number},tool:
     return Math.hypot(px-t*dx,py-t*dy)<=radius?[i]:[];
   });
 }
-export type CleaningOperation={kind:'init'}|{kind:'bathSkip'}|{kind:'buy';tool:CleaningTool}|{kind:'clean';tool:CleaningTool;spots:number[]}|{kind:'bodyWash';id:string;coverage:number[]};
+export type CleaningOperation={kind:'init'}|{kind:'bathSkip'}|{kind:'placeRobot';placed:boolean}|{kind:'buy';tool:CleaningTool}|{kind:'clean';tool:CleaningTool;spots:number[]}|{kind:'bodyWash';id:string;coverage:number[]};
 export function prepareCleaning(values:Record<string,string|null>,operation:CleaningOperation,now:number,defaultFeed:FeedState) {
   const key='@mentore/feed_state_v1';
   const feed:FeedState=values[key]?JSON.parse(values[key]!):defaultFeed;
@@ -68,17 +70,20 @@ export function prepareCleaning(values:Record<string,string|null>,operation:Clea
       if(feed.points<spent)throw new Error('YOKIポイントが足りません');
       hygiene={...hygiene,lastBathAt:now,protectedUntil:now+7*DAY};changed=true;
     }
+  }else if(operation.kind==='placeRobot'){
+    if(typeof operation.placed!=='boolean'||!house.owned.includes('robot'))throw new Error('先にお店でロボット掃除機を買ってね');
+    if(house.robotPlaced!==operation.placed){house.robotPlaced=operation.placed;changed=true;}
   }else if(operation.kind==='buy'){
     if(!Object.hasOwn(CLEANING_TOOLS,operation.tool))throw new Error('Unknown tool');
     if(!house.owned.includes(operation.tool)){
       spent=CLEANING_TOOLS[operation.tool].cost;
       if(feed.points<spent)throw new Error('YOKIポイントが足りません');
-      house.owned.push(operation.tool);changed=true;
+      house.owned.push(operation.tool);if(operation.tool==='robot')house.robotPlaced=false;changed=true;
     }
   }else if(operation.kind==='clean'){
     if(!house.owned.includes(operation.tool))throw new Error('先にお店で道具を買ってね');
     const dirt=roomDirt(house,now);
-    for(const spot of new Set(operation.spots))if(Number.isInteger(spot)&&spot>=0&&spot<DUST_SPOTS.length&&dirt[spot]>0){
+    for(const spot of new Set(operation.spots))if((operation.tool!=='robot'||house.robotPlaced)&&Number.isInteger(spot)&&spot>=0&&spot<DUST_SPOTS.length&&dirt[spot]>0){
       house.cleaned[spot]=Math.max(now,house.updatedAt);removed++;changed=true;
     }
   }

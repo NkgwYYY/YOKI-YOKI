@@ -46,3 +46,14 @@ test('malformed purchase snapshots are retained for recovery rather than overwri
     await assert.rejects(apply(f.open(),operations[0]));assert.deepEqual(f.data,before);
   }
 });
+test('buying furnishes the inventory; only the atelier changes the placed item',async()=>{
+ const f=fixture(),store=f.open();
+ const bought=await apply(store,operations[0]);
+ assert.equal(bought.room.furniture,'none');assert.deepEqual(bought.room.ownedFurniture,['sofa']);
+ const placed=await apply(store,{kind:'select',category:'furniture',id:'sofa'});
+ assert.equal(placed.room.furniture,'sofa');assert.equal(placed.feed.points,2550);
+ const second=await apply(store,{kind:'buy',category:'furniture',id:'vanity',cost:650});
+ assert.equal(second.room.furniture,'sofa');assert.deepEqual(second.room.ownedFurniture,['sofa','vanity']);
+ const removed=await apply(store,{kind:'select',category:'furniture',id:'none'});
+ assert.equal(removed.feed.points,1900);assert.deepEqual(removed.room.ownedFurniture,['sofa','vanity']);
+});

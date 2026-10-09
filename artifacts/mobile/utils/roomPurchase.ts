@@ -46,7 +46,7 @@ export function prepareRoomOperation(values: Record<string, string | null>, oper
       room = { ...room, [ownedKey]: [...room[ownedKey], operation.id] };
       newlyPurchased = true;
     }
-    room = { ...room, [operation.category]: operation.id };
+    if (operation.kind === 'select') room = { ...room, [operation.category]: operation.id };
     target = ROOM_KEYS.room;
   }
   const prepared = result(true);

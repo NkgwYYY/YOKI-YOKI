@@ -129,3 +129,35 @@ test('a failed wash save recovers its receipt exactly once on retry',async()=>{
  const retry=await store.transaction(values=>prepareCleaning(values,operation,now+1,feed));
  assert.equal(retry.changed,false);assert.equal(retry.feed.hygiene.lastBathAt,now);assert.deepEqual(retry.feed.hygiene.washReceipts,['wash-retry']);assert.equal(retry.feed.points,300);
 });
+test('new robots are stored until placed; existing visible robots stay placed after migration',async()=>{
+ const {store,data}=memory();
+ const bought=await store.transaction(values=>prepareCleaning(values,{kind:'buy',tool:'robot'},now,feed));
+ assert.equal(bought.feed.housekeeping.robotPlaced,false);
+ assert.equal(readHousekeeping({owned:['robot'],startedAt:now},now).robotPlaced,true);
+ assert.equal(readHousekeeping({owned:[],robotPlaced:true},now).robotPlaced,false);
+ for(const placed of [true,false,true]){
+  const saved=await store.transaction(values=>prepareCleaning(values,{kind:'placeRobot',placed},now,feed));
+  assert.equal(saved.feed.points,120);assert.equal(readHousekeeping(JSON.parse(data.get(key)).housekeeping,now).robotPlaced,placed);
+ }
+ const hidden=await store.transaction(values=>prepareCleaning(values,{kind:'placeRobot',placed:false},now,feed));
+ const retryBuy=await store.transaction(values=>prepareCleaning(values,{kind:'buy',tool:'robot'},now,feed));
+ assert.equal(retryBuy.feed.housekeeping.robotPlaced,false);assert.equal(retryBuy.spent,0);
+ assert.deepEqual(hidden.feed.happiness,feed.happiness);
+});
+test('unowned placement is rejected and a stored robot cannot clean from a stale callback',async()=>{
+ const {store}=memory();await assert.rejects(store.transaction(values=>prepareCleaning(values,{kind:'placeRobot',placed:true},now,feed)),/先に/);
+ await store.transaction(values=>prepareCleaning(values,{kind:'buy',tool:'robot'},now,feed));
+ const hidden=await store.transaction(values=>prepareCleaning(values,{kind:'clean',tool:'robot',spots:[0,1]},now+3*DAY_MS,feed));
+ assert.equal(hidden.removed,0);
+ await store.transaction(values=>prepareCleaning(values,{kind:'placeRobot',placed:true},now,feed));
+ const placed=await store.transaction(values=>prepareCleaning(values,{kind:'clean',tool:'robot',spots:[0,1]},now+3*DAY_MS,feed));
+ assert.equal(placed.removed,2);assert.equal(placed.feed.points,120);
+});
+test('an interrupted robot placement recovers without repurchase or loss of inventory',async()=>{
+ const data=new Map([[key,JSON.stringify({...feed,housekeeping:{startedAt:now,updatedAt:now,owned:['robot'],cleaned:{},robotPlaced:false}})]]);let fail=true;
+ const storage={getItem:async k=>data.get(k)??null,setItem:async(k,v)=>{if(k===key&&fail){fail=false;throw Error('disk');}data.set(k,v);},removeItem:async k=>data.delete(k)};
+ const action={kind:'placeRobot',placed:true};
+ await assert.rejects(createRecoverableStorage(storage,'journal',[key]).transaction(values=>prepareCleaning(values,action,now,feed)),/disk/);
+ const retry=await createRecoverableStorage(storage,'journal',[key]).transaction(values=>prepareCleaning(values,action,now,feed));
+ assert.equal(retry.changed,false);assert.equal(retry.feed.housekeeping.robotPlaced,true);assert.equal(retry.feed.points,300);assert.deepEqual(retry.feed.housekeeping.owned,['robot']);
+});
