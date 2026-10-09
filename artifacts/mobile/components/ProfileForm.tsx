@@ -9,6 +9,7 @@ import { border, colors, control, radius, space, typography } from '@/constants/
 import { Button } from '@/components/ui/Button';
 import { UserProfile } from '@/contexts/AppContext';
 import { PressScale } from '@/components/ui/PressScale';
+import { formatMbti } from '@/utils/mbti';
 
 const AGE_RANGES = ['10代', '20代', '30代', '40代', '50代', '60代', '70代以上', '回答しない'];
 const GENDERS = ['男性', '女性', 'その他', '回答しない'];
@@ -137,7 +138,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
         <Text style={styles.label}>MBTI</Text>
         <View style={styles.chipRow}>
           {MBTI_TYPES.map((m) => (
-            <Chip key={m} label={m} selected={mbti === m} onPress={() => setMbti(mbti === m ? '' : m)} />
+            <Chip key={m} label={formatMbti(m)} selected={mbti === m} onPress={() => setMbti(mbti === m ? '' : m)} />
           ))}
         </View>
 
