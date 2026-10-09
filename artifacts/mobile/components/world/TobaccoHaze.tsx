@@ -1,6 +1,6 @@
 import React,{useEffect,useRef} from 'react';
 import {Animated,Easing,StyleSheet,View} from 'react-native';
-import Svg,{Defs,Ellipse,RadialGradient,Stop} from 'react-native-svg';
+import Svg,{Defs,Ellipse,LinearGradient,RadialGradient,Rect,Stop} from 'react-native-svg';
 
 function SmokeVeil({index,active,reduceMotion}:{index:number;active:boolean;reduceMotion:boolean}){
  const drift=useRef(new Animated.Value(0)).current;
@@ -13,13 +13,13 @@ function SmokeVeil({index,active,reduceMotion}:{index:number;active:boolean;redu
   loop.start();return()=>loop.stop();
  },[active,reduceMotion,index,drift]);
  const gradient=`alley-smoke-${index}`;
- return <Animated.View style={{position:'absolute',left:'-18%',width:'136%',height:'34%',top:`${24+index*16}%`,opacity:.64,
+ return <Animated.View style={{position:'absolute',left:'-24%',width:'148%',height:'40%',top:`${16+index*17}%`,opacity:.82,
   transform:[{translateX:drift.interpolate({inputRange:[0,1],outputRange:index%2?[22,-26]:[-22,26]})},{translateY:drift.interpolate({inputRange:[0,1],outputRange:[8,-20]})}]}}>
   <Svg width="100%" height="100%" viewBox="0 0 500 250" preserveAspectRatio="none">
-   <Defs><RadialGradient id={gradient} cx="50%" cy="50%" rx="50%" ry="50%"><Stop offset="0" stopColor="#C4BED2" stopOpacity=".35"/><Stop offset=".4" stopColor="#AFAABE" stopOpacity=".21"/><Stop offset="1" stopColor="#87839D" stopOpacity="0"/></RadialGradient></Defs>
-   <Ellipse cx="145" cy="108" rx="205" ry="52" fill={`url(#${gradient})`}/>
-   <Ellipse cx="345" cy="148" rx="210" ry="47" fill={`url(#${gradient})`}/>
-   <Ellipse cx="260" cy="125" rx="190" ry="27" fill={`url(#${gradient})`}/>
+   <Defs><RadialGradient id={gradient} cx="50%" cy="50%" rx="50%" ry="50%"><Stop offset="0" stopColor="#C4BED2" stopOpacity=".50"/><Stop offset=".4" stopColor="#AFAABE" stopOpacity=".30"/><Stop offset="1" stopColor="#87839D" stopOpacity="0"/></RadialGradient></Defs>
+   <Ellipse cx="145" cy="108" rx="220" ry="65" fill={`url(#${gradient})`}/>
+   <Ellipse cx="345" cy="148" rx="225" ry="59" fill={`url(#${gradient})`}/>
+   <Ellipse cx="260" cy="125" rx="195" ry="38" fill={`url(#${gradient})`}/>
   </Svg>
  </Animated.View>;
 }
@@ -27,6 +27,10 @@ function SmokeVeil({index,active,reduceMotion}:{index:number;active:boolean;redu
 /** Always hazy in this alley; independent of the one-puff activity. */
 export function TobaccoHaze({active,reduceMotion}:{active:boolean;reduceMotion:boolean}){
  return <View testID="tobacco-haze" pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill,{zIndex:1100,overflow:'hidden'}]}>
-  {[0,1,2].map(index=><SmokeVeil key={index} index={index} active={active} reduceMotion={reduceMotion}/>)}
+  <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+   <Defs><LinearGradient id="alley-still-haze" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#A39BB7" stopOpacity="0"/><Stop offset=".45" stopColor="#A39BB7" stopOpacity=".10"/><Stop offset=".8" stopColor="#8C879E" stopOpacity=".14"/><Stop offset="1" stopColor="#8C879E" stopOpacity=".04"/></LinearGradient></Defs>
+   <Rect width="100%" height="100%" fill="url(#alley-still-haze)"/>
+  </Svg>
+  {[0,1,2,3].map(index=><SmokeVeil key={index} index={index} active={active} reduceMotion={reduceMotion}/>)}
  </View>;
 }

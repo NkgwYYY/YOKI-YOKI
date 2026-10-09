@@ -38,7 +38,7 @@ import { useSceneTransition } from './useSceneTransition';
 import {WorldBowlingPins} from './WorldBowling';
 import {useWorldBowling} from './useWorldBowling';
 import {VillageMap} from './VillageMap';
-import {SmokingResident} from '@/components/village/SmokingResident';
+import {SmokingResident,TobaccoPatrons} from '@/components/village/SmokingResident';
 import {Icon as DoorIcon} from '@/components/ui/Icon';
 export { HOME_ART } from '@/utils/worldArt';
 type VillageAction={kind:'portal';map:WorldMapId}|{kind:'bath'|'wheel'|'smoke'|'shop'|'feed'|'ramen-meal'}|{kind:'neighbor';id:VillagerId};
@@ -246,6 +246,7 @@ export function WorldHome(props: Props) {
       {map==='workshop'&&merchant('egg-job','工房の店長',{x:.50,y:.48},'egg','job')}
       {map==='ramen'&&merchant('ramen','ラーメン屋',{x:.40,y:.50},'odango','ramen')}
       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
+      {map==='tobacco'&&<TobaccoPatrons width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
       {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowling.busy} onPress={()=>walkTo(gate.point,true)}/>;})}
       {map==='bowling'&&<WorldBowlingPins motion={bowling.motion} width={width} height={height}/>}
       <WorldResident {...props} riding={riding} portalTravel={portalTravel} bowling={bowling.motion} bowlingBusy={bowling.busy} onBowlingRoll={input=>{pending.current=null;setDestination(null);steering.value={x:0,y:0};void bowling.roll(input);}} onBowlingFinished={bowling.finish} footX={footX} steering={steering} experience={experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
