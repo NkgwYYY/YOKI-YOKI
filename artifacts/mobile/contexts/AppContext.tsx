@@ -1,3 +1,5 @@
+import {prepareDiary,type ExchangeDiaryState,type DiaryOperation,type DiaryResult} from '@/utils/exchangeDiary';
+import {getMascotStage} from '@/utils/mascotUtils';
 import {preparePlazaEvent,type PlazaState,type PlazaOperation,type PlazaResult} from '@/utils/plazaEvents';
 import {prepareFortune,type FortuneInput,type FortuneState,type FortuneResult} from '@/utils/dailyFortune';
 import {prepareEggJob,type EggJobState,type EggJobOperation,type EggJobResult} from '@/utils/eggJob';
@@ -148,6 +150,7 @@ export interface UnlockedBadge {
 }
 
 export interface FeedState {
+  exchangeDiary?: ExchangeDiaryState;
   plazaEvents?: PlazaState;
   fortune?: FortuneState;
   happiness?: HappinessState;
@@ -222,6 +225,7 @@ interface AppContextType {
   newlyUnlockedBadge: string | null;
   mascotName: string;
   feedState: FeedState;
+  runDiary: (operation: DiaryOperation) => Promise<DiaryResult>;
   runPlazaEvent: (operation: PlazaOperation) => Promise<PlazaResult>;
   runEggJob: (operation: EggJobOperation) => Promise<EggJobResult>;
   drawFortune: (input: FortuneInput) => Promise<FortuneResult>;
@@ -1135,6 +1139,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return {state:saved.state,receipt:saved.receipt,newlyGranted:saved.newlyGranted};
   }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
 
+  const runDiary = useCallback(async (operation: DiaryOperation) => {
+    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      return prepareDiary(values, operation, getTodayDate(), getYesterdayDate(), Date.now(),
+        {feed:defaultFeedState,progress:defaultProgress}, {name:mascotName,stage:getMascotStage(progress.level)}, FP_PER_MOOD_RECORD);
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (saved.record) {
+      setRecords(saved.record.records); setProgress(saved.record.progress);
+      lightEnergyRef.current = saved.record.energy; setLightEnergy(saved.record.energy);
+      setUnlockedBadges(saved.record.badges);
+      if (saved.record.newestBadge) setNewlyUnlockedBadge(saved.record.newestBadge);
+      if (saved.record.gainedEnergy > 0) queueGainEvent(saved.record.gainedEnergy);
+    }
+    if (saved.changed) void pushDataToCloud().catch(() => {});
+    return {page:saved.page,changed:saved.changed};
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud, mascotName, progress.level, queueGainEvent]);
+
   const runPlazaEvent = useCallback(async (operation: PlazaOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
@@ -1251,6 +1276,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cleanRoom,
         runEggJob,
         runPlazaEvent,
+        runDiary,
         runSmoking,
         drawFortune,
         syncFeedPoints,

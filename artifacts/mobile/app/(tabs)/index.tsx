@@ -146,7 +146,7 @@ export default function HomeScreen() {
       resting={!!today && today.mood <= 2} reaction={reaction} meal={meal} rest={rest} hints={hints} companion={companionState.extraEggs > 0}
       totalDays={progress.totalDays} wear={equipment('wear')} effect={equipment('effect')} decor={equipment('decor')}
       background={background?.assetUrl ? resolveItemAssetUrl(background.assetUrl) : undefined}
-      onRecord={() => setSheet('record')} onFeed={openFeed}
+      onRecord={() => router.push('/exchange-diary')} onFeed={openFeed}
       onChat={chat} onRest={restTogether} onAlbum={() => router.push('/(tabs)/growth')} />
     <View pointerEvents="box-none" style={[s.header, {top: insets.top + (compact ? 6 : 16)}]}>
       <View style={s.brandRow}><View pointerEvents="none"><Text style={s.brand}>YOKI YOKI</Text><Text style={s.subtitle}>{time.dateLabel}　{time.label}</Text></View>
@@ -160,8 +160,8 @@ export default function HomeScreen() {
         <Text testID="world-speech" style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{speech || (happiness.smoking.craving?'たばこ、ほしいな…。ほかの楽しみで気をまぎらわせよう。':today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : time.moment)}</Text>
       </View>}
       <View style={[s.quickActions, wide && {flexDirection: 'column', alignItems: 'center'}]}>
-        <Pressable testID="home-daily-record" accessibilityRole="button" accessibilityLabel="今日の記録を開く" onPress={() => setSheet('record')} style={({pressed}) => [s.noteButton, pressed && {opacity: 0.8}]}>
-          <Icon name={today ? 'check' : 'edit-3'} size={17} color="#CCBADB" /><Text style={s.noteText}>{today ? '今日の記録' : '今日を、ひとこと'}</Text>
+        <Pressable testID="home-daily-record" accessibilityRole="button" accessibilityLabel="交換日記を開く" onPress={() => router.push('/exchange-diary')} style={({pressed}) => [s.noteButton, pressed && {opacity: 0.8}]}>
+          <Icon name={feedState.exchangeDiary?.pages[getTodayDate()]?.user ? 'check' : 'book-open'} size={17} color="#CCBADB" /><Text style={s.noteText}>交換日記</Text>
         </Pressable>
         <Pressable testID="home-chat" accessibilityRole="button" accessibilityLabel="この子とお話しする" onPress={chat} style={s.talkButton}><Icon name="message-circle" size={18} color="#CCBADB" /><Text style={s.talkText}>おはなし</Text></Pressable>
       </View>
@@ -191,6 +191,7 @@ export default function HomeScreen() {
       <Button label="少し、お話しする" icon="message-circle" onPress={() => { close(); router.push('/(tabs)/chat'); }} />
     </BottomSheet>}
     {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
+      {menuRow('book-open', 'ふたりの交換日記', () => { close(); router.push('/exchange-diary'); })}
       {menuRow('edit-3', '今日を記録する', () => setSheet('record'))}
       {menuRow('message-circle', 'この子とお話しする', chat)}
       {menuRow('coffee', 'ごはんの時間', () => openFeed())}

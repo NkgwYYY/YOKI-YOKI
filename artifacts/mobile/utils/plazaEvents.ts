@@ -5,7 +5,7 @@ export const PLAZA_KINDS = ['balloon', 'scammer', 'lost', 'traveler'] as const;
 export type PlazaKind = typeof PLAZA_KINDS[number];
 export type PlazaOutcome = {choice:'accept'|'decline';points:number;at:number};
 export type PlazaEncounter = {id:string;kind:PlazaKind;outcome?:PlazaOutcome};
-export type PlazaState = {day:string;seen:PlazaKind[];serial:number;nextAt:number;current?:PlazaEncounter};
+export type PlazaState = {day:string;seen:PlazaKind[];serial:number;nextAt:number;current?:PlazaEncounter;lastEncounter?:{date:string;encounter:PlazaEncounter}};
 export type PlazaOperation = {kind:'visit'} | {kind:'resolve';id:string;choice:'accept'|'decline'} | {kind:'leave';id:string};
 export type PlazaResult = {state:PlazaState;changed:boolean};
 export const PLAZA_STORIES = {
@@ -40,7 +40,8 @@ export function preparePlazaEvent(values:Record<string,string|null>,op:PlazaOper
    const delta=op.choice==='accept'?PLAZA_STORIES[state.current.kind].points:0;
    if(points+delta<0)throw Error('預けるには30pt必要です');
    points+=delta;
-   state={...state,current:{...state.current,outcome:{choice:op.choice,points:delta,at:now}},nextAt:now+300000+Math.floor(roll*240000)};
+   const encounter={...state.current,outcome:{choice:op.choice,points:delta,at:now}};
+   state={...state,current:encounter,lastEncounter:{date:today,encounter},nextAt:now+300000+Math.floor(roll*240000)};
   }
  } else if(state.current?.id===op.id){
   if(!state.current.outcome)throw Error('まだお話が終わっていません');

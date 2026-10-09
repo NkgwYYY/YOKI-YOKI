@@ -1,0 +1,9 @@
+# ふたりの交換日記 — 2026-10-09
+
+- Home opens `/exchange-diary`: a purple-and-paper notebook with separate character/user pages, dated bookshelf, and editable current-day user page.
+- Character letters are local authored fictional village stories, rotated by calendar date; an accepted recent plaza encounter can provide a contextual letter. The first delivered letter/name/stage stays fixed for that date. Replies are short mood-based authored responses, not generative-AI interpretation of the user's prose. No new external service, model call or notification.
+- Writing is optional: choose a mood to send a page with or without text (1600 character maximum). Reading alone never records a mood or earns points. A low mood receives exactly the same daily record reward as a high mood.
+- FeedState.exchangeDiary persists complete pages (including replies) through the existing journal/cloud/account ownership mechanism. Sends atomically commit the page and normal daily mood record. Existing detailed notes, sleep, activities and other fields are preserved. Revision and operation IDs guard against stale overwrites and duplicated rewards.
+- Current unsent text survives switching between pages and the bookshelf during a mounted session. The in-app home button asks before discarding it; unsent text is not persisted across a browser refresh. Saving happens when the user presses 渡す. An open page can be sent across midnight without backdating progress.
+- Prior mood/checklist screens remain reachable. No production republish is performed by Codex.
+- Validation: TypeScript passes locally and on Replit; 35 exchange diary, daily record transaction and plaza tests pass. Actual Replit preview checked at 390×760 and 320×568: home entry, character letter, sending, editing, reload persistence, bookshelf and a single 5pt daily reward (90→95 despite editing).
