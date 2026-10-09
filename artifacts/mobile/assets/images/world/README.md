@@ -98,3 +98,7 @@ The .webp siblings of the 14 world backgrounds/atlas and four merchant portraits
 ## Dark tobacco alley — 2026-10-09
 
 Built-in imagegen edit, source exec-cf4da3b5-7e37-4993-9e5f-fa82218fc6bb.png, referenced village-tobacco-v2.jpg. Saved as village-tobacco-dark.jpg and WebP. Prompt: preserve the exact shop-left / bench-right / open stone ground layout and rounded clay/felt art; change the atmosphere to a slightly shady after-hours alley with deep plum/indigo shadows, weathered dark wood, burgundy curtains, amber lantern pools, muted violet window light and moonlight; fewer bright flowers, darker climbing leaves. No characters, text, UI, brands or logos. The original daytime version is retained.
+
+## Smoking nook — 2026-10-09
+
+Built-in imagegen precise-object edit, source exec-809ceb09-bed1-49e0-af15-f0b9ef6b1c52.png, referenced village-tobacco-dark.jpg. Saved as village-tobacco-nook.jpg and .webp (1024x1536); the previous dark artwork is retained. Prompt: preserve the shop-left/bench-right layout, round clay/felt materials, dark plum night and amber lamps; add a charcoal/copper pedestal ashtray with ash and two spent cigarettes beside the right bench, a small lit wooden plaque reading exactly 喫煙所 with a cigarette icon, and low curved stone edging; preserve the center-left path and foreground for character motion, no generated characters/clothes/brands/UI and no baked thick smoke. The live code supplies haze and unadorned smoking residents.

@@ -4,14 +4,14 @@ import Animated,{cancelAnimation,useAnimatedStyle,useSharedValue,withRepeat,with
 import Svg,{Circle,Defs,LinearGradient,Path,Rect,Stop} from 'react-native-svg';
 import type {MascotStage} from '@/utils/mascotUtils';
 import {VillageResident} from './VillageActors';
-type Props={stage:MascotStage;width:number;height:number;active:boolean;reduceMotion:boolean;x?:number;y?:number;relativeSize?:number;pace?:number;scarf?:string;testID?:string};
-export function SmokingResident({stage,width,height,active,reduceMotion,x=.69,y=.58,relativeSize=.20,pace=3800,scarf,testID='tobacco-smoking-scene'}:Props) {
+type Props={stage:MascotStage;width:number;height:number;active:boolean;reduceMotion:boolean;x?:number;y?:number;relativeSize?:number;pace?:number;testID?:string};
+export function SmokingResident({stage,width,height,active,reduceMotion,x=.60,y=.59,relativeSize=.20,pace=3800,testID='tobacco-smoking-scene'}:Props) {
   const size=width*relativeSize,drift=useSharedValue(0),id=useId().replace(/[^a-zA-Z0-9]/g,'');
   useEffect(()=>{if(active&&!reduceMotion)drift.value=withRepeat(withTiming(1,{duration:pace}),-1,false);else drift.value=0;return()=>cancelAnimation(drift);},[active,reduceMotion,pace]);
   const smoke=useAnimatedStyle(()=>({opacity:reduceMotion?.45:Math.sin(Math.PI*drift.value)*.75,transform:[{translateY:-drift.value*size*.22},{translateX:drift.value*size*.09},{scale:1+drift.value*.22}]}));
   return <View testID={testID} pointerEvents="none" style={{position:'absolute',left:width*x-size/2,top:height*y-size*.91,width:size,height:size,zIndex:Math.round(y*1000)}}>
     <View style={{position:'absolute',left:'19%',right:'19%',top:'87%',height:'8%',borderRadius:100,backgroundColor:'#20182866'}}/>
-    <VillageResident stage={stage} size={size} active={active} reduceMotion={reduceMotion} scarf={scarf}/>
+    <VillageResident stage={stage} size={size} active={active} reduceMotion={reduceMotion}/>
     <Svg width={size} height={size} viewBox="0 0 100 100" style={StyleSheet.absoluteFill}>
       <Defs><LinearGradient id={`${id}paper`} x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#FFFEF6"/><Stop offset="1" stopColor="#D5C8B2"/></LinearGradient><LinearGradient id={`${id}filter`} x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#F0C381"/><Stop offset="1" stopColor="#B78658"/></LinearGradient></Defs>
       <Rect x="58" y="60" width="24" height="5" rx="2.5" fill={`url(#${id}paper)`} stroke="#C1A994" strokeWidth=".5"/>
@@ -29,7 +29,7 @@ export function SmokingResident({stage,width,height,active,reduceMotion,x=.69,y=
 /** Familiar village forms, with their own pace; the centre path stays open. */
 export function TobaccoPatrons(props:Pick<Props,'width'|'height'|'active'|'reduceMotion'>){
  return <>
-  <SmokingResident {...props} testID="tobacco-patron-egg" stage="egg" x={.76} y={.49} relativeSize={.13} pace={5300} scarf="#726187"/>
-  <SmokingResident {...props} testID="tobacco-patron-mofumofu" stage="odango" x={.69} y={.68} relativeSize={.16} pace={7100} scarf="#8D6355"/>
+  <SmokingResident {...props} testID="tobacco-patron-egg" stage="egg" x={.72} y={.555} relativeSize={.13} pace={5300}/>
+  <SmokingResident {...props} testID="tobacco-patron-mofumofu" stage="odango" x={.69} y={.68} relativeSize={.16} pace={7100}/>
  </>;
 }

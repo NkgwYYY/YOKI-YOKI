@@ -23,7 +23,7 @@ export const OUTDOOR_ART = {
   village: webArt(require('@/assets/images/world/village-neighbors.webp'), require('@/assets/images/world/village-neighbors.jpg')),
   ramen: webArt(require('@/assets/images/world/village-ramen.webp'), require('@/assets/images/world/village-ramen.jpg')),
   bowling: webArt(require('@/assets/images/world/village-bowling-long.webp'), require('@/assets/images/world/village-bowling-long.jpg')),
-  tobacco: webArt(require('@/assets/images/world/village-tobacco-dark.webp'), require('@/assets/images/world/village-tobacco-dark.jpg')),
+  tobacco: webArt(require('@/assets/images/world/village-tobacco-nook.webp'), require('@/assets/images/world/village-tobacco-nook.jpg')),
 };
 export function worldArt(map: WorldMapId, night = false) { return map === 'home' ? HOME_ART[night ? 'night' : 'day'] : OUTDOOR_ART[map]; }
 const cached = new Map<string, Promise<void>>();

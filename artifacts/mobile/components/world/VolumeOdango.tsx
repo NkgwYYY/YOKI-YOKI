@@ -24,12 +24,13 @@ export function VolumeOdango({size,rx,ry,rz,blink,mood,night=false,mealProgress}
         <Image href={require('../../assets/images/characters/mofumofu-fur.png')} width="100" height="100" preserveAspectRatio="none"/>
       </Pattern>
     </Defs>
-    <Feature projection={projection} part="furHalo" fill={night?'#D6DDE0':'#F7F4EB'} stroke="#FFFDF5" width={.35}/>
-    <Feature projection={projection} part="body" fill={`url(#${id}fur)`}/>
-    <Feature projection={projection} part="body" fill={`url(#${id}texture)`}/>
-    <Feature projection={projection} part="furShade" fill="none" stroke={night?'#ADB8BD':'#B6B6A8'} width={.24} opacity={.23}/>
-    <Feature projection={projection} part="furMid" fill="none" stroke="#E2DDD0" width={.35} opacity={.38}/>
-    <Feature projection={projection} part="furLight" fill="none" stroke="#FFFFFF" width={.45} opacity={.8}/>
+    {/* One opaque furry silhouette: no smooth inner disk or bright outer ring. */}
+    <Feature projection={projection} part="furHalo" fill={night?'#DFE4E5':'#F3F2EB'}/>
+    <Feature projection={projection} part="furHalo" fill={`url(#${id}fur)`}/>
+    <Feature projection={projection} part="furHalo" fill={`url(#${id}texture)`}/>
+    <Feature projection={projection} part="furShade" fill="none" stroke={night?'#ADB8BD':'#B6B6A8'} width={.20} opacity={.12}/>
+    <Feature projection={projection} part="furMid" fill="none" stroke="#E2DDD0" width={.28} opacity={.22}/>
+    <Feature projection={projection} part="furLight" fill="none" stroke="#FFFFFF" width={.32} opacity={.35}/>
     <Feature projection={projection} part="leftCheek" fill={`url(#${id}cheek)`}/><Feature projection={projection} part="rightCheek" fill={`url(#${id}cheek)`}/>
     <Feature projection={projection} part="leftSocket" fill="#BABDB2" opacity={.55}/><Feature projection={projection} part="rightSocket" fill="#BABDB2" opacity={.55}/>
     <Feature projection={projection} part="leftEye" fill={`url(#${id}eye)`}/><Feature projection={projection} part="rightEye" fill={`url(#${id}eye)`}/>
