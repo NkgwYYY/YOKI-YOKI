@@ -10,7 +10,7 @@ const characters = [
   { image: 'colorful_happa.png', name: 'カラフルはっぱ', note: 'いろんな色が、あっていい。', tone: 'rainbow' },
 ] as const;
 const questions = [
-  { title: 'YOKI YOKIは、どんなアプリ？', answer: '気分の記録やキャラクターとのふれあいを通じて、自分をいたわる時間を楽しむセルフケアアプリです。小さな「よき」を見つけながら、キャラクターとの日々を重ねていきます。' },
+  { title: 'YOKI YOKIは、どんなアプリ？', answer: '気分の記録やキャラクターとのふれあいを通じて、自分をいたわる時間を楽しむセルフケアゲームです。小さな「よき」を見つけながら、なかまたちとの日々を重ねていきます。' },
   { title: 'どこから使えますか？', answer: 'このページの「YOKI YOKIをはじめる」から、ブラウザ版のアプリを開けます。この紹介ページにある昼・夜の切り替えと、ごあいさつは、世界観を楽しむためのミニ体験です。アプリの記録や育成データには影響しません。' },
   { title: '医療サービスですか？', answer: 'いいえ。YOKI YOKIは日々のセルフケアを楽しむためのアプリであり、医療行為・診断・治療の代わりになるものではありません。' },
 ];
@@ -45,9 +45,9 @@ export default function Home() {
         <section className="yk-hero yk-wrap" aria-labelledby="yk-title">
           <div className="yk-hero-copy">
             <p className="yk-eyebrow"><span className="yk-status-dot" />こころに、ちいさな居場所を。</p>
-            <h1 id="yk-title">きょうも、<br /><em>あなたの<br className="yk-mid-break" />ペースで。</em></h1>
-            <p className="yk-intro">なんでもない一日に、ちいさな「よき」を。<br />ふしぎななかまと暮らしながら、<br />自分をいたわる時間を、少しずつ。</p>
-            <div className="yk-hero-action"><Cta location="hero" /><p>キャラクターと楽しむ、セルフケアアプリ</p></div>
+            <h1 id="yk-title" style={{ fontSize: 'clamp(28px, 3.4vw, 48px)' }}>ふしぎな<br />なかまたちと過ごす、<br /><em>セルフケアゲーム。</em></h1>
+            <p className="yk-intro">一緒に遊んで、お出かけして、<br />今日の気持ちを少しだけ記録する。<br />なかまを大切にしながら、<br />自分のこともちょっと大切に。</p>
+            <div className="yk-hero-action"><Cta location="hero" /><p>ふしぎななかまたちと楽しむ、セルフケアゲーム</p></div>
           </div>
           <div className="yk-world">
             <input className="yk-night yk-visually-hidden" type="checkbox" id="yk-night" />
@@ -71,7 +71,7 @@ export default function Home() {
 
         <section id="about" className="yk-about yk-wrap" aria-labelledby="yk-about-title">
           <div className="yk-section-marker"><span>01 / ABOUT</span><Flower /></div>
-          <div className="yk-about-body"><h2 id="yk-about-title">がんばる場所じゃなく、<br />ほっとできる場所を。</h2><div className="yk-about-text"><p>いい日も、そうじゃない日も。<br />小さななかまと過ごす時間が、<br />自分の気持ちに目を向けるきっかけに。</p><p>YOKI YOKIは、キャラクターとの日々を楽しみながら、<br className="yk-desktop-break" />あなた自身もいたわるセルフケアアプリです。</p></div></div>
+          <div className="yk-about-body"><h2 id="yk-about-title">がんばる場所じゃなく、<br />ほっとできる場所を。</h2><div className="yk-about-text"><p>いい日も、そうじゃない日も。<br />小さななかまと過ごす時間が、<br />自分の気持ちに目を向けるきっかけに。</p><p>YOKI YOKIは、なかまたちとの日々を楽しみながら、<br className="yk-desktop-break" />あなた自身もいたわるセルフケアゲームです。</p></div></div>
         </section>
 
         <section className="yk-rituals yk-wrap" aria-label="YOKI YOKIで過ごす時間">
@@ -84,7 +84,7 @@ export default function Home() {
 
         <section id="questions" className="yk-questions yk-wrap" aria-labelledby="yk-questions-title"><div><p className="yk-kicker">03 / QUESTIONS</p><h2 id="yk-questions-title">気になること。</h2><p className="yk-question-help">ほかに知りたいことは、<br /><a href={`${base}support/`}>サポートページへ <Arrow diagonal /></a></p></div><div className="yk-faq-list">{questions.map((question) => <details className="yk-faq" key={question.title}><summary><span>{question.title}</span><span className="yk-plus" aria-hidden="true" /></summary><p>{question.answer}</p></details>)}</div></section>
 
-        <section className="yk-invitation" aria-labelledby="yk-invitation-title"><div className="yk-wrap yk-invitation-inner"><div><p className="yk-kicker">YOUR OWN LITTLE PLACE</p><h2 id="yk-invitation-title">今日の「よき」を、<br />ひとつ。</h2><p className="yk-invitation-text">まずは、この子に会うところから。</p><Cta location="footer" light /><p className="yk-browser-note">ブラウザで開きます</p></div><div className="yk-invitation-art" aria-hidden="true"><span className="yk-big-circle" /><img src={`${base}characters/colorful_happa.png`} alt="" width="512" height="512" loading="lazy" decoding="async" /><Flower /></div></div></section>
+        <section className="yk-invitation" aria-labelledby="yk-invitation-title"><div className="yk-wrap yk-invitation-inner"><div><p className="yk-kicker">YOUR OWN LITTLE PLACE</p><h2 id="yk-invitation-title">今日の「よき」を、<br />ひとつ。</h2><p className="yk-invitation-text">まずは、なかまたちに会うところから。</p><Cta location="footer" light /><p className="yk-browser-note">ブラウザで開きます</p></div><div className="yk-invitation-art" aria-hidden="true"><span className="yk-big-circle" /><img src={`${base}characters/colorful_happa.png`} alt="" width="512" height="512" loading="lazy" decoding="async" /><Flower /></div></div></section>
       </main>
 
       <footer className="yk-footer yk-wrap"><div className="yk-footer-top"><Brand /><nav aria-label="フッターナビゲーション"><a href={`${base}articles/`}>読みもの</a><a href={`${base}support/`}>サポート</a><a href={`${base}privacy/`}>プライバシーポリシー</a></nav></div><div className="yk-footer-bottom"><p>YOKI YOKIは、医療行為・診断・治療の代わりになるものではありません。</p><span>© {new Date().getFullYear()} YOKI YOKI</span></div></footer>
