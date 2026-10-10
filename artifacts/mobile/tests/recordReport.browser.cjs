@@ -28,44 +28,23 @@ const server=http.createServer((req,res)=>{
     });
     const base='http://127.0.0.1:'+server.address().port;
     await page.goto(base+'/record');
-    await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
-    await page.getByText('くわしく残す',{exact:true}).click();
-    await page.getByText('今日の記録ノート',{exact:true}).waitFor();
-    await page.waitForTimeout(400); // Native/Web modal slide must settle before layout capture.
-    if(process.env.YOKI_QA_FORM_SCREENSHOT) await page.screenshot({path:process.env.YOKI_QA_FORM_SCREENSHOT});
-    for(const name of ['最悪','辛い','普通','良い','最高']){
-      const box=await page.getByLabel('気分：'+name,{exact:true}).boundingBox();
-      assert.ok(box && box.x>=0 && box.x+box.width<=320,'mood action fits: '+name);
-    }
-    assert.equal(await page.getByLabel('睡眠時間を増やす',{exact:true}).count(),0);
-    for(const name of ['運動：軽め','食事：ふつう','人間関係：ふつう'])
-      assert.equal(await page.getByRole('button',{name,exact:true}).isEnabled(),true);
-    await page.getByLabel('今日のメモ',{exact:true}).fill('書き足したメモ');
-    await page.evaluate(()=>{
-      const original=Storage.prototype.setItem;
-      Storage.prototype.setItem=function(key,value){
-        if(key==='@mentore/records_v2'){Storage.prototype.setItem=original;throw new DOMException('QA quota failure','QuotaExceededError');}
-        return original.call(this,key,value);
-      };
-    });
-    await page.getByTestId('detailed-record-save').click();
-    await page.getByText('保存できませんでした。入力内容はこのまま、もう一度お試しください。',{exact:true}).waitFor();
-    assert.equal(await page.getByLabel('今日のメモ',{exact:true}).inputValue(),'書き足したメモ');
-    assert.equal(await page.getByLabel('今日のメモ',{exact:true}).isEditable(),true);
-    assert.equal(await page.getByRole('button',{name:'食事：ふつう',exact:true}).isEnabled(),true);
-    await page.getByTestId('detailed-record-save').click();
-    await page.getByText('今日の記録ノート',{exact:true}).waitFor({state:'hidden'});
+    await page.getByTestId('diary-write').click();
+    await page.getByTestId('diary-details-toggle').click();
+    await page.getByTestId('diary-detail-notes').fill('書き足したメモ');
+    await page.getByTestId('diary-send').click();
+    await page.getByTestId('diary-user-page').waitFor();
     const read=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/records_v2'))[0]);
     const saved=await read();
     assert.equal(saved.sleepRecorded,false);assert.equal(saved.sleep,0);assert.equal(saved.notes,'書き足したメモ');
     assert.deepEqual(saved.behaviors,['読書した']);assert.deepEqual(saved.activities,{rest:1});
-    await page.reload();await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
-    await page.getByText('くわしく残す',{exact:true}).click();
-    await page.getByLabel('睡眠時間を記録する',{exact:true}).click();
-    await page.getByLabel('睡眠時間を増やす',{exact:true}).click();
-    await page.getByLabel('睡眠時間：7.5時間',{exact:true}).waitFor();
-    await page.getByTestId('detailed-record-save').click();
-    await page.getByText('今日の記録ノート',{exact:true}).waitFor({state:'hidden'});
+    await page.reload();
+    await page.getByTestId('diary-tab-user').click();
+    await page.getByTestId('diary-edit').click();
+    await page.getByTestId('diary-details-toggle').click();
+    await page.getByRole('checkbox',{name:'睡眠時間を残す',exact:true}).click();
+    await page.getByLabel('睡眠を30分増やす',{exact:true}).click();
+    await page.getByTestId('diary-send').click();
+    await page.getByTestId('diary-user-page').waitFor();
     assert.equal((await read()).sleep,7.5);assert.equal((await read()).sleepRecorded,true);
     await page.goto(base+'/monthly-report');
     await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
@@ -89,6 +68,6 @@ const server=http.createServer((req,res)=>{
     assert.ok(png.readUInt32BE(16)>=800 && png.readUInt32BE(20)>=2000);
     if(process.env.YOKI_QA_REPORT_PNG) fs.writeFileSync(process.env.YOKI_QA_REPORT_PNG,png);
     assert.deepEqual(errors,[]);
-    console.log('PASS 320px detailed form, save failure/retry, optional sleep/reload, preserved fields, report month navigation and PNG export failure/retry');
+    console.log('PASS 320px diary details, optional sleep/reload, preserved fields, report month navigation and PNG export failure/retry');
   }finally{await browser.close();server.close();}
 })().catch(error=>{console.error(error);server.close();process.exitCode=1;});

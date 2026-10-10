@@ -4,7 +4,7 @@ export type Emotion = 'normal' | 'happy' | 'angry' | 'sad' | 'fun' | 'surprised'
 export type WearableConfig = { url: string; x: number; y: number; size: number };
 
 /** 画像差し替え時にインクリメントしてブラウザキャッシュを回避する */
-const ASSET_VERSION = 3;
+const ASSET_VERSION = 4;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -256,6 +256,7 @@ export class CharacterRig {
   private winkingUntil = 0;
   private winkSide: 'left' | 'right' = 'right';
   private animationFrameId = 0;
+  private visibilityListener: (()=>void)|null=null;
   private transitionTimers: number[] = [];
   private actionTimers: number[] = [];
 
@@ -489,7 +490,7 @@ export class CharacterRig {
   }
 
   private applySpriteTo(img: SVGImageElement, name: string, box: PartBox) {
-    img.setAttribute('href', `${import.meta.env.BASE_URL}characters/parts/${this.config.id}/${name}.png?v=${ASSET_VERSION}`);
+    img.setAttribute('href', `${import.meta.env.BASE_URL}characters/parts/${this.config.id}/${name}.webp?v=${ASSET_VERSION}`);
     img.setAttribute('x', box.x.toString());
     img.setAttribute('y', box.y.toString());
     img.setAttribute('width', box.w.toString());
@@ -687,6 +688,9 @@ export class CharacterRig {
     let lastTs = performance.now();
 
     const tick = (ts: number) => {
+      // Idle motion needs only 30 updates/s; gestures and actions keep 60.
+      const interacting=this.grabbed||this.jumpPhase==='air'||this.walking||this.shaking||this.talking||Math.abs(this.throwVX)>2;
+      if(!interacting&&ts-lastTs<1000/30-1){this.animationFrameId=requestAnimationFrame(tick);return;}
       // deltaTime(秒)。タブ復帰などの巨大なdtはクランプ
       const dt = Math.min((ts - lastTs) / 1000, 0.05);
       lastTs = ts;
@@ -850,10 +854,16 @@ export class CharacterRig {
       this.animationFrameId = requestAnimationFrame(tick);
     };
 
-    this.animationFrameId = requestAnimationFrame(tick);
+    this.visibilityListener=()=>{
+      cancelAnimationFrame(this.animationFrameId);
+      if(!document.hidden){lastTs=performance.now();lastBlink=Date.now();this.animationFrameId=requestAnimationFrame(tick);}
+    };
+    document.addEventListener('visibilitychange',this.visibilityListener);
+    this.visibilityListener();
   }
 
   public destroy() {
+    if(this.visibilityListener)document.removeEventListener('visibilitychange',this.visibilityListener);
     cancelAnimationFrame(this.animationFrameId);
     this.transitionTimers.forEach((t) => clearTimeout(t));
     this.actionTimers.forEach((t) => clearTimeout(t));

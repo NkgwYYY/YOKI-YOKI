@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
   withSpring,
   Easing,
+  cancelAnimation,
 } from 'react-native-reanimated';
 import Svg, {
   Circle, Ellipse, Path, G, Defs,
@@ -16,45 +17,46 @@ import Svg, {
 import { Image } from 'react-native';
 import { MascotStage, MascotMood, IdleBehavior, CharacterKey, getCharacter } from '@/utils/mascotUtils';
 import BoneCharacter from '@/components/BoneCharacter';
+import {useRoomActivity} from '@/components/room/useRoomActivity';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import MaskedView from '@react-native-masked-view/masked-view';
 
 /* ── たまごステージ: 動画から切り出した透過画像（気分ごとに表情切替） ── */
 const EGG_IMAGES: Record<MascotMood, ReturnType<typeof require>> = {
-  normal:  require('../assets/images/egg/normal.png'),
-  happy:   require('../assets/images/egg/happy.png'),
-  excited: require('../assets/images/egg/excited.png'),
-  grumpy:  require('../assets/images/egg/grumpy.png'),
-  tired:   require('../assets/images/egg/tired.png'),
-  sleepy:  require('../assets/images/egg/sleepy.png'),
+  normal:  (Platform.OS === 'web' ? require('../assets/images/egg/normal.webp') : require('../assets/images/egg/normal.png')),
+  happy:   (Platform.OS === 'web' ? require('../assets/images/egg/happy.webp') : require('../assets/images/egg/happy.png')),
+  excited: (Platform.OS === 'web' ? require('../assets/images/egg/excited.webp') : require('../assets/images/egg/excited.png')),
+  grumpy:  (Platform.OS === 'web' ? require('../assets/images/egg/grumpy.webp') : require('../assets/images/egg/grumpy.png')),
+  tired:   (Platform.OS === 'web' ? require('../assets/images/egg/tired.webp') : require('../assets/images/egg/tired.png')),
+  sleepy:  (Platform.OS === 'web' ? require('../assets/images/egg/sleepy.webp') : require('../assets/images/egg/sleepy.png')),
 };
-const EGG_BLINK = require('../assets/images/egg/blink.png');
+const EGG_BLINK = (Platform.OS === 'web' ? require('../assets/images/egg/blink.webp') : require('../assets/images/egg/blink.png'));
 /* 真顔→まばたき→にっこり の変身モーション（動画から切り出した実フレーム） */
 const EGG_WAKE_FRAMES = [
-  require('../assets/images/egg/wake_1.png'),
-  require('../assets/images/egg/wake_2.png'),
-  require('../assets/images/egg/wake_3.png'),
-  require('../assets/images/egg/wake_4.png'),
-  require('../assets/images/egg/wake_5.png'),
-  require('../assets/images/egg/wake_6.png'),
+  (Platform.OS === 'web' ? require('../assets/images/egg/wake_1.webp') : require('../assets/images/egg/wake_1.png')),
+  (Platform.OS === 'web' ? require('../assets/images/egg/wake_2.webp') : require('../assets/images/egg/wake_2.png')),
+  (Platform.OS === 'web' ? require('../assets/images/egg/wake_3.webp') : require('../assets/images/egg/wake_3.png')),
+  (Platform.OS === 'web' ? require('../assets/images/egg/wake_4.webp') : require('../assets/images/egg/wake_4.png')),
+  (Platform.OS === 'web' ? require('../assets/images/egg/wake_5.webp') : require('../assets/images/egg/wake_5.png')),
+  (Platform.OS === 'web' ? require('../assets/images/egg/wake_6.webp') : require('../assets/images/egg/wake_6.png')),
 ];
 /* ころころ転がるコマ送りフレーム（動画から切り出し） */
 const EGG_ROLL_FRAMES = [
-  require('../assets/images/egg/roll_1.png'),
-  require('../assets/images/egg/roll_2.png'),
-  require('../assets/images/egg/roll_3.png'),
-  require('../assets/images/egg/roll_4.png'),
-  require('../assets/images/egg/roll_5.png'),
-  require('../assets/images/egg/roll_6.png'),
+  (Platform.OS === 'web' ? require('../assets/images/egg/roll_1.webp') : require('../assets/images/egg/roll_1.png')),
+  (Platform.OS === 'web' ? require('../assets/images/egg/roll_2.webp') : require('../assets/images/egg/roll_2.png')),
+  (Platform.OS === 'web' ? require('../assets/images/egg/roll_3.webp') : require('../assets/images/egg/roll_3.png')),
+  (Platform.OS === 'web' ? require('../assets/images/egg/roll_4.webp') : require('../assets/images/egg/roll_4.png')),
+  (Platform.OS === 'web' ? require('../assets/images/egg/roll_5.webp') : require('../assets/images/egg/roll_5.png')),
+  (Platform.OS === 'web' ? require('../assets/images/egg/roll_6.webp') : require('../assets/images/egg/roll_6.png')),
 ];
 
 const ALL_MOODS: MascotMood[] = ['normal', 'happy', 'excited', 'grumpy', 'tired', 'sleepy'];
 
 /* ── 進化後キャラクター画像（ストレージの素材から取り込み） ── */
 const CHAR_IMAGES: Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof require>> = {
-  odango:         require('../assets/images/characters/odango.png'),
-  happa:          require('../assets/images/characters/happa.png'),
-  colorful_happa: require('../assets/images/characters/colorful_happa.png'),
+  odango:         (Platform.OS === 'web' ? require('../assets/images/characters/odango.webp') : require('../assets/images/characters/odango.png')),
+  happa:          (Platform.OS === 'web' ? require('../assets/images/characters/happa.webp') : require('../assets/images/characters/happa.png')),
+  colorful_happa: (Platform.OS === 'web' ? require('../assets/images/characters/colorful_happa.webp') : require('../assets/images/characters/colorful_happa.png')),
 };
 
 /**
@@ -62,7 +64,7 @@ const CHAR_IMAGES: Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof requir
  * ネイティブの埋め込みステージ読込中・失敗時に、UIスレッドworkletを
  * 起動せず元画像をそのまま表示する。
  */
-export function StaticMascot({
+export const StaticMascot=React.memo(function StaticMascot({
   stage,
   mood,
   size,
@@ -91,7 +93,7 @@ export function StaticMascot({
       />
     </View>
   );
-}
+});
 
 /* ── 笑顔アニメ（アップロード動画から切り出した実フレーム: しかめ顔→まばたき→にっこり） ── */
 const SMILE_FRAMES: Partial<Record<Exclude<CharacterKey, 'egg'>, ReturnType<typeof require>[]>> = {};
@@ -558,6 +560,7 @@ function PetGlow({ size, petKey }: { size: number; petKey: number }) {
 export function Mascot({
   stage, mood, size = 140, onPress, onPet, idleBehavior = 'normal', isEating = false, preferStatic = false,
 }: MascotProps) {
+  const {active,reduceMotion}=useRoomActivity();
   const bounce = useSharedValue(0);
   const scaleX = useSharedValue(1);
   const scaleY = useSharedValue(1);
@@ -616,6 +619,9 @@ export function Mascot({
 
   // Idle behavior animation
   useEffect(() => {
+    [bounce,scaleX,scaleY,rotate].forEach(cancelAnimation);
+    bounce.value=0;scaleX.value=1;scaleY.value=1;rotate.value=0;
+    if(!active||reduceMotion)return;
     rotate.value = withTiming(0, { duration: 300 });
 
     if (effIdle === 'rolling') {
@@ -703,7 +709,7 @@ export function Mascot({
     } else {
       scaleX.value = withTiming(1, { duration: 300 });
     }
-  }, [effMood, effIdle]);
+  }, [effMood, effIdle, active, reduceMotion]);
 
   /* ── petting animation ── */
   const doPetAnimation = () => {
@@ -807,9 +813,9 @@ export function Mascot({
                 pokeKey={pokeKey}
                 allowVideo={!preferStatic}
               />
-            : <BoneCharacter charKey={character.key} mood={effMood} size={size} hop={size >= 90} animate={size >= 60} />}
+            : <BoneCharacter charKey={character.key} mood={effMood} size={size} hop={size >= 90} animate={active && !reduceMotion && size >= 60} />}
         </Animated.View>
-        {effIdle === 'sleeping' && <ZzzOverlay size={size} />}
+        {active && !reduceMotion && effIdle === 'sleeping' && <ZzzOverlay size={size} />}
         {showHearts && <PetGlow size={size} petKey={petKey} />}
       </View>
     </View>

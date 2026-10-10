@@ -9,7 +9,7 @@ export function SmokingCare({status}:{status:ReturnType<typeof smokingStatus>}){
    <Text style={s.copy}>{status.craving?'たばこが恋しくて、少しそわそわ。':'今は、気持ちが落ち着いているよ。'}</Text>
    <View accessibilityLabel={`禁煙${status.quitDays}日、5日で回復`} style={s.row}>{[0,1,2,3,4].map(i=><View key={i} style={[s.day,i<status.quitDays&&s.done]}/>)}</View>
    <Text style={s.copy}>禁煙 {status.quitDays} / 5日 · 回復まであと{days?`${days}日`:''}{rest?`${rest}時間`:''}</Text>
-   <Text style={s.copy}>吸わずに過ごす間は、ごはん・今日の記録・おふろで幸福度を補おう。吸うと5日間は最初から。</Text>
+   <Text style={s.copy}>吸わずに過ごす間は、ごはん・交換日記・おふろで幸福度を補おう。吸うと5日間は最初から。</Text>
   </>:<Text style={s.copy}>{status.recovered?'たばこを求める状態から回復したよ。':'5秒以上の喫煙を3回すると喫煙者に。最後の喫煙から4時間ごとに幸福 −3、5日間吸わなければ回復するよ。'}</Text>}
  </View>;
 }

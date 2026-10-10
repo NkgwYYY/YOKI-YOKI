@@ -40,7 +40,7 @@ function ClassicTabLayout() {
     <Tabs.Screen name="index" options={{title: 'おうち'}} />
     <Tabs.Screen name="plant" options={{title: 'おふろ'}} />
     <Tabs.Screen name="growth" options={{title: '思い出'}} />
-    <Tabs.Screen name="record" options={{title: '今日の記録', href: null}} />
+    <Tabs.Screen name="record" options={{title: '交換日記', href: null}} />
     <Tabs.Screen name="chat" options={{title: 'おはなし', href: null}} />
   </Tabs>;
 }

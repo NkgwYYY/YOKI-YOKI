@@ -6,10 +6,10 @@ import {localPromptDate} from '@/utils/recordPrompt';
 export function DailyRecordInvitation({onRecord,onSettings,compact=false}: {onRecord:()=>void;onSettings:()=>void;compact?:boolean}) {
   const {settings,busy,error,save}=useRecordPrompt();
   return <View testID="daily-record-invitation" style={[s.card,compact&&{padding:14,gap:6}]}>
-    <Text style={s.eyebrow}>今日の記録</Text>
-    <Text style={[s.title,compact&&{fontSize:18,lineHeight:24}]}>今日できた、小さなこと。</Text>
+    <Text style={s.eyebrow}>交換日記</Text>
+    <Text style={[s.title,compact&&{fontSize:18,lineHeight:24}]}>今日は、どんな一日だった？</Text>
     {!compact&&<Text style={s.copy}>起きた。ごはんを食べた。それだけの日も。{ '\n' }いまの自分を、ひとこと残してみませんか。</Text>}
-    <Pressable testID="daily-record-invitation-open" accessibilityRole="button" onPress={onRecord} style={s.primary}><Text style={s.primaryText}>今日を記録する</Text></Pressable>
+    <Pressable testID="daily-record-invitation-open" accessibilityRole="button" onPress={onRecord} style={s.primary}><Text style={s.primaryText}>交換日記を書く</Text></Pressable>
     <View style={s.row}>
       <Pressable testID="record-prompt-snooze" accessibilityRole="button" disabled={busy} onPress={()=>void save({...settings,snoozedUntil:Date.now()+30*60000})} style={s.link}><Text style={s.linkText}>30分あとで</Text></Pressable>
       <Pressable testID="record-prompt-skip" accessibilityRole="button" disabled={busy} onPress={()=>void save({...settings,skippedDate:localPromptDate(new Date())})} style={s.link}><Text style={s.linkText}>今日は休む</Text></Pressable>

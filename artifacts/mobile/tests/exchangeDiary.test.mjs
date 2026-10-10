@@ -72,3 +72,20 @@ test('a completed plaza event remains available to the diary after leaving the d
  assert.equal(b.state.current,undefined);assert.equal(makeDiaryLetter(today,b.feed).source,'plaza-balloon');
  assert.notEqual(makeDiaryLetter('2026-10-10',b.feed).source,'plaza-balloon');
 });
+
+const details={sleep:7.5,sleepRecorded:true,behaviors:['ゆっくり休んだ'],notes:'少し肩が軽くなった',exercise:1,meal:3,social:2,win:'散歩に出た',activities:{walk:1}};
+test('optional details are saved atomically with the diary and update the existing mood chart record',async()=>{
+ const f=fixture();await f.run(open);const a=await f.run({...send,details});
+ assert.deepEqual(a.page.user.details,details);for(const [field,value] of Object.entries(details))assert.deepEqual(a.record.records[0][field],value);
+ const b=await f.run({...send,id:'details-edit',revision:1,mood:2,details:{...details,sleepRecorded:false,win:'休めた'}});
+ assert.equal(b.record.records.length,1);assert.equal(b.record.records[0].mood,2);assert.equal(b.record.records[0].sleepRecorded,false);assert.equal(b.feed.points,105);assert.equal(b.record.progress.totalDays,1);
+ const c=await f.run({...send,id:'text-only-edit',revision:2});assert.equal(c.record.records[0].win,'休めた');assert.equal(c.page.user.details.sleepRecorded,false);
+});
+test('interrupted detail saves recover the notebook, chart and single reward together',async()=>{
+ for(const n of [1,3,5,7]){const f=fixture();await f.run(open);f.failAt(n);await assert.rejects(f.run({...send,details}),/disk/);const r=await f.run({...send,details});assert.deepEqual(r.page.user.details,details);assert.equal(r.record.records[0].sleep,7.5);assert.equal(r.record.records[0].notes,details.notes);assert.equal(r.feed.points,105);}
+});
+test('invalid detailed fields do not partially save the diary or mood',async()=>{
+ const f=fixture();await f.run(open);const before=new Map(f.data);
+ for(const patch of [{sleep:13},{sleep:NaN},{sleepRecorded:'yes'},{behaviors:[null]},{notes:123},{exercise:4},{win:'a'.repeat(61)},{activities:{walk:-1}}])await assert.rejects(f.run({...send,details:{...details,...patch}}));
+ assert.deepEqual(f.data,before);
+});

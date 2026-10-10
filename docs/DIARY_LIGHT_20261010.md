@@ -1,0 +1,10 @@
+# Exchange diary and lighter character rendering — 2026-10-10
+
+- Consolidated the home menu, reminders and legacy record route into the exchange diary. Optional “詳しく残す” fields save sleep, exercise, meals, social condition, small achievements, activities and notes in the same recoverable transaction as the diary and mood. Existing detailed records remain intact for ordinary diary edits. The checklist remains available inside the optional section.
+- Kept the existing daily record model and single daily reward receipt, so the calendar, mood graph and sleep summary continue to read the same history. Diary pages retain a detailed snapshot, and the album prioritizes real diary excerpts.
+- Replaced the album's low-contrast disclosure label with dark text and a description of its contents.
+- Added lossless WebP assets for the web character renderers, keeping original dimensions, transparency and native PNG assets. The colorful character's static image is 266,692 → 161,430 bytes. Album art now shares the home's cached WebP scene. Static mascots are memoized; native bone animation responds to active state, and character-lab idle updates are capped at 30/s with full-rate interactions and visibility pause/resume.
+
+Validation: mobile and character-lab TypeScript pass locally and in Replit. Forty diary, gift and art-loading tests pass locally and in Replit, including interrupted detail saves, retries, edits, invalid fields and existing record preservation. Actual Replit preview at 390 × 800: optional fields opened, diary + 7.5-hour sleep + meal + memo saved, reload retained the entry, October calendar showed mood 4, album summary showed mood 4.0 and sleep 7.5h, and disclosure text remained legible. The colorful character stage visibly rendered its WebP body and face assets with asset version 4. No physical iPhone frame-rate benchmark was performed.
+
+Preview delivery only; production publishing was not performed. Replit-specific authentication changes were preserved when applying the album patch. The existing rule that a draft submitted after midnight archives the old diary page without backdating rewards is unchanged.

@@ -62,7 +62,7 @@ const EXPRESSIVENESS: Partial<Record<CharacterId, number>> = {};
 export const CHARACTERS: CharacterConfig[] = (Object.keys(NAMES) as CharacterId[]).map((id) => ({
   id,
   name: NAMES[id],
-  body: `body/${id}.png`,
+  body: `body/${id}.webp`,
   parts: MANIFEST[id],
   expressiveness: EXPRESSIVENESS[id] ?? 1,
 }));

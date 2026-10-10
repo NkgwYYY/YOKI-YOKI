@@ -5,9 +5,16 @@ import {prepareDailyRecord,RECORD_KEYS} from './dailyRecordTransaction';
 
 export const DIARY_TEXT_LIMIT=1600;
 export type DiaryLetter={title:string;body:string;feeling:string;source:string};
-export type DiaryPage={date:string;name:string;stage:MascotStage;letter:DiaryLetter;revision:number;user?:{text:string;mood:number;savedAt:number;submissionId:string};reply?:string};
+export type DiaryDetails={sleep:number;sleepRecorded:boolean;behaviors:string[];notes:string;exercise?:number;meal?:number;social?:number;win?:string;activities?:Record<string,number>};
+export function diaryDetailsFromRecord(record?:Partial<DailyRecord>):DiaryDetails {
+ return {sleep:record?.sleep??0,sleepRecorded:record?record.sleepRecorded!==false:false,behaviors:[...(record?.behaviors??[])],notes:record?.notes??'',exercise:record?.exercise,meal:record?.meal,social:record?.social,win:record?.win,activities:record?.activities};
+}
+function validateDetails(d:DiaryDetails){
+ if(!d||!Number.isFinite(d.sleep)||d.sleep<0||d.sleep>12||typeof d.sleepRecorded!=='boolean'||!Array.isArray(d.behaviors)||d.behaviors.length>30||d.behaviors.some(v=>typeof v!=='string'||v.length>100)||typeof d.notes!=='string'||d.notes.length>10000||[d.exercise,d.meal,d.social].some(v=>v!==undefined&&(!Number.isInteger(v)||v<1||v>3))||(d.win!==undefined&&(typeof d.win!=='string'||d.win.length>60))||(d.activities!==undefined&&(!d.activities||typeof d.activities!=='object'||Array.isArray(d.activities)||Object.values(d.activities).some(v=>!Number.isFinite(v)||v<0))))throw Error('詳しい記録の内容を確認してね');
+}
+export type DiaryPage={date:string;name:string;stage:MascotStage;letter:DiaryLetter;revision:number;user?:{text:string;mood:number;savedAt:number;submissionId:string;details?:DiaryDetails};reply?:string};
 export type ExchangeDiaryState={pages:Record<string,DiaryPage>};
-export type DiaryOperation={kind:'open';date:string}|{kind:'send';date:string;id:string;revision:number;text:string;mood:number};
+export type DiaryOperation={kind:'open';date:string}|{kind:'send';date:string;id:string;revision:number;text:string;mood:number;details?:DiaryDetails};
 export type DiaryResult={page:DiaryPage;changed:boolean};
 const stories:readonly DiaryLetter[]=[
  {title:'雲のパン屋さん',feeling:'のんびり',source:'clouds',body:'今日は噴水のそばで、雲を眺めていたよ。丸いパンみたいな雲を見つけて、ちょっとおなかがすいた。\nもう一度見たら、長いお魚になっていたんだ。空のパン屋さんは、気まぐれだね。'},
@@ -68,16 +75,19 @@ export function prepareDiary(values:Record<string,string|null>,op:DiaryOperation
  }else{
   if(!previous)throw Error('先に今日のページを開いてね');
   if(!op.id||op.id.length>100||typeof op.text!=='string'||op.text.length>DIARY_TEXT_LIMIT||!Number.isInteger(op.mood)||op.mood<1||op.mood>5)throw Error('日記の内容を確認してね');
+  if(op.details!==undefined)validateDetails(op.details);
   if(previous.user?.submissionId!==op.id){
    if(previous.revision!==op.revision)throw Error('別の画面で日記が更新されました。内容をコピーしてから、ページを開き直してください。');
-   page={...previous,revision:previous.revision+1,user:{text:op.text.trim(),mood:op.mood,savedAt:now,submissionId:op.id},reply:diaryReply(op.mood,op.date,op.text)};
+   page={...previous,revision:previous.revision+1,user:{text:op.text.trim(),mood:op.mood,savedAt:now,submissionId:op.id,details:op.details??previous.user?.details},reply:diaryReply(op.mood,op.date,op.text)};
    // Preserve the original detailed journal fields. The existing daily receipt owns rewards.
    // A page left open across midnight can still be saved, without backdating today's progress.
    if(op.date===today){
     const records:DailyRecord[]=values[RECORD_KEYS.records]?JSON.parse(values[RECORD_KEYS.records]!):[];
     if(!Array.isArray(records))throw Error('今日の記録を確認できません');
     const r=records.find(r=>r.date===today);
-    record=prepareDailyRecord(values,{today,yesterday,mood:op.mood,sleep:r?.sleep??0,behaviors:r?.behaviors??[],notes:r?.notes??'',extras:{...r,sleepRecorded:r?r.sleepRecorded!==false:false}},defaults,foodPoints,new Date(now)).result;
+    const d=op.details??diaryDetailsFromRecord(r);
+    record=prepareDailyRecord(values,{today,yesterday,mood:op.mood,sleep:d.sleep,behaviors:d.behaviors,notes:d.notes,extras:{...r,...d}},defaults,foodPoints,new Date(now)).result;
+    page.user!.details=diaryDetailsFromRecord(record.records.find(r=>r.date===today));
    }
   }
  }

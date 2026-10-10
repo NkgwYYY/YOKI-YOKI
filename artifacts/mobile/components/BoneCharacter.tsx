@@ -16,7 +16,7 @@
  * Body/SoftBody の物理には一切影響しない。
  */
 import React, { useEffect, useMemo } from 'react';
-import { Image, StyleSheet, ImageSourcePropType } from 'react-native';
+import { Image, StyleSheet, ImageSourcePropType, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -41,37 +41,37 @@ const MANIFEST = manifest as unknown as Record<string, Parts>;
 /* 元画像切り出しパーツ(静的require必須) */
 const SPRITES: Record<BoneCharKey, Record<string, ImageSourcePropType>> = {
   odango: {
-    body: require('../assets/images/characters/bone/odango/body.png'),
-    leftEye: require('../assets/images/characters/bone/odango/leftEye.png'),
-    rightEye: require('../assets/images/characters/bone/odango/rightEye.png'),
-    leftEyeHappy: require('../assets/images/characters/bone/odango/leftEyeHappy.png'),
-    rightEyeHappy: require('../assets/images/characters/bone/odango/rightEyeHappy.png'),
-    mouth: require('../assets/images/characters/bone/odango/mouth.png'),
-    mouthSmile: require('../assets/images/characters/bone/odango/mouthSmile.png'),
-    leftCheek: require('../assets/images/characters/bone/odango/leftCheek.png'),
-    rightCheek: require('../assets/images/characters/bone/odango/rightCheek.png'),
+    body: (Platform.OS === 'web' ? require('../assets/images/characters/bone/odango/body.webp') : require('../assets/images/characters/bone/odango/body.png')),
+    leftEye: (Platform.OS === 'web' ? require('../assets/images/characters/bone/odango/leftEye.webp') : require('../assets/images/characters/bone/odango/leftEye.png')),
+    rightEye: (Platform.OS === 'web' ? require('../assets/images/characters/bone/odango/rightEye.webp') : require('../assets/images/characters/bone/odango/rightEye.png')),
+    leftEyeHappy: (Platform.OS === 'web' ? require('../assets/images/characters/bone/odango/leftEyeHappy.webp') : require('../assets/images/characters/bone/odango/leftEyeHappy.png')),
+    rightEyeHappy: (Platform.OS === 'web' ? require('../assets/images/characters/bone/odango/rightEyeHappy.webp') : require('../assets/images/characters/bone/odango/rightEyeHappy.png')),
+    mouth: (Platform.OS === 'web' ? require('../assets/images/characters/bone/odango/mouth.webp') : require('../assets/images/characters/bone/odango/mouth.png')),
+    mouthSmile: (Platform.OS === 'web' ? require('../assets/images/characters/bone/odango/mouthSmile.webp') : require('../assets/images/characters/bone/odango/mouthSmile.png')),
+    leftCheek: (Platform.OS === 'web' ? require('../assets/images/characters/bone/odango/leftCheek.webp') : require('../assets/images/characters/bone/odango/leftCheek.png')),
+    rightCheek: (Platform.OS === 'web' ? require('../assets/images/characters/bone/odango/rightCheek.webp') : require('../assets/images/characters/bone/odango/rightCheek.png')),
   },
   happa: {
-    body: require('../assets/images/characters/bone/happa/body.png'),
-    leftEye: require('../assets/images/characters/bone/happa/leftEye.png'),
-    rightEye: require('../assets/images/characters/bone/happa/rightEye.png'),
-    leftEyeHappy: require('../assets/images/characters/bone/happa/leftEyeHappy.png'),
-    rightEyeHappy: require('../assets/images/characters/bone/happa/rightEyeHappy.png'),
-    mouth: require('../assets/images/characters/bone/happa/mouth.png'),
-    mouthSmile: require('../assets/images/characters/bone/happa/mouthSmile.png'),
-    leftCheek: require('../assets/images/characters/bone/happa/leftCheek.png'),
-    rightCheek: require('../assets/images/characters/bone/happa/rightCheek.png'),
+    body: (Platform.OS === 'web' ? require('../assets/images/characters/bone/happa/body.webp') : require('../assets/images/characters/bone/happa/body.png')),
+    leftEye: (Platform.OS === 'web' ? require('../assets/images/characters/bone/happa/leftEye.webp') : require('../assets/images/characters/bone/happa/leftEye.png')),
+    rightEye: (Platform.OS === 'web' ? require('../assets/images/characters/bone/happa/rightEye.webp') : require('../assets/images/characters/bone/happa/rightEye.png')),
+    leftEyeHappy: (Platform.OS === 'web' ? require('../assets/images/characters/bone/happa/leftEyeHappy.webp') : require('../assets/images/characters/bone/happa/leftEyeHappy.png')),
+    rightEyeHappy: (Platform.OS === 'web' ? require('../assets/images/characters/bone/happa/rightEyeHappy.webp') : require('../assets/images/characters/bone/happa/rightEyeHappy.png')),
+    mouth: (Platform.OS === 'web' ? require('../assets/images/characters/bone/happa/mouth.webp') : require('../assets/images/characters/bone/happa/mouth.png')),
+    mouthSmile: (Platform.OS === 'web' ? require('../assets/images/characters/bone/happa/mouthSmile.webp') : require('../assets/images/characters/bone/happa/mouthSmile.png')),
+    leftCheek: (Platform.OS === 'web' ? require('../assets/images/characters/bone/happa/leftCheek.webp') : require('../assets/images/characters/bone/happa/leftCheek.png')),
+    rightCheek: (Platform.OS === 'web' ? require('../assets/images/characters/bone/happa/rightCheek.webp') : require('../assets/images/characters/bone/happa/rightCheek.png')),
   },
   colorful_happa: {
-    body: require('../assets/images/characters/bone/colorful_happa/body.png'),
-    leftEye: require('../assets/images/characters/bone/colorful_happa/leftEye.png'),
-    rightEye: require('../assets/images/characters/bone/colorful_happa/rightEye.png'),
-    leftEyeHappy: require('../assets/images/characters/bone/colorful_happa/leftEyeHappy.png'),
-    rightEyeHappy: require('../assets/images/characters/bone/colorful_happa/rightEyeHappy.png'),
-    mouth: require('../assets/images/characters/bone/colorful_happa/mouth.png'),
-    mouthSmile: require('../assets/images/characters/bone/colorful_happa/mouthSmile.png'),
-    leftCheek: require('../assets/images/characters/bone/colorful_happa/leftCheek.png'),
-    rightCheek: require('../assets/images/characters/bone/colorful_happa/rightCheek.png'),
+    body: (Platform.OS === 'web' ? require('../assets/images/characters/bone/colorful_happa/body.webp') : require('../assets/images/characters/bone/colorful_happa/body.png')),
+    leftEye: (Platform.OS === 'web' ? require('../assets/images/characters/bone/colorful_happa/leftEye.webp') : require('../assets/images/characters/bone/colorful_happa/leftEye.png')),
+    rightEye: (Platform.OS === 'web' ? require('../assets/images/characters/bone/colorful_happa/rightEye.webp') : require('../assets/images/characters/bone/colorful_happa/rightEye.png')),
+    leftEyeHappy: (Platform.OS === 'web' ? require('../assets/images/characters/bone/colorful_happa/leftEyeHappy.webp') : require('../assets/images/characters/bone/colorful_happa/leftEyeHappy.png')),
+    rightEyeHappy: (Platform.OS === 'web' ? require('../assets/images/characters/bone/colorful_happa/rightEyeHappy.webp') : require('../assets/images/characters/bone/colorful_happa/rightEyeHappy.png')),
+    mouth: (Platform.OS === 'web' ? require('../assets/images/characters/bone/colorful_happa/mouth.webp') : require('../assets/images/characters/bone/colorful_happa/mouth.png')),
+    mouthSmile: (Platform.OS === 'web' ? require('../assets/images/characters/bone/colorful_happa/mouthSmile.webp') : require('../assets/images/characters/bone/colorful_happa/mouthSmile.png')),
+    leftCheek: (Platform.OS === 'web' ? require('../assets/images/characters/bone/colorful_happa/leftCheek.webp') : require('../assets/images/characters/bone/colorful_happa/leftCheek.png')),
+    rightCheek: (Platform.OS === 'web' ? require('../assets/images/characters/bone/colorful_happa/rightCheek.webp') : require('../assets/images/characters/bone/colorful_happa/rightCheek.png')),
   },
 };
 
@@ -151,7 +151,7 @@ export default function BoneCharacter({ charKey, mood, size, hop = true, animate
     hopEnabled.value = hop && !sleepy ? 1 : 0;
   }, [sleepy, grumpy, hop]);
 
-  useFrameCallback((fi) => {
+  const physics=useFrameCallback((fi) => {
     'worklet';
     const dt = Math.min((fi.timeSincePreviousFrame ?? 16) / 1000, 0.05);
     const dtScale = dt * 60;
@@ -207,7 +207,8 @@ export default function BoneCharacter({ charKey, mood, size, hop = true, animate
     const eForce = (eyeOpenTarget.value - eyeOpen.value) * 0.3 * dtScale;
     eyeOpenV.value = (eyeOpenV.value + eForce) * Math.pow(0.6, dtScale);
     eyeOpen.value += eyeOpenV.value * dtScale;
-  }, animate);
+  }, false);
+  useEffect(()=>{physics.setActive(animate);return()=>physics.setActive(false);},[animate,physics]);
 
   /* --- スタイル --- */
   const rootStyle = useAnimatedStyle(() => ({

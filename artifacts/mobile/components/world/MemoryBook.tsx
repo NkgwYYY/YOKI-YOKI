@@ -6,16 +6,19 @@ import {DEX_IMAGES} from '@/components/dex/dexAssets';
 import {DEX_PROFILES} from '@/data/characterDex';
 import {stageForChar} from '@/utils/encounters';
 import type {CharacterKey} from '@/utils/mascotUtils';
+import {HOME_ART} from '@/utils/worldArt';
+import type {DiaryPage} from '@/utils/exchangeDiary';
 import type {DailyRecord} from '@/contexts/AppContext';
 import {memoryDate,recentWorldMemories} from '@/utils/worldMemories';
 
 type Props={
   current:CharacterKey; name:string; totalDays:number; hasGrown:boolean;
-  encounters:{charKey:CharacterKey;metDate:string}[]; records:DailyRecord[];
+  encounters:{charKey:CharacterKey;metDate:string}[]; records:DailyRecord[]; diaryPages?:Record<string,DiaryPage>;
   onCharacter:(key:CharacterKey)=>void; onRecords:()=>void;
 };
-export function MemoryBook({current,name,totalDays,hasGrown,encounters,records,onCharacter,onRecords}:Props) {
-  const memories=recentWorldMemories(records);
+export function MemoryBook({current,name,totalDays,hasGrown,encounters,records,diaryPages,onCharacter,onRecords}:Props) {
+  const diary=Object.values(diaryPages??{}).filter(p=>p.user?.text).map(p=>({date:p.date,caption:p.user!.text}));
+  const memories=[...diary,...recentWorldMemories(records).filter(r=>!diary.some(p=>p.date===r.date))].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,3);
   const first=encounters.map(e=>e.metDate).filter(Boolean).sort()[0];
   return <View testID="memory-book" style={s.book}>
     <View pointerEvents="none" style={s.binding}/>
@@ -23,7 +26,7 @@ export function MemoryBook({current,name,totalDays,hasGrown,encounters,records,o
       <Text style={s.chapter}>ここから、ふたりの物語。</Text>
       <View style={s.photo}>
         <View style={s.scene}>
-          <Image source={require('@/assets/images/world/home-day.jpg')} resizeMode="cover" style={s.art} accessible={false}/>
+          <Image source={HOME_ART.day} resizeMode="cover" style={s.art} accessible={false}/>
           <View style={s.photoShade}/>
           <View style={s.portrait}><StaticMascot stage={stageForChar(current)} mood="happy" size={136}/></View>
         </View>

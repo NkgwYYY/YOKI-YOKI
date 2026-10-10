@@ -40,10 +40,10 @@ import { PressScale } from '@/components/ui/PressScale';
 
 // ステージごとのキャラ画像(進化に合わせて成長比較の見た目も切り替える)
 const STAGE_IMAGES: Record<string, ImageSourcePropType> = {
-  egg: require('../../assets/images/egg/normal.png'),
-  odango: require('../../assets/images/characters/odango.png'),
-  happa: require('../../assets/images/characters/happa.png'),
-  colorful_happa: require('../../assets/images/characters/colorful_happa.png'),
+  egg: (Platform.OS === 'web' ? require('../../assets/images/egg/normal.webp') : require('../../assets/images/egg/normal.png')),
+  odango: (Platform.OS === 'web' ? require('../../assets/images/characters/odango.webp') : require('../../assets/images/characters/odango.png')),
+  happa: (Platform.OS === 'web' ? require('../../assets/images/characters/happa.webp') : require('../../assets/images/characters/happa.png')),
+  colorful_happa: (Platform.OS === 'web' ? require('../../assets/images/characters/colorful_happa.webp') : require('../../assets/images/characters/colorful_happa.png')),
 };
 
 function FadeIn({ children }: { children: React.ReactNode; delay?: number }) {
@@ -61,7 +61,7 @@ function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
 
 export default function GrowthScreen() {
   const insets = useSafeAreaInsets();
-  const { progress, records, unlockedBadges, growth, markGrowthSeen, encounters, mascotName } = useApp();
+  const { feedState, progress, records, unlockedBadges, growth, markGrowthSeen, encounters, mascotName } = useApp();
   const [dexChar, setDexChar] = useState<CharacterKey | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const { active } = useRoomActivity();
@@ -300,13 +300,13 @@ export default function GrowthScreen() {
 
         <Button label="この子からの贈りもの" icon="gift" onPress={()=>router.push('/gifts')}/>
         <MemoryBook current={currentChar.key} name={mascotName||'よっきー'} totalDays={progress.totalDays}
-          hasGrown={hasGrown} records={records} encounters={dexList} onCharacter={setDexChar} onRecords={()=>router.push('/monthly-report')}/>
+          hasGrown={hasGrown} records={records} diaryPages={feedState.exchangeDiary?.pages} encounters={dexList} onCharacter={setDexChar} onRecords={()=>router.push('/monthly-report')}/>
 
         <PressScale onPress={() => setShowDetails(value => !value)}
           accessibilityRole="button" accessibilityState={{ expanded: showDetails }}
           testID="album-details-toggle" style={styles.detailsToggle}>
-          <Text style={[styles.dexAboutTitle, { flex: 1 }]}>{showDetails ? '記録と成長の詳細を閉じる' : '記録と成長をくわしく見る'}</Text>
-          <Icon name={showDetails ? 'chevron-up' : 'chevron-down'} size={18} color={colors.primaryOnSoft} />
+          <View style={{flex:1,gap:5}}><Text style={{fontSize:15,fontWeight:'600',color:'#503F5A'}}>{showDetails ? '気分の推移と成長を閉じる' : '気分の推移と成長を見る'}</Text><Text style={{fontSize:12,lineHeight:18,color:'#706374'}}>気分・睡眠のグラフ、キャラクターの成長</Text></View>
+          <Icon name={showDetails ? 'chevron-up' : 'chevron-down'} size={20} color="#665071" />
         </PressScale>
         {showDetails && <View testID="album-details" style={{ gap: space.lg }}>
         {/* キャラの成長(はじめ vs 今)。進化に合わせて画像・名前も変わる */}
@@ -561,7 +561,7 @@ export default function GrowthScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingHorizontal: screenPadding, gap: space.lg },
-  detailsToggle: { minHeight: 48, padding: space.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
+  detailsToggle: { backgroundColor: '#F9F3E8', minHeight: 76, padding: space.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
 
   /* 見出し */
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },

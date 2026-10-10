@@ -31,7 +31,6 @@ import { BottomSheet, CenterDialog } from '@/components/ui/BottomSheet';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { Button } from '@/components/ui/Button';
 import { FeedModal } from '@/components/FeedModal';
-import { QuickAffirmationRecord } from '@/components/record/QuickAffirmationRecord';
 import { getHomeComment } from '@/utils/homeComment';
 import { getTodayDate } from '@/utils/dateUtils';
 
@@ -41,7 +40,7 @@ import { useDailyBath } from '@/components/world/useDailyBath';
 import { DailyRecordInvitation } from '@/components/record/DailyRecordInvitation';
 
 const HINT_KEY = '@yoki/world_hints_v3';
-type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | 'gift' | null;
+type Sheet = 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | 'gift' | null;
 export default function HomeScreen() {
   const router = useRouter();
   const {place,bathReturn,atelier}=useLocalSearchParams<{place?:string;bathReturn?:string;atelier?:string}>();
@@ -155,7 +154,7 @@ export default function HomeScreen() {
     </View>
     {worldMap==='home'&&<View pointerEvents="box-none" style={[s.footer, {bottom: tabHeight + 12}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
       {!!gifts.error&&<Pressable accessibilityRole="button" onPress={gifts.retry}><Text style={s.whisper}>{gifts.error} タップして再試行</Text></Pressable>}
-      {giftAvailable&&gifts.waiting?<GiftInvitation gift={gifts.waiting} onPress={()=>{setOpenedGift({gift:gifts.waiting!,owner:giftOwner});setSheet('gift');}}/>:invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => setSheet('record')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
+      {giftAvailable&&gifts.waiting?<GiftInvitation gift={gifts.waiting} onPress={()=>{setOpenedGift({gift:gifts.waiting!,owner:giftOwner});setSheet('gift');}}/>:invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => router.push('/exchange-diary')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
         <Text style={s.residentName}>{mascotName || 'よっきー'}</Text>
         <Text testID="world-speech" style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{speech || (happiness.smoking.craving?'たばこ、ほしいな…。ほかの楽しみで気をまぎらわせよう。':today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : time.moment)}</Text>
       </View>}
@@ -175,16 +174,12 @@ export default function HomeScreen() {
     </BottomSheet>}
     {sheet === 'happiness' && <BottomSheet visible onClose={close} title="うれしい気持ち" subtitle="会いに来てくれることが、いちばんうれしい。">
       <Text style={s.chatText}>幸福度 {happiness.value}%</Text>
-      {(happiness.smoking.dependent||happiness.smoking.recovered)&&<><SmokingCare status={happiness.smoking}/>{happiness.smoking.dependent&&<View style={{gap:8}}><WorldPill label="ごはんで気分転換" icon="coffee" onPress={()=>setSheet('feed')}/><WorldPill label="今日のことを記録する" icon="edit-3" onPress={()=>setSheet('record')}/><WorldPill disabled={bathCompleted} label={bathCompleted?'今日は入浴済み':'おふろでひと休み'} icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/></View>}</>}
+      {(happiness.smoking.dependent||happiness.smoking.recovered)&&<><SmokingCare status={happiness.smoking}/>{happiness.smoking.dependent&&<View style={{gap:8}}><WorldPill label="ごはんで気分転換" icon="coffee" onPress={()=>setSheet('feed')}/><WorldPill label="交換日記を書く" icon="book-open" onPress={()=>router.push('/exchange-diary')}/><WorldPill disabled={bathCompleted} label={bathCompleted?'今日は入浴済み':'おふろでひと休み'} icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/></View>}</>}
       <Text style={{color:'#C1B2CA',fontSize:13,lineHeight:22}}>下の楽しみの加点は、1日1回。喫煙は吸っている時間に応じて変わるよ。</Text>
       {(Object.entries({visit:'会いに来てくれた',record:'今日のことを教えてくれた',ramen:'ラーメンを食べた',bath:'温泉でひと休み',homeBath:'おうちのおふろ',meal:'一緒にごはん'}) as [HappyAction,string][]).map(([action,label])=><View key={action} style={s.menuRow}>
         <Icon name={happiness.actions.includes(action)?'check-circle':'circle'} color="#A07DAA"/><Text style={s.menuText}>{label}</Text><Text style={{color:'#CDB68E'}}>＋{HAPPY_REWARDS[action]}</Text>
       </View>)}
       {!!happiness.error&&<><Text accessibilityRole="alert">{happiness.error}</Text><Button label="もう一度保存する" onPress={happiness.retry}/></>}
-    </BottomSheet>}
-    {sheet === 'record' && <BottomSheet visible onClose={close} title="今日の記録" maxHeightRatio={0.95} wide={wide} contentStyle={compact ? {paddingTop: 8, paddingBottom: 16, gap: 8} : undefined}>
-      <QuickAffirmationRecord onComplete={() => { setReaction(n => n + 1); say('今日のこと、教えてくれてありがとう。'); close(); }} />
-      {menuRow('book-open', 'もう少し残したいとき', () => { close(); router.push('/(tabs)/record'); })}
     </BottomSheet>}
     {sheet === 'feed' && <FeedModal visible venue={feedVenue} onClose={close} onFed={id => { voice.play('happy'); setFood(id); setMeal(n => n + 1); say(feedVenue==='ramen'?'いただきます。あったかくて、おいしそう。':'わあ、いいにおい。いま行くね。'); close(); }} />}
     {sheet === 'chat' && <BottomSheet visible onClose={close} title={mascotName || 'よっきー'}>
@@ -194,7 +189,6 @@ export default function HomeScreen() {
     {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
       {menuRow('gift', 'この子からの贈りもの', () => { close(); router.push('/gifts'); })}
       {menuRow('book-open', 'ふたりの交換日記', () => { close(); router.push('/exchange-diary'); })}
-      {menuRow('edit-3', '今日を記録する', () => setSheet('record'))}
       {menuRow('message-circle', 'この子とお話しする', chat)}
       {menuRow('coffee', 'ごはんの時間', () => openFeed())}
       {menuRow('heart', 'そっと、なでる', () => { setReaction(n => n + 1); interact('pet'); close(); })}

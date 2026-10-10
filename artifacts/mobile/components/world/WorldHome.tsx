@@ -250,7 +250,7 @@ export function WorldHome(props: Props) {
       {map==='home'&&<>{props.background && <View pointerEvents="none" style={{position: 'absolute', left: width * 0.276, top: height * 0.244, width: width * 0.072, height: height * 0.065, borderRadius: 14, opacity: 0.55, overflow: 'hidden'}}><Image source={{uri: props.background}} resizeMode="cover" style={s.art} /></View>}
       {hotspot('album', '思い出の本棚', 0.53, 0.275, props.onAlbum)}
       {hotspot('bed', 'ベッドでひと休み', 0.73, 0.376, props.onRest)}
-      {hotspot('record', '今日の記録', 0.268, 0.454, props.onRecord)}
+      {hotspot('record', '交換日記', 0.268, 0.454, props.onRecord)}
       {hotspot('meal', 'ごはん', 0.765, 0.602, () => props.onFeed())}
       {props.customization.flower !== 'none' && <View pointerEvents="none" style={{position: 'absolute', left: width * 0.15, top: height * 0.495, zIndex: 550}}>
         <RoomFlowerArt id={props.customization.flower} size={width * 0.15} accessible />
