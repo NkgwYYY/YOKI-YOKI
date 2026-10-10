@@ -21,14 +21,12 @@ export function VillageResident({
   size,
   active,
   reduceMotion,
-  scarf,
   asleep = false,
 }: {
   stage?: MascotStage;
   size: number;
   active: boolean;
   reduceMotion: boolean;
-  scarf?: string;
   asleep?: boolean;
 }) {
   const zero = useSharedValue(0),
@@ -83,27 +81,6 @@ export function VillageResident({
         reduceMotion={reduceMotion}
         mood={asleep ? "sleepy" : "happy"}
       /> : <StaticMascot stage={stage} mood={asleep ? "sleepy" : "happy"} size={size} />}
-      {scarf && (
-        <Svg
-          width={size}
-          height={size}
-          style={StyleSheet.absoluteFill}
-          viewBox="0 0 100 100"
-        >
-          <Path
-            d="M 21 67 Q 50 81 79 67 L 76 75 Q 50 87 24 75 Z"
-            fill={scarf}
-            stroke="#FFFFFF80"
-            strokeWidth="1.2"
-          />
-          <Path
-            d="M 64 76 Q 69 86 66 94 L 75 94 L 73 74"
-            fill={scarf}
-            stroke="#75678566"
-            strokeWidth="1"
-          />
-        </Svg>
-      )}
     </Animated.View>
   );
 }
@@ -155,7 +132,6 @@ export function VillageNeighbors({
             size={width * 0.124}
             active={active}
             reduceMotion={reduceMotion}
-            scarf={n.color}
           />
 
         </Pressable>

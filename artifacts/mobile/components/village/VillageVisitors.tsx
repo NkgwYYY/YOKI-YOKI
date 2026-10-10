@@ -14,7 +14,7 @@ const VisitorActor = React.memo(function VisitorActor({visit, size, active, redu
   return <Pressable testID={`village-visitor-${visit.visitor.id}`} accessibilityRole="button" accessibilityLabel={`${getStageName(visit.visitor.stage)}の村人と話す`} disabled={!active} onPress={onTalk} style={{alignItems: 'center', minWidth: 44, minHeight: 44}}>
     <View pointerEvents="none" style={[s.shadow, {width: size * .64, bottom: 3}]}/>
     <Animated.View pointerEvents="none" style={motion}>
-      <VillageResident stage={visit.visitor.stage} size={size} active={active} reduceMotion={reduceMotion} scarf={visit.visitor.color}/>
+      <VillageResident stage={visit.visitor.stage} size={size} active={active} reduceMotion={reduceMotion}/>
     </Animated.View>
 
   </Pressable>;

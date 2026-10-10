@@ -9,7 +9,7 @@ import {PLAZA_STORIES,type PlazaEncounter,type PlazaKind} from '@/utils/plazaEve
 /** Small vector props share the existing residents: no extra image downloads. */
 const Visitor=memo(function Visitor({kind,size,active,reduceMotion,parent=false}:{kind:PlazaKind;size:number;active:boolean;reduceMotion:boolean;parent?:boolean}){
  return <View style={{width:size,height:size}} pointerEvents="none">
-  <VillageResident stage={kind==='lost'?'odango':'egg'} size={size} active={active} reduceMotion={reduceMotion} scarf={parent?'#774D89':kind==='balloon'?'#D75F69':kind==='scammer'?'#5D6170':kind==='lost'?'#9981AF':'#3C8B87'}/>
+  <VillageResident stage={kind==='lost'?'odango':'egg'} size={size} active={active} reduceMotion={reduceMotion}/>
   <Svg width={size} height={size} viewBox="0 0 100 100" style={StyleSheet.absoluteFill}>
    {kind==='scammer'?<G><Path d="M29 24 L33 8 Q50 1 68 10 L73 25Z" fill="#6E6053" stroke="#403747" strokeWidth="2"/><Path d="M21 25 Q49 18 80 26 Q82 33 47 32 Q18 32 21 25" fill="#8F7A66"/><Path d="M32 19 Q48 15 69 20 L70 24 Q50 19 31 23Z" fill="#37333F"/><Path d="M49 56 Q42 50 35 57 Q27 61 30 53 Q23 66 39 64 L50 61 Q66 68 74 57 Q67 61 64 55 Q55 51 49 56" fill="#594E46"/><Rect x="72" y="72" width="23" height="18" rx="3" fill="#715036" stroke="#CFAC73"/><Path d="M78 71V67H88V71" fill="none" stroke="#785335" strokeWidth="3"/></G>
    :parent?<G><Path d="M30 23 L29 8 H66 L70 25Z" fill="#352A43"/><Ellipse cx="49" cy="24" rx="29" ry="5" fill="#514160"/><Circle cx="57" cy="45" r="9" fill="none" stroke="#CFAD69" strokeWidth="2"/><Path d="M66 46Q79 63 68 76" fill="none" stroke="#CFAD69"/></G>
