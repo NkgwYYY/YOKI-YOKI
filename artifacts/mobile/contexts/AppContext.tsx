@@ -1,3 +1,4 @@
+import {storyFinished,prepareVillageStory,type VillageStoryState,type StoryOperation} from '@/utils/villageStories';
 import {prepareCharacterGifts,type CharacterGiftState,type CharacterGiftOperation} from '@/utils/characterGifts';
 import {prepareDiary,type ExchangeDiaryState,type DiaryOperation,type DiaryResult} from '@/utils/exchangeDiary';
 import {getMascotStage} from '@/utils/mascotUtils';
@@ -152,6 +153,7 @@ export interface UnlockedBadge {
 }
 
 export interface FeedState {
+  villageStories?: VillageStoryState;
   characterGifts?: CharacterGiftState;
   exchangeDiary?: ExchangeDiaryState;
   plazaEvents?: PlazaState;
@@ -231,6 +233,7 @@ interface AppContextType {
   feedState: FeedState;
   runCharacterGifts: (operation: CharacterGiftOperation) => Promise<ReturnType<typeof prepareCharacterGifts>['result']>;
   runDiary: (operation: DiaryOperation) => Promise<DiaryResult>;
+  runVillageStory: (operation: StoryOperation) => Promise<ReturnType<typeof prepareVillageStory>['result']>;
   runPlazaEvent: (operation: PlazaOperation) => Promise<PlazaResult>;
   runBank: (operation: BankOperation) => Promise<BankResult>;
   runEggJob: (operation: EggJobOperation) => Promise<EggJobResult>;
@@ -988,15 +991,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const feedMascot = useCallback(
     async (foodId: string, venue: FoodVenue = 'home'): Promise<{ success: boolean; message: string; newSatiety: number }> => {
       const food = FOOD_ITEMS.find((f) => f.id === foodId);
-      if (!food || !canServeFood(foodId, venue)) return { success: false, message: 'Unknown food', newSatiety: currentSatiety };
+      if (!food || !canServeFood(foodId, venue, true)) return { success: false, message: 'Unknown food', newSatiety: currentSatiety };
       // 残高チェック・減算は常に最新の ref を正とする(交換・報酬付与との競合対策)
       const result = await updateBalances(state => {
         const baseSatiety = computeCurrentSatiety(state.feed);
+        if(foodId==='komorebi-ramen'&&!storyFinished(state.feed.villageStories,'ramen'))return {state,result:{success:false,message:'店長との物語を終えると注文できるよ',newSatiety:baseSatiety}};
         if (state.feed.points < food.cost) return { state, result: { success: false, message: 'YOKIポイントが足りないよ！', newSatiety: baseSatiety } };
         const newSatiety = Math.min(100, baseSatiety + food.satietyGain);
         return { state: { ...state, feed: {
           ...state.feed,
-          happiness: grantHappiness(state.feed.happiness, foodId === 'ramen' ? 'ramen' : 'meal', getTodayDate()).state,
+          happiness: grantHappiness(state.feed.happiness, venue === 'ramen' ? 'ramen' : 'meal', getTodayDate()).state,
           points: state.feed.points - food.cost,
           lastFeedTime: new Date().toISOString(), satietyAtFeed: newSatiety,
         } }, result: { success: true, message: `${food.name}をあげたよ！`, newSatiety } };
@@ -1186,6 +1190,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return saved;
   }, [user?.id,isSignedIn,isLoading,cloudSynced,pushDataToCloud,mascotName,progress.level]);
 
+  const runVillageStory = useCallback(async (operation: StoryOperation) => {
+    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      return prepareVillageStory(values, operation, getTodayDate(), defaultFeedState);
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (saved.changed) void pushDataToCloud().catch(() => {});
+    return saved;
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
+
   const runPlazaEvent = useCallback(async (operation: PlazaOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
@@ -1314,6 +1331,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         awardHappiness,
         cleanRoom,
         runEggJob,
+        runVillageStory,
         runPlazaEvent,
         runBank,
         runDiary,

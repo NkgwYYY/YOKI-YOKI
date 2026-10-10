@@ -1,3 +1,4 @@
+import {useVillageStories,VillageStoryPanel,StoryWorldKeepsakes} from './VillageStories';
 import {CarriedGift} from '@/components/gifts/GiftArt';
 import type {GiftKind} from '@/utils/characterGifts';
 import {usePlazaEvents} from './usePlazaEvents';
@@ -95,6 +96,9 @@ export function WorldHome(props: Props) {
   useEffect(()=>props.onMapChange(map),[map,props.onMapChange]);
   const smoking=useSmoking(props.active&&map==='tobacco');
   const plaza=usePlazaEvents(props.active&&map==='market');
+  const [storyOpen,setStoryOpen]=useState(false);
+  const stories=useVillageStories(props.active);
+  const localStory=stories.available.find(st=>st.episodes[stories.state.arcs[st.id]?.episodes.length??0].place===map);
   const [mapOpen,setMapOpen]=useState(false);
   const [fortuneOpen,setFortuneOpen]=useState(false);
   const [bankOpen,setBankOpen]=useState(false);
@@ -106,13 +110,13 @@ export function WorldHome(props: Props) {
   const pending=useRef<{id:number;action:VillageAction}|null>(null);
   const [mapMessage,setMapMessage]=useState('');
   const transition=useSceneTransition(reduceMotion,()=>setMapMessage('景色を読み込めませんでした。もう一度、行き先を選んでね。'));
-  const active=props.active&&!plaza.open&&!bowlingOpen&&!cleanOpen&&!bankOpen&&!fortuneOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!transition.busy&&!zooming;
+  const active=props.active&&!storyOpen&&!plaza.open&&!bowlingOpen&&!cleanOpen&&!bankOpen&&!fortuneOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!transition.busy&&!zooming;
   const housekeeping=useHousekeeping(props.active);
   useEffect(()=>{if(!housekeeping.house.robotPlaced)setRiding(false);},[housekeeping.house.robotPlaced]);
   const [bowlingBusy,setBowlingBusy]=useState(false);
   const footX=useSharedValue(.5);
   const steering=useSharedValue({x:0,y:0});
-  useEffect(()=>{props.onSceneBusy(plaza.open||!!experience||bowlingOpen||bankOpen||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[plaza.open,experience,bowlingOpen,bankOpen,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
+  useEffect(()=>{props.onSceneBusy(storyOpen||plaza.open||!!experience||bowlingOpen||bankOpen||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[storyOpen,plaza.open,experience,bowlingOpen,bankOpen,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
   const [loadedArt,setLoadedArt]=useState<ReturnType<typeof worldArt>|null>(null);
   const [bounds, setBounds] = useState({width: 0, height: 0});
   const destinationId=useRef(0);
@@ -284,6 +288,7 @@ export function WorldHome(props: Props) {
         {housekeeping.house.robotPlaced&&<RobotCleaner width={width} height={height} active={active&&!cleanTool&&!props.food&&!experience} reduceMotion={reduceMotion} riding={riding} footX={footX} footY={footY} onClean={housekeeping.clean} onRide={(x,y)=>{setDestination(null);pending.current=null;portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(footX);cancelAnimation(footY);footX.value=x;footY.value=y;setRiding(true);props.onInteract('greet');}}/>}
       </>}
       {map==='market'&&plaza.current&&<PlazaActors encounter={plaza.current} width={width} height={height} active={active} reduceMotion={reduceMotion} animating={plaza.animating} onTalk={()=>request({x:.48,y:.56},{kind:'plaza'})}/>}
+      {stories.ready&&<StoryWorldKeepsakes state={stories.state} map={map} width={width} height={height} active={active} reduceMotion={reduceMotion} onTalk={()=>setMapMessage(stories.state.arcs.festival?.episodes.length===6?'あのお祭り、楽しかったね。今日もここで、のんびりしていって。':'おかえり！ あのお茶会から、ここで誰かに会うのが楽しみになったんだ。')}/>}
       {map==='lake'&&<VillageWheel width={width} height={height} active={active} reduceMotion={reduceMotion} riding={experience==='wheel'} onFinish={finishExperience}/>}
       {map==='village'&&<VillageNeighbors width={width} height={height} active={active&&!experience} reduceMotion={reduceMotion} onTalk={id=>{const n=VILLAGERS.find(p=>p.id===id)!;request({x:n.x+.06,y:n.y+.035},{kind:'neighbor',id});}}/>}
       {map==='fortune'&&<FortuneCat width={width} height={height} clearTop={stageTop-frame.top} clearBottom={clearBottom-frame.top} disabled={!active||!!props.food} active={props.active&&(active||zooming)} reduceMotion={reduceMotion} greeting={merchantGreeting.kind==='fortune'?merchantGreeting.count:0} onPress={()=>openMerchant('fortune',{x:.4,y:.51})}/>}
@@ -313,6 +318,8 @@ export function WorldHome(props: Props) {
     </View>
     {map!=='home'&&<View pointerEvents="none" style={[s.sceneTitle,{top:insets.top+(tight?115:165)}]}><Text style={[s.sceneName,{fontSize:13}]}>{WORLD_MAPS.find(p=>p.id===map)?.name}</Text></View>}
     {!experience&&(map==='home'||(map==='market'&&!plaza.current&&!plaza.error)||map==='workshop')&&<View style={{position:'absolute',right:20,bottom:away?dockBottom+30:bounds.height<600?177:244}}><WorldPill testID="world-go-work" label={map==='workshop'?'仕事を始める':'バイトする'} icon="briefcase" onPress={()=>map==='workshop'?openMerchant('job',{x:.5,y:.48}):enterMap('workshop')} disabled={!active||!!props.food||riding||!!cleanTool}/></View>}
+    {!experience&&!cleanTool&&!riding&&<View style={{position:'absolute',right:20,top:map==='home'?insets.top+216:insets.top+(tight?148:198),maxWidth:230}}><WorldPill testID="world-stories-open" icon="book-open" label={localStory?'物語のつづき':`村の物語${stories.available.length?' · '+stories.available.length:''}`} primary={!!localStory} disabled={!active||!!props.food||!stories.ready} onPress={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);setStoryOpen(true);}}/></View>}
+    {storyOpen&&<VillageStoryPanel place={map} initialStory={localStory?.id} onClose={()=>setStoryOpen(false)} onGo={target=>{setStoryOpen(false);enterMap(target);}} onBowl={()=>{setStoryOpen(false);setBowlingOpen(true);}}/>}
     {!!props.music.error&&<Text style={[s.musicNotice,{top:insets.top+(tight?112:162)}]}>{props.music.error}</Text>}
     <Modal visible={bowlingOpen} animationType={reduceMotion?'none':'fade'} onRequestClose={()=>{if(!bowlingBusy){setBowlingOpen(false);view.reset();}}} statusBarTranslucent>
       <View style={{flex:1,backgroundColor:'#14131D',paddingTop:Math.max(insets.top,12),paddingBottom:Math.max(insets.bottom,12),paddingHorizontal:10}}>

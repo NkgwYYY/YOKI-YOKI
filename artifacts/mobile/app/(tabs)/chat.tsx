@@ -22,17 +22,6 @@ import { PressScale } from '@/components/ui/PressScale';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
-const OFFICIAL_SOURCES: Citation[] = [
-  {
-    title: 'こころと体のセルフケア',
-    url: 'https://www.mhlw.go.jp/kokoro/youth/stress/self/index.html',
-  },
-  {
-    title: 'まもろうよ こころ',
-    url: 'https://www.mhlw.go.jp/mamorouyokokoro/',
-  },
-];
-
 function newMessage(
   id: string,
   role: Message['role'],
@@ -40,7 +29,7 @@ function newMessage(
   citations?: Citation[],
 ): Message {
   const now = new Date();
-  return { id, role, content, timestamp: now.toISOString(), dateKey: localDateKey(now), citations };
+  return { id, role, content, timestamp: now.toISOString(), dateKey: localDateKey(now), citations, sourcePolicyVersion: 2 };
 }
 
 function messageDateLabel(dateKey: string): string {
@@ -90,9 +79,9 @@ function MessageBubble({ msg, mascotStage, mascotMood }: {
       </View>
       <View style={bubbleStyles.bubbleMascot}>
         <Text style={bubbleStyles.mascotText}>{msg.content}</Text>
-        {!!msg.citations?.length && (
+        {msg.sourcePolicyVersion===2 && !!msg.citations?.length && (
           <View style={bubbleStyles.citations}>
-            <Text style={bubbleStyles.citationsTitle}>参考資料（厚生労働省）</Text>
+            <Text style={bubbleStyles.citationsTitle}>健康・相談についての参考情報</Text>
             {msg.citations.map(citation => (
               <PressScale
                 key={citation.url}
@@ -370,10 +359,8 @@ export default function ChatScreen() {
       if (typeof data?.content !== 'string' || !data.content.trim()) throw new Error('Invalid chat response');
       if (request.current !== controller) return;
       const validCitations = Array.isArray(data.citations) ? data.citations.filter((item: any) =>
-        typeof item?.title === 'string' && typeof item?.url === 'string' && /^https:\/\//i.test(item.url)) : [];
-      const citations = validCitations.length
-        ? validCitations
-        : OFFICIAL_SOURCES;
+        typeof item?.title === 'string' && typeof item?.url === 'string' && item.url.startsWith('https://www.mhlw.go.jp/')) : [];
+      const citations = data.sourcePolicyVersion===2 ? validCitations : [];
       const assistantMsg = newMessage(
         `a_${Date.now()}`,
         'assistant',

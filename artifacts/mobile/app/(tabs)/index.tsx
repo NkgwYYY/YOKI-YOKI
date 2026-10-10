@@ -1,3 +1,4 @@
+import {WORLD_MAPS} from '@/utils/worldMaps';
 import {useAuth} from '@/contexts/AuthContext';
 import {useCharacterGifts} from '@/components/gifts/useCharacterGifts';
 import {GiftInvitation,GiftPresentation} from '@/components/gifts/GiftPresentation';
@@ -43,7 +44,7 @@ const HINT_KEY = '@yoki/world_hints_v3';
 type Sheet = 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | 'gift' | null;
 export default function HomeScreen() {
   const router = useRouter();
-  const {place,bathReturn,atelier}=useLocalSearchParams<{place?:string;bathReturn?:string;atelier?:string}>();
+  const {place,bathReturn,atelier,journey}=useLocalSearchParams<{place?:string;bathReturn?:string;atelier?:string;journey?:string}>();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const compact = window.height < 600;
@@ -136,7 +137,7 @@ export default function HomeScreen() {
   const restTogether = () => {voice.play('soft');setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={bathReturn??'world'} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':place==='bank'?'bank':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <WorldHome carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={`${bathReturn??'world'}-${journey??''}`} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={WORLD_MAPS.find(p=>p.id===place)?.id} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}

@@ -15,6 +15,7 @@ export interface FoodItem {
 }
 
 export const FOOD_ITEMS: FoodItem[] = [
+  {id:'komorebi-ramen',icon:'coffee',name:'こもれびラーメン',description:'店長と作った、やさしいスープと工房の半熟たまご。',cost:55,satietyGain:85,rarity:'special'},
   {
     id: 'berry',
     icon: 'droplet',
@@ -73,11 +74,11 @@ export const FOOD_ITEMS: FoodItem[] = [
 
 export type FoodVenue = 'home' | 'ramen';
 /** Old rich-food records remain readable, but daily feeding offers simple snacks only. */
-export function foodsForVenue(venue: FoodVenue = 'home'): FoodItem[] {
-  return FOOD_ITEMS.filter(food => venue === 'ramen' ? food.id === 'ramen' : ['berry', 'apple', 'candy'].includes(food.id));
+export function foodsForVenue(venue: FoodVenue = 'home', storyRecipe = false): FoodItem[] {
+  return FOOD_ITEMS.filter(food => venue === 'ramen' ? (food.id === 'ramen' || (storyRecipe && food.id === 'komorebi-ramen')) : ['berry', 'apple', 'candy'].includes(food.id));
 }
-export function canServeFood(foodId: string, venue: FoodVenue = 'home'): boolean {
-  return foodsForVenue(venue).some(food => food.id === foodId);
+export function canServeFood(foodId: string, venue: FoodVenue = 'home', storyRecipe = false): boolean {
+  return foodsForVenue(venue,storyRecipe).some(food => food.id === foodId);
 }
 
 // Feed points earned per action

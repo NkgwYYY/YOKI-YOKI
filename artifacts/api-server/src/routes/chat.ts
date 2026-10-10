@@ -1,3 +1,4 @@
+import {conversationPacing,CHAT_OUTPUT_POLICY,parseChatReply} from '../lib/chatPolicy';
 import { Router } from "express";
 import { openai } from "@workspace/integrations-openai-ai-server";
 
@@ -9,17 +10,6 @@ interface ChatMessage {
   /** 端末ローカルの日付。会話の出来事を今日と混同しないために使用する */
   dateKey?: string;
 }
-
-const CHAT_CITATIONS = [
-  {
-    title: "厚生労働省「こころと体のセルフケア」",
-    url: "https://www.mhlw.go.jp/kokoro/youth/stress/self/index.html",
-  },
-  {
-    title: "厚生労働省「まもろうよ こころ」",
-    url: "https://www.mhlw.go.jp/mamorouyokokoro/",
-  },
-] as const;
 
 chatRouter.post("/chat/message", async (req, res) => {
   try {
@@ -55,11 +45,11 @@ chatRouter.post("/chat/message", async (req, res) => {
 【会話のルール】
 1. ユーザーが言ったことの「具体的な内容」に必ず反応する。ぼんやりした励ましだけで返さない
 2. 「それでいいんだよ」「すごいね」などの定型句を毎回使わない。自然な言葉で返す
-3. 話を膨らませる：相手の話に興味を持って、もう少し聞きたいことを1つ質問することが多い
+3. 質問で会話を引き延ばさない。相づちや感想だけで終わってよい。ユーザーが返事をしなくても気まずくならない、心地よい会話を大切にする
 4. 感情に共感する：悲しい・辛い話には共感を先に示してから話を続ける
 5. 楽しい話・面白い話には一緒に盛り上がる
 6. アドバイスは求められたときだけ、押しつけない
-7. 返答は自然な長さで（短いときは2〜3文、話が弾んでいるときはもう少し長くてもOK）
+7. 短い話には1〜3文で返す。ねぎらい・お祝い・別れのあいさつに質問を付け足さない。疲れている相手へ質問を重ねない。話が弾むときは少し長くてもよい
 8. 必ず日本語で返す
 9. 同じ言い回しを連続して使わない
 10. 会話には発言日が付いている。今日の日付は「${todayDate ?? "不明"}」。過去の日付の発言を、今日起きた出来事として言い換えたり「今日も」と断定したりしない。過去の話題に触れる場合は「この前」「昨日」など日付に合う表現にする${context ? `
@@ -83,11 +73,11 @@ ${String(context).slice(0, 1500)}
 - 心身の症状について聞かれた場合は、断定せず一般的なセルフケアの範囲に留める
 - 医療上の判断をする前や症状が続く・悪化する場合は、医師や資格を持つ専門家への相談を勧める
 - 自傷・自殺・他害の切迫した危険がある場合は、ひとりで抱えず、地域の緊急通報・救急、身近な人、厚生労働省の相談窓口へ今すぐ連絡するよう短く明確に伝える
-- 健康に関する一般的な提案は、回答画面に表示される厚生労働省「こころと体のセルフケア」「まもろうよ こころ」を参考資料とする。存在しない研究や出典を作らない
-- 返答本文にはURLを直接書かない。アプリが回答の下に参考資料リンクと医療免責文を表示する`;
+- 存在しない研究や出典を作らない。日常会話に医療の説明や免責を持ち込まない
+- 返答本文にはURLを直接書かない。健康情報や危機対応の場合にのみ、アプリが関連する参考情報を表示する`;
 
     const chatMessages = [
-      { role: "system" as const, content: systemPrompt + safetyPrompt },
+      { role: "system" as const, content: systemPrompt + safetyPrompt + "\n" + conversationPacing(messages) + CHAT_OUTPUT_POLICY },
       ...messages.map((m) => ({
         role: m.role,
         content: `[${typeof m.dateKey === "string" ? m.dateKey : "日付不明"}] ${m.content}`,
@@ -124,6 +114,7 @@ ${latestUserText}
       openai.chat.completions.create({
         model: "gpt-5.6-terra",
         max_completion_tokens: 8192,
+        response_format: {type: "json_object"},
         messages: chatMessages,
       }),
       openai.chat.completions.create({
@@ -133,10 +124,10 @@ ${latestUserText}
       }),
     ]);
 
-    const content = chatResponse.choices[0]?.message?.content?.trim() ?? "うん、聞いてるよ！";
+    const reply = parseChatReply(chatResponse.choices[0]?.message?.content ?? "");
     const stressAnswer = stressResponse.choices[0]?.message?.content?.toLowerCase() ?? "";
     const restEvent = stressAnswer.includes("yes");
-    res.json({ content, restEvent, citations: CHAT_CITATIONS });
+    res.json({ ...reply, restEvent });
   } catch (err) {
     console.error("Chat error:", err);
     res.status(500).json({ error: "チャットに失敗しました" });

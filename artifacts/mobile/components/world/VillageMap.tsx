@@ -1,3 +1,4 @@
+import {useVillageStories} from './VillageStories';
 import React,{useEffect,useState} from 'react';
 import {ActivityIndicator,Image,Modal,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
@@ -11,7 +12,10 @@ import {WorldPill} from './WorldPill';
 const symbols:Record<WorldMapId,IconName>={bank:'briefcase',fortune:'moon',home:'home',market:'map-pin',forest:'feather',onsen:'sun',village:'users',lake:'droplet',ramen:'coffee',bowling:'circle',tobacco:'wind',homewares:'shopping-bag',workshop:'briefcase'};
 const names:Record<WorldMapId,string>={bank:'こもれび銀行',fortune:'占いの館',home:'おうち',market:'こもれび広場',forest:'木もれびの森',onsen:'森の温泉',village:'となりの村',lake:'星あかりの湖',ramen:'ラーメン屋',bowling:'ボウリング',tobacco:'路地裏のタバコ屋',homewares:'暮らしのお店',workshop:'ゆでたまご工房'};
 export function VillageMap({current,night,level,disabled,onSelect,onClose}:{current:WorldMapId;night:boolean;level:number;disabled:boolean;onSelect:(id:WorldMapId)=>void;onClose:()=>void}){
+ const stories=useVillageStories(true);
+ const storyPlaces=new Set(stories.available.map(st=>st.episodes[stories.state.arcs[st.id]?.episodes.length??0].place));
  const window=useWindowDimensions(),insets=useSafeAreaInsets(),[selected,setSelected]=useState(current);
+ const nextStory=stories.available.find(st=>st.episodes[stories.state.arcs[st.id]?.episodes.length??0].place===selected);
  const width=Math.min(window.width,640),height=Math.max(560,Math.min(750,window.height-insets.top-insets.bottom-225));
  const [atlasReady,setAtlasReady]=useState(false);
  useEffect(()=>{
@@ -31,12 +35,12 @@ export function VillageMap({current,night,level,disabled,onSelect,onClose}:{curr
      {WORLD_MAPS.flatMap(p=>VILLAGE_LINKS[p.id].filter(to=>p.id<to).map(to=>{const a=MAP_COORDS[p.id],b=MAP_COORDS[to],highlight=selected===p.id||selected===to;return <Path key={`${p.id}-${to}`} d={`M ${a.x*width} ${a.y*height} Q ${(a.x+b.x)*width/2+12} ${(a.y+b.y)*height/2-15} ${b.x*width} ${b.y*height}`} fill="none" stroke={highlight?'#E6C888':'#D4C09A8C'} strokeWidth={highlight?1.8:1} strokeDasharray="3 5"/>;}))}
     </Svg>
     {WORLD_MAPS.map(p=>{const at=MAP_COORDS[p.id],chosen=selected===p.id,here=current===p.id,unlocked=canVisitMap(p.id,level);return <Pressable key={p.id} testID={`world-map-${p.id}`} accessibilityRole="button" accessibilityLabel={`${p.name}${here?'、いまここ':unlocked?'':`、レベル${p.level}でひらく`}`} accessibilityState={{selected:chosen}} onPress={()=>setSelected(p.id)} style={[s.location,{left:at.x*width-53,top:at.y*height-20}]}>
-     {here&&<Text style={s.here}>現在地</Text>}<View style={[s.diamond,chosen&&s.selected,!unlocked&&{opacity:.65}]}><View style={{transform:[{rotate:'-45deg'}]}}><Icon name={unlocked?symbols[p.id]:'lock'} size={16} color={chosen?'#FFF0BD':'#DECEAC'}/></View></View><Text numberOfLines={1} style={[s.name,chosen&&{color:'#FFE5A8'}]}>{names[p.id]}</Text>
+     {here&&<Text style={s.here}>現在地</Text>}{storyPlaces.has(p.id)&&<View accessibilityLabel="物語の続きがあります" style={{position:'absolute',top:-4,right:31,width:9,height:9,borderRadius:5,backgroundColor:'#F7D892',zIndex:2}}/>}<View style={[s.diamond,chosen&&s.selected,!unlocked&&{opacity:.65}]}><View style={{transform:[{rotate:'-45deg'}]}}><Icon name={unlocked?symbols[p.id]:'lock'} size={16} color={chosen?'#FFF0BD':'#DECEAC'}/></View></View><Text numberOfLines={1} style={[s.name,chosen&&{color:'#FFE5A8'}]}>{names[p.id]}</Text>
     </Pressable>;})}
     <LinearGradient pointerEvents="none" colors={['transparent','#14101F']} style={s.fade}/>
    </View>
   </ScrollView>
-  <View testID="village-map-selection" style={[s.detail,{paddingBottom:Math.max(18,insets.bottom+8)}]}><Image source={worldArt(selected,night)} style={s.thumbnail}/><View style={{flex:1,gap:5}}><Text style={s.place}>{place.name}</Text><Text style={s.copy}>{open?place.description:`レベル ${place.level} でひらきます`}</Text></View></View>
+  <View testID="village-map-selection" style={[s.detail,{paddingBottom:Math.max(18,insets.bottom+8)}]}><Image source={worldArt(selected,night)} style={s.thumbnail}/><View style={{flex:1,gap:5}}><Text style={s.place}>{place.name}</Text><Text style={s.copy}>{open?(nextStory?`物語「${nextStory.title}」の続きが待っています。`:place.description):`レベル ${place.level} でひらきます`}</Text></View></View>
   <View style={[s.actions,{paddingBottom:Math.max(18,insets.bottom)}]}><WorldPill testID="world-map-home-now" primary label="おうちに帰る" icon="home" disabled={disabled} onPress={()=>current==='home'?onClose():onSelect('home')} style={{flex:1}}/><WorldPill testID="world-map-travel" style={{flex:1}} label={selected===current?'ここに戻る':'ここへ向かう'} icon="navigation" disabled={disabled||!open} onPress={()=>selected===current?onClose():onSelect(selected)}/></View>
  </View></Modal>;
 }

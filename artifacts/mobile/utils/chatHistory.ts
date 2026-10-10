@@ -5,6 +5,7 @@ export interface Message {
   timestamp: string;
   dateKey: string;
   citations?: Citation[];
+  sourcePolicyVersion?: 2;
 }
 
 export interface Citation {
@@ -45,6 +46,7 @@ export function normalizeStoredMessage(raw: unknown): Message | null {
       && !Number.isNaN(Date.parse(message.dateKey))
       && new Date(message.dateKey).toISOString().slice(0, 10) === message.dateKey
       ? message.dateKey : localDateKey(validDate),
+    sourcePolicyVersion: message.sourcePolicyVersion===2?2:undefined,
     citations: Array.isArray(message.citations)
       ? message.citations.filter((citation): citation is Citation =>
           !!citation
