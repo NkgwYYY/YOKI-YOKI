@@ -1,7 +1,7 @@
 import {MerchantResident} from '@/components/village/MerchantResident';
 import React,{useEffect,useRef,useState} from 'react';
-import {AppState,Image,Pressable,StyleSheet,Text,View} from 'react-native';
-import Svg,{Defs,LinearGradient,Stop,Path,Ellipse,Circle} from 'react-native-svg';
+import {AppState,Image,Modal,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
+import Svg,{Defs,LinearGradient,Stop,Path,Ellipse,Circle,Rect} from 'react-native-svg';
 import {useApp} from '@/contexts/AppContext';
 import {useAuth} from '@/contexts/AuthContext';
 import {BottomSheet} from '@/components/ui/BottomSheet';
@@ -9,6 +9,8 @@ import {Icon,type IconName} from '@/components/ui/Icon';
 import {VillageResident} from '@/components/village/VillageActors';
 import {VILLAGE_STORIES,villageStory,type StoryId} from '@/data/villageStories';
 import {readVillageStories,storyStatus,storyFinished,type VillageStoryState,type StoryReceipt} from '@/utils/villageStories';
+import {rememberedStories,type StoryEncounter} from '@/utils/storyEncounters';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {getTodayDate} from '@/utils/dateUtils';
 import {WORLD_MAPS,type WorldMapId} from '@/utils/worldMaps';
 import {worldArt,FORTUNE_CAT_ART} from '@/utils/worldArt';
@@ -25,55 +27,65 @@ export function useVillageStories(active:boolean){
  return {state,today,ready,error,available};
 }
 
-export function VillageStoryPanel(props:{place?:WorldMapId;initialStory?:StoryId;onClose:()=>void;onGo:(map:WorldMapId)=>void;onBowl?:()=>void}){
- const {user}=useAuth();return <StoryPanel key={user?.id??'guest'} {...props}/>;
+/** Read-only album: undiscovered stories and future episodes never appear here. */
+export function VillageStoryArchive({onClose}:{onClose:()=>void}){
+ const {state,ready,error}=useVillageStories(true);
+ const [selected,setSelected]=useState<StoryId|null>(null);
+ const remembered=rememberedStories(state),story=remembered.find(st=>st.id===selected);
+ return <BottomSheet visible title="村でのできごと" subtitle="村で出会った、小さな思い出。" onClose={onClose}>
+  {!!error&&<Text accessibilityRole="alert" style={s.error}>{error}</Text>}
+  {!ready&&!error?<Text style={s.copy}>思い出を開いています…</Text>:!story?<>
+   {!remembered.length&&<Text testID="story-album-empty" style={s.copy}>村で誰かと過ごしたできごとが、ここに残っていきます。今日はどこへおさんぽしよう。</Text>}
+   {remembered.map(st=><Pressable key={st.id} testID={`story-memory-${st.id}`} accessibilityRole="button" onPress={()=>setSelected(st.id)} style={s.card}><View style={s.row}><Icon name={symbols[st.id]} size={23} color="#C5A77D"/><View style={{flex:1,gap:5}}><Text style={s.title}>{st.title}</Text><Text style={s.small}>{state.arcs[st.id]?.episodes.at(-1)?.date} · {storyFinished(state,st.id)?st.keepsake:'一緒に過ごした思い出'}</Text></View><Icon name="chevron-right" size={18} color="#BDA7CB"/></View></Pressable>)}
+  </>:<>
+   <Pressable accessibilityRole="button" style={s.button} onPress={()=>setSelected(null)}><Text style={s.buttonText}>‹ 思い出に戻る</Text></Pressable>
+   <Text style={s.storyTitle}>{story.title}</Text>
+   {storyFinished(state,story.id)&&<View style={s.paper}><StoryMemoryArt id={story.id} state={state}/><Text style={s.inkTitle}>{story.keepsake}</Text><Text style={s.inkSmall}>{story.ending}</Text></View>}
+   {(state.arcs[story.id]?.episodes??[]).map((r,i)=><View key={i} style={s.paper}><Text style={s.eyebrow}>{r.date} · {placeName(story.episodes[i].place)}</Text><Text style={s.inkTitle}>{story.episodes[i].title}</Text><Text style={s.narration}>{story.episodes[i].text}</Text><Text style={s.choiceMemory}>あなた：{story.episodes[i].choices[r.choice]}</Text><Text style={s.narration}>{story.episodes[i].replies[r.choice]}</Text>{r.bowlingPins!==undefined&&<Text style={s.inkSmall}>本番の最高記録：{r.bowlingPins}本</Text>}</View>)}
+  </>}
+ </BottomSheet>;
 }
-function StoryPanel({place,initialStory,onClose,onGo,onBowl}:{place?:WorldMapId;initialStory?:StoryId;onClose:()=>void;onGo:(map:WorldMapId)=>void;onBowl?:()=>void}){
- const {runVillageStory,bowlingState}=useApp();
- const {state,today,ready,error:readError}=useVillageStories(true);
- const [selected,setSelected]=useState<StoryId|null>(initialStory??null),[result,setResult]=useState<{index:number;receipt:StoryReceipt}|null>(null),[history,setHistory]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
+
+type DialogueProps={encounter:StoryEncounter;onClose:()=>void;onBowl:()=>void;service?:{label:string;run:()=>void}};
+export function VillageStoryDialogue(props:DialogueProps){const {user}=useAuth();return <StoryDialogue key={`${user?.id??'guest'}:${props.encounter.key}`} {...props}/>;}
+function StoryDialogue({encounter,onClose,onBowl,service}:DialogueProps){
+ const {runVillageStory,bowlingState}=useApp(),{today,ready,error:readError}=useVillageStories(true);
+ const {height}=useWindowDimensions(),insets=useSafeAreaInsets();
+ const story=villageStory(encounter.id),episode=story.episodes[encounter.index];
+ const [receipt,setReceipt]=useState<StoryReceipt|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const pending=useRef(false),alive=useRef(true);useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
- const story=selected?villageStory(selected):null,status=selected?storyStatus(state,selected,today):null;
- const select=(id:StoryId|null)=>{setSelected(id);setResult(null);setHistory(false);setError('');};
  const choose=async(choice:0|1)=>{
-  if(!story||!status||!place||!ready||pending.current)return;
-  pending.current=true;setBusy(true);setError('');const index=status.index;
-  try{const saved=await runVillageStory({id:story.id,episode:index,choice,place});if(alive.current)setResult({index,receipt:saved.receipt});}
+  if(!ready||pending.current||receipt)return;
+  pending.current=true;setBusy(true);setError('');
+  try{const saved=await runVillageStory({id:encounter.id,episode:encounter.index,choice,place:encounter.place});if(alive.current)setReceipt(saved.receipt);}
   catch(e){if(alive.current)setError(e instanceof Error?e.message:'保存できませんでした。もう一度お試しください。');}
   finally{pending.current=false;if(alive.current)setBusy(false);}
  };
+ const close=()=>{if(!pending.current)onClose();};
  const hasBowled=Object.values(bowlingState.plays).some(p=>p.date===today);
- const button=(label:string,action:()=>void,id?:string,disabled=false)=><Pressable testID={id} accessibilityRole="button" disabled={disabled||busy} accessibilityState={{disabled:disabled||busy}} onPress={action} style={[s.button,(disabled||busy)&&{opacity:.5}]}><Text style={s.buttonText}>{label}</Text></Pressable>;
- return <BottomSheet visible title="村の物語" subtitle="急がなくていい。続きは、あなたが来た日に。" onClose={()=>{if(!pending.current)onClose();}}>
-  {!!(readError||error)&&<Text accessibilityRole="alert" style={s.error}>{readError||error}</Text>}
-  {!ready&&!readError?<Text style={s.copy}>物語を開いています…</Text>:!story?<>
-   <Text style={s.copy}>それぞれ1日1話。遊ばない日があっても、続きはなくなりません。終えたお話と記念品も、ここで読み返せます。</Text>
-   {VILLAGE_STORIES.map(st=>{const info=storyStatus(state,st.id,today);return <Pressable key={st.id} testID={`story-${st.id}`} accessibilityRole="button" onPress={()=>select(st.id)} style={s.card}>
-    <View style={s.row}><View style={s.symbol}><Icon name={info.unlocked?symbols[st.id]:'lock'} size={23} color="#C5A77D"/></View><View style={{flex:1,gap:5}}><Text style={s.title}>{st.title}</Text><Text style={s.small}>{st.subtitle}</Text></View><Icon name="chevron-right" size={18} color="#BDA7CB"/></View>
-    <View style={s.progress}>{st.episodes.map((_,i)=><View key={i} style={[s.segment,i<info.index&&s.filled]}/>)}</View>
-    <Text style={s.tag}>{info.finished?`完結 · ${st.keepsake}`:!info.unlocked?`${st.requires.map(id=>villageStory(id).title).join('・')}の完結後に`:info.clockBlocked?'端末の日付を確認してください':info.waiting?`第${info.index}話まで · 続きは明日以降に`:`第${info.index+1}話 · ${placeName(info.episode.place)}で待っています`}</Text>
-   </Pressable>;})}
-  </>:<>
-   {button('‹ 物語の一覧へ',()=>select(null))}
-   <Text style={s.storyTitle}>{story.title}</Text>
-   {!status!.unlocked?<Text style={s.copy}>{story.requires.map(id=>`「${villageStory(id).title}」`).join('と')}を終えると、このお話が始まります。</Text>:result?<View testID="story-result" style={s.paper}>
-    <Text style={s.eyebrow}>第{result.index+1}話 · {story.episodes[result.index].title}</Text><Text style={s.narration}>{story.episodes[result.index].replies[result.receipt.choice]}</Text>
-    {result.receipt.bowlingPins!==undefined&&<Text style={s.inkSmall}>今日の最高記録：{result.receipt.bowlingPins}本。挑戦した一投を残しました。</Text>}
-    {status!.finished?<><StoryMemoryArt id={story.id} state={state}/><Text style={s.inkTitle}>{story.keepsake}</Text><Text style={s.inkSmall}>{story.ending}</Text><Text style={s.inkSmall}>「思い出 → 村の物語」から、いつでも読み返せます。</Text>{VILLAGE_STORIES.filter(st=>st.requires.includes(story.id)&&storyStatus(state,st.id,today).unlocked).map(st=><Text key={st.id} style={s.inkSmall}>新しいお話「{st.title}」が始められます。</Text>)}</>:<><Text style={s.inkSmall}>つづく · {story.episodes[result.index].teaser}</Text><Text style={s.inkSmall}>今日はここまで。また明日以降、好きな日に。</Text></>}
-   </View>:history||status!.finished?<>
-    {status!.finished&&<View style={s.paper}><StoryMemoryArt id={story.id} state={state}/><Text style={s.inkTitle}>{story.keepsake}</Text><Text style={s.inkSmall}>{story.ending}</Text></View>}
-    {(state.arcs[story.id]?.episodes??[]).map((r,i)=><View key={i} style={s.paper}><Text style={s.eyebrow}>{r.date} · 第{i+1}話</Text><Text style={s.inkTitle}>{story.episodes[i].title}</Text><Text style={s.narration}>{story.episodes[i].text}</Text><Text style={s.choiceMemory}>あなた：{story.episodes[i].choices[r.choice]}</Text><Text style={s.narration}>{story.episodes[i].replies[r.choice]}</Text>{r.bowlingPins!==undefined&&<Text style={s.inkSmall}>本番の最高記録：{r.bowlingPins}本</Text>}</View>)}
-    {!status!.finished&&button('続きへ戻る',()=>setHistory(false))}
-   </>:status!.waiting||status!.clockBlocked?<View style={s.paper}><Text style={s.inkTitle}>今日は、ここまで。</Text><Text style={s.narration}>{status!.clockBlocked?'端末の日付を確認して、もう一度開いてね。':story.episodes[status!.index-1].teaser}</Text><Text style={s.inkSmall}>続きは明日以降、いつでも。取り逃しはありません。</Text></View>:<>
-    <View style={s.paper}><Text style={s.eyebrow}>第{status!.index+1}話 / 6 · {placeName(status!.episode.place)}</Text><Text style={s.inkTitle}>{status!.episode.title}</Text><Text style={s.speaker}>{status!.episode.speaker}</Text><Text style={s.narration}>{status!.episode.text}</Text>
-     {story.id==='newcomer'&&status!.index>=2&&<Text style={s.inkSmall}>{state.arcs.newcomer?.episodes[1]?.choice===0?'あの窓辺の花は、今日も元気だって。':'あの椅子は、もうお気に入りになったって。'}</Text>}
-    </View>
-    {place!==status!.episode.place?button(`${placeName(status!.episode.place)}へ行く`,()=>onGo(status!.episode.place),'story-travel'):status!.episode.bowl&&!hasBowled?<>{button('受付で本番を投げる',()=>onBowl?onBowl():onGo('bowling'),'story-bowl')}<Text style={s.small}>練習なし。本番1回で進みます。今日すでに投げた記録も使えます。</Text></>:status!.episode.choices.map((label,i)=><React.Fragment key={i}>{button(busy?'思い出を保存しています…':label,()=>void choose(i as 0|1),`story-choice-${i}`,!ready)}</React.Fragment>)}
-   </>}
-   {!history&&!status!.finished&&status!.index>0&&button('ここまでのお話を読み返す',()=>{setResult(null);setHistory(true);})}
-   {button('村に戻る',onClose,'story-close',busy)}
-  </>}
- </BottomSheet>;
+ return <Modal transparent visible animationType="fade" onRequestClose={close}>
+  <View style={{flex:1,justifyContent:'flex-end'}} pointerEvents="box-none">
+   <Pressable style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel="会話を閉じる" onPress={close} disabled={busy}/>
+   <View testID="story-encounter-dialogue" accessibilityViewIsModal style={[s.talk,{marginBottom:Math.max(insets.bottom,14),maxHeight:height*.57}]}>
+    <View style={s.row}><Text style={[s.title,{flex:1}]}>{episode.speaker}</Text><Pressable accessibilityRole="button" accessibilityLabel="またあとで" disabled={busy} onPress={close} style={{width:36,height:36,alignItems:'center',justifyContent:'center'}}><Icon name="x" size={20} color="#EBDCCA"/></Pressable></View>
+    <ScrollView style={{flexShrink:1}} contentContainerStyle={{gap:9,paddingBottom:5}}><Text testID="story-encounter-text" accessibilityLiveRegion="polite" style={s.talkText}>{receipt?episode.replies[receipt.choice]:episode.text}</Text>
+     {receipt&&encounter.index===story.episodes.length-1&&<Text style={s.tag}>{story.keepsake}を思い出にしまった。</Text>}
+     {!!(readError||error)&&<Text accessibilityRole="alert" style={s.error}>{readError||error}</Text>}
+    </ScrollView>
+    {receipt?<Pressable testID="story-close" accessibilityRole="button" onPress={close} style={s.answer}><Text style={s.buttonText}>またね</Text></Pressable>:episode.bowl&&!hasBowled?<Pressable testID="story-bowl" accessibilityRole="button" onPress={onBowl} style={s.answer}><Text style={s.buttonText}>受付へ行って、一投する</Text></Pressable>:<View style={{flexDirection:'row',gap:8}}>{episode.choices.map((label,i)=><Pressable key={i} testID={`story-choice-${i}`} accessibilityRole="button" disabled={!ready||busy} onPress={()=>void choose(i as 0|1)} style={[s.answer,{flex:1},(!ready||busy)&&{opacity:.5}]}><Text style={s.buttonText}>{busy?'思い出を残しています…':label}</Text></Pressable>)}</View>}
+    {service&&<Pressable testID="story-service" accessibilityRole="button" disabled={busy} onPress={()=>{if(!pending.current)service.run();}} style={{minHeight:34,justifyContent:'center'}}><Text style={s.small}>{service.label}　→</Text></Pressable>}
+   </View>
+  </View>
+ </Modal>;
+}
+
+export function StoryEncounterActor({encounter,width,height,active,reduceMotion,onTalk}:{encounter:StoryEncounter;width:number;height:number;active:boolean;reduceMotion:boolean;onTalk:()=>void}){
+ const size=width*.17;
+ return <Pressable testID="story-encounter-resident" accessibilityRole="button" accessibilityLabel={`${villageStory(encounter.id).episodes[encounter.index].speaker}に話しかける`} disabled={!active} onPress={onTalk} style={{position:'absolute',left:width*encounter.point.x-size/2,top:height*encounter.point.y-size,width:size,zIndex:700,alignItems:'center'}}>
+  <View pointerEvents="none" style={{position:'absolute',bottom:'100%',backgroundColor:'#FFF4DDEE',borderRadius:12,padding:8,minWidth:120,borderWidth:1,borderColor:'#C2A97C'}}><Text style={{fontSize:11,textAlign:'center',color:'#665146'}}>{encounter.hint}</Text></View>
+  <VillageResident stage={encounter.stage} size={size} active={active} reduceMotion={reduceMotion}/>
+  {encounter.id==='newcomer'&&encounter.index===0&&<Svg pointerEvents="none" width={size*.65} height={size*.5} viewBox="0 0 80 60" style={{position:'absolute',bottom:0,right:-size*.18}}><Ellipse cx="42" cy="56" rx="34" ry="4" fill="#382F2433"/><Path d="M7 16L29 4L73 13L53 27Z" fill="#E6C690"/><Path d="M7 16L53 27V57L7 44Z" fill="#BB8C55"/><Path d="M53 27L73 13V43L53 57Z" fill="#8E633F"/><Path d="M28 11L40 14L61 19L53 27L31 21V51L22 48V18Z" fill="#E7CAA0"/><Rect x="36" y="32" width="12" height="9" rx="1" fill="#F2DFC0"/></Svg>}
+ </Pressable>;
 }
 
 /** Existing world art and residents form a lightweight keepsake; no new asset downloads. */
@@ -87,13 +99,13 @@ export function StoryMemoryArt({id,state}:{id:StoryId;state:VillageStoryState}){
  </View>;
 }
 
-export function StoryWorldKeepsakes({state,map,width,height,active,reduceMotion,onTalk}:{state:VillageStoryState;map:WorldMapId;width:number;height:number;active:boolean;reduceMotion:boolean;onTalk:()=>void}){
+export function StoryWorldKeepsakes({state,map,width,height,active,reduceMotion,onTalk,hideNewcomer=false}:{state:VillageStoryState;map:WorldMapId;width:number;height:number;active:boolean;reduceMotion:boolean;onTalk:()=>void;hideNewcomer?:boolean}){
  const newcomer=storyFinished(state,'newcomer'),festival=(state.arcs.festival?.episodes.length??0)>=5,bowling=storyFinished(state,'bowling');
  const warm=state.arcs.festival?.episodes[2]?.choice!==1;
  return <>
-  {map==='market'&&newcomer&&<Pressable testID="story-new-neighbor" accessibilityRole="button" accessibilityLabel="引っ越してきたもふもふと話す" disabled={!active} onPress={onTalk} style={{position:'absolute',left:width*.28,top:height*.68-width*.13,width:width*.15,zIndex:680}}><VillageResident stage="odango" size={width*.15} active={active} reduceMotion={reduceMotion}/></Pressable>}
+  {map==='market'&&newcomer&&!hideNewcomer&&<Pressable testID="story-new-neighbor" accessibilityRole="button" accessibilityLabel="引っ越してきたもふもふと話す" disabled={!active} onPress={onTalk} style={{position:'absolute',left:width*.28,top:height*.68-width*.13,width:width*.15,zIndex:680}}><VillageResident stage="odango" size={width*.15} active={active} reduceMotion={reduceMotion}/></Pressable>}
   {map==='market'&&festival&&<View pointerEvents="none" style={{position:'absolute',left:width*.14,top:height*.33,width:width*.72,height:width*.16,zIndex:450}}><Svg width="100%" height="100%" viewBox="0 0 400 80"><Path d="M0 10 Q200 85 400 10" fill="none" stroke="#695035" strokeWidth="3"/>{[45,110,175,240,305,365].map((x,i)=><React.Fragment key={x}><Ellipse cx={x} cy={28+Math.sin(i/5*Math.PI)*27} rx="13" ry="18" fill={warm?'#F3C765':'#BE93D5'} stroke="#FBE6B5" strokeWidth="2"/><Path d={`M${x} ${48+Math.sin(i/5*Math.PI)*27} v8`} stroke="#E9BC74" strokeWidth="2"/></React.Fragment>)}</Svg></View>}
   {map==='bowling'&&bowling&&<View pointerEvents="none" accessibilityLabel="村の大会の記念カップ" style={{position:'absolute',left:width*.79,top:height*.45,width:width*.075,height:width*.11,zIndex:500}}><Svg width="100%" height="100%" viewBox="0 0 60 90"><Defs><LinearGradient id="storyCup"><Stop stopColor="#8B542A"/><Stop offset=".45" stopColor="#FFE1A0"/><Stop offset="1" stopColor="#B37530"/></LinearGradient></Defs><Path d="M12 14H3V32Q3 44 22 45M48 14H57V32Q57 44 38 45" stroke="#DBAB59" strokeWidth="5" fill="none"/><Path d="M10 7H50L45 38Q43 49 33 52V68H44V78H16V68H27V52Q17 49 15 38Z" fill="url(#storyCup)"/><Ellipse cx="30" cy="8" rx="20" ry="5" fill="#E8C278"/><Circle cx="30" cy="30" r="7" fill="#FFF0B7"/></Svg></View>}
  </>;
 }
-const s=StyleSheet.create({copy:{color:'#CDBCD6',fontSize:13,lineHeight:23,marginBottom:18},small:{color:'#BAAAC5',fontSize:12,lineHeight:19},card:{paddingVertical:18,gap:12,borderBottomWidth:1,borderColor:'#9981A14D'},row:{flexDirection:'row',alignItems:'center',gap:12},symbol:{width:44,height:50,justifyContent:'center',alignItems:'center',borderWidth:1,borderColor:'#B9A07877',borderRadius:16},title:{fontSize:16,fontWeight:'600',color:'#F2E6F2'},storyTitle:{fontSize:23,lineHeight:33,color:'#F3E6F2',marginVertical:17},progress:{flexDirection:'row',gap:5},segment:{height:3,flex:1,backgroundColor:'#50405E',borderRadius:2},filled:{backgroundColor:'#E8C18E'},tag:{fontSize:11,color:'#E5CAA0',lineHeight:18},button:{minHeight:48,borderRadius:12,backgroundColor:'#4F3C60',borderWidth:1,borderColor:'#BEA6C173',paddingHorizontal:16,paddingVertical:13,justifyContent:'center',marginTop:10},buttonText:{color:'#F4E9F4',fontSize:14,lineHeight:22,textAlign:'center'},paper:{backgroundColor:'#F5ECDC',padding:20,borderRadius:16,gap:14,marginVertical:10},eyebrow:{color:'#8B7060',fontSize:11,lineHeight:19,letterSpacing:.5},inkTitle:{color:'#51413A',fontSize:19,lineHeight:29,fontWeight:'600'},narration:{color:'#50413B',fontSize:15,lineHeight:29},speaker:{color:'#917459',fontSize:12,marginTop:4},inkSmall:{color:'#876F60',fontSize:12,lineHeight:22},choiceMemory:{color:'#88664E',fontSize:12,lineHeight:22,borderTopWidth:1,borderColor:'#D8C7AE',paddingTop:12},error:{color:'#FFE0C3',fontSize:13,lineHeight:23,padding:12},photo:{height:205,borderRadius:6,overflow:'hidden',backgroundColor:'#594459'},photoShade:{...StyleSheet.absoluteFillObject,backgroundColor:'#291B302A'},photoPeople:{position:'absolute',left:20,right:20,bottom:24,flexDirection:'row',alignItems:'flex-end',justifyContent:'center'},stamp:{position:'absolute',right:12,top:12,padding:9,backgroundColor:'#352B3DDD',borderRadius:40},photoCaption:{position:'absolute',left:0,right:0,bottom:0,padding:8,fontSize:10,textAlign:'center',color:'#FFF3E4',backgroundColor:'#312237DD'}});
+const s=StyleSheet.create({talk:{width:"94%",maxWidth:500,alignSelf:"center",backgroundColor:"#282033F5",borderWidth:1,borderColor:"#C6AF7A",borderRadius:14,padding:15,gap:9},talkText:{fontSize:14,lineHeight:24,color:"#F0E3D1"},answer:{backgroundColor:"#624773",minHeight:44,borderRadius:9,paddingHorizontal:12,paddingVertical:10,justifyContent:"center"},copy:{color:'#CDBCD6',fontSize:13,lineHeight:23,marginBottom:18},small:{color:'#BAAAC5',fontSize:12,lineHeight:19},card:{paddingVertical:18,gap:12,borderBottomWidth:1,borderColor:'#9981A14D'},row:{flexDirection:'row',alignItems:'center',gap:12},symbol:{width:44,height:50,justifyContent:'center',alignItems:'center',borderWidth:1,borderColor:'#B9A07877',borderRadius:16},title:{fontSize:16,fontWeight:'600',color:'#F2E6F2'},storyTitle:{fontSize:23,lineHeight:33,color:'#F3E6F2',marginVertical:17},progress:{flexDirection:'row',gap:5},segment:{height:3,flex:1,backgroundColor:'#50405E',borderRadius:2},filled:{backgroundColor:'#E8C18E'},tag:{fontSize:11,color:'#E5CAA0',lineHeight:18},button:{minHeight:48,borderRadius:12,backgroundColor:'#4F3C60',borderWidth:1,borderColor:'#BEA6C173',paddingHorizontal:16,paddingVertical:13,justifyContent:'center',marginTop:10},buttonText:{color:'#F4E9F4',fontSize:14,lineHeight:22,textAlign:'center'},paper:{backgroundColor:'#F5ECDC',padding:20,borderRadius:16,gap:14,marginVertical:10},eyebrow:{color:'#8B7060',fontSize:11,lineHeight:19,letterSpacing:.5},inkTitle:{color:'#51413A',fontSize:19,lineHeight:29,fontWeight:'600'},narration:{color:'#50413B',fontSize:15,lineHeight:29},speaker:{color:'#917459',fontSize:12,marginTop:4},inkSmall:{color:'#876F60',fontSize:12,lineHeight:22},choiceMemory:{color:'#88664E',fontSize:12,lineHeight:22,borderTopWidth:1,borderColor:'#D8C7AE',paddingTop:12},error:{color:'#FFE0C3',fontSize:13,lineHeight:23,padding:12},photo:{height:205,borderRadius:6,overflow:'hidden',backgroundColor:'#594459'},photoShade:{...StyleSheet.absoluteFillObject,backgroundColor:'#291B302A'},photoPeople:{position:'absolute',left:20,right:20,bottom:24,flexDirection:'row',alignItems:'flex-end',justifyContent:'center'},stamp:{position:'absolute',right:12,top:12,padding:9,backgroundColor:'#352B3DDD',borderRadius:40},photoCaption:{position:'absolute',left:0,right:0,bottom:0,padding:8,fontSize:10,textAlign:'center',color:'#FFF3E4',backgroundColor:'#312237DD'}});

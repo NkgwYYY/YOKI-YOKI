@@ -18,3 +18,13 @@
 - Actual API calls after restarting the API: casual conversation and celebration return no links and no question; a general stress/sleep self-care request returns one relevant official reference.
 - 390px browser preview: story selection, travel to plaza, first choice/result, day gating, persistence after reload, Memories archive, and travel from archive to ramen confirmed. The preview guest account already contains test records; only one newcomer story chapter was added during this UI check, with points unchanged.
 - Replit development preview updated. No production republish.
+
+
+## Natural encounters revision
+
+- Removed the story launcher and map quest markers. The archive now shows only experienced episodes and offers no start/travel actions.
+- A Mofumofu carrying a box appears in the plaza. After the scene loads, approaching within conversational distance starts the conversation. Only one automatic encounter per visit, never during another activity, dragging, zooming or portal travel; dismissed encounters do not repeatedly interrupt the session. Tapping the resident can resume a missed conversation.
+- Other chapters belong to their resident or shopkeeper at their real location. Talking to a shopkeeper introduces the relevant conversation once; ordinary shopping, food, fortune and bowling remain available through a service action or the next normal tap.
+- Conversation uses a compact transparent overlay with the world still visible. No chapter selector, locked-story list, or future-story announcements. The bowling story returns to its conversation after the actual game; daily five-play limit remains enforced.
+- Existing choices, daily progression, unlocks, recipes and keepsakes remain intact. No save reset or migration is needed.
+- Verification: mobile TypeScript check; 49 targeted tests (including six encounter/album tests); mobile browser verification of in-place merchant conversation and dismiss-to-normal-service flow.
