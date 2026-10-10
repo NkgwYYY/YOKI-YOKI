@@ -210,8 +210,8 @@ export function WorldResident(p: Props) {
       return;
     }
     const next=rollStep({x:x.value,y:y.value,vx:vx.value,vy:vy.value,hit:false},dt,height/width,map);
-    const radius=size*(stage==='odango'?.45:.33)/width;
-    if(stage==='odango')ry.value+=(next.x-x.value)/radius;
+    const radius=size*(stage!=='egg'?.43:.33)/width;
+    if(stage!=='egg')ry.value+=(next.x-x.value)/radius;
     else rz.value+=(next.x-x.value)/radius;
     rx.value-=(next.y-y.value)*(height/width)/radius;
     x.value=next.x;y.value=next.y;vx.value=next.vx;vy.value=next.vy;rollAge.value+=dt;

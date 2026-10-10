@@ -18,7 +18,7 @@ test('odango keeps original broad proportions, furry rear and surface-bound face
   assert.ok(rear.furLight&&rear.furMid&&rear.furShade);assert.notEqual(side.body,front.body);
   assert.notEqual(projectOdango(0,0,0,1).leftEye,front.leftEye);assert.equal(projectOdango(0,0,0,1).leftShine,'');
   assert.notEqual(projectOdango(0,0,0,0,true).mouth,front.mouth);
-  assert.deepEqual(Object.keys(EVOLVED_VOLUME_MODELS),['odango']);
+  assert.deepEqual(Object.keys(EVOLVED_VOLUME_MODELS),['odango','stage3','stage4']);
 });
 test('rolling around all axes stays finite, inside frame and in ground contact',()=>{
   for(let a=0;a<Math.PI*4;a+=.08){

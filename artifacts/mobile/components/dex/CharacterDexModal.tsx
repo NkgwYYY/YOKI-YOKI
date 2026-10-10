@@ -18,6 +18,7 @@ import {
   typography,
 } from '@/constants/theme';
 import { StageCharacter } from '@/components/StageCharacter';
+import {EvolvedPortrait} from '@/components/world/EvolvedPortrait';
 import { StaticMascot } from '@/components/Mascot';
 import { useAppActivity } from '@/components/room/useRoomActivity';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -207,7 +208,7 @@ export function CharacterDexModal({ charKey, metDate, isCurrent, onClose }: Prop
                   ],
                 }}
               >
-                {!active || reduceMotion ? <StaticMascot stage={stage} mood={mood} size={150 * (isCurrent ? growth.growthSize : 1)} /> : <StageCharacter
+                {stage!=='egg'?<EvolvedPortrait stage={stage} mood={mood} size={150*(isCurrent?growth.growthSize:1)} active={active} reduceMotion={reduceMotion} turn/>:!active || reduceMotion ? <StaticMascot stage={stage} mood={mood} size={150 * (isCurrent ? growth.growthSize : 1)} /> : <StageCharacter
                   stage={stage}
                   mood={mood}
                   size={150}

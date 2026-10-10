@@ -10,7 +10,11 @@ export const ODANGO_MODEL: ResidentVolumeModel = {
   radius:{x:45,y:43,z:37},floor:39,
   face:{eyeX:10.5,eyeY:-3,eyeWidth:4.3,eyeHeight:5,cheekX:18,cheekY:7,mouthY:10},
 };
-export const EVOLVED_VOLUME_MODELS = {odango:ODANGO_MODEL} as const;
+export const HAPPA_MODEL: ResidentVolumeModel = {
+  radius:{x:41,y:35,z:34},floor:33,
+  face:{eyeX:10.1,eyeY:0,eyeWidth:3.9,eyeHeight:4.25,cheekX:18,cheekY:8,mouthY:12},
+};
+export const EVOLVED_VOLUME_MODELS = {odango:ODANGO_MODEL,stage3:HAPPA_MODEL,stage4:HAPPA_MODEL} as const;
 function surface(model:ResidentVolumeModel,x:number,y:number):Point3 {
   'worklet';
   const r=model.radius;
@@ -38,6 +42,8 @@ export function createVolumeGeometry(model:ResidentVolumeModel) {
   return {model,outline:outline(model),fibres:fibres(model)};
 }
 const ODANGO_GEOMETRY=createVolumeGeometry(ODANGO_MODEL);
+const HAPPA_GEOMETRY=createVolumeGeometry(HAPPA_MODEL);
+const GEOMETRIES={odango:ODANGO_GEOMETRY,stage3:HAPPA_GEOMETRY,stage4:HAPPA_GEOMETRY};
 function d(points:Point3[],closed=true,originY=50) {
   'worklet';
   return points.map((p,i)=>`${i?'L':'M'}${(50+p.x).toFixed(2)} ${(originY+p.y).toFixed(2)}`).join(' ')+(closed?' Z':'');
@@ -103,7 +109,11 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
     fur[i%3]+=`M${(50+q.x).toFixed(2)} ${(originY+q.y).toFixed(2)} Q${(50+mid.x).toFixed(2)} ${(originY+mid.y).toFixed(2)} ${(50+tip.x).toFixed(2)} ${(originY+tip.y).toFixed(2)} `;
   }
   return {
-    body:d(silhouette,true,originY),furHalo,furLight:fur[0],furMid:fur[1],furShade:fur[2],
+    body:d(silhouette,true,originY),furHalo,
+    leftLeaf:d([[-.2,-r.y-5,0],[-9,-r.y-17,-3],[-17,-r.y-17,0],[-12,-r.y-6,4]].map(([x,y,z])=>rot({x,y,z})),true,originY),
+    rightLeaf:d([[.2,-r.y-5,0],[9,-r.y-14,4],[16,-r.y-14,1],[11,-r.y-5,-2]].map(([x,y,z])=>rot({x,y,z})),true,originY),
+    stem:d([{x:0,y:-r.y+1,z:0},{x:.5,y:-r.y-8,z:0}].map(rot),false,originY),
+    furLight:fur[0],furMid:fur[1],furShade:fur[2],
     leftCheek:patch(-f.cheekX,f.cheekY,6.7+chew*.8,4+chew*.4),rightCheek:patch(f.cheekX,f.cheekY,6.7+chew*.8,4+chew*.4),
     leftSocket:patch(-f.eyeX,f.eyeY,5.6,6.3),rightSocket:patch(f.eyeX,f.eyeY,5.6,6.3),
     leftEye:patch(-f.eyeX,f.eyeY,f.eyeWidth,eyeHeight),rightEye:patch(f.eyeX,f.eyeY,f.eyeWidth,eyeHeight),
@@ -115,6 +125,10 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
 export function projectOdango(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
   'worklet';
   return projectEvolvedVolume(ODANGO_GEOMETRY,rx,ry,rz,blink,happy,sleepy,mouthOpen,chew,smoking);
+}
+export function projectEvolved(stage:keyof typeof GEOMETRIES,rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
+  'worklet';
+  return projectEvolvedVolume(GEOMETRIES[stage],rx,ry,rz,blink,happy,sleepy,mouthOpen,chew,smoking);
 }
 /** Only compression is allowed; spring undershoot and held poses cannot stretch
  * an evolved mascot vertically. Compensation uses its original foot anchor. */
