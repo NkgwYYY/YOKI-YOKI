@@ -13,6 +13,7 @@ export const VISITORS: ReadonlyArray<{id: string; stage: MascotStage; color: str
   {id: 'fuwa', stage: 'odango', color: '#AFC7A2'},
 ];
 export const VISITOR_SPOTS = {
+  bank: [{x:.70,y:.60}],
   ramen: [{x: .64, y: .52}, {x: .36, y: .645}],
   diner: [{x: .30, y: .61}, {x: .71, y: .67}],
   homewares: [{x: .71, y: .62}, {x: .29, y: .69}],
@@ -25,6 +26,7 @@ export const VISITOR_SPOTS = {
 } as const;
 export type VisitorPlace = keyof typeof VISITOR_SPOTS;
 const CHAT: Record<VisitorPlace, readonly string[]> = {
+  bank: ['新しい家具のために、少しずつ預けてるんだ。通帳を見るの、ちょっと楽しみ。', '全部は預けずに、おやつ代は手元に残しておこうかな。', '今日は銀行の調子、どうかな。たまに特別な利息がつくんだって。'],
   ramen: ['ここのラーメン、最高なんだよな。スープまで飲んじゃう。', 'あの赤い提灯を見ると、ついラーメン食べたくなるんだ。', '今日はラーメンにしようかな。きみは何を食べる？'],
   diner: ['ここの炊きたてごはん、いいにおいだね。', '今日は何のおかずにしようかな。迷うのも楽しいね。', 'あったかいごはんを食べると、ほっとするなあ。'],
   homewares: ['このお店の小物、つい眺めちゃう。お部屋に何を飾ろうかな。', '新しい家具を見に来たんだ。今日は見てるだけでも楽しいね。', 'お花をひとつ置くだけで、お部屋の感じが変わるんだね。'],

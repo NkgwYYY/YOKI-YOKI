@@ -2,6 +2,7 @@ import {prepareCharacterGifts,type CharacterGiftState,type CharacterGiftOperatio
 import {prepareDiary,type ExchangeDiaryState,type DiaryOperation,type DiaryResult} from '@/utils/exchangeDiary';
 import {getMascotStage} from '@/utils/mascotUtils';
 import {preparePlazaEvent,type PlazaState,type PlazaOperation,type PlazaResult} from '@/utils/plazaEvents';
+import {prepareBank,type BankState,type BankOperation,type BankResult} from '@/utils/villageBank';
 import {prepareFortune,type FortuneInput,type FortuneState,type FortuneResult} from '@/utils/dailyFortune';
 import {prepareEggJob,type EggJobState,type EggJobOperation,type EggJobResult} from '@/utils/eggJob';
 import type {HygieneState} from '@/utils/hygiene';
@@ -154,6 +155,7 @@ export interface FeedState {
   characterGifts?: CharacterGiftState;
   exchangeDiary?: ExchangeDiaryState;
   plazaEvents?: PlazaState;
+  bank?: BankState;
   fortune?: FortuneState;
   happiness?: HappinessState;
   housekeeping?: HousekeepingState;
@@ -230,6 +232,7 @@ interface AppContextType {
   runCharacterGifts: (operation: CharacterGiftOperation) => Promise<ReturnType<typeof prepareCharacterGifts>['result']>;
   runDiary: (operation: DiaryOperation) => Promise<DiaryResult>;
   runPlazaEvent: (operation: PlazaOperation) => Promise<PlazaResult>;
+  runBank: (operation: BankOperation) => Promise<BankResult>;
   runEggJob: (operation: EggJobOperation) => Promise<EggJobResult>;
   drawFortune: (input: FortuneInput) => Promise<FortuneResult>;
   runSmoking: (operation: SmokingOperation) => Promise<SmokingResult>;
@@ -1196,6 +1199,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return {state:saved.state,changed:saved.changed};
   }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
 
+  const runBank = useCallback(async (operation: BankOperation) => {
+    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      return prepareBank(values, operation, getTodayDate(), defaultFeedState);
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (saved.changed) void pushDataToCloud().catch(() => {});
+    return saved;
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
+
   const drawFortune = useCallback(async (input: FortuneInput) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
@@ -1299,6 +1315,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cleanRoom,
         runEggJob,
         runPlazaEvent,
+        runBank,
         runDiary,
         runCharacterGifts,
         runSmoking,

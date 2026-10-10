@@ -84,6 +84,7 @@ function RootLayoutNav() {
         <Stack.Screen name="guide" options={{ headerShown: false }} />
         <Stack.Screen name="shop" options={{ headerShown: false, animation: 'none' }} />
         <Stack.Screen name="bowling" options={{ headerShown: false, animation: 'none' }} />
+        <Stack.Screen name="bank" options={{ headerShown: false, animation: 'none' }} />
         <Stack.Screen name="monthly-report" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </>

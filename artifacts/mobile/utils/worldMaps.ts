@@ -1,4 +1,4 @@
-export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'diner' | 'workshop' | 'fortune';
+export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'diner' | 'workshop' | 'fortune' | 'bank';
 export const WORLD_MAPS = [
   {id:'home',name:'おうち',level:1,description:'いつでも帰れる、小さなおうち。'},
   {id:'market',name:'こもれび広場',level:1,description:'風船の子ども、旅人、あやしい儲け話。ときどき出会いが待っている。'},
@@ -8,6 +8,7 @@ export const WORLD_MAPS = [
   {id:'homewares',name:'暮らしのお店',level:1,description:'ほうき、リネン、小さな暮らしの道具。'},
   {id:'diner',name:'ごはんのお店',level:1,description:'炊きたてのごはんと、あたたかいおかず。'},
   {id:'workshop',name:'ゆでたまご工房',level:1,description:'店長の注文を受けて、ひと鍋ずつ働こう。'},
+  {id:'bank',name:'こもれび銀行',level:1,description:'利息がつく村の銀行。好景気、強盗、経営破綻の出来事も。'},
   {id:'fortune',name:'月あかりの占い館',level:1,description:'大きな猫が、血液型とMBTIから今日の運勢を占う。1日1回。'},
   {id:'forest',name:'木もれびの森',level:3,description:'葉の音を聞きながら、ゆっくりおさんぽ。'},
   {id:'onsen',name:'森の温泉',level:3,description:'お湯にゆられて、ゆっくりひと休み。'},
@@ -28,6 +29,7 @@ export function mapGroundBounds(map: WorldMapId, y: number) {
   if(map==='ramen')return {minX:.34,maxX:.68,minY:.47,maxY:.70};
   if(map==='onsen')return {minX:.23,maxX:.77,minY:.49,maxY:.81};
   if(map==='fortune')return {minX:.25,maxX:.75,minY:.615,maxY:.81};
+  if(map==='bank')return {minX:.27,maxX:.73,minY:.50,maxY:.81};
   if(map==='tobacco')return {minX:.22,maxX:.78,minY:.55,maxY:.81};
   if(map==='homewares'||map==='diner'||map==='workshop')return {minX:.26,maxX:.74,minY:.49,maxY:.81};
   if(map==='market')return {minX:.23,maxX:.77,minY:.46,maxY:.81};
@@ -43,7 +45,7 @@ export function mapGroundPoint(map: WorldMapId, point: {x:number;y:number}) {
 export function isMapGround(map: WorldMapId, point: {x:number;y:number}) {
   'worklet';const p=mapGroundPoint(map,point);return Math.abs(p.x-point.x)<.001&&Math.abs(p.y-point.y)<.001;
 }
-export function mapStart(map: WorldMapId) {return map==='fortune'?{x:.72,y:.70}:map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.63,y:.66}:{x:.52,y:.61};}
+export function mapStart(map: WorldMapId) {return map==='bank'?{x:.60,y:.67}:map==='fortune'?{x:.72,y:.70}:map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.63,y:.66}:{x:.52,y:.61};}
 export function mapRoute(map: WorldMapId, from:{x:number;y:number}, to:{x:number;y:number}) {
   const target=mapGroundPoint(map,to);
   // Keep the approach clear of the cat and the ramen counter's staff.

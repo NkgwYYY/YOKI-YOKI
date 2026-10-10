@@ -6,6 +6,7 @@ import type { WorldMapId } from './worldMaps';
 const webArt = (web: number, native: number) => Platform.OS === 'web' ? web : native;
 export const VILLAGE_ATLAS = webArt(require('@/assets/images/world/village-atlas.webp'), require('@/assets/images/world/village-atlas.jpg'));
 export const MERCHANT_ART = {
+  bank: webArt(require('@/assets/images/world/bank-teller.webp'), require('@/assets/images/world/bank-teller.png')),
   shop: webArt(require('@/assets/images/world/homewares-keeper.webp'), require('@/assets/images/world/homewares-keeper.png')),
   food: webArt(require('@/assets/images/world/diner-chef.webp'), require('@/assets/images/world/diner-chef.png')),
   ramen: webArt(require('@/assets/images/world/ramen-master.webp'), require('@/assets/images/world/ramen-master.png')),
@@ -16,6 +17,7 @@ export const MERCHANT_ART = {
 export const FORTUNE_CAT_ART = webArt(require('@/assets/images/world/fortune-cat.webp'), require('@/assets/images/world/fortune-cat.png'));
 export const HOME_ART = { day: webArt(require('@/assets/images/world/home-day.webp'), require('@/assets/images/world/home-day.jpg')), night: webArt(require('@/assets/images/world/home-night.webp'), require('@/assets/images/world/home-night.jpg')) };
 export const OUTDOOR_ART = {
+  bank: webArt(require('@/assets/images/world/village-bank.webp'), require('@/assets/images/world/village-bank.jpg')),
   fortune: webArt(require('@/assets/images/world/village-fortune.webp'), require('@/assets/images/world/village-fortune.jpg')),
   homewares: webArt(require('@/assets/images/world/village-homewares.webp'), require('@/assets/images/world/village-homewares.jpg')),
   diner: webArt(require('@/assets/images/world/village-diner.webp'), require('@/assets/images/world/village-diner.jpg')),
@@ -51,7 +53,7 @@ export function prepareWorldArt(map: WorldMapId, night = false): Promise<void> {
   const key = `${map}:${map === 'home' && night}`;
   const existing = scenes.get(key);
   if (existing) return existing;
-  const portrait = map === 'fortune' ? FORTUNE_CAT_ART : map === 'homewares' ? MERCHANT_ART.shop : map === 'diner' ? MERCHANT_ART.food : map === 'workshop' ? MERCHANT_ART.job : map === 'bowling' ? MERCHANT_ART.bowling : map === 'ramen' ? MERCHANT_ART.ramen : map === 'tobacco' ? MERCHANT_ART.tobacco : undefined;
+  const portrait = map === 'bank' ? MERCHANT_ART.bank : map === 'fortune' ? FORTUNE_CAT_ART : map === 'homewares' ? MERCHANT_ART.shop : map === 'diner' ? MERCHANT_ART.food : map === 'workshop' ? MERCHANT_ART.job : map === 'bowling' ? MERCHANT_ART.bowling : map === 'ramen' ? MERCHANT_ART.ramen : map === 'tobacco' ? MERCHANT_ART.tobacco : undefined;
   const sources = [worldArt(map, night), ...(portrait ? [portrait] : [])];
   const promise = Promise.all(sources.map(prepareImage)).then(() => {}).catch(error => { scenes.delete(key); throw error; });
   scenes.set(key, promise);
