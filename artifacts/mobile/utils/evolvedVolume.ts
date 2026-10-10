@@ -7,12 +7,12 @@ export type ResidentVolumeModel = {
   radius: Point3; floor: number; face: {eyeX:number;eyeY:number;eyeWidth:number;eyeHeight:number;cheekX:number;cheekY:number;mouthY:number};
 };
 export const ODANGO_MODEL: ResidentVolumeModel = {
-  radius:{x:45,y:43,z:37},floor:39,
-  face:{eyeX:10.5,eyeY:-3,eyeWidth:4.3,eyeHeight:5,cheekX:18,cheekY:7,mouthY:10},
+  radius:{x:41,y:40,z:38},floor:38.8,
+  face:{eyeX:10.1,eyeY:-3,eyeWidth:3.2,eyeHeight:3.5,cheekX:18,cheekY:7,mouthY:10},
 };
 export const HAPPA_MODEL: ResidentVolumeModel = {
-  radius:{x:41,y:35,z:34},floor:33,
-  face:{eyeX:10.1,eyeY:0,eyeWidth:3.9,eyeHeight:4.25,cheekX:18,cheekY:8,mouthY:12},
+  radius:{x:40,y:39,z:37.5},floor:38,
+  face:{eyeX:10.1,eyeY:-1,eyeWidth:3.2,eyeHeight:3.5,cheekX:18,cheekY:7,mouthY:10.5},
 };
 export const EVOLVED_VOLUME_MODELS = {odango:ODANGO_MODEL,stage3:HAPPA_MODEL,stage4:HAPPA_MODEL} as const;
 function surface(model:ResidentVolumeModel,x:number,y:number):Point3 {
@@ -95,7 +95,7 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   const eyeHeight=Math.max(.5,f.eyeHeight*(1-shut));
   let mouth='';let connected=false;
   for(let i=0;i<=20;i++){
-    const x=-7.5+i*.75,y=f.mouthY+(happy?1:-1)*2.2*(1-(x/7.5)**2),p=surface(model,x,y);
+    const x=-6.25+i*.625,y=f.mouthY+(happy?1:-1)*1.9*(1-(x/6.25)**2),p=surface(model,x,y);
     if(normal(p)>0){const q=rot(p);mouth+=`${connected?' L':' M'}${(50+q.x).toFixed(2)} ${(originY+q.y).toFixed(2)}`;connected=true;}else connected=false;
   }
   const fur=['','',''];
@@ -110,16 +110,16 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   }
   return {
     body:d(silhouette,true,originY),furHalo,
-    leftLeaf:d([[-.2,-r.y-5,0],[-9,-r.y-17,-3],[-17,-r.y-17,0],[-12,-r.y-6,4]].map(([x,y,z])=>rot({x,y,z})),true,originY),
-    rightLeaf:d([[.2,-r.y-5,0],[9,-r.y-14,4],[16,-r.y-14,1],[11,-r.y-5,-2]].map(([x,y,z])=>rot({x,y,z})),true,originY),
+    leftLeaf:d([[-.2,-r.y-5,0],[-9,-r.y-13,-3],[-14,-r.y-13,0],[-12,-r.y-6,4]].map(([x,y,z])=>rot({x,y,z})),true,originY),
+    rightLeaf:d([[.2,-r.y-5,0],[9,-r.y-12,4],[14,-r.y-12,1],[11,-r.y-5,-2]].map(([x,y,z])=>rot({x,y,z})),true,originY),
     stem:d([{x:0,y:-r.y+1,z:0},{x:.5,y:-r.y-8,z:0}].map(rot),false,originY),
     furLight:fur[0],furMid:fur[1],furShade:fur[2],
     leftCheek:patch(-f.cheekX,f.cheekY,6.7+chew*.8,4+chew*.4),rightCheek:patch(f.cheekX,f.cheekY,6.7+chew*.8,4+chew*.4),
-    leftSocket:patch(-f.eyeX,f.eyeY,5.6,6.3),rightSocket:patch(f.eyeX,f.eyeY,5.6,6.3),
-    leftEye:patch(-f.eyeX,f.eyeY,f.eyeWidth,eyeHeight),rightEye:patch(f.eyeX,f.eyeY,f.eyeWidth,eyeHeight),
-    leftShine:shut>.5?'':patch(-f.eyeX+1.1,f.eyeY-1.8,1,1.1),rightShine:shut>.5?'':patch(f.eyeX+1.1,f.eyeY-1.8,1,1.1),mouth,
-    openMouth:mouthOpen>.02?patch(0,f.mouthY,3.5+mouthOpen*2,1+mouthOpen*4):'',
-    ...cigaretteProjection(surface(model,7.5,f.mouthY),rx,ry,rz,originY,smoking&&normal(surface(model,7.5,f.mouthY))>0),
+    leftSocket:patch(-f.eyeX,f.eyeY,f.eyeWidth+.65,eyeHeight+.55*(1-shut)),rightSocket:patch(f.eyeX,f.eyeY,f.eyeWidth+.65,eyeHeight+.55*(1-shut)),
+    leftEye:patch(-f.eyeX+.28,f.eyeY-.22*(1-shut),f.eyeWidth,eyeHeight),rightEye:patch(f.eyeX-.28,f.eyeY-.22*(1-shut),f.eyeWidth,eyeHeight),
+    leftShine:shut>.5?'':patch(-f.eyeX+1.1,f.eyeY-1.4,.73,.85),rightShine:shut>.5?'':patch(f.eyeX+1.1,f.eyeY-1.4,.73,.85),mouth,
+    openMouth:mouthOpen>.02?patch(0,f.mouthY,2.8+mouthOpen*.5,1+mouthOpen*2.8):'',
+    ...cigaretteProjection(surface(model,6.25,f.mouthY),rx,ry,rz,originY,smoking&&normal(surface(model,6.25,f.mouthY))>0),
   };
 }
 export function projectOdango(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
