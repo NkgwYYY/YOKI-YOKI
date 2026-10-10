@@ -1,3 +1,5 @@
+import {CarriedGift} from '@/components/gifts/GiftArt';
+import type {GiftKind} from '@/utils/characterGifts';
 import {usePlazaEvents} from './usePlazaEvents';
 import {PlazaActors,PlazaDialogue} from './PlazaEncounter';
 import {FortuneCat,FortuneHall} from './FortuneHall';
@@ -49,6 +51,7 @@ import {smokingStatus} from '@/utils/smokingState';
 export { HOME_ART } from '@/utils/worldArt';
 type VillageAction={kind:'portal';map:WorldMapId}|{kind:'bath'|'wheel'|'smoke'|'shop'|'feed'|'ramen-meal'|'plaza'}|{kind:'neighbor';id:VillagerId};
 type Props = {
+  carriedGift?: GiftKind;
   welcomeRequest?:number; onWelcomeStarted?:(id:number)=>void;
   onMapChange:(map:WorldMapId)=>void;
   cleanliness:number;
@@ -276,6 +279,7 @@ export function WorldHome(props: Props) {
       <VillageVisitors map={map} daySeed={props.daySeed} width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food&&!experience&&!bowlingBusy} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>
       {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
       <WorldResident {...props} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
+      {map==='home'&&props.carriedGift&&<CarriedGift kind={props.carriedGift} width={width} height={height} footX={footX} footY={footY}/>}
       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
       {map==='tobacco'&&<TobaccoHaze active={active} reduceMotion={reduceMotion}/>}
     </Animated.View></View></GestureDetector>}

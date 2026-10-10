@@ -12,11 +12,11 @@ const VisitorActor = React.memo(function VisitorActor({visit, size, active, redu
 }) {
   const motion = useResidentIdle({active, reduceMotion, size, tempo: 1800 + visit.lineOffset % 1100, greeting});
   return <Pressable testID={`village-visitor-${visit.visitor.id}`} accessibilityRole="button" accessibilityLabel={`${getStageName(visit.visitor.stage)}の村人と話す`} disabled={!active} onPress={onTalk} style={{alignItems: 'center', minWidth: 44, minHeight: 44}}>
-    <View pointerEvents="none" style={[s.shadow, {width: size * .64, bottom: 23}]}/>
+    <View pointerEvents="none" style={[s.shadow, {width: size * .64, bottom: 3}]}/>
     <Animated.View pointerEvents="none" style={motion}>
       <VillageResident stage={visit.visitor.stage} size={size} active={active} reduceMotion={reduceMotion} scarf={visit.visitor.color}/>
     </Animated.View>
-    <Text style={s.name}>···</Text>
+
   </Pressable>;
 });
 
@@ -58,7 +58,6 @@ export function VillageVisitors({map, daySeed, width, height, clearTop, viewport
 }
 const s = StyleSheet.create({
   shadow: {position: 'absolute', height: 8, borderRadius: 50, backgroundColor: '#24162B45'},
-  name: {color: '#FFF4DC', backgroundColor: '#302239B8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, fontSize: 11, marginTop: -3, overflow: 'hidden'},
   bubble: {position: 'absolute', zIndex: 980, borderRadius: 19, backgroundColor: '#FFF8EA', paddingHorizontal: 16, paddingVertical: 11, borderWidth: 1, borderColor: '#E0CCAC', shadowColor: '#251827', shadowOpacity: .18, shadowRadius: 12, shadowOffset: {width: 0, height: 4}},
   bubbleHeader: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4},
   speaker: {color: '#927052', fontSize: 12, fontWeight: '700'},

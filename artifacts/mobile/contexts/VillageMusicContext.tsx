@@ -10,7 +10,7 @@ const MusicContext = createContext<(Music & {setPaused: (paused: boolean) => voi
 export function VillageMusicProvider({children}: {children: React.ReactNode}) {
   const pathname = usePathname(), {active} = useAppActivity();
   const [paused, setPaused] = useState(false);
-  const music = useVillageBgm(active && (pathname === '/' || pathname === '/shop') && !paused);
+  const music = useVillageBgm(active && (pathname === '/' || pathname === '/shop' || pathname === '/gifts') && !paused);
   return <MusicContext.Provider value={{...music, setPaused}}>{children}</MusicContext.Provider>;
 }
 export function useVillageMusic() {

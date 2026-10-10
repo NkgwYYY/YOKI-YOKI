@@ -1,3 +1,4 @@
+import {prepareCharacterGifts,type CharacterGiftState,type CharacterGiftOperation} from '@/utils/characterGifts';
 import {prepareDiary,type ExchangeDiaryState,type DiaryOperation,type DiaryResult} from '@/utils/exchangeDiary';
 import {getMascotStage} from '@/utils/mascotUtils';
 import {preparePlazaEvent,type PlazaState,type PlazaOperation,type PlazaResult} from '@/utils/plazaEvents';
@@ -150,6 +151,7 @@ export interface UnlockedBadge {
 }
 
 export interface FeedState {
+  characterGifts?: CharacterGiftState;
   exchangeDiary?: ExchangeDiaryState;
   plazaEvents?: PlazaState;
   fortune?: FortuneState;
@@ -225,6 +227,7 @@ interface AppContextType {
   newlyUnlockedBadge: string | null;
   mascotName: string;
   feedState: FeedState;
+  runCharacterGifts: (operation: CharacterGiftOperation) => Promise<ReturnType<typeof prepareCharacterGifts>['result']>;
   runDiary: (operation: DiaryOperation) => Promise<DiaryResult>;
   runPlazaEvent: (operation: PlazaOperation) => Promise<PlazaResult>;
   runEggJob: (operation: EggJobOperation) => Promise<EggJobResult>;
@@ -1160,6 +1163,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return {page:saved.page,changed:saved.changed};
   }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud, mascotName, progress.level, queueGainEvent]);
 
+  const runCharacterGifts = useCallback(async (operation: CharacterGiftOperation) => {
+    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    let chat: unknown = [];
+    if (operation.kind === 'sync') {
+      const raw = await AsyncStorage.getItem('@mentore/chat_history_v1');
+      if (raw) { try { chat = JSON.parse(raw); } catch { /* A damaged chat must not erase diary gifts. */ } }
+    }
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      return prepareCharacterGifts(values, operation, getTodayDate(), Date.now(), defaultFeedState,
+        {name: mascotName, stage: getMascotStage(progress.level)}, chat);
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    const changed=saved.changed||JSON.stringify(feedStateRef.current.characterGifts)!==JSON.stringify(saved.state);
+    feedStateRef.current=saved.feed;setFeedState(saved.feed);
+    if(changed)void pushDataToCloud().catch(()=>{});
+    return saved;
+  }, [user?.id,isSignedIn,isLoading,cloudSynced,pushDataToCloud,mascotName,progress.level]);
+
   const runPlazaEvent = useCallback(async (operation: PlazaOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
@@ -1277,6 +1300,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         runEggJob,
         runPlazaEvent,
         runDiary,
+        runCharacterGifts,
         runSmoking,
         drawFortune,
         syncFeedPoints,

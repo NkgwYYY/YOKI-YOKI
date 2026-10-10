@@ -1,3 +1,7 @@
+import {useAuth} from '@/contexts/AuthContext';
+import {useCharacterGifts} from '@/components/gifts/useCharacterGifts';
+import {GiftInvitation,GiftPresentation} from '@/components/gifts/GiftPresentation';
+import type {CharacterGift} from '@/utils/characterGifts';
 import {HygieneGauge} from '@/components/world/HygieneGauge';
 import {hygieneValue,readHygiene} from '@/utils/hygiene';
 import {readHousekeeping,roomDirt} from '@/utils/housekeeping';
@@ -37,7 +41,7 @@ import { useDailyBath } from '@/components/world/useDailyBath';
 import { DailyRecordInvitation } from '@/components/record/DailyRecordInvitation';
 
 const HINT_KEY = '@yoki/world_hints_v3';
-type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | null;
+type Sheet = 'record' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | 'gift' | null;
 export default function HomeScreen() {
   const router = useRouter();
   const {place,bathReturn,atelier}=useLocalSearchParams<{place?:string;bathReturn?:string;atelier?:string}>();
@@ -55,6 +59,10 @@ export default function HomeScreen() {
   const [worldMap,setWorldMap]=useState('home');
   const [feedVenue,setFeedVenue]=useState<'ramen'|undefined>(undefined);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const giftOwner=useAuth().user?.id??'guest';
+  const {runCharacterGifts}=useApp();
+  const gifts=useCharacterGifts(active&&worldMap==='home');
+  const [openedGift,setOpenedGift]=useState<{gift:CharacterGift;owner:string}|null>(null);
   const [atelierCategory,setAtelierCategory]=useState<AtelierCategory>('furniture');
   useEffect(()=>{if(atelier){setAtelierCategory(['furniture','flower','decor','cleaning'].includes(atelier)?atelier as AtelierCategory:'furniture');setSheet('atelier');router.setParams({atelier:undefined});}},[atelier]);
   const voice=useCharacterVoice(active);
@@ -74,6 +82,7 @@ export default function HomeScreen() {
   const [meal, setMeal] = useState(0);
   const [rest, setRest] = useState(0);
   const [food, setFood] = useState<string | null>(null);
+  const giftAvailable=!!gifts.waiting&&active&&worldMap==='home'&&!sheet&&!sceneBusy&&!food;
   const [speech, setSpeech] = useState('');
   const speechTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [message, setMessage] = useState('おかえり。今日は、どんな一日だった？');
@@ -83,7 +92,7 @@ export default function HomeScreen() {
   const nameSession = useRef(0);
   const today = getTodayRecord();
   const prompt = useRecordPrompt();
-  const invitation = worldMap==='home' && active && !sheet && !sceneBusy && prompt.ready && isRecordPromptDue(prompt.settings, prompt.now, !!today);
+  const invitation = worldMap==='home' && active && !sheet && !sceneBusy && prompt.ready && !giftAvailable && isRecordPromptDue(prompt.settings, prompt.now, !!today);
   const close = () => { nameSession.current++; setSheet(null); };
   const saveName = async () => {
     if (nameBusy.current || !name.trim()) return;
@@ -129,7 +138,7 @@ export default function HomeScreen() {
   const restTogether = () => {voice.play('soft');setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={bathReturn??'world'} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <WorldHome carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={bathReturn??'world'} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={()=>router.push('/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={place==='bowling'?'bowling':undefined} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
@@ -145,7 +154,8 @@ export default function HomeScreen() {
       {(worldMap==='home'||window.height>=660)&&<View style={s.statusRow}><SatietyGauge compact value={currentSatiety} onPress={()=>openFeed()}/><HappinessGauge value={happiness.value} onPress={()=>setSheet('happiness')}/><HygieneGauge value={hygiene} onPress={()=>setSheet('hygiene')}/></View>}
     </View>
     {worldMap==='home'&&<View pointerEvents="box-none" style={[s.footer, {bottom: tabHeight + 12}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
-      {invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => setSheet('record')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
+      {!!gifts.error&&<Pressable accessibilityRole="button" onPress={gifts.retry}><Text style={s.whisper}>{gifts.error} タップして再試行</Text></Pressable>}
+      {giftAvailable&&gifts.waiting?<GiftInvitation gift={gifts.waiting} onPress={()=>{setOpenedGift({gift:gifts.waiting!,owner:giftOwner});setSheet('gift');}}/>:invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => setSheet('record')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
         <Text style={s.residentName}>{mascotName || 'よっきー'}</Text>
         <Text testID="world-speech" style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{speech || (happiness.smoking.craving?'たばこ、ほしいな…。ほかの楽しみで気をまぎらわせよう。':today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : time.moment)}</Text>
       </View>}
@@ -157,6 +167,7 @@ export default function HomeScreen() {
       </View>
     </View>
     }
+    {sheet==='gift'&&openedGift?.owner===giftOwner&&<GiftPresentation key={openedGift.gift.id+giftOwner} gift={openedGift.gift} onClose={close} onReceive={async id=>{const saved=await runCharacterGifts({kind:'receive',id});if(!saved.received)throw Error('Gift missing');voice.play('happy');return saved.received;}} onList={()=>{close();router.push('/gifts');}}/>}
     {sheet==='hygiene'&&<BottomSheet visible title="からだの清潔度" onClose={()=>setSheet(null)}>
       <Text style={s.chatText}>清潔度 {hygiene}%</Text><Text style={s.chatText}>3日以上からだを洗わないと、少しずつ薄汚れていくよ。おふろのタオルを選んで、指でからだをこすって洗おう。お湯に浸かるだけでは汚れは落ちません。</Text>
       {hygieneState.protectedUntil>hygieneNow&&<Text style={s.chatText}>風呂キャン中。あと{Math.ceil((hygieneState.protectedUntil-hygieneNow)/86400000)}日間は、入浴しなくてもさっぱり。</Text>}
@@ -181,6 +192,7 @@ export default function HomeScreen() {
       <Button label="少し、お話しする" icon="message-circle" onPress={() => { close(); router.push('/(tabs)/chat'); }} />
     </BottomSheet>}
     {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
+      {menuRow('gift', 'この子からの贈りもの', () => { close(); router.push('/gifts'); })}
       {menuRow('book-open', 'ふたりの交換日記', () => { close(); router.push('/exchange-diary'); })}
       {menuRow('edit-3', '今日を記録する', () => setSheet('record'))}
       {menuRow('message-circle', 'この子とお話しする', chat)}

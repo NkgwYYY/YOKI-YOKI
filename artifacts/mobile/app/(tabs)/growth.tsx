@@ -298,6 +298,7 @@ export default function GrowthScreen() {
           />
         </CenterDialog>
 
+        <Button label="この子からの贈りもの" icon="gift" onPress={()=>router.push('/gifts')}/>
         <MemoryBook current={currentChar.key} name={mascotName||'よっきー'} totalDays={progress.totalDays}
           hasGrown={hasGrown} records={records} encounters={dexList} onCharacter={setDexChar} onRecords={()=>router.push('/monthly-report')}/>
 

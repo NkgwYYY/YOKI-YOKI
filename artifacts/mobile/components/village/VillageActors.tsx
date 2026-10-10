@@ -157,7 +157,7 @@ export function VillageNeighbors({
             reduceMotion={reduceMotion}
             scarf={n.color}
           />
-          <Text style={s.name}>···</Text>
+
         </Pressable>
       ))}
     </>
