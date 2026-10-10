@@ -1,11 +1,12 @@
 /** Small dependency-free 3D projection renderer. Curved fibres, facial features
  * and leaves share model coordinates; geometry is built once per form. */
-import { softContactHeight, softContactSpread } from './softContact.js?v=1';
+import { softContactHeight, softContactSpread } from './softContact.js?v=2';
 export const EVOLVED_SHAPES = {
-    odango: { radius: [41, 40, 38], floor: 38.8, eyeY: -3, mouthY: 10, sprout: false },
-    stage3: { radius: [40, 39, 37.5], floor: 38, eyeY: -1, mouthY: 10.5, sprout: true },
-    stage4: { radius: [40, 39, 37.5], floor: 38, eyeY: -1, mouthY: 10.5, sprout: true },
+    odango: { radius: [41, 40, 38], eyeY: -7, mouthY: 4.5, sprout: false },
+    stage3: { radius: [40, 39, 37.5], eyeY: -6.5, mouthY: 5, sprout: true },
+    stage4: { radius: [40, 39, 37.5], eyeY: -6.5, mouthY: 5, sprout: true },
 };
+const FACE = { eyeX: 10.3, cheekX: 20.5, cheekOffsetY: 7.2, mouthHalfWidth: 7.1, mouthCurve: 2.1 };
 const norm = (a) => { const n = Math.hypot(...a) || 1; return a.map(v => v / n); };
 const add = (a, b, s = 1) => a.map((v, i) => v + b[i] * s);
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -87,7 +88,7 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
             c = c.map((v, i) => v * (1 - center) + [255, 230, 155][i] * center);
         }
         if (p[2] > 20) {
-            const cheek = (Math.exp(-(((p[0] + 18) / 6.2) ** 2) - ((p[1] - shape.eyeY - 8) / 3.9) ** 2) + Math.exp(-(((p[0] - 18) / 6.2) ** 2) - ((p[1] - shape.eyeY - 8) / 3.9) ** 2)) * .55 * Math.min(1, (p[2] - 20) / 9);
+            const cheek = (Math.exp(-(((p[0] + FACE.cheekX) / 6.2) ** 2) - ((p[1] - shape.eyeY - FACE.cheekOffsetY) / 3.9) ** 2) + Math.exp(-(((p[0] - FACE.cheekX) / 6.2) ** 2) - ((p[1] - shape.eyeY - FACE.cheekOffsetY) / 3.9) ** 2)) * .55 * Math.min(1, (p[2] - 20) / 9);
             c = c.map((v, i) => v * (1 - cheek) + [242, 161, 166][i] * cheek);
         }
         return c;
@@ -220,8 +221,8 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
             }
             ctx.globalAlpha = 1;
             const visible = (p) => rotate(normalAt(p))[2] > .04;
-            for (const x of [-18, 18]) {
-                const p = surface(x, shape.eyeY + 8);
+            for (const x of [-FACE.cheekX, FACE.cheekX]) {
+                const p = surface(x, shape.eyeY + FACE.cheekOffsetY);
                 if (!visible(p))
                     continue;
                 const q = rot(p), facing = Math.max(.05, rotate(normalAt(p))[2]);
@@ -237,7 +238,7 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
                 ctx.fillRect(-8, -8, 16, 16);
                 ctx.restore();
             }
-            for (const x of [-10.1, 10.1]) {
+            for (const x of [-FACE.eyeX, FACE.eyeX]) {
                 const p = surface(x, shape.eyeY);
                 if (!visible(p))
                     continue;
@@ -292,7 +293,7 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
                 ctx.beginPath();
                 let connected = false;
                 for (let i = 0; i <= 30; i++) {
-                    const x = -6.25 + i * (12.5 / 30), y = shape.mouthY + (pose.happy ? 1 : -1) * 1.9 * (1 - (x / 6.9) ** 2), p = surface(x, y);
+                    const x = FACE.mouthHalfWidth * (i / 15 - 1), y = shape.mouthY + (pose.happy ? 1 : -1) * FACE.mouthCurve * (1 - (x / FACE.mouthHalfWidth) ** 2), p = surface(x, y);
                     if (!visible(p)) {
                         connected = false;
                         continue;
@@ -311,7 +312,7 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
             }
             drawLeaves(true);
             if (pose.smoking) {
-                const p = surface(6.25, shape.mouthY);
+                const p = surface(FACE.mouthHalfWidth, shape.mouthY);
                 if (visible(p)) {
                     p[2] += 3;
                     const at = (x) => rot([p[0] + x, p[1] - .04 * x, p[2] + .22 * x]);

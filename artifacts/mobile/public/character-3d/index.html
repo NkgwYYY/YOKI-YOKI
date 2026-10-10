@@ -6,7 +6,7 @@
 <section class="lineup"><article class="friend"><div class="stage"><canvas data-form="odango" aria-label="モフモフの立体モデル。矢印キーで回転" tabindex="0"></canvas></div><h2>モフモフ</h2><div class="sub">やわらかな白い毛並み</div></article><article class="friend"><div class="stage"><canvas data-form="stage3" aria-label="はっぱの立体モデル。矢印キーで回転" tabindex="0"></canvas></div><h2>はっぱ</h2><div class="sub">小さな芽も、ふっくら立体に</div></article><article class="friend"><div class="stage"><canvas data-form="stage4" aria-label="カラフルはっぱの立体モデル。矢印キーで回転" tabindex="0"></canvas></div><h2>カラフルはっぱ</h2><div class="sub">背中までつながる、淡い虹色</div></article></section>
 <footer><span id="status" role="status">仲間たちを準備しています…</span><a href="/character-preview" style="color:inherit">おうちの景色で見る →</a></footer></main>
 <script type="module">
-import {createEvolvedRenderer} from './renderer.js?v=3';
+import {createEvolvedRenderer} from './renderer.js?v=4';
 const canvases=[...document.querySelectorAll('canvas')],renderers=[];
 let yaw=0,pitch=0,auto=false,happy=false,night=false,dirty=true,raf=0,last=0;
 const pose=()=>({rx:pitch,ry:yaw,rz:0,blink:0,happy,sleepy:false,night,mouthOpen:0,chew:0,smoking:false});

@@ -9,11 +9,11 @@ export type ResidentVolumeModel = {
 };
 export const ODANGO_MODEL: ResidentVolumeModel = {
   radius:{x:41,y:40,z:38},floor:38.8,
-  face:{eyeX:10.1,eyeY:-3,eyeWidth:3.6,eyeHeight:3.9,cheekX:18,cheekY:7,mouthY:10},
+  face:{eyeX:10.3,eyeY:-7,eyeWidth:3.6,eyeHeight:3.9,cheekX:20.5,cheekY:.2,mouthY:4.5},
 };
 export const HAPPA_MODEL: ResidentVolumeModel = {
   radius:{x:40,y:39,z:37.5},floor:38,
-  face:{eyeX:10.1,eyeY:-1,eyeWidth:3.6,eyeHeight:3.9,cheekX:18,cheekY:7,mouthY:10.5},
+  face:{eyeX:10.3,eyeY:-6.5,eyeWidth:3.6,eyeHeight:3.9,cheekX:20.5,cheekY:.7,mouthY:5},
 };
 export const EVOLVED_VOLUME_MODELS = {odango:ODANGO_MODEL,stage3:HAPPA_MODEL,stage4:HAPPA_MODEL} as const;
 function surface(model:ResidentVolumeModel,x:number,y:number):Point3 {
@@ -99,7 +99,7 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   const eyeHeight=Math.max(.5,f.eyeHeight*(1-shut));
   let mouth='';let connected=false;
   for(let i=0;i<=20;i++){
-    const x=-6.25+i*.625,y=f.mouthY+(happy?1:-1)*1.9*(1-(x/6.25)**2),p=surface(model,x,y);
+    const x=-7.1+i*.71,y=f.mouthY+(happy?1:-1)*2.1*(1-(x/7.1)**2),p=surface(model,x,y);
     if(normal(p)>0){const q=rot(p);mouth+=`${connected?' L':' M'}${(50+q.x).toFixed(2)} ${(originY+q.y).toFixed(2)}`;connected=true;}else connected=false;
   }
   const fur=['','',''];
@@ -123,7 +123,7 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
     leftEye:patch(-f.eyeX+.28,f.eyeY-.22*(1-shut),f.eyeWidth,eyeHeight),rightEye:patch(f.eyeX-.28,f.eyeY-.22*(1-shut),f.eyeWidth,eyeHeight),
     leftShine:shut>.5?'':patch(-f.eyeX+1.1,f.eyeY-1.4,.73,.85),rightShine:shut>.5?'':patch(f.eyeX+1.1,f.eyeY-1.4,.73,.85),mouth,
     openMouth:mouthOpen>.02?patch(0,f.mouthY,2.8+mouthOpen*.5,1+mouthOpen*2.8):'',
-    ...cigaretteProjection(surface(model,6.25,f.mouthY),rx,ry,rz,originY,smoking&&normal(surface(model,6.25,f.mouthY))>0),
+    ...cigaretteProjection(surface(model,7.1,f.mouthY),rx,ry,rz,originY,smoking&&normal(surface(model,7.1,f.mouthY))>0),
   };
 }
 export function projectOdango(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {

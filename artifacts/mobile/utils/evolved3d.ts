@@ -5,10 +5,11 @@ export type EvolvedForm = 'odango' | 'stage3' | 'stage4';
 type V = [number, number, number];
 export type EvolvedPose = {rx:number; ry:number; rz:number; blink:number; happy:boolean; sleepy:boolean; night:boolean; mouthOpen:number; chew:number; smoking:boolean};
 export const EVOLVED_SHAPES = {
-  odango:{radius:[41,40,38] as V, floor:38.8, eyeY:-3, mouthY:10, sprout:false},
-  stage3:{radius:[40,39,37.5] as V, floor:38, eyeY:-1, mouthY:10.5, sprout:true},
-  stage4:{radius:[40,39,37.5] as V, floor:38, eyeY:-1, mouthY:10.5, sprout:true},
+  odango:{radius:[41,40,38] as V, eyeY:-7, mouthY:4.5, sprout:false},
+  stage3:{radius:[40,39,37.5] as V, eyeY:-6.5, mouthY:5, sprout:true},
+  stage4:{radius:[40,39,37.5] as V, eyeY:-6.5, mouthY:5, sprout:true},
 };
+const FACE={eyeX:10.3,cheekX:20.5,cheekOffsetY:7.2,mouthHalfWidth:7.1,mouthCurve:2.1};
 const norm=(a:V):V=>{const n=Math.hypot(...a)||1;return a.map(v=>v/n) as V;};
 const add=(a:V,b:V,s=1):V=>a.map((v,i)=>v+b[i]*s) as V;
 const dot=(a:V,b:V)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -78,7 +79,7 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
           c=c.map((v,i)=>v*(1-center)+[255,230,155][i]*center) as V;
         }
         if(p[2]>20){
-          const cheek=(Math.exp(-(((p[0]+18)/6.2)**2)-((p[1]-shape.eyeY-8)/3.9)**2)+Math.exp(-(((p[0]-18)/6.2)**2)-((p[1]-shape.eyeY-8)/3.9)**2))*.55*Math.min(1,(p[2]-20)/9);
+          const cheek=(Math.exp(-(((p[0]+FACE.cheekX)/6.2)**2)-((p[1]-shape.eyeY-FACE.cheekOffsetY)/3.9)**2)+Math.exp(-(((p[0]-FACE.cheekX)/6.2)**2)-((p[1]-shape.eyeY-FACE.cheekOffsetY)/3.9)**2))*.55*Math.min(1,(p[2]-20)/9);
           c=c.map((v,i)=>v*(1-cheek)+[242,161,166][i]*cheek) as V;
         }
         return c;
@@ -158,13 +159,13 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
       for(const [c,path] of groups){ctx.strokeStyle=c;ctx.stroke(path);}
       ctx.globalAlpha=1;
       const visible=(p:V)=>rotate(normalAt(p))[2]>.04;
-      for(const x of [-18,18]){
-        const p=surface(x,shape.eyeY+8);if(!visible(p))continue;
+      for(const x of [-FACE.cheekX,FACE.cheekX]){
+        const p=surface(x,shape.eyeY+FACE.cheekOffsetY);if(!visible(p))continue;
         const q=rot(p),facing=Math.max(.05,rotate(normalAt(p))[2]);
         ctx.save();ctx.translate(q[0],q[1]);ctx.rotate(pose.rz);ctx.scale(facing, .61);
         const blush=ctx.createRadialGradient(0,0,0,0,0,7.6);blush.addColorStop(0,'rgba(240,151,157,.44)');blush.addColorStop(.55,'rgba(240,167,171,.20)');blush.addColorStop(1,'rgba(240,180,183,0)');ctx.fillStyle=blush;ctx.fillRect(-8,-8,16,16);ctx.restore();
       }
-      for(const x of [-10.1,10.1]){
+      for(const x of [-FACE.eyeX,FACE.eyeX]){
         const p=surface(x,shape.eyeY);if(!visible(p))continue;p[2]+=.7;
         const shut=pose.sleepy?1:pose.blink,ey=3.9*Math.max(.11,1-shut);
         // A little real sclera peeks outside/below each pupil, as in the reference.
@@ -179,9 +180,9 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
         if(shut<.5){ctx.save();ctx.clip();ctx.fillStyle='rgba(255,255,255,.94)';ctx.beginPath();ctx.ellipse(q[0]+.82,q[1]-1.2,.73,.85,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,255,255,.36)';ctx.beginPath();ctx.arc(q[0]-.85,q[1]+1,.32,0,Math.PI*2);ctx.fill();ctx.restore();}
       }
       if(pose.mouthOpen>.08){const p=surface(0,shape.mouthY);if(visible(p)){p[2]+=2;ellipse(p,[3.3,3.8*pose.mouthOpen,.5]);ctx.fillStyle='#654442';ctx.fill();}}
-      else{ctx.beginPath();let connected=false;for(let i=0;i<=30;i++){const x=-6.25+i*(12.5/30),y=shape.mouthY+(pose.happy?1:-1)*1.9*(1-(x/6.9)**2),p=surface(x,y);if(!visible(p)){connected=false;continue;}p[2]+=2.1;const q=rot(p);if(connected)ctx.lineTo(q[0],q[1]);else ctx.moveTo(q[0],q[1]);connected=true;}ctx.lineWidth=1.3;ctx.strokeStyle='#252d21';ctx.stroke();}
+      else{ctx.beginPath();let connected=false;for(let i=0;i<=30;i++){const x=FACE.mouthHalfWidth*(i/15-1),y=shape.mouthY+(pose.happy?1:-1)*FACE.mouthCurve*(1-(x/FACE.mouthHalfWidth)**2),p=surface(x,y);if(!visible(p)){connected=false;continue;}p[2]+=2.1;const q=rot(p);if(connected)ctx.lineTo(q[0],q[1]);else ctx.moveTo(q[0],q[1]);connected=true;}ctx.lineWidth=1.3;ctx.strokeStyle='#252d21';ctx.stroke();}
       drawLeaves(true);
-      if(pose.smoking){const p=surface(6.25,shape.mouthY);if(visible(p)){p[2]+=3;const at=(x:number)=>rot([p[0]+x,p[1]-.04*x,p[2]+.22*x]);for(const [a,b,c] of [[0,5,'#c5a174'],[5,18,'#f3eee1'],[18,19,'#e99461']] as const){const q=at(a),end=at(b);ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(end[0],end[1]);ctx.lineWidth=1.65;ctx.strokeStyle=c;ctx.stroke();}const q=at(19);ctx.beginPath();ctx.moveTo(q[0],q[1]-2);ctx.bezierCurveTo(q[0]+6,q[1]-12,q[0]-4,q[1]-17,q[0]+1,q[1]-25);ctx.strokeStyle='rgba(231,233,225,.65)';ctx.lineWidth=.65;ctx.stroke();}}
+      if(pose.smoking){const p=surface(FACE.mouthHalfWidth,shape.mouthY);if(visible(p)){p[2]+=3;const at=(x:number)=>rot([p[0]+x,p[1]-.04*x,p[2]+.22*x]);for(const [a,b,c] of [[0,5,'#c5a174'],[5,18,'#f3eee1'],[18,19,'#e99461']] as const){const q=at(a),end=at(b);ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(end[0],end[1]);ctx.lineWidth=1.65;ctx.strokeStyle=c;ctx.stroke();}const q=at(19);ctx.beginPath();ctx.moveTo(q[0],q[1]-2);ctx.bezierCurveTo(q[0]+6,q[1]-12,q[0]-4,q[1]-17,q[0]+1,q[1]-25);ctx.strokeStyle='rgba(231,233,225,.65)';ctx.lineWidth=.65;ctx.stroke();}}
       canvas.dataset.renderMs=(performance.now()-started).toFixed(1);
     },
     dispose(){disposed=true;},

@@ -40,13 +40,14 @@ test('leaves remain inside the camera and above the floor through complete turns
   }
  }
 });
-test('soft contact makes a broad level footprint, with smooth shoulders and an unchanged crown',()=>{
+test('soft contact keeps a modest level footprint, with smooth shoulders and an unchanged crown',()=>{
  const {softContactHeight:height,softContactSpread:spread}=contact;
  for(const form of forms){
   const r=EVOLVED_SHAPES[form].radius;
   for(let yaw=0;yaw<Math.PI*2;yaw+=.2){
    const m=evolvedRotation(0,yaw,0),support=evolvedBodySupport(form,m),origin=evolvedGroundOffset(form,m);
    const floor=height(support,support);let count=0,left=Infinity,right=-Infinity,lastY=-Infinity;
+   assert.ok(floor>support*.85&&floor<support*.96,'only modest compression at the base');
    for(let i=0;i<=200;i++){
     const y=-support+2*support*i/200,compressed=height(y,support);
     assert.ok(compressed>=lastY-1e-10,'compression must not fold the surface');lastY=compressed;
@@ -58,9 +59,9 @@ test('soft contact makes a broad level footprint, with smooth shoulders and an u
     const a=i*Math.PI/180,x=r[0]*Math.cos(a),y=support*Math.sin(a),sy=height(y,support);
     if(Math.abs(sy-floor)<1e-8){count++;left=Math.min(left,x*spread(y,support));right=Math.max(right,x*spread(y,support));}
    }
-   assert.ok(count>20&&right-left>r[0]*.75,'contact is an area, not the tip of a sphere');
+   assert.ok(count>20&&right-left>r[0]*.6&&right-left<r[0],'a small contact area retains a rounded body');
    assert.ok(Math.abs(origin+floor*EVOLVED_CAMERA_SCALE-90.3)<1e-8,'soft base remains on the floor');
-   for(const seam of [.57,.91]){
+   for(const seam of [.82,.94]){
     const y=support*seam,e=.0001,dl=(height(y,support)-height(y-e,support))/e,dr=(height(y+e,support)-height(y,support))/e;
     assert.ok(Math.abs(dl-dr)<.001,'no sharp crease at either end of the soft shoulder');
    }
