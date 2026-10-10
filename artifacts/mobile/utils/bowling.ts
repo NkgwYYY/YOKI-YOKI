@@ -24,6 +24,11 @@ export type BowlingReceipt = BowlingInput & {
   earned: number;
   missionComplete?: boolean;
 };
+/** Mission success is separate from the points earned by a partial hit. */
+export function bowlingResultPresentation(receipt:Pick<BowlingReceipt,'pins'|'mission'|'missionComplete'>) {
+  const success=receipt.mission?receipt.missionComplete===true:receipt.pins===10;
+  return {success,title:success?'成功！':'失敗…',detail:success?(receipt.mission==='split'?'SPLIT CLEAR':receipt.mission==='spare'?'SPARE':'STRIKE'):receipt.pins===0?'MISS':'あと少し！'};
+}
 export type BowlingState = { plays: Record<string, BowlingReceipt> };
 export const EMPTY_BOWLING: BowlingState = { plays: {} };
 

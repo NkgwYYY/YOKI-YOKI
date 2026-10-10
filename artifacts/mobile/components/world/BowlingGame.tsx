@@ -1,10 +1,11 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {Image,Platform,Pressable,StyleSheet,Text,View} from 'react-native';
 import {BowlingLane} from './BowlingLane';
+import {LinearGradient} from 'expo-linear-gradient';
 import Animated,{cancelAnimation,Easing,runOnJS,useAnimatedReaction,useAnimatedStyle,useSharedValue,withRepeat,withTiming} from 'react-native-reanimated';
 import {useApp} from '@/contexts/AppContext';
 import {getTodayDate} from '@/utils/dateUtils';
-import {BOWLING_MISSIONS,BOWLING_DAILY_LIMIT,bowlingDayStatus,dailyBowlingMission,lanePinPositions,projectLane,simulateBowling,type BowlingFrame,type BowlingInput} from '@/utils/bowling';
+import {BOWLING_MISSIONS,BOWLING_DAILY_LIMIT,bowlingDayStatus,dailyBowlingMission,lanePinPositions,projectLane,simulateBowling,bowlingResultPresentation,type BowlingReceipt,type BowlingFrame,type BowlingInput} from '@/utils/bowling';
 import {WorldBowlingPins} from './WorldBowling';
 import {StaticMascot} from '@/components/Mascot';
 import {VolumeResident,hasResidentVolume} from './VolumeResident';
@@ -26,6 +27,11 @@ export function BowlingGameView(p:Props&Pick<ReturnType<typeof useApp>,'bowlingS
  const status=bowlingDayStatus(bowlingState,today),receipt=status.latest,exhausted=status.remaining===0;
  const mission=dailyBowlingMission(today),info=BOWLING_MISSIONS[mission];
  const [aim,setAim]=useState(0),[curve,setCurve]=useState(0),[phase,setPhase]=useState<'aim'|'charge'|'saving'|'rolling'|'result'>('aim');
+ const [completedShot,setCompletedShot]=useState<BowlingReceipt|null>(null);
+ const result=completedShot?bowlingResultPresentation(completedShot):null;
+ const close=useRef(p.onClose);close.current=p.onClose;
+ const returned=useRef(false);
+ const reveal=useSharedValue(0);
  const [message,setMessage]=useState(''),[resultCount,setResultCount]=useState<number|null>(null),[lastPower,setLastPower]=useState<number|null>(null);
  const [bounds,setBounds]=useState({width:0,height:0}),[trackWidth,setTrackWidth]=useState(1);
  const frames=useSharedValue<BowlingFrame[]>([{x:0,y:0,pins:lanePinPositions(mission)}]),index=useSharedValue(0),running=useSharedValue(false),age=useSharedValue(0);
@@ -35,11 +41,24 @@ export function BowlingGameView(p:Props&Pick<ReturnType<typeof useApp>,'bowlingS
  const mounted=useRef(true),locked=useRef(false),pendingShot=useRef<{id:string;input:BowlingInput}|null>(null),resultText=useRef('');
  const finish=useCallback(()=>{locked.current=false;setPhase('result');setMessage(resultText.current);},[]);
  const busy=phase==='saving'||phase==='rolling';
+ useEffect(()=>{
+  if(phase!=='result'){reveal.value=0;return;}
+  reveal.value=withTiming(1,{duration:p.reduceMotion?0:280,easing:Easing.out(Easing.cubic)});
+  return()=>cancelAnimation(reveal);
+ },[phase,p.reduceMotion,reveal]);
+ const resultStyle=useAnimatedStyle(()=>({opacity:reveal.value,transform:[{scale:.92+.08*reveal.value}]}));
+ // Start after the last pin finishes falling, never while saving or rolling.
+ // Backgrounding cancels the timeout so the final result can be read on return.
+ useEffect(()=>{
+  if(!exhausted||!p.active||busy||pendingShot.current||returned.current)return;
+  const timer=setTimeout(()=>{if(!returned.current){returned.current=true;close.current();}},phase==='result'?3600:1800);
+  return()=>clearTimeout(timer);
+ },[exhausted,p.active,busy,phase]);
  useEffect(()=>{p.onBusy(busy);return()=>p.onBusy(false);},[busy,p.onBusy]);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;running.value=false;cancelAnimation(power);};},[]);
  useEffect(()=>{if(!p.active||busy)return;setToday(getTodayDate());const t=setInterval(()=>setToday(getTodayDate()),15000);return()=>clearInterval(t);},[p.active,busy]);
  useEffect(()=>{if(!p.active&&phase==='charge'){cancelAnimation(power);setPhase('aim');}},[p.active,phase,power]);
- const reset=()=>{cancelAnimation(power);running.value=false;const saved=exhausted&&receipt?.rulesVersion===4?simulateBowling(receipt).frames.at(-1):undefined;frames.value=[saved??{x:0,y:0,pins:lanePinPositions(mission)}];index.value=0;age.value=0;rx.value=0;rz.value=0;setPhase('aim');setMessage('');setResultCount(null);pendingShot.current=null;locked.current=false;};
+ const reset=()=>{cancelAnimation(power);running.value=false;const saved=exhausted&&receipt?.rulesVersion===4?simulateBowling(receipt).frames.at(-1):undefined;frames.value=[saved??{x:0,y:0,pins:lanePinPositions(mission)}];index.value=0;age.value=0;rx.value=0;rz.value=0;setPhase('aim');setMessage('');setResultCount(null);setCompletedShot(null);returned.current=false;pendingShot.current=null;locked.current=false;};
  useEffect(()=>{reset();},[today]);
  useEffect(()=>{
   if(phase!=='rolling'||!p.active){cancelAnimation(age);return;}
@@ -67,7 +86,7 @@ export function BowlingGameView(p:Props&Pick<ReturnType<typeof useApp>,'bowlingS
   const shot=pendingShot.current;setLastPower(shot.input.power);
   try{
    let actual=shot.input,earned=0;
-   const saved=await playBowling(shot.id,shot.input);if(!mounted.current)return;if(!saved.accepted){pendingShot.current=null;locked.current=false;setPhase('result');setMessage('今日は5回遊んだね。また明日、受付で待っているよ。');return;}actual=saved.receipt;earned=saved.receipt.earned;
+   const saved=await playBowling(shot.id,shot.input);if(!mounted.current)return;if(!saved.accepted){pendingShot.current=null;locked.current=false;setPhase('result');setMessage('今日は5回遊んだね。また明日、受付で待っているよ。');return;}actual=saved.receipt;earned=saved.receipt.earned;setCompletedShot(saved.receipt);
    if(!mounted.current)return;
    const result=simulateBowling(actual);setResultCount(result.pins);
    const praise=result.pins===10?'STRIKE！':result.missionComplete?'CLEAR！':result.pins===0?'ガター / 届かず':`${result.pins}本ヒット！`;
@@ -93,7 +112,16 @@ export function BowlingGameView(p:Props&Pick<ReturnType<typeof useApp>,'bowlingS
      {p.wear&&<Image source={{uri:p.wear.uri}} resizeMode="contain" style={{position:'absolute',...roomWearableFrame(p.wear.id,getCharacter(p.stage).key,avatarSize,p.wear)}}/>}
     </Animated.View>
    </>}
-
+   {phase==='result'&&result&&<View pointerEvents="none" testID="bowling-result" accessibilityLiveRegion="polite" style={s.resultOverlay}>
+    <LinearGradient colors={['#11131D00','#11131DC9','#11131D00']} style={StyleSheet.absoluteFill}/>
+    <Animated.View style={[s.resultBanner,resultStyle]}>
+     <Text style={[s.resultEyebrow,{color:result.success?'#F7DC9B':'#D4CAE7'}]}>{result.detail}</Text>
+     <Text testID="bowling-result-title" style={[s.resultTitle,{fontSize:Math.min(68,Math.max(40,bounds.width*.15)),color:result.success?'#FFE3A0':'#EEE2FF'}]}>{result.title}</Text>
+     <Text style={s.resultPins}>{completedShot!.pins} / {BOWLING_MISSIONS[completedShot!.mission??mission].pins} 本</Text>
+     <Text testID="bowling-result-reward" style={s.resultReward}>＋{completedShot!.earned} pt</Text>
+     <Text style={s.resultCopy}>{exhausted?'今日の5回はおしまい。受付へ戻ります。':result.success?'やったね！ 次の一投も楽しもう。':completedShot!.pins>0?'倒したピンの分、ポイントを獲得！':'次は狙いと強さを変えてみよう。'}</Text>
+    </Animated.View>
+   </View>}
   </View>
   <View style={s.controls}>
    <View style={s.row}>
@@ -119,6 +147,12 @@ export function BowlingGameView(p:Props&Pick<ReturnType<typeof useApp>,'bowlingS
  </View>;
 }
 const s=StyleSheet.create({
+ resultOverlay:{...StyleSheet.absoluteFillObject,zIndex:5000,justifyContent:'center',alignItems:'center'},
+ resultBanner:{width:'100%',alignItems:'center',paddingHorizontal:16,paddingVertical:28,gap:8},
+ resultEyebrow:{fontSize:14,fontWeight:'700',letterSpacing:3},
+ resultTitle:{fontWeight:'900',letterSpacing:4,textAlign:'center',textShadowColor:'#100B19',textShadowOffset:{width:0,height:3},textShadowRadius:12},
+ resultPins:{fontSize:24,color:'#FFFFFF',fontWeight:'600'},resultReward:{fontSize:31,color:'#EFCF88',fontWeight:'800',marginTop:4},
+ resultCopy:{fontSize:12,lineHeight:21,color:'#F1EBDC',textAlign:'center',marginTop:8},
  root:{flex:1,borderRadius:15,overflow:'hidden',backgroundColor:'#181923',borderWidth:1,borderColor:'#C1A47766'},
  heading:{minHeight:53,paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:5,backgroundColor:'#24212F'},
  kicker:{fontSize:8,letterSpacing:1,color:'#B8C9C3'},title:{fontSize:16,color:'#F2DFB4',fontWeight:'700',marginTop:3},mode:{flexDirection:'row',gap:3},chip:{minHeight:44,paddingHorizontal:9,justifyContent:'center',borderRadius:6},selected:{backgroundColor:'#5C746566'},copy:{fontSize:11,color:'#F2E5CD'},small:{fontSize:9,color:'#C6D0C7'},smallChip:{minHeight:30,minWidth:36,justifyContent:'center',alignItems:'center',borderRadius:5},

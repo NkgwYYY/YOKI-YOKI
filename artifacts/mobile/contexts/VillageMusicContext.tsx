@@ -1,24 +1,18 @@
-import React, {createContext, useContext, useEffect, useState} from 'react';
-import {usePathname} from 'expo-router';
+import React, {createContext, useContext} from 'react';
 import {useAppActivity} from '@/components/room/useRoomActivity';
 import {useVillageBgm} from '@/components/world/useVillageBgm';
 
 type Music = ReturnType<typeof useVillageBgm>;
-const MusicContext = createContext<(Music & {setPaused: (paused: boolean) => void}) | null>(null);
+const MusicContext = createContext<Music | null>(null);
 
-/** One player spans the room and its shop; navigating between them never restarts it. */
+/** A single persistent player follows every screen, tab and conversation. */
 export function VillageMusicProvider({children}: {children: React.ReactNode}) {
-  const pathname = usePathname(), {active} = useAppActivity();
-  const [paused, setPaused] = useState(false);
-  const music = useVillageBgm(active && (pathname === '/' || pathname === '/shop' || pathname === '/gifts') && !paused);
-  return <MusicContext.Provider value={{...music, setPaused}}>{children}</MusicContext.Provider>;
+  const {active} = useAppActivity();
+  const music = useVillageBgm(active);
+  return <MusicContext.Provider value={music}>{children}</MusicContext.Provider>;
 }
 export function useVillageMusic() {
   const music = useContext(MusicContext);
   if (!music) throw Error('VillageMusicProvider is missing');
   return music;
-}
-export function usePauseVillageMusic(paused: boolean) {
-  const {setPaused} = useVillageMusic();
-  useEffect(() => {setPaused(paused); return () => setPaused(false);}, [paused, setPaused]);
 }

@@ -9,7 +9,7 @@ import {useApp} from '@/contexts/AppContext';
 import {useRoomActivity} from '@/components/room/useRoomActivity';
 import {VillageResident} from '@/components/village/VillageActors';
 import {WorldPill} from '@/components/world/WorldPill';
-import {useVillageBgm} from '@/components/world/useVillageBgm';
+import {useVillageMusic} from '@/contexts/VillageMusicContext';
 import {getMascotStage} from '@/utils/mascotUtils';
 import {fitWorld} from '@/utils/worldGeometry';
 import {BATH_REST,BATH_WATER,bathDrop} from '@/utils/bathInteraction';
@@ -22,7 +22,7 @@ import {getTabBarHeight} from '@/utils/tabLayout';
 
 export default function HomeBathScreen(){
  const insets=useSafeAreaInsets(),window=useWindowDimensions(),{active,reduceMotion}=useRoomActivity();
- const {progress,awardHappiness,feedState}=useApp(),music=useVillageBgm(active);
+ const {progress,awardHappiness,feedState}=useApp(),music=useVillageMusic();
  const [bathing,setBathing]=useState(false),[holding,setHolding]=useState(false),[message,setMessage]=useState(''),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0);
  const [tool,setTool]=useState<'lift'|'towel'>('lift');
  const dirt=roomDirt(readHousekeeping(feedState.housekeeping,Date.now()),Date.now());

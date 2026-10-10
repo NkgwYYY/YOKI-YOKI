@@ -10,7 +10,7 @@ import {useRoomActivity} from '@/components/room/useRoomActivity';
 import {MerchantResident} from '@/components/village/MerchantResident';
 import {CookingPot} from '@/components/village/CookingPot';
 import {WorldPill} from '@/components/world/WorldPill';
-import {useVillageBgm} from '@/components/world/useVillageBgm';
+import {useVillageMusic} from '@/contexts/VillageMusicContext';
 import {useKitchenAudio} from '@/components/world/useKitchenAudio';
 import {backToRoom} from '@/utils/backToRoom';
 import {readEggJob,EGG_JOB_LIMIT_MS,EGG_RECIPES,eggRules,recipeForTarget,type EggReceipt,type EggJobOperation} from '@/utils/eggJob';
@@ -19,7 +19,7 @@ const SCOOP_MS=1150;
 const RANKS={raw:'TOO EARLY',good:'GOOD',perfect:'PERFECT',hard:'TOO LATE'};
 export default function EggJobScreen(){
  const router=useRouter(),insets=useSafeAreaInsets(),window=useWindowDimensions();
- const {active,reduceMotion}=useRoomActivity(),music=useVillageBgm(active),{feedState,runEggJob}=useApp();
+ const {active,reduceMotion}=useRoomActivity(),music=useVillageMusic(),{feedState,runEggJob}=useApp();
  const state=readEggJob(feedState.eggJob),shift=state.active,audio=useKitchenAudio(active,!!shift);
  const [receipt,setReceipt]=useState<EggReceipt|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[elapsed,setElapsed]=useState(0),[lifting,setLifting]=useState(false);
  const lock=useRef(false),pending=useRef<EggJobOperation|null>(null),mounted=useRef(true);

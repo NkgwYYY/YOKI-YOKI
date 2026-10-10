@@ -3,12 +3,11 @@ export type Point = { x: number; y: number };
 export type VillageExperience = "bath" | "wheel" | "smoke";
 export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
   home: ["market", "forest"],
-  market: ["home", "village", "lake", "ramen", "bowling", "tobacco", "homewares", "diner", "workshop", "fortune", "bank"],
+  market: ["home", "village", "lake", "ramen", "bowling", "tobacco", "homewares", "workshop", "fortune", "bank"],
   bank: ["market"],
   fortune: ["market"],
   tobacco: ["market"],
   homewares: ["market"],
-  diner: ["market"],
   workshop: ["market"],
   bowling: ["market"],
   ramen: ["market"],
@@ -20,12 +19,11 @@ export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
 // A gate is both the visible sign and the actual walking trigger.
 const GATES: Record<WorldMapId, Point[]> = {
   home: [{x:.51,y:.785},{x:.655,y:.70}],
-  market: [{x:.25,y:.78},{x:.38,y:.47},{x:.62,y:.47},{x:.76,y:.54},{x:.50,y:.80},{x:.76,y:.75},{x:.24,y:.53},{x:.76,y:.64},{x:.25,y:.65},{x:.50,y:.46},{x:.64,y:.80}],
+  market: [{x:.25,y:.78},{x:.38,y:.47},{x:.62,y:.47},{x:.76,y:.54},{x:.50,y:.80},{x:.76,y:.75},{x:.24,y:.53},{x:.25,y:.65},{x:.50,y:.46},{x:.64,y:.80}],
   bank: [{x:.50,y:.80}],
   fortune: [{x:.50,y:.80}],
   tobacco: [{x:.50,y:.80}],
   homewares: [{x:.50,y:.80}],
-  diner: [{x:.50,y:.80}],
   workshop: [{x:.50,y:.80}],
   bowling: [{x:.70,y:.765}],
   ramen: [{x:.50,y:.69}],
@@ -43,7 +41,7 @@ export function nearbyPortalIndex(point: Point, portals: {point:Point}[], direct
 }
 export const MAP_COORDS: Record<WorldMapId, Point> = {
  bank:{x:.51,y:.075},fortune:{x:.82,y:.25},onsen:{x:.19,y:.10},forest:{x:.21,y:.29},village:{x:.55,y:.22},lake:{x:.82,y:.10},
- homewares:{x:.21,y:.47},market:{x:.51,y:.46},ramen:{x:.81,y:.40},diner:{x:.73,y:.59},
+ homewares:{x:.21,y:.47},market:{x:.51,y:.46},ramen:{x:.81,y:.40},
  home:{x:.21,y:.71},workshop:{x:.50,y:.69},bowling:{x:.41,y:.89},tobacco:{x:.82,y:.85},
 };
 /** Fixed scene coordinates keep velocity stable through camera zoom and viewport changes. */

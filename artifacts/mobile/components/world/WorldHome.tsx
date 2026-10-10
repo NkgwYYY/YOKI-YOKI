@@ -43,6 +43,8 @@ import { Icon } from '@/components/ui/Icon';
 import { RamenArt } from '@/components/village/RamenArt';
 import { useSceneTransition } from './useSceneTransition';
 import {BowlingGame} from './BowlingGame';
+import {bowlingPlayedToday} from '@/utils/bowling';
+import {getTodayDate} from '@/utils/dateUtils';
 import {VillageMap} from './VillageMap';
 import {TobaccoPatrons} from '@/components/village/TobaccoPatrons';
 import {Icon as DoorIcon} from '@/components/ui/Icon';
@@ -69,7 +71,7 @@ type Props = {
 
 export function WorldHome(props: Props) {
   const {reduceMotion} = props;
-  const {awardHappiness,feedState}=useApp();
+  const {awardHappiness,feedState,bowlingState}=useApp();
   const [zooming,setZooming]=useState(false);
   const [merchantGreeting,setMerchantGreeting]=useState({kind:'',count:0});
   const [cleanOpen,setCleanOpen]=useState(false),[cleanTool,setCleanTool]=useState<CleaningTool|null>(null),[riding,setRiding]=useState(false);
@@ -134,8 +136,9 @@ export function WorldHome(props: Props) {
     },8000);
     return()=>{alive=false;clearTimeout(timer);};
   },[experience,active,awardHappiness]);
-  const openMerchant=(kind:'shop'|'food'|'ramen'|'tobacco'|'job'|'bowling'|'fortune'|'bank',point:{x:number;y:number})=>{
+  const openMerchant=(kind:'shop'|'ramen'|'tobacco'|'job'|'bowling'|'fortune'|'bank',point:{x:number;y:number})=>{
     if(!active||props.food||experience||bowlingBusy)return;
+    if(kind==='bowling'&&bowlingPlayedToday(bowlingState,getTodayDate())){setMapMessage('今日の5回はおしまい。また明日、受付で待っているよ。');return;}
     setMerchantGreeting(current=>({kind,count:current.count+1}));
     portalTravel.value=false;steering.value={x:0,y:0};pending.current=null;setDestination(null);
     setZooming(true);view.focusAt(point,{width:bounds.width,height:sceneHeight});
@@ -148,12 +151,12 @@ export function WorldHome(props: Props) {
       else if(kind==='bank')setBankOpen(true);
       else if(kind==='bowling')setBowlingOpen(true);
       else if(kind==='job')props.onJob();
-      else if(kind==='food'||kind==='ramen')props.onFeed(kind==='ramen'?'ramen':undefined);
+      else if(kind==='ramen')props.onFeed('ramen');
       else setPlacesOpen(true);
     },reduceMotion?0:460);
   };
   useEffect(()=>{if(!canVisitMap(map,props.level))setMap('home');},[map,props.level]);
-  useEffect(()=>{if(props.meal){setExperience(null);setNeighbor(null);if(map!=='ramen'&&map!=='diner')setMap('home');}},[props.meal]);
+  useEffect(()=>{if(props.meal){setExperience(null);setNeighbor(null);if(map!=='ramen')setMap('home');}},[props.meal]);
   useEffect(()=>{if(props.rest){setExperience(null);setNeighbor(null);setMap('home');}},[props.rest]);
   // Let the visible scene finish first; warm only the atlas and likely exit.
   useEffect(()=>{
@@ -235,7 +238,7 @@ export function WorldHome(props: Props) {
     </Pressable>
   );
   const facility=(id:string,label:string,point:{x:number;y:number},action:VillageAction)=><Pressable key={id} testID={`village-${id}`} accessibilityRole="button" accessibilityLabel={label} disabled={!active||!!props.food||!!experience} onPress={()=>request(point,action)} style={[s.facility,{left:point.x*width-60,top:point.y*height-30}]}><Text style={s.facilityText}>{label}</Text></Pressable>;
-  const merchant=(id:string,label:string,point:{x:number;y:number},stage:MascotStage,kind:'shop'|'food'|'ramen'|'tobacco'|'job'|'bowling'|'bank')=><Pressable
+  const merchant=(id:string,label:string,point:{x:number;y:number},stage:MascotStage,kind:'shop'|'ramen'|'tobacco'|'job'|'bowling'|'bank')=><Pressable
     key={id} testID={`merchant-${id}`} accessibilityRole="button" accessibilityLabel={`${kind==='job'||kind==='bowling'||kind==='bank'?label:label+'の店員'}。タップして話しかける`} disabled={!active||!!props.food||!!experience}
     onPress={()=>openMerchant(kind,point)} style={{position:'absolute',left:width*point.x-width*.12,top:height*point.y-width*.23,width:width*.24,minWidth:44,minHeight:44,alignItems:'center',zIndex:850}}>
     <MerchantResident kind={kind} size={width*.24} active={props.active&&(active||zooming)} reduceMotion={reduceMotion} greeting={merchantGreeting.kind===kind?merchantGreeting.count:0}/>
@@ -246,7 +249,7 @@ export function WorldHome(props: Props) {
     {map==='home'&&<View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="cover" style={s.art}/></View>}
     {width > 0 && <GestureDetector gesture={view.gesture}><View testID="world-viewport" style={StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, view.style]}>
       <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} onLoad={()=>setLoadedArt(source)} resizeMode="stretch" style={s.art} accessible={false} /></View>
-      {!['home','homewares','diner'].includes(map)&&night&&<View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#35234922'}]}/>}
+      {!['home','homewares'].includes(map)&&night&&<View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#35234922'}]}/>}
       {props.period === 'dusk' && map!=='tobacco' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: '#B5646028'}]} />}
       <GestureDetector gesture={groundGesture}><View testID="world-ground" accessible={false} style={StyleSheet.absoluteFill}/></GestureDetector>
       <WorldAmbient active={active} reduceMotion={props.reduceMotion} night={night} />
@@ -274,7 +277,6 @@ export function WorldHome(props: Props) {
       {map==='fortune'&&<FortuneCat width={width} height={height} clearTop={stageTop-frame.top} clearBottom={clearBottom-frame.top} disabled={!active||!!props.food} active={props.active&&(active||zooming)} reduceMotion={reduceMotion} greeting={merchantGreeting.kind==='fortune'?merchantGreeting.count:0} onPress={()=>openMerchant('fortune',{x:.4,y:.51})}/>}
       {map==='bank'&&merchant('bank','銀行の行員',{x:.42,y:.55},'odango','bank')}
       {map==='homewares'&&merchant('shop','暮らしのお店',{x:.50,y:.49},'stage3','shop')}
-      {map==='diner'&&merchant('food','ごはんのお店',{x:.52,y:.49},'egg','food')}
       {map==='workshop'&&merchant('egg-job','工房の店長',{x:.50,y:.48},'egg','job')}
       {map==='ramen'&&merchant('ramen','ラーメン屋',{x:.38,y:.57},'odango','ramen')}
       {map==='bowling'&&merchant('bowling','受付スタッフ',{x:.72,y:.57},'egg','bowling')}

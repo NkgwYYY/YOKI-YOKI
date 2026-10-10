@@ -1,4 +1,4 @@
-export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'diner' | 'workshop' | 'fortune' | 'bank';
+export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'workshop' | 'fortune' | 'bank';
 export const WORLD_MAPS = [
   {id:'home',name:'おうち',level:1,description:'いつでも帰れる、小さなおうち。'},
   {id:'market',name:'こもれび広場',level:1,description:'風船の子ども、旅人、あやしい儲け話。ときどき出会いが待っている。'},
@@ -6,7 +6,6 @@ export const WORLD_MAPS = [
   {id:'bowling',name:'ころころボウリング',level:1,description:'受付の店員に話しかけて、1日5回までのボウリング。'},
   {id:'tobacco',name:'こかげのタバコ屋',level:1,description:'お店のとなりに、小さな屋外喫煙所。'},
   {id:'homewares',name:'暮らしのお店',level:1,description:'ほうき、リネン、小さな暮らしの道具。'},
-  {id:'diner',name:'ごはんのお店',level:1,description:'炊きたてのごはんと、あたたかいおかず。'},
   {id:'workshop',name:'ゆでたまご工房',level:1,description:'店長の注文を受けて、ひと鍋ずつ働こう。'},
   {id:'bank',name:'こもれび銀行',level:1,description:'利息がつく村の銀行。好景気、強盗、経営破綻の出来事も。'},
   {id:'fortune',name:'月あかりの占い館',level:1,description:'大きな猫が、血液型とMBTIから今日の運勢を占う。1日1回。'},
@@ -15,7 +14,7 @@ export const WORLD_MAPS = [
   {id:'village',name:'となりの村',level:4,description:'たまご・もふもふ・はっぱたちの、小さな村。'},
   {id:'lake',name:'星あかりの湖',level:6,description:'観覧車に乗って、いつもの世界を空から。'},
 ] as const;
-export function canVisitMap(id: WorldMapId, level: number) {return level >= WORLD_MAPS.find(map=>map.id===id)!.level;}
+export function canVisitMap(id: WorldMapId, level: number) {const map=WORLD_MAPS.find(map=>map.id===id);return !!map&&level>=map.level;}
 export function mapGroundBounds(map: WorldMapId, y: number) {
   'worklet';
   if(map==='bowling')return {minX:.28,maxX:.74,minY:.305,maxY:.77};
@@ -31,7 +30,7 @@ export function mapGroundBounds(map: WorldMapId, y: number) {
   if(map==='fortune')return {minX:.25,maxX:.75,minY:.615,maxY:.81};
   if(map==='bank')return {minX:.27,maxX:.73,minY:.50,maxY:.81};
   if(map==='tobacco')return {minX:.22,maxX:.78,minY:.55,maxY:.81};
-  if(map==='homewares'||map==='diner'||map==='workshop')return {minX:.26,maxX:.74,minY:.49,maxY:.81};
+  if(map==='homewares'||map==='workshop')return {minX:.26,maxX:.74,minY:.49,maxY:.81};
   if(map==='market')return {minX:.23,maxX:.77,minY:.46,maxY:.81};
   if(map==='village')return {minX:y<.52?.40:.22,maxX:y<.52?.60:.78,minY:.48,maxY:.81};
   return {minX:.23,maxX:.79,minY:.48,maxY:.82};

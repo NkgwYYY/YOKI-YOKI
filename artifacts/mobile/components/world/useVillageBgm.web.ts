@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {Asset} from 'expo-asset';
 const KEY='@yoki/village_bgm_v1';
 export function useVillageBgm(active:boolean) {
-  const [enabled,setEnabled]=useState(false),[blocked,setBlocked]=useState(false),[ready,setReady]=useState(false);
+  const [enabled,setEnabled]=useState(true),[blocked,setBlocked]=useState(false),[ready,setReady]=useState(false);
   const player=useRef<HTMLAudioElement|null>(null),current=useRef(active),generation=useRef(0),alive=useRef(true);
   const touched=useRef(false);
   current.current=active;
@@ -23,12 +23,19 @@ export function useVillageBgm(active:boolean) {
   };
   useEffect(()=>{
     alive.current=true;touched.current=false;let current=true;
-    void AsyncStorage.getItem(KEY).then(value=>{if(current&&alive.current){if(!touched.current)setEnabled(value==='on');setReady(true);}},()=>{if(alive.current)setReady(true);});
+    void AsyncStorage.getItem(KEY).then(value=>{if(current&&alive.current){if(!touched.current)setEnabled(value!=='off');setReady(true);}},()=>{if(alive.current)setReady(true);});
     return()=>{current=false;alive.current=false;generation.current++;player.current?.pause();player.current?.remove();player.current=null;};
   },[]);
   useEffect(()=>{
     if(ready&&enabled&&active)play();
     else {generation.current++;player.current?.pause();}
+  },[ready,enabled,active]);
+  useEffect(()=>{
+    if(!ready||!enabled||!active)return;
+    const resume=()=>{if(current.current&&player.current?.paused)play();};
+    document.addEventListener('pointerup',resume);
+    document.addEventListener('keydown',resume);
+    return()=>{document.removeEventListener('pointerup',resume);document.removeEventListener('keydown',resume);};
   },[ready,enabled,active]);
   const toggle=()=>{
     touched.current=true;

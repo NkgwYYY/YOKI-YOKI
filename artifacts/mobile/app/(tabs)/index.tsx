@@ -18,7 +18,7 @@ import { getMascotStage } from '@/utils/mascotUtils';
 import { SatietyGauge } from '@/components/world/SatietyGauge';
 import {HappinessGauge} from '@/components/world/HappinessGauge';
 import {useWorldHappiness} from '@/components/world/useWorldHappiness';
-import {useVillageMusic,usePauseVillageMusic} from '@/contexts/VillageMusicContext';
+import {useVillageMusic} from '@/contexts/VillageMusicContext';
 import {HAPPY_REWARDS,type HappyAction} from '@/utils/happiness';
 import {SmokingCare} from '@/components/world/SmokingCare';
 import { WorldPill } from '@/components/world/WorldPill';
@@ -74,7 +74,6 @@ export default function HomeScreen() {
   const hygiene=hygieneValue(feedState.hygiene,dust.reduce((a,b)=>a+b,0)/dust.length*100,hygieneNow);
   const hygieneState=readHygiene(feedState.hygiene,hygieneNow);
   const music=useVillageMusic();
-  usePauseVillageMusic(active&&sheet==='chat');
   const [hints, setHints] = useState(false);
   const [name, setName] = useState('');
   const [reaction, setReaction] = useState(0);

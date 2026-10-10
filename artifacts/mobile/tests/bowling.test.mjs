@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   simulateBowling,
+  bowlingResultPresentation,
   prepareBowlingPlay,
   readBowlingState,
   bowlingPlayedToday,
@@ -379,4 +380,15 @@ test('all v4 mission layouts can be cleared with a deliberate shot',()=>{
   }
   assert.equal(best,BOWLING_MISSIONS[mission].pins,mission);
  }
+});
+
+test('large result distinguishes mission success from partial rewards and misses',()=>{
+ for(const mission of ['strike','spare','split']){
+  const pins=BOWLING_MISSIONS[mission].pins;
+  assert.equal(bowlingResultPresentation({pins,mission,missionComplete:true}).title,'成功！');
+  assert.equal(bowlingResultPresentation({pins:pins-1,mission,missionComplete:false}).title,'失敗…');
+ }
+ assert.equal(bowlingResultPresentation({pins:0,mission:'strike',missionComplete:false}).detail,'MISS');
+ const partial=simulateBowling({aim:0,power:.8,curve:0,rulesVersion:4,mission:'strike'});
+ assert.ok(partial.earned>0);assert.equal(bowlingResultPresentation({...partial,mission:'strike'}).success,false);
 });
