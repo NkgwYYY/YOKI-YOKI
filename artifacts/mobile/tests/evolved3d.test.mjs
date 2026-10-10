@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createEvolvedRenderer,createEvolvedLeafMesh,evolvedRotation,evolvedGroundOffset,EVOLVED_CAMERA_SCALE} from '../utils/evolved3d.ts';
+import fs from 'node:fs';
+import ts from 'typescript';
+import * as contact from '../utils/softContact.ts';
+const code=ts.transpileModule(fs.readFileSync(new URL('../utils/evolved3d.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+const model={exports:{}};new Function('require','module','exports',code)(name=>{assert.equal(name,'./softContact');return contact;},model,model.exports);
+const {createEvolvedRenderer,createEvolvedLeafMesh,evolvedRotation,evolvedGroundOffset,evolvedBodySupport,EVOLVED_SHAPES,EVOLVED_CAMERA_SCALE}=model.exports;
 const forms=['odango','stage3','stage4'];
 const pose={rx:0,ry:0,rz:0,blink:0,happy:false,sleepy:false,night:false,mouthOpen:0,chew:0,smoking:false};
 // A recording Canvas checks the actual production projection without a browser.
@@ -31,6 +36,33 @@ test('leaves remain inside the camera and above the floor through complete turns
     const y=origin+(m[1]*mesh[i]+m[4]*mesh[i+1]+m[7]*mesh[i+2])*EVOLVED_CAMERA_SCALE;
     assert.ok(x>=0&&x<=100,`${form} leaf clipped sideways ${x}`);
     assert.ok(y>=0&&y<=93,`${form} leaf clipped vertically ${y}`);
+   }
+  }
+ }
+});
+test('soft contact makes a broad level footprint, with smooth shoulders and an unchanged crown',()=>{
+ const {softContactHeight:height,softContactSpread:spread}=contact;
+ for(const form of forms){
+  const r=EVOLVED_SHAPES[form].radius;
+  for(let yaw=0;yaw<Math.PI*2;yaw+=.2){
+   const m=evolvedRotation(0,yaw,0),support=evolvedBodySupport(form,m),origin=evolvedGroundOffset(form,m);
+   const floor=height(support,support);let count=0,left=Infinity,right=-Infinity,lastY=-Infinity;
+   for(let i=0;i<=200;i++){
+    const y=-support+2*support*i/200,compressed=height(y,support);
+    assert.ok(compressed>=lastY-1e-10,'compression must not fold the surface');lastY=compressed;
+    assert.ok(compressed<=floor+1e-10,'nothing penetrates the contact plane');
+    if(y<=0)assert.equal(compressed,y,'round upper half retains its shape');
+    if(y>support*.6)assert.ok(spread(y,support)>1,'lower sides spread with the weight');
+   }
+   for(let i=0;i<=360;i++){
+    const a=i*Math.PI/180,x=r[0]*Math.cos(a),y=support*Math.sin(a),sy=height(y,support);
+    if(Math.abs(sy-floor)<1e-8){count++;left=Math.min(left,x*spread(y,support));right=Math.max(right,x*spread(y,support));}
+   }
+   assert.ok(count>20&&right-left>r[0]*.75,'contact is an area, not the tip of a sphere');
+   assert.ok(Math.abs(origin+floor*EVOLVED_CAMERA_SCALE-90.3)<1e-8,'soft base remains on the floor');
+   for(const seam of [.57,.91]){
+    const y=support*seam,e=.0001,dl=(height(y,support)-height(y-e,support))/e,dr=(height(y+e,support)-height(y,support))/e;
+    assert.ok(Math.abs(dl-dr)<.001,'no sharp crease at either end of the soft shoulder');
    }
   }
  }

@@ -1,3 +1,6 @@
+/** Small dependency-free 3D projection renderer. Curved fibres, facial features
+ * and leaves share model coordinates; geometry is built once per form. */
+import { softContactHeight, softContactSpread } from './softContact.js?v=1';
 export const EVOLVED_SHAPES = {
     odango: { radius: [41, 40, 38], floor: 38.8, eyeY: -3, mouthY: 10, sprout: false },
     stage3: { radius: [40, 39, 37.5], floor: 38, eyeY: -1, mouthY: 10.5, sprout: true },
@@ -13,14 +16,18 @@ export function evolvedRotation(rx, ry, rz) {
     return [cy * cz, cy * sz, -sy, sx * sy * cz - cx * sz, sx * sy * sz + cx * cz, sx * cy, cx * sy * cz + sx * sz, cx * sy * sz - sx * cz, cx * cy];
 }
 export const EVOLVED_CAMERA_SCALE = .92;
+export function evolvedBodySupport(form, rotation) {
+    const r = EVOLVED_SHAPES[form].radius;
+    return Math.sqrt((rotation[1] * r[0]) ** 2 + (rotation[4] * r[1]) ** 2 + (rotation[7] * r[2]) ** 2);
+}
 export function evolvedGroundOffset(form, rotation) {
     const r = EVOLVED_SHAPES[form].radius;
-    // Support point of the rotated ellipsoid, including the fur, stays grounded.
-    let support = Math.sqrt((rotation[1] * r[0]) ** 2 + (rotation[4] * r[1]) ** 2 + (rotation[7] * r[2]) ** 2);
+    const bodySupport = evolvedBodySupport(form, rotation);
+    let support = softContactHeight(bodySupport, bodySupport);
     if (EVOLVED_SHAPES[form].sprout)
         for (const p of [[-14, -r[1] - 13, -1.8], [14, -r[1] - 13, 1.8]])
             support = Math.max(support, rotation[1] * p[0] + rotation[4] * p[1] + rotation[7] * p[2]);
-    return 91 - support * EVOLVED_CAMERA_SCALE - 2;
+    return 91 - support * EVOLVED_CAMERA_SCALE - .7;
 }
 // Position, normal, hair tangent, ribbon side/width, material, variation.
 const STRIDE = 14;
@@ -88,13 +95,11 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
     const fibreCount = detail === 'room' ? 7200 : 14000;
     const hairs = Array.from({ length: fibreCount }, (_, i) => {
         const y = 1 - 2 * (i + .5) / fibreCount, a = i * 2.399963229728653 + (random(i + 108) - .5) * .18, s = Math.sqrt(1 - y * y);
-        const p = [r[0] * s * Math.cos(a), Math.min(shape.floor, r[1] * y), r[2] * s * Math.sin(a)];
+        const p = [r[0] * s * Math.cos(a), r[1] * y, r[2] * s * Math.sin(a)];
         const n = norm([p[0] / r[0] ** 2, p[1] / r[1] ** 2, p[2] / r[2] ** 2]);
         const down = [p[0] * .018, .5 + p[1] * .013, p[2] * .009], tangent = norm(add(down, n, -dot(down, n)));
         const length = 1.7 + random(i) * 2.5, bend = 1.2 + random(i + 8) * 2.6;
         const mid = add(add(p, n, length * .55), tangent, bend * .2), tip = add(add(p, n, length), tangent, bend);
-        mid[1] = Math.min(shape.floor + 1.3, mid[1]);
-        tip[1] = Math.min(shape.floor + 1.3, tip[1]);
         return { p, n, mid, tip, color: coat(p), variation: random(i + 49) };
     });
     const leafMesh = createEvolvedLeafMesh(form);
@@ -104,8 +109,13 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
             if (disposed)
                 return;
             const started = performance.now();
-            const m = evolvedRotation(pose.rx, pose.ry, pose.rz), origin = evolvedGroundOffset(form, m);
-            const rot = (p) => [m[0] * p[0] + m[3] * p[1] + m[6] * p[2], m[1] * p[0] + m[4] * p[1] + m[7] * p[2], m[2] * p[0] + m[5] * p[1] + m[8] * p[2]];
+            const m = evolvedRotation(pose.rx, pose.ry, pose.rz), origin = evolvedGroundOffset(form, m), support = evolvedBodySupport(form, m);
+            const rotate = (p) => [m[0] * p[0] + m[3] * p[1] + m[6] * p[2], m[1] * p[0] + m[4] * p[1] + m[7] * p[2], m[2] * p[0] + m[5] * p[1] + m[8] * p[2]];
+            const contact = (p) => { const spread = softContactSpread(p[1], support); return [p[0] * spread, softContactHeight(p[1], support), p[2] * spread]; };
+            const rot = (p) => {
+                const x = m[0] * p[0] + m[3] * p[1] + m[6] * p[2], y = m[1] * p[0] + m[4] * p[1] + m[7] * p[2], z = m[2] * p[0] + m[5] * p[1] + m[8] * p[2], spread = softContactSpread(y, support);
+                return [x * spread, softContactHeight(y, support), z * spread];
+            };
             const surface = (x, y) => [x, y, r[2] * Math.sqrt(Math.max(0, 1 - (x / r[0]) ** 2 - (y / r[1]) ** 2))];
             const normalAt = (p) => norm([p[0] / r[0] ** 2, p[1] / r[1] ** 2, p[2] / r[2] ** 2]);
             ctx.setTransform(canvas.width / 100, 0, 0, canvas.height / 100, 0, 0);
@@ -113,14 +123,28 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
             ctx.translate(50, origin);
             ctx.scale(EVOLVED_CAMERA_SCALE, EVOLVED_CAMERA_SCALE);
             // Covariance of the projected ellipsoid gives its exact smooth silhouette.
-            const ellipse = (center, radii) => {
+            const ellipse = (center, radii, softBody = false) => {
                 const xx = (m[0] * radii[0]) ** 2 + (m[3] * radii[1]) ** 2 + (m[6] * radii[2]) ** 2;
                 const yy = (m[1] * radii[0]) ** 2 + (m[4] * radii[1]) ** 2 + (m[7] * radii[2]) ** 2;
                 const xy = m[0] * m[1] * radii[0] ** 2 + m[3] * m[4] * radii[1] ** 2 + m[6] * m[7] * radii[2] ** 2;
                 const delta = Math.sqrt((xx - yy) ** 2 + 4 * xy * xy), a = Math.sqrt((xx + yy + delta) / 2), b = Math.sqrt(Math.max(.01, (xx + yy - delta) / 2));
-                const q = rot(center);
+                const q = rot(center), angle = .5 * Math.atan2(2 * xy, xx - yy);
                 ctx.beginPath();
-                ctx.ellipse(q[0], q[1], a, b, .5 * Math.atan2(2 * xy, xx - yy), 0, Math.PI * 2);
+                if (softBody) {
+                    // Deform the silhouette together with the coat, instead of drawing a
+                    // rigid ellipse underneath flattened hairs. No image clipping seam.
+                    const ca = Math.cos(angle), sa = Math.sin(angle);
+                    for (let i = 0; i <= 128; i++) {
+                        const t = i * Math.PI / 64, x = a * Math.cos(t), y = b * Math.sin(t), p = contact([x * ca - y * sa, x * sa + y * ca, 0]);
+                        if (i)
+                            ctx.lineTo(p[0], p[1]);
+                        else
+                            ctx.moveTo(p[0], p[1]);
+                    }
+                    ctx.closePath();
+                }
+                else
+                    ctx.ellipse(q[0], q[1], a, b, angle, 0, Math.PI * 2);
                 return q;
             };
             const light = norm([-.45, -.68, .8]);
@@ -129,11 +153,11 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
             const drawLeaves = (front) => {
                 const triangles = [];
                 for (let i = 0; i < leafMesh.length; i += STRIDE * 3) {
-                    const p = [0, 1, 2].map(j => rot([leafMesh[i + j * STRIDE], leafMesh[i + j * STRIDE + 1], leafMesh[i + j * STRIDE + 2]]));
+                    const p = [0, 1, 2].map(j => rotate([leafMesh[i + j * STRIDE], leafMesh[i + j * STRIDE + 1], leafMesh[i + j * STRIDE + 2]]));
                     const z = p.reduce((sum, q) => sum + q[2], 0) / 3;
                     if ((z >= 0) !== front)
                         continue;
-                    triangles.push({ p, n: rot([leafMesh[i + 3], leafMesh[i + 4], leafMesh[i + 5]]), z, material: leafMesh[i + 11] });
+                    triangles.push({ p, n: rotate([leafMesh[i + 3], leafMesh[i + 4], leafMesh[i + 5]]), z, material: leafMesh[i + 11] });
                 }
                 triangles.sort((a, b) => a.z - b.z);
                 for (const t of triangles) {
@@ -150,7 +174,7 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
                 }
             };
             drawLeaves(false);
-            ellipse([0, 0, 0], r);
+            ellipse([0, 0, 0], r, true);
             const bodyGradient = ctx.createRadialGradient(-14, -18, 4, 3, 4, 49);
             bodyGradient.addColorStop(0, color(form === 'stage4' ? [239, 228, 187] : [255, 254, 247]));
             bodyGradient.addColorStop(.6, color(form === 'stage4' ? [205, 213, 195] : [247, 245, 238]));
@@ -172,7 +196,7 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
             ctx.restore();
             const groups = new Map();
             for (const hair of hairs) {
-                const n = rot(hair.n);
+                const n = rotate(hair.n);
                 if (n[2] < -.06)
                     continue;
                 const p = rot(hair.p), mid = rot(hair.mid), tip = rot(hair.tip);
@@ -195,12 +219,12 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
                 ctx.stroke(path);
             }
             ctx.globalAlpha = 1;
-            const visible = (p) => rot(normalAt(p))[2] > .04;
+            const visible = (p) => rotate(normalAt(p))[2] > .04;
             for (const x of [-18, 18]) {
                 const p = surface(x, shape.eyeY + 8);
                 if (!visible(p))
                     continue;
-                const q = rot(p), facing = Math.max(.05, rot(normalAt(p))[2]);
+                const q = rot(p), facing = Math.max(.05, rotate(normalAt(p))[2]);
                 ctx.save();
                 ctx.translate(q[0], q[1]);
                 ctx.rotate(pose.rz);
@@ -218,14 +242,14 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
                 if (!visible(p))
                     continue;
                 p[2] += .7;
-                const shut = pose.sleepy ? 1 : pose.blink, ey = 3.5 * Math.max(.11, 1 - shut);
+                const shut = pose.sleepy ? 1 : pose.blink, ey = 3.9 * Math.max(.11, 1 - shut);
                 // A little real sclera peeks outside/below each pupil, as in the reference.
                 // Its asymmetric crescent is separate from the specular white highlight.
-                ellipse(p, [4.02, ey + .72 * (1 - shut), 1.85]);
+                ellipse(p, [4.42, ey + .72 * (1 - shut), 1.85]);
                 ctx.fillStyle = 'rgba(99,110,99,.30)';
                 ctx.fill();
-                const whiteCenter = ellipse(p, [3.85, ey + .55 * (1 - shut), 1.8]);
-                const sclera = ctx.createRadialGradient(whiteCenter[0] - .7, whiteCenter[1] - 1, 0, whiteCenter[0], whiteCenter[1], 4.6);
+                const whiteCenter = ellipse(p, [4.25, ey + .55 * (1 - shut), 1.8]);
+                const sclera = ctx.createRadialGradient(whiteCenter[0] - .7, whiteCenter[1] - 1, 0, whiteCenter[0], whiteCenter[1], 5);
                 sclera.addColorStop(0, '#fffef7');
                 sclera.addColorStop(.72, '#eeefe6');
                 sclera.addColorStop(1, '#b8c0b5');
@@ -234,8 +258,8 @@ export function createEvolvedRenderer(canvas, form, detail = 'portrait') {
                 p[0] += x < 0 ? .28 : -.28;
                 p[1] -= .22 * (1 - shut);
                 p[2] += 1.15;
-                const q = ellipse(p, [3.2, ey, 1.85]);
-                const eye = ctx.createRadialGradient(q[0] - 1, q[1] - 1.4, .2, q[0], q[1], 3.8);
+                const q = ellipse(p, [3.6, ey, 1.85]);
+                const eye = ctx.createRadialGradient(q[0] - 1, q[1] - 1.4, .2, q[0], q[1], 4.2);
                 eye.addColorStop(0, '#42453f');
                 eye.addColorStop(.35, '#161a16');
                 eye.addColorStop(1, '#080c09');

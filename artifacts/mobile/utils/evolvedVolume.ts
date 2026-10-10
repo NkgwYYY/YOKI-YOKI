@@ -1,4 +1,5 @@
 import {rotatePoint,cigaretteProjection, type Point3} from './residentVolume';
+import {softContactHeight,softContactSpread} from './softContact';
 
 /** Shape/face coordinates traced against assets/images/characters/odango.png
  * (512px square). Back fur is inferred: no turnaround art is supplied. Keep
@@ -8,11 +9,11 @@ export type ResidentVolumeModel = {
 };
 export const ODANGO_MODEL: ResidentVolumeModel = {
   radius:{x:41,y:40,z:38},floor:38.8,
-  face:{eyeX:10.1,eyeY:-3,eyeWidth:3.2,eyeHeight:3.5,cheekX:18,cheekY:7,mouthY:10},
+  face:{eyeX:10.1,eyeY:-3,eyeWidth:3.6,eyeHeight:3.9,cheekX:18,cheekY:7,mouthY:10},
 };
 export const HAPPA_MODEL: ResidentVolumeModel = {
   radius:{x:40,y:39,z:37.5},floor:38,
-  face:{eyeX:10.1,eyeY:-1,eyeWidth:3.2,eyeHeight:3.5,cheekX:18,cheekY:7,mouthY:10.5},
+  face:{eyeX:10.1,eyeY:-1,eyeWidth:3.6,eyeHeight:3.9,cheekX:18,cheekY:7,mouthY:10.5},
 };
 export const EVOLVED_VOLUME_MODELS = {odango:ODANGO_MODEL,stage3:HAPPA_MODEL,stage4:HAPPA_MODEL} as const;
 function surface(model:ResidentVolumeModel,x:number,y:number):Point3 {
@@ -24,7 +25,7 @@ function outline(model:ResidentVolumeModel) {
   const points:Point3[]=[];
   for(let ring=0;ring<=16;ring++)for(let slice=0;slice<24;slice++){
     const a=ring*Math.PI/16,b=slice*Math.PI/12,r=model.radius;
-    points.push({x:r.x*Math.sin(a)*Math.cos(b),y:Math.min(model.floor,-r.y*Math.cos(a)),z:r.z*Math.sin(a)*Math.sin(b)});
+    points.push({x:r.x*Math.sin(a)*Math.cos(b),y:-r.y*Math.cos(a),z:r.z*Math.sin(a)*Math.sin(b)});
   }
   return points;
 }
@@ -34,7 +35,7 @@ function fibres(model:ResidentVolumeModel) {
   const points:Point3[]=[];
   for(let i=0;i<600;i++){
     const y=1-2*(i+.5)/600,a=i*2.399963229728653,r=model.radius;
-    points.push({x:r.x*Math.sqrt(1-y*y)*Math.cos(a),y:Math.min(model.floor,r.y*y),z:r.z*Math.sqrt(1-y*y)*Math.sin(a)});
+    points.push({x:r.x*Math.sqrt(1-y*y)*Math.cos(a),y:r.y*y,z:r.z*Math.sqrt(1-y*y)*Math.sin(a)});
   }
   return points;
 }
@@ -59,7 +60,10 @@ function hull(points:Point3[]) {
 export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeometry>,rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
   'worklet';
   const model=geometry.model,r=model.radius,f=model.face;
-  const rot=(p:Point3)=>{'worklet';return rotatePoint(p,rx,ry,rz);};
+  const rotate=(p:Point3)=>{'worklet';return rotatePoint(p,rx,ry,rz);};
+  const axes=[rotate({x:r.x,y:0,z:0}),rotate({x:0,y:r.y,z:0}),rotate({x:0,y:0,z:r.z})];
+  const support=Math.sqrt(axes[0].y**2+axes[1].y**2+axes[2].y**2);
+  const rot=(p:Point3)=>{'worklet';const q=rotate(p),spread=softContactSpread(q.y,support);return {x:q.x*spread,y:softContactHeight(q.y,support),z:q.z*spread};};
   const silhouette=hull(geometry.outline.map(rot));
   const originY=91-Math.max(...silhouette.map(p=>p.y));
   // Small soft tufts extend the silhouette without stretching the underlying body.
@@ -76,7 +80,7 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
     }
   }
   furHalo+=' Z';
-  const normal=(p:Point3)=>{'worklet';return rot({x:p.x/(r.x*r.x),y:p.y/(r.y*r.y),z:p.z/(r.z*r.z)}).z;};
+  const normal=(p:Point3)=>{'worklet';return rotate({x:p.x/(r.x*r.x),y:p.y/(r.y*r.y),z:p.z/(r.z*r.z)}).z;};
   // Clip each feature at the horizon, including its near edge. This avoids the
   // whole far eye popping in/out at a single centre-normal threshold.
   const patch=(x:number,y:number,wx:number,hy:number)=>{

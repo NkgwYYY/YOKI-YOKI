@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 import * as base from '../utils/residentVolume.ts';
+import * as contact from '../utils/softContact.ts';
 const code=ts.transpileModule(fs.readFileSync(new URL('../utils/evolvedVolume.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
-const model={exports:{}};new Function('require','module','exports',code)(()=>base,model,model.exports);
+const model={exports:{}};new Function('require','module','exports',code)(name=>name==='./softContact'?contact:base,model,model.exports);
 const {projectOdango,residentSoftScale,residentWalkYaw,EVOLVED_VOLUME_MODELS}=model.exports;
 const bounds=d=>{
   const pairs=[...d.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map(m=>[+m[1],+m[2]]);
