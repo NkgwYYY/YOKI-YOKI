@@ -3,6 +3,7 @@ import {ActivityIndicator,Image,KeyboardAvoidingView,Platform,Pressable,ScrollVi
 import {useRouter} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useApp} from '@/contexts/AppContext';
+import {useRoomActivity} from '@/components/room/useRoomActivity';
 import {useAuth} from '@/contexts/AuthContext';
 import {useItems,resolveItemAssetUrl} from '@/contexts/ItemContext';
 import {StaticMascot} from '@/components/Mascot';
@@ -25,6 +26,8 @@ export default function ExchangeDiaryScreen(){
 }
 function DiaryNotebook(){
  const router=useRouter(),insets=useSafeAreaInsets();
+ const {active}=useRoomActivity();
+ const [visibleLetter,setVisibleLetter]=useState('');
  const {feedState,runDiary,mascotName,progress,getTodayRecord}=useApp();
  const {items,shopState}=useItems();
  const [today]=useState(getTodayDate),[date,setDate]=useState(getTodayDate);
@@ -47,6 +50,15 @@ function DiaryNotebook(){
   finally{pending.current=false;if(alive.current)setBusy(false);}
  };
  useEffect(()=>{void open();},[]);
+ // Opening storage alone is not reading: wait until the character page is shown.
+ useEffect(()=>{
+  if(!active||busy||shelf||side!=='character'||visibleLetter!==date||!page||Number.isFinite(page.letterReadAt))return;
+  let current=true;
+  const timer=setTimeout(()=>{void runDiary({kind:'read',date}).catch(()=>{
+   if(current&&alive.current)setError('読んだしるしを保存できませんでした。もう一度ページを開いてね。');
+  });},600);
+  return()=>{current=false;clearTimeout(timer);};
+ },[active,busy,shelf,side,visibleLetter,date,page?.letterReadAt,runDiary]);
  useEffect(()=>{
   if(page&&mine&&!draft)setDraft({text:page.user?.text??'',mood:page.user?.mood??getTodayRecord()?.mood??null,revision:page.revision,id:'',details:page.user?.details??diaryDetailsFromRecord(getTodayRecord()??undefined),detailsDirty:false});
  },[page,mine,draft]);
@@ -79,7 +91,7 @@ function DiaryNotebook(){
    <View style={s.tabs}>{(['character','user'] as const).map(value=><Pressable key={value} testID={`diary-tab-${value}`} accessibilityRole="tab" accessibilityState={{selected:side===value}} onPress={()=>turn(value)} style={[s.tab,side===value&&s.tabSelected]}><Text style={[s.tabText,side===value&&s.tabTextSelected]}>{value==='character'?`${name}のページ`:'あなたのページ'}{value==='user'&&page?.user?' ✓':''}</Text></Pressable>)}</View>
    {!page?<View style={s.paper}><Text style={s.body}>{busy?'今日のページを開いています…':'まだページを開けていません。'}</Text>{!busy&&<Pressable accessibilityRole="button" onPress={()=>{void open();}} style={s.primary}><Text style={s.primaryText}>もう一度開く</Text></Pressable>}</View>
    :side==='character'?<>
-    <View testID="diary-character-page" style={s.paper}>
+    <View key={date} testID="diary-character-page" onLayout={()=>setVisibleLetter(date)} style={s.paper}>
      <View pointerEvents="none" style={s.marginLine}/>
      <View style={s.author}><View style={s.portrait}><StaticMascot stage={stage} mood="happy" size={76}/>{wear?.assetUrl&&<Image source={{uri:resolveItemAssetUrl(wear.assetUrl)}} resizeMode="contain" style={{position:'absolute',...roomWearableFrame(wear.id,getCharacter(stage).key,76,{x:placement?.x??0,y:placement?.y??0,scale:placement?.scale??1})}}/>}</View><View style={{flex:1,gap:6}}><Text style={s.authorName}>{name}の今日</Text><Text style={s.feeling}>{page.letter.feeling}</Text></View><Icon name="feather" size={22} color="#AD946F"/></View>
      <Text style={s.letterTitle}>{page.letter.title}</Text><Text testID="diary-character-story" style={s.handwriting}>{page.letter.body}</Text>

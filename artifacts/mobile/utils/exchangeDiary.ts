@@ -12,10 +12,16 @@ export function diaryDetailsFromRecord(record?:Partial<DailyRecord>):DiaryDetail
 function validateDetails(d:DiaryDetails){
  if(!d||!Number.isFinite(d.sleep)||d.sleep<0||d.sleep>12||typeof d.sleepRecorded!=='boolean'||!Array.isArray(d.behaviors)||d.behaviors.length>30||d.behaviors.some(v=>typeof v!=='string'||v.length>100)||typeof d.notes!=='string'||d.notes.length>10000||[d.exercise,d.meal,d.social].some(v=>v!==undefined&&(!Number.isInteger(v)||v<1||v>3))||(d.win!==undefined&&(typeof d.win!=='string'||d.win.length>60))||(d.activities!==undefined&&(!d.activities||typeof d.activities!=='object'||Array.isArray(d.activities)||Object.values(d.activities).some(v=>!Number.isFinite(v)||v<0))))throw Error('詳しい記録の内容を確認してね');
 }
-export type DiaryPage={date:string;name:string;stage:MascotStage;letter:DiaryLetter;revision:number;user?:{text:string;mood:number;savedAt:number;submissionId:string;details?:DiaryDetails};reply?:string};
+export type DiaryPage={date:string;name:string;stage:MascotStage;letter:DiaryLetter;revision:number;letterReadAt?:number;user?:{text:string;mood:number;savedAt:number;submissionId:string;details?:DiaryDetails};reply?:string};
 export type ExchangeDiaryState={pages:Record<string,DiaryPage>};
-export type DiaryOperation={kind:'open';date:string}|{kind:'send';date:string;id:string;revision:number;text:string;mood:number;details?:DiaryDetails};
+export type DiaryOperation={kind:'open';date:string}|{kind:'read';date:string}|{kind:'send';date:string;id:string;revision:number;text:string;mood:number;details?:DiaryDetails};
 export type DiaryResult={page:DiaryPage;changed:boolean};
+/** Only today's exchange needs attention; missed days never build up a backlog. */
+export function diaryAttention(state:ExchangeDiaryState|undefined,today:string){
+ const page=state?.pages[today];
+ const unwritten=!page?.user,unread=!Number.isFinite(page?.letterReadAt);
+ return {unwritten,unread,pending:unwritten||unread};
+}
 const stories:readonly DiaryLetter[]=[
  {title:'雲のパン屋さん',feeling:'のんびり',source:'clouds',body:'今日は噴水のそばで、雲を眺めていたよ。丸いパンみたいな雲を見つけて、ちょっとおなかがすいた。\nもう一度見たら、長いお魚になっていたんだ。空のパン屋さんは、気まぐれだね。'},
  {title:'小さな勇気',feeling:'ちょっと、どきどき',source:'hello',body:'いつもすれ違う村の子に、今日は自分から「こんにちは」って言ってみたよ。声が小さくなっちゃったけど、手を振り返してくれた。\n帰り道、なんだかいつもより足が軽かったな。'},
@@ -72,6 +78,9 @@ export function prepareDiary(values:Record<string,string|null>,op:DiaryOperation
    if(op.date!==today)throw Error('この日には、まだ日記がありません');
    page={date:op.date,name:character.name.trim()||'よっきー',stage:character.stage,letter:makeDiaryLetter(op.date,feed),revision:0};
   }
+ }else if(op.kind==='read'){
+  if(!previous)throw Error('先に日記のページを開いてね');
+  if(!Number.isFinite(previous.letterReadAt))page={...previous,letterReadAt:now};
  }else{
   if(!previous)throw Error('先に今日のページを開いてね');
   if(!op.id||op.id.length>100||typeof op.text!=='string'||op.text.length>DIARY_TEXT_LIMIT||!Number.isInteger(op.mood)||op.mood<1||op.mood>5)throw Error('日記の内容を確認してね');

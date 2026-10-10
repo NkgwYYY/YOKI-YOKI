@@ -9,7 +9,7 @@ import {preparePlazaEvent} from '../utils/plazaEvents.ts';
 import {createRecoverableStorage} from '../utils/recoverableStorage.ts';
 function load(path,deps){const out={};const code=ts.transpileModule(fs.readFileSync(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;new Function('require','exports',code)(name=>{if(!Object.hasOwn(deps,name))throw Error(name);return deps[name];},out);return out;}
 const daily=load('../utils/dailyRecordTransaction.ts',{'./gameLogic':game,'./lightEnergy':energy,'./happiness':happiness});
-const {prepareDiary,makeDiaryLetter,diaryReply}=load('../utils/exchangeDiary.ts',{'./dailyRecordTransaction':daily});
+const {prepareDiary,makeDiaryLetter,diaryReply,diaryAttention}=load('../utils/exchangeDiary.ts',{'./dailyRecordTransaction':daily});
 const k=daily.RECORD_KEYS,today='2026-10-09',yesterday='2026-10-08',now=Date.parse('2026-10-09T10:00:00Z');
 const defaults={progress:{experience:0,level:1,mentalMuscle:0,streak:0,totalDays:0,lastRecordDate:''},feed:{points:100,lastFeedTime:'',satietyAtFeed:65}};
 const character={name:'よっきー',stage:'egg'};
@@ -88,4 +88,27 @@ test('invalid detailed fields do not partially save the diary or mood',async()=>
  const f=fixture();await f.run(open);const before=new Map(f.data);
  for(const patch of [{sleep:13},{sleep:NaN},{sleepRecorded:'yes'},{behaviors:[null]},{notes:123},{exercise:4},{win:'a'.repeat(61)},{activities:{walk:-1}}])await assert.rejects(f.run({...send,details:{...details,...patch}}));
  assert.deepEqual(f.data,before);
+});
+
+const read={kind:'read',date:today};
+test('notebook stays lit until both the daily entry is sent and character letter is read',async()=>{
+ const f=fixture();assert.deepEqual(diaryAttention(undefined,today),{unwritten:true,unread:true,pending:true});
+ const opened=await f.run(open);assert.equal(diaryAttention(opened.feed.exchangeDiary,today).unread,true);
+ const written=await f.run(send);assert.deepEqual(diaryAttention(written.feed.exchangeDiary,today),{unwritten:false,unread:true,pending:true});
+ const seen=await f.run(read);assert.deepEqual(diaryAttention(seen.feed.exchangeDiary,today),{unwritten:false,unread:false,pending:false});
+ assert.equal(seen.page.revision,written.page.revision);assert.equal(seen.feed.points,written.feed.points);assert.equal(seen.record,null);
+ assert.equal((await f.run(read)).changed,false);
+ assert.equal(diaryAttention(JSON.parse(f.data.get(k.feed)).exchangeDiary,today).pending,false);
+ assert.deepEqual(diaryAttention(seen.feed.exchangeDiary,'2026-10-10'),{unwritten:true,unread:true,pending:true});
+});
+test('reading without writing keeps the reminder and does not grant a record reward',async()=>{
+ const f=fixture();await assert.rejects(f.run(read),/ページ/);await f.run(open);
+ const seen=await f.run(read);assert.deepEqual(diaryAttention(seen.feed.exchangeDiary,today),{unwritten:true,unread:false,pending:true});
+ assert.equal(seen.feed.points,100);assert.equal(f.data.has(k.records),false);
+ const written=await f.run({...send,text:''});assert.equal(diaryAttention(written.feed.exchangeDiary,today).pending,false);
+ assert.equal(written.page.letterReadAt,now);assert.equal(written.feed.points,105);
+});
+test('read receipts recover after interrupted storage and never change the user entry',async()=>{
+ const f=fixture();await f.run(open);await f.run(send);f.failAt(2);await assert.rejects(f.run(read),/disk/);
+ const restored=await f.run(read);assert.equal(restored.page.letterReadAt,now);assert.equal(restored.page.user.text,send.text);assert.equal(restored.feed.points,105);assert.equal(f.data.has('journal'),false);
 });

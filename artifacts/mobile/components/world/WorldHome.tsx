@@ -42,6 +42,8 @@ import { WorldPill, worldUI } from './WorldPill';
 import { Icon } from '@/components/ui/Icon';
 import { RamenArt } from '@/components/village/RamenArt';
 import { useSceneTransition } from './useSceneTransition';
+import {DiaryNotebookGlow} from './DiaryNotebookGlow';
+import {diaryAttention} from '@/utils/exchangeDiary';
 import {BowlingGame} from './BowlingGame';
 import {bowlingPlayedToday} from '@/utils/bowling';
 import {getTodayDate} from '@/utils/dateUtils';
@@ -81,6 +83,15 @@ export function WorldHome(props: Props) {
   const latestActive=useRef(props.active);latestActive.current=props.active;
   const portalTravel=useSharedValue(false);
   const [map,setMap]=useState<WorldMapId>(props.initialMap??'home');
+  const [diaryDay,setDiaryDay]=useState(getTodayDate);
+  useEffect(()=>{
+    if(!props.active||map!=='home')return;
+    setDiaryDay(getTodayDate());
+    const timer=setInterval(()=>setDiaryDay(getTodayDate()),30000);
+    return()=>clearInterval(timer);
+  },[props.active,map]);
+  const diaryNotice=diaryAttention(feedState.exchangeDiary,diaryDay);
+  const diaryHint=[diaryNotice.unwritten?'今日の日記はまだ書いていません':'',diaryNotice.unread?'キャラクターの日記が届いています':''].filter(Boolean).join('。');
   useEffect(()=>props.onMapChange(map),[map,props.onMapChange]);
   const smoking=useSmoking(props.active&&map==='tobacco');
   const plaza=usePlazaEvents(props.active&&map==='market');
@@ -231,8 +242,9 @@ export function WorldHome(props: Props) {
   const night = props.period === 'night'||map==='tobacco';
   const source = worldArt(map,night);
   const hotspot = (id: string, label: string, x: number, y: number, onPress: () => void) => (
-    <Pressable key={id} testID={`room-${id}`} accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
+    <Pressable key={id} testID={`room-${id}`} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={id==='record'?diaryHint:undefined} onPress={onPress}
       style={({pressed}) => [s.hotspot, {left: x * width - 24, top: y * height - 24, opacity: pressed ? 0.6 : 1}]}>
+      {id==='record'&&diaryNotice.pending&&<DiaryNotebookGlow active={active} reduceMotion={reduceMotion}/>}
       <View pointerEvents="none" style={s.glint} />
     {props.hints && <Text pointerEvents="none" style={s.hint}>{label}</Text>}
     </Pressable>
