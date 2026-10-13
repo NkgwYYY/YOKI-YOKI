@@ -39,16 +39,16 @@ export function conversationHintLayout(target:ConversationTarget,targets:Convers
  const x=target.point.x*width,y=target.point.y*height,size=target.size*width;
  const outward=target.point.x<.5?-1:1;
  const candidates=[
-  {x:x-w/2,y:y-size-h-10},
-  {x:x-w/2+outward*w*.65,y:y-size-h-10},
-  {x:x-w/2,y:y-size-h-68},
-  {x:x-w/2,y:y-size-h-116},
-  {x:x+size/2+12,y:y-size*.6-h/2},
-  {x:x-size/2-w-12,y:y-size*.6-h/2},
+  {x:x-w/2,y:y-size-h-10,w},
+  {x:x-w/2+outward*w*.65,y:y-size-h-10,w},
+  {x:x+size/2+12,y:y-size*.6-h/2,w},
+  {x:x-size/2-w-12,y:y-size*.6-h/2,w},
+  {x:outward>0?x:x-100,y:y+12,w:100},
  ];
  const obstacles=targets.map(t=>({x:t.point.x*width-t.size*width/2-8,y:t.point.y*height-t.size*width-8,w:t.size*width+16,h:t.size*width+16}));
  obstacles.push({x:player.x*width-width*.09,y:player.y*height-width*.19,w:width*.18,h:width*.19+12});
  for(const candidate of candidates){
+  const w=candidate.w;
   const left=Math.max(viewportLeft+12,Math.min(viewportLeft+viewportWidth-w-12,candidate.x));
   const top=Math.max(clearTop+8,candidate.y);
   if(top+h>height*.81)continue;

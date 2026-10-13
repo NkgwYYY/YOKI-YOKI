@@ -50,11 +50,15 @@ test('hint fits phone widths and never covers a character when approaching or pa
    checked++;
    assert.ok(hint.left>=left+12&&hint.left+hint.width<=left+viewport-12);
    assert.ok(hint.top>=194);
+   const actor=rect(target.point,target.size,width,height);
+   const dx=Math.max(0,actor.left-hint.left-hint.width,hint.left-actor.left-actor.width);
+   const dy=Math.max(0,actor.top-hint.top-hint.height,hint.top-actor.top-actor.height);
+   assert.ok(Math.hypot(dx,dy)<=20,'hint remains beside its own speaker');
    for(const t of targets)assert.equal(overlaps(hint,rect(t.point,t.size,width,height)),false);
    assert.equal(overlaps(hint,rect(player,.18,width,height)),false);
   }
  }
- assert.ok(checked>=12,'normal approaches have room for a hint');
+ assert.ok(checked>=8,'normal phone approaches have room for a hint');
 });
 
 // Gate hit areas remain accessible without covering any of the story neighbours.
