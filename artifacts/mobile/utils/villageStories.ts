@@ -37,6 +37,7 @@ export function prepareVillageStory(values:Record<string,string|null>,op:StoryOp
  // Replayed taps and recovered writes return the original choice, never a second reward.
  if(previous)return {entries:[] as StorageEntry[],result:{feed,state,receipt:previous,changed:false}};
  if(!status.unlocked)throw Error('先のお話を終えると始められます');
+ if(op.id==='supply'&&!(feed.vegetableGarden&&feed.vegetableGarden.harvests>0))throw Error('初めての野菜が収穫できたら、店長に会いに行こう');
  if(status.clockBlocked)throw Error('端末の日付を確認して、もう一度開いてね');
  if(status.index!==op.episode)throw Error('物語の続きが変わりました。一度開き直してね');
  if(status.waiting)throw Error('今日のお話はここまで。続きは明日以降、いつでも読めます');

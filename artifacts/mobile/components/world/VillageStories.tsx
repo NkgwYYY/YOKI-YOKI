@@ -1,3 +1,4 @@
+import {GrandmotherResident} from './VegetableGarden';
 import {MerchantResident} from '@/components/village/MerchantResident';
 import React,{useEffect,useRef,useState} from 'react';
 import {AppState,Image,Modal,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
@@ -15,7 +16,7 @@ import {getTodayDate} from '@/utils/dateUtils';
 import {WORLD_MAPS,type WorldMapId} from '@/utils/worldMaps';
 import {worldArt,FORTUNE_CAT_ART} from '@/utils/worldArt';
 
-const symbols:Record<StoryId,IconName>={newcomer:'home',ramen:'coffee',bowling:'award',cat:'moon',festival:'sun'};
+const symbols:Record<StoryId,IconName>={grandma:'feather',supply:'shopping-bag',newcomer:'home',ramen:'coffee',bowling:'award',cat:'moon',festival:'sun'};
 const placeName=(id:WorldMapId)=>WORLD_MAPS.find(p=>p.id===id)?.name??'';
 export function useVillageStories(active:boolean){
  const {feedState,isLoading,cloudSynced}=useApp(),{isSignedIn,isLoading:authLoading}=useAuth();
@@ -46,9 +47,9 @@ export function VillageStoryArchive({onClose}:{onClose:()=>void}){
  </BottomSheet>;
 }
 
-type DialogueProps={encounter:StoryEncounter;onClose:()=>void;onBowl:()=>void;service?:{label:string;run:()=>void}};
+type DialogueProps={encounter:StoryEncounter;onClose:()=>void;onBowl:()=>void;onGo?:(map:WorldMapId)=>void;service?:{label:string;run:()=>void}};
 export function VillageStoryDialogue(props:DialogueProps){const {user}=useAuth();return <StoryDialogue key={`${user?.id??'guest'}:${props.encounter.key}`} {...props}/>;}
-function StoryDialogue({encounter,onClose,onBowl,service}:DialogueProps){
+function StoryDialogue({encounter,onClose,onBowl,onGo,service}:DialogueProps){
  const {runVillageStory,bowlingState}=useApp(),{today,ready,error:readError}=useVillageStories(true);
  const {height}=useWindowDimensions(),insets=useSafeAreaInsets();
  const story=villageStory(encounter.id),episode=story.episodes[encounter.index];
@@ -73,6 +74,7 @@ function StoryDialogue({encounter,onClose,onBowl,service}:DialogueProps){
      {!!(readError||error)&&<Text accessibilityRole="alert" style={s.error}>{readError||error}</Text>}
     </ScrollView>
     {receipt?<Pressable testID="story-close" accessibilityRole="button" onPress={close} style={s.answer}><Text style={s.buttonText}>またね</Text></Pressable>:episode.bowl&&!hasBowled?<Pressable testID="story-bowl" accessibilityRole="button" onPress={onBowl} style={s.answer}><Text style={s.buttonText}>受付へ行って、一投する</Text></Pressable>:<View style={{flexDirection:'row',gap:8}}>{episode.choices.map((label,i)=><Pressable key={i} testID={`story-choice-${i}`} accessibilityRole="button" disabled={!ready||busy} onPress={()=>void choose(i as 0|1)} style={[s.answer,{flex:1},(!ready||busy)&&{opacity:.5}]}><Text style={s.buttonText}>{busy?'思い出を残しています…':label}</Text></Pressable>)}</View>}
+    {receipt&&encounter.id==='grandma'&&encounter.index===5&&onGo&&<Pressable testID="story-grandma-visit" accessibilityRole="button" onPress={()=>onGo('grandma')} style={s.answer}><Text style={s.buttonText}>おばあさんの家へ、お茶に行く</Text></Pressable>}
     {service&&<Pressable testID="story-service" accessibilityRole="button" disabled={busy} onPress={()=>{if(!pending.current)service.run();}} style={{minHeight:34,justifyContent:'center'}}><Text style={s.small}>{service.label}　→</Text></Pressable>}
    </View>
   </View>
@@ -83,7 +85,7 @@ export function StoryEncounterActor({encounter,width,height,active,reduceMotion,
  const size=width*.17;
  return <Pressable testID="story-encounter-resident" accessibilityRole="button" accessibilityLabel={`${villageStory(encounter.id).episodes[encounter.index].speaker}に話しかける`} disabled={!active} onPress={onTalk} style={{position:'absolute',left:width*encounter.point.x-size/2,top:height*encounter.point.y-size,width:size,zIndex:700,alignItems:'center'}}>
   <View pointerEvents="none" style={{position:'absolute',bottom:'100%',backgroundColor:'#FFF4DDEE',borderRadius:12,padding:8,minWidth:120,borderWidth:1,borderColor:'#C2A97C'}}><Text style={{fontSize:11,textAlign:'center',color:'#665146'}}>{encounter.hint}</Text></View>
-  <VillageResident stage={encounter.stage} size={size} active={active} reduceMotion={reduceMotion}/>
+  {encounter.id==='grandma'?<GrandmotherResident size={size} active={active} reduceMotion={reduceMotion}/>:<VillageResident stage={encounter.stage} size={size} active={active} reduceMotion={reduceMotion}/>}
   {encounter.id==='newcomer'&&encounter.index===0&&<Svg pointerEvents="none" width={size*.65} height={size*.5} viewBox="0 0 80 60" style={{position:'absolute',bottom:0,right:-size*.18}}><Ellipse cx="42" cy="56" rx="34" ry="4" fill="#382F2433"/><Path d="M7 16L29 4L73 13L53 27Z" fill="#E6C690"/><Path d="M7 16L53 27V57L7 44Z" fill="#BB8C55"/><Path d="M53 27L73 13V43L53 57Z" fill="#8E633F"/><Path d="M28 11L40 14L61 19L53 27L31 21V51L22 48V18Z" fill="#E7CAA0"/><Rect x="36" y="32" width="12" height="9" rx="1" fill="#F2DFC0"/></Svg>}
  </Pressable>;
 }
@@ -93,7 +95,7 @@ export function StoryMemoryArt({id,state}:{id:StoryId;state:VillageStoryState}){
  const location=villageStory(id).episodes.at(-1)!.place;
  return <View accessibilityLabel={villageStory(id).keepsake} style={s.photo}>
   <Image source={worldArt(location,id==='cat')} resizeMode="cover" style={StyleSheet.absoluteFill}/>
-  <View style={s.photoShade}/><View style={s.photoPeople}>{id==='cat'?<Image source={FORTUNE_CAT_ART} style={{width:135,height:145}} resizeMode="contain"/>:id==='ramen'?<MerchantResident kind="ramen" size={108} active={false} reduceMotion/>:<VillageResident stage="odango" size={95} active={false} reduceMotion/>}{id!=='cat'&&<VillageResident stage={id==='festival'?'stage3':'egg'} size={76} active={false} reduceMotion/>}</View>
+  <View style={s.photoShade}/><View style={s.photoPeople}>{id==='cat'?<Image source={FORTUNE_CAT_ART} style={{width:135,height:145}} resizeMode="contain"/>:id==='grandma'?<GrandmotherResident size={108} active={false} reduceMotion/>:(id==='ramen'||id==='supply')?<MerchantResident kind="ramen" size={108} active={false} reduceMotion/>:<VillageResident stage="odango" size={95} active={false} reduceMotion/>}{id!=='cat'&&<VillageResident stage={id==='festival'?'stage3':'egg'} size={76} active={false} reduceMotion/>}</View>
   <View style={s.stamp}><Icon name={symbols[id]} size={28} color="#F4D893"/></View>
   <Text style={s.photoCaption}>{villageStory(id).title} · {state.arcs[id]?.episodes.at(-1)?.date}</Text>
  </View>;

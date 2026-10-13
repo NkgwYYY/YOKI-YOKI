@@ -1,3 +1,5 @@
+import {useApp} from '@/contexts/AppContext';
+import {gardenUnlocked} from '@/utils/vegetableGarden';
 import React,{useEffect,useState} from 'react';
 import {ActivityIndicator,Image,Modal,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
@@ -8,17 +10,19 @@ import {canVisitMap,WORLD_MAPS,type WorldMapId} from '@/utils/worldMaps';
 import {MAP_COORDS,VILLAGE_LINKS} from '@/utils/villageLife';
 import {worldArt,prepareWorldArt,VILLAGE_ATLAS,prepareVillageAtlas} from '@/utils/worldArt';
 import {WorldPill} from './WorldPill';
-const symbols:Record<WorldMapId,IconName>={bank:'briefcase',fortune:'moon',home:'home',market:'map-pin',forest:'feather',onsen:'sun',village:'users',lake:'droplet',ramen:'coffee',bowling:'circle',tobacco:'wind',homewares:'shopping-bag',workshop:'briefcase'};
-const names:Record<WorldMapId,string>={bank:'こもれび銀行',fortune:'占いの館',home:'おうち',market:'こもれび広場',forest:'木もれびの森',onsen:'森の温泉',village:'となりの村',lake:'星あかりの湖',ramen:'ラーメン屋',bowling:'ボウリング',tobacco:'路地裏のタバコ屋',homewares:'暮らしのお店',workshop:'ゆでたまご工房'};
+const symbols:Record<WorldMapId,IconName>={grandma:'home',bank:'briefcase',fortune:'moon',home:'home',market:'map-pin',forest:'feather',onsen:'sun',village:'users',lake:'droplet',ramen:'coffee',bowling:'circle',tobacco:'wind',homewares:'shopping-bag',workshop:'briefcase'};
+const names:Record<WorldMapId,string>={grandma:'おばあさんの家',bank:'こもれび銀行',fortune:'占いの館',home:'おうち',market:'こもれび広場',forest:'木もれびの森',onsen:'森の温泉',village:'となりの村',lake:'星あかりの湖',ramen:'ラーメン屋',bowling:'ボウリング',tobacco:'路地裏のタバコ屋',homewares:'暮らしのお店',workshop:'ゆでたまご工房'};
 export function VillageMap({current,night,level,disabled,onSelect,onClose}:{current:WorldMapId;night:boolean;level:number;disabled:boolean;onSelect:(id:WorldMapId)=>void;onClose:()=>void}){
+ const {feedState}=useApp(),grandmaOpen=gardenUnlocked(feedState);
+ const visibleMaps=WORLD_MAPS.filter(p=>p.id!=='grandma'||grandmaOpen);
  const window=useWindowDimensions(),insets=useSafeAreaInsets(),[selected,setSelected]=useState(current);
  const width=Math.min(window.width,640),height=Math.max(560,Math.min(750,window.height-insets.top-insets.bottom-225));
  const [atlasReady,setAtlasReady]=useState(false);
  useEffect(()=>{
   void prepareVillageAtlas().catch(()=>{});
  },[]);
- useEffect(()=>{if(canVisitMap(selected,level))void prepareWorldArt(selected,night).catch(()=>{});},[selected,level,night]);
- const place=WORLD_MAPS.find(p=>p.id===selected)!,open=canVisitMap(selected,level);
+ useEffect(()=>{if(canVisitMap(selected,level,grandmaOpen))void prepareWorldArt(selected,night).catch(()=>{});},[selected,level,night]);
+ const place=WORLD_MAPS.find(p=>p.id===selected)!,open=canVisitMap(selected,level,grandmaOpen);
  return <Modal transparent={false} animationType="fade" onRequestClose={onClose}><View style={s.root}>
   <View style={[s.header,{paddingTop:Math.max(20,insets.top+12)}]}><View><Text style={s.kicker}>YOKI YOKI / WORLD ATLAS</Text><Text style={s.title}>村をめぐる</Text></View><WorldPill compact label="地図を閉じる" icon="x" onPress={onClose}/></View>
   <ScrollView contentContainerStyle={{alignItems:'center',paddingBottom:12}} showsVerticalScrollIndicator={false}>
@@ -28,9 +32,9 @@ export function VillageMap({current,night,level,disabled,onSelect,onClose}:{curr
     {!atlasReady&&<View pointerEvents="none" style={{position:'absolute',top:12,right:12}}><ActivityIndicator size="small" color="#F1E7D3"/></View>}
     <View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#100C1929'}]}/>
     <Svg width={width} height={height} style={StyleSheet.absoluteFill} viewBox={`0 0 ${width} ${height}`} pointerEvents="none">
-     {WORLD_MAPS.flatMap(p=>VILLAGE_LINKS[p.id].filter(to=>p.id<to).map(to=>{const a=MAP_COORDS[p.id],b=MAP_COORDS[to],highlight=selected===p.id||selected===to;return <Path key={`${p.id}-${to}`} d={`M ${a.x*width} ${a.y*height} Q ${(a.x+b.x)*width/2+12} ${(a.y+b.y)*height/2-15} ${b.x*width} ${b.y*height}`} fill="none" stroke={highlight?'#E6C888':'#D4C09A8C'} strokeWidth={highlight?1.8:1} strokeDasharray="3 5"/>;}))}
+     {visibleMaps.flatMap(p=>VILLAGE_LINKS[p.id].filter(to=>p.id<to&&(to!=='grandma'||grandmaOpen)).map(to=>{const a=MAP_COORDS[p.id],b=MAP_COORDS[to],highlight=selected===p.id||selected===to;return <Path key={`${p.id}-${to}`} d={`M ${a.x*width} ${a.y*height} Q ${(a.x+b.x)*width/2+12} ${(a.y+b.y)*height/2-15} ${b.x*width} ${b.y*height}`} fill="none" stroke={highlight?'#E6C888':'#D4C09A8C'} strokeWidth={highlight?1.8:1} strokeDasharray="3 5"/>;}))}
     </Svg>
-    {WORLD_MAPS.map(p=>{const at=MAP_COORDS[p.id],chosen=selected===p.id,here=current===p.id,unlocked=canVisitMap(p.id,level);return <Pressable key={p.id} testID={`world-map-${p.id}`} accessibilityRole="button" accessibilityLabel={`${p.name}${here?'、いまここ':unlocked?'':`、レベル${p.level}でひらく`}`} accessibilityState={{selected:chosen}} onPress={()=>setSelected(p.id)} style={[s.location,{left:at.x*width-53,top:at.y*height-20}]}>
+    {visibleMaps.map(p=>{const at=MAP_COORDS[p.id],chosen=selected===p.id,here=current===p.id,unlocked=canVisitMap(p.id,level,grandmaOpen);return <Pressable key={p.id} testID={`world-map-${p.id}`} accessibilityRole="button" accessibilityLabel={`${p.name}${here?'、いまここ':unlocked?'':`、レベル${p.level}でひらく`}`} accessibilityState={{selected:chosen}} onPress={()=>setSelected(p.id)} style={[s.location,{left:at.x*width-53,top:at.y*height-20}]}>
      {here&&<Text style={s.here}>現在地</Text>}<View style={[s.diamond,chosen&&s.selected,!unlocked&&{opacity:.65}]}><View style={{transform:[{rotate:'-45deg'}]}}><Icon name={unlocked?symbols[p.id]:'lock'} size={16} color={chosen?'#FFF0BD':'#DECEAC'}/></View></View><Text numberOfLines={1} style={[s.name,chosen&&{color:'#FFE5A8'}]}>{names[p.id]}</Text>
     </Pressable>;})}
     <LinearGradient pointerEvents="none" colors={['transparent','#14101F']} style={s.fade}/>

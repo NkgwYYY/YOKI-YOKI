@@ -1,3 +1,4 @@
+import {prepareGarden,type VegetableGarden,type GardenOperation} from '@/utils/vegetableGarden';
 import {storyFinished,prepareVillageStory,type VillageStoryState,type StoryOperation} from '@/utils/villageStories';
 import {prepareCharacterGifts,type CharacterGiftState,type CharacterGiftOperation} from '@/utils/characterGifts';
 import {prepareDiary,type ExchangeDiaryState,type DiaryOperation,type DiaryResult} from '@/utils/exchangeDiary';
@@ -153,6 +154,7 @@ export interface UnlockedBadge {
 }
 
 export interface FeedState {
+  vegetableGarden?: VegetableGarden;
   villageStories?: VillageStoryState;
   characterGifts?: CharacterGiftState;
   exchangeDiary?: ExchangeDiaryState;
@@ -233,6 +235,7 @@ interface AppContextType {
   feedState: FeedState;
   runCharacterGifts: (operation: CharacterGiftOperation) => Promise<ReturnType<typeof prepareCharacterGifts>['result']>;
   runDiary: (operation: DiaryOperation) => Promise<DiaryResult>;
+  runGarden: (operation: GardenOperation) => Promise<ReturnType<typeof prepareGarden>['result']>;
   runVillageStory: (operation: StoryOperation) => Promise<ReturnType<typeof prepareVillageStory>['result']>;
   runPlazaEvent: (operation: PlazaOperation) => Promise<PlazaResult>;
   runBank: (operation: BankOperation) => Promise<BankResult>;
@@ -1203,6 +1206,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return saved;
   }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
 
+  const runGarden = useCallback(async (operation: GardenOperation) => {
+    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      return prepareGarden(values, operation, getTodayDate(), defaultFeedState);
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (saved.changed) void pushDataToCloud().catch(() => {});
+    return saved;
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
+
   const runPlazaEvent = useCallback(async (operation: PlazaOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
@@ -1332,6 +1348,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cleanRoom,
         runEggJob,
         runVillageStory,
+        runGarden,
         runPlazaEvent,
         runBank,
         runDiary,

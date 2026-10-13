@@ -1,3 +1,5 @@
+import {GardenBeds,GardenSheet,GrandmotherResident,GARDEN_PLOTS} from './VegetableGarden';
+import {gardenUnlocked,readGarden,wholesaleUnlocked} from '@/utils/vegetableGarden';
 import {useVillageStories,VillageStoryDialogue,StoryEncounterActor,StoryWorldKeepsakes} from './VillageStories';
 import {storyEncounters,canHearStory,type StoryEncounter,type StoryMerchant} from '@/utils/storyEncounters';
 import {useAuth} from '@/contexts/AuthContext';
@@ -57,7 +59,7 @@ import {useSmoking} from './useSmoking';
 import {SmokingCare} from './SmokingCare';
 import {smokingStatus} from '@/utils/smokingState';
 export { HOME_ART } from '@/utils/worldArt';
-type VillageAction={kind:'portal';map:WorldMapId}|{kind:'bath'|'wheel'|'smoke'|'shop'|'feed'|'ramen-meal'|'plaza'}|{kind:'neighbor';id:VillagerId}|{kind:'story';encounter:StoryEncounter};
+type VillageAction={kind:'portal';map:WorldMapId}|{kind:'bath'|'wheel'|'smoke'|'shop'|'feed'|'ramen-meal'|'plaza'}|{kind:'neighbor';id:VillagerId}|{kind:'story';encounter:StoryEncounter}|{kind:'garden';plot:number};
 type Props = {
   carriedGift?: GiftKind;
   welcomeRequest?:number; onWelcomeStarted?:(id:number)=>void;
@@ -65,7 +67,7 @@ type Props = {
   cleanliness:number;
   happinessValue:number;
   music:{enabled:boolean;busy:boolean;toggle:()=>void;error:string};
-  careInvitation:boolean;onSceneBusy:(busy:boolean)=>void;onShop:()=>void;onJob:()=>void;onGarden:()=>void;initialMap?:WorldMapId;
+  careInvitation:boolean;onSceneBusy:(busy:boolean)=>void;onShop:(tab?:'seeds')=>void;onJob:()=>void;onGarden:()=>void;initialMap?:WorldMapId;
   level: number; customization: RoomCustomization; stage: MascotStage; growthSize: number; mascotName: string;
   active: boolean; reduceMotion: boolean; resting: boolean; reaction: number; meal: number; rest: number;
   hints: boolean; companion: boolean; totalDays: number; period: WorldPeriod; daySeed: number; food: string | null;
@@ -77,6 +79,9 @@ type Props = {
 export function WorldHome(props: Props) {
   const {reduceMotion} = props;
   const {awardHappiness,feedState,bowlingState}=useApp();
+  const grandmaUnlocked=gardenUnlocked(feedState);
+  let harvested=false;try{harvested=readGarden(feedState.vegetableGarden).harvests>0;}catch{}
+  const [gardenPlot,setGardenPlot]=useState<number|null>(null),[grandmaOpen,setGrandmaOpen]=useState(false);
   const [zooming,setZooming]=useState(false);
   const [merchantGreeting,setMerchantGreeting]=useState({kind:'',count:0});
   const [cleanOpen,setCleanOpen]=useState(false),[cleanTool,setCleanTool]=useState<CleaningTool|null>(null),[riding,setRiding]=useState(false);
@@ -103,9 +108,9 @@ export function WorldHome(props: Props) {
   const pendingBowlStory=useRef<StoryEncounter|null>(null);
   const heardStories=useRef(new Set<string>()),merchantStories=useRef(new Set<string>()),autoStoryThisVisit=useRef(false);
   const stories=useVillageStories(props.active);
-  const localEncounters=stories.ready?storyEncounters(stories.state,stories.today,map):[];
-  const localResident=localEncounters.find(st=>!st.merchant);
-  const sceneResident=storyOpen&&!storyOpen.merchant?storyOpen:localResident;
+  const localEncounters=stories.ready?storyEncounters(stories.state,stories.today,map,harvested):[];
+  const localResidents=localEncounters.filter(st=>!st.merchant);
+  const sceneResidents=storyOpen&&!storyOpen.merchant&&!localResidents.some(st=>st.key===storyOpen.key)?[...localResidents,storyOpen]:localResidents;
   const [mapOpen,setMapOpen]=useState(false);
   const [fortuneOpen,setFortuneOpen]=useState(false);
   const [bankOpen,setBankOpen]=useState(false);
@@ -117,13 +122,13 @@ export function WorldHome(props: Props) {
   const pending=useRef<{id:number;action:VillageAction}|null>(null);
   const [mapMessage,setMapMessage]=useState('');
   const transition=useSceneTransition(reduceMotion,()=>setMapMessage('景色を読み込めませんでした。もう一度、行き先を選んでね。'));
-  const active=props.active&&!storyOpen&&!plaza.open&&!bowlingOpen&&!cleanOpen&&!bankOpen&&!fortuneOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!transition.busy&&!zooming;
+  const active=props.active&&gardenPlot===null&&!grandmaOpen&&!storyOpen&&!plaza.open&&!bowlingOpen&&!cleanOpen&&!bankOpen&&!fortuneOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!transition.busy&&!zooming;
   const housekeeping=useHousekeeping(props.active);
   useEffect(()=>{if(!housekeeping.house.robotPlaced)setRiding(false);},[housekeeping.house.robotPlaced]);
   const [bowlingBusy,setBowlingBusy]=useState(false);
   const footX=useSharedValue(.5);
   const steering=useSharedValue({x:0,y:0});
-  useEffect(()=>{props.onSceneBusy(!!storyOpen||plaza.open||!!experience||bowlingOpen||bankOpen||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[storyOpen,plaza.open,experience,bowlingOpen,bankOpen,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
+  useEffect(()=>{props.onSceneBusy(gardenPlot!==null||grandmaOpen||!!storyOpen||plaza.open||!!experience||bowlingOpen||bankOpen||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[gardenPlot,grandmaOpen,storyOpen,plaza.open,experience,bowlingOpen,bankOpen,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
   const [loadedArt,setLoadedArt]=useState<ReturnType<typeof worldArt>|null>(null);
   const [bounds, setBounds] = useState({width: 0, height: 0});
   const destinationId=useRef(0);
@@ -152,15 +157,15 @@ export function WorldHome(props: Props) {
   useEffect(()=>{if(!bowlingOpen&&props.active&&pendingBowlStory.current){const encounter=pendingBowlStory.current;pendingBowlStory.current=null;setStoryOpen(encounter);}},[bowlingOpen,props.active]);
   // A passerby speaks when we get close. Never interrupt a service, gesture, or journey through a gate.
   useEffect(()=>{
-    if(!localResident||!active||props.food||experience||bowlingBusy||cleanTool||riding||!width||loadedArt!==worldArt(map,props.period==='night'||map==='tobacco'))return;
+    if(!localResidents.length||!active||props.food||experience||bowlingBusy||cleanTool||riding||!width||loadedArt!==worldArt(map,props.period==='night'||map==='tobacco'))return;
     const readyAt=Date.now()+1600;
     const timer=setInterval(()=>{
       if(Date.now()<readyAt||autoStoryThisVisit.current)return;
       const busy=!!pending.current||portalTravel.value||!!holding.value||!!touching.value||zoom.value>1.02;
-      if(canHearStory(localResident,{x:footX.value,y:footY.value},busy,heardStories.current))openStory(localResident);
+      const encounter=localResidents.find(st=>canHearStory(st,{x:footX.value,y:footY.value},busy,heardStories.current));if(encounter)openStory(encounter);
     },350);
     return()=>clearInterval(timer);
-  },[map,localResident?.key,active,props.food,experience,bowlingBusy,cleanTool,riding,width,loadedArt,props.period]);
+  },[map,localResidents.map(st=>st.key).join(','),active,props.food,experience,bowlingBusy,cleanTool,riding,width,loadedArt,props.period]);
   useEffect(()=>()=>clearTimeout(shopTimer.current),[]);
   useEffect(()=>{
     if(!props.active){clearTimeout(shopTimer.current);returning.current=true;setZooming(false);}
@@ -201,7 +206,7 @@ export function WorldHome(props: Props) {
       else setPlacesOpen(true);
     },reduceMotion?0:460);
   };
-  useEffect(()=>{if(!canVisitMap(map,props.level))setMap('home');},[map,props.level]);
+  useEffect(()=>{if(stories.ready&&!canVisitMap(map,props.level,grandmaUnlocked))setMap('home');},[map,props.level,grandmaUnlocked,stories.ready]);
   useEffect(()=>{if(props.meal){setExperience(null);setNeighbor(null);if(map!=='ramen')setMap('home');}},[props.meal]);
   useEffect(()=>{if(props.rest){setExperience(null);setNeighbor(null);setMap('home');}},[props.rest]);
   // Let the visible scene finish first; warm only the atlas and likely exit.
@@ -217,13 +222,13 @@ export function WorldHome(props: Props) {
         const target=map==='home'?'market':map==='market'?'home':'market';
         for(const next of [target] as WorldMapId[]){
           if(cancelled)return;
-          if(next!==map&&canVisitMap(next,props.level))try { await prepareWorldArt(next,props.period==='night'); } catch {}
+          if(next!==map&&canVisitMap(next,props.level,grandmaUnlocked))try { await prepareWorldArt(next,props.period==='night'); } catch {}
         }
       })();
     },2000);
     return()=>{cancelled=true;clearTimeout(timer);};
   },[map,mapOpen,props.active,props.period,props.level,transition.busy]);
-  useEffect(()=>{setBowlingOpen(false);setBankOpen(false);setFortuneOpen(false);setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
+  useEffect(()=>{setGardenPlot(null);setGrandmaOpen(false);setBowlingOpen(false);setBankOpen(false);setFortuneOpen(false);setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
   useAnimatedReaction(() => ({y: footY.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active}), state => {
     if (!state.active) {cancelAnimation(camera); return;}
     const offset=away?outdoorCameraOffset(state.y,height,viewportHeight,frameTop,clearBottom):worldCameraOffset(state.y,height,viewportHeight,frameTop);
@@ -236,7 +241,7 @@ export function WorldHome(props: Props) {
   const enterMap=(target:WorldMapId,fromMap=false)=>{
     if(!props.active||bowlingOpen||cleanTool||riding||neighbor||transition.busy||(!fromMap&&(mapOpen||placesOpen||viewOpen||bankOpen||fortuneOpen))||props.food||experience)return;
     portalTravel.value=false;steering.value={x:0,y:0};setDestination(null);
-    if(!canVisitMap(target,props.level)){const place=WORLD_MAPS.find(p=>p.id===target)!;setMapMessage(`${place.name}はレベル${place.level}でひらきます。`);return;}
+    if(!canVisitMap(target,props.level,grandmaUnlocked)){const place=WORLD_MAPS.find(p=>p.id===target)!;setMapMessage(`${place.name}はレベル${place.level}でひらきます。`);return;}
     setMapOpen(false);setPlacesOpen(false);setViewOpen(false);
     if(target===map)return;
     pending.current=null;setDestination(null);steering.value={x:0,y:0};setMapMessage('');
@@ -255,7 +260,7 @@ export function WorldHome(props: Props) {
     const id=++destinationId.current;pending.current={id,action};setDestination({id,point:mapGroundPoint(map,point)});
   };
   const arrive=(id:number)=>{
-    if(portalTravel.value&&destination?.id===id){const gates=mapPortals(map),gate=nearbyPortalIndex(destination.point,gates);if(gate>=0){enterMap(gates[gate].to);return;}}
+    if(portalTravel.value&&destination?.id===id){const gates=mapPortals(map,grandmaUnlocked),gate=nearbyPortalIndex(destination.point,gates);if(gate>=0){enterMap(gates[gate].to);return;}}
     setDestination(current=>current?.id===id?null:current);
     const next=pending.current;portalTravel.value=false;if(!next||next.id!==id)return;pending.current=null;
     const a=next.action;
@@ -264,6 +269,7 @@ export function WorldHome(props: Props) {
     else if(a.kind==='shop')props.onShop();
     else if(a.kind==='feed')props.onFeed();
     else if(a.kind==='story')openStory(a.encounter);
+    else if(a.kind==='garden')setGardenPlot(a.plot);
     else if(a.kind==='plaza'){view.reset();plaza.talk();}
     else if(a.kind==='neighbor'){setNeighbor(a.id);setReply('');}
   };
@@ -321,8 +327,12 @@ export function WorldHome(props: Props) {
         {housekeeping.house.robotPlaced&&<RobotCleaner width={width} height={height} active={active&&!cleanTool&&!props.food&&!experience} reduceMotion={reduceMotion} riding={riding} footX={footX} footY={footY} onClean={housekeeping.clean} onRide={(x,y)=>{setDestination(null);pending.current=null;portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(footX);cancelAnimation(footY);footX.value=x;footY.value=y;setRiding(true);props.onInteract('greet');}}/>}
       </>}
       {map==='market'&&plaza.current&&<PlazaActors encounter={plaza.current} width={width} height={height} active={active} reduceMotion={reduceMotion} animating={plaza.animating} onTalk={()=>request({x:.48,y:.56},{kind:'plaza'})}/>}
-      {sceneResident&&<StoryEncounterActor encounter={sceneResident} width={width} height={height} active={active&&!props.food&&!experience} reduceMotion={reduceMotion} onTalk={()=>request(sceneResident.point,{kind:'story',encounter:sceneResident})}/>}
-      {stories.ready&&<StoryWorldKeepsakes hideNewcomer={sceneResident?.stage==='odango'} state={stories.state} map={map} width={width} height={height} active={active} reduceMotion={reduceMotion} onTalk={()=>setMapMessage(stories.state.arcs.festival?.episodes.length===6?'あのお祭り、楽しかったね。今日もここで、のんびりしていって。':'おかえり！ あのお茶会から、ここで誰かに会うのが楽しみになったんだ。')}/>}
+      {sceneResidents.map(encounter=><StoryEncounterActor key={encounter.key} encounter={encounter} width={width} height={height} active={active&&!props.food&&!experience} reduceMotion={reduceMotion} onTalk={()=>request(encounter.point,{kind:'story',encounter})}/>)}
+      {stories.ready&&<StoryWorldKeepsakes hideNewcomer={sceneResidents.some(st=>st.id==='newcomer'||st.id==='festival')} state={stories.state} map={map} width={width} height={height} active={active} reduceMotion={reduceMotion} onTalk={()=>setMapMessage(stories.state.arcs.festival?.episodes.length===6?'あのお祭り、楽しかったね。今日もここで、のんびりしていって。':'おかえり！ あのお茶会から、ここで誰かに会うのが楽しみになったんだ。')}/>}
+      {map==='grandma'&&grandmaUnlocked&&<>
+       <GardenBeds width={width} height={height} active={active&&!props.food} onPlot={i=>request({x:GARDEN_PLOTS[i].x-.05,y:GARDEN_PLOTS[i].y+.065},{kind:'garden',plot:i})}/>
+       <Pressable testID="garden-grandmother" accessibilityRole="button" accessibilityLabel="おばあさんと話す" disabled={!active||!!props.food} onPress={()=>{steering.value={x:0,y:0};setDestination(null);pending.current=null;setGrandmaOpen(true);}} style={{position:'absolute',left:width*.24,top:height*.48-width*.17,zIndex:700}}><GrandmotherResident size={width*.17} active={active} reduceMotion={reduceMotion}/></Pressable>
+      </>}
       {map==='lake'&&<VillageWheel width={width} height={height} active={active} reduceMotion={reduceMotion} riding={experience==='wheel'} onFinish={finishExperience}/>}
       {map==='village'&&<VillageNeighbors width={width} height={height} active={active&&!experience} reduceMotion={reduceMotion} onTalk={id=>{const n=VILLAGERS.find(p=>p.id===id)!;request({x:n.x+.06,y:n.y+.035},{kind:'neighbor',id});}}/>}
       {map==='fortune'&&<FortuneCat width={width} height={height} clearTop={stageTop-frame.top} clearBottom={clearBottom-frame.top} disabled={!active||!!props.food} active={props.active&&(active||zooming)} reduceMotion={reduceMotion} greeting={merchantGreeting.kind==='fortune'?merchantGreeting.count:0} onPress={()=>openMerchant('fortune',{x:.4,y:.51})}/>}
@@ -334,8 +344,8 @@ export function WorldHome(props: Props) {
       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>}
       <VillageVisitors map={map} daySeed={props.daySeed} width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food&&!experience&&!bowlingBusy} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>
-      {mapPortals(map).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
-      <WorldResident {...props} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
+      {mapPortals(map,grandmaUnlocked).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level,grandmaUnlocked)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
+      <WorldResident {...props} grandmaUnlocked={grandmaUnlocked} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {map==='home'&&props.carriedGift&&<CarriedGift kind={props.carriedGift} width={width} height={height} footX={footX} footY={footY}/>}
       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
       {map==='tobacco'&&<TobaccoHaze active={active} reduceMotion={reduceMotion}/>}
@@ -352,7 +362,9 @@ export function WorldHome(props: Props) {
     </View>
     {map!=='home'&&<View pointerEvents="none" style={[s.sceneTitle,{top:insets.top+(tight?115:165)}]}><Text style={[s.sceneName,{fontSize:13}]}>{WORLD_MAPS.find(p=>p.id===map)?.name}</Text></View>}
     {!experience&&(map==='home'||(map==='market'&&!plaza.current&&!plaza.error)||map==='workshop')&&<View style={{position:'absolute',right:20,bottom:away?dockBottom+30:bounds.height<600?177:244}}><WorldPill testID="world-go-work" label={map==='workshop'?'仕事を始める':'バイトする'} icon="briefcase" onPress={()=>map==='workshop'?openMerchant('job',{x:.5,y:.48}):enterMap('workshop')} disabled={!active||!!props.food||riding||!!cleanTool}/></View>}
-    {storyOpen&&<VillageStoryDialogue encounter={storyOpen} onClose={()=>setStoryOpen(null)} onBowl={()=>{pendingBowlStory.current=storyOpen;setStoryOpen(null);serveMerchant('bowling',{x:.72,y:.57});}} service={storyOpen.merchant?{label:({ramen:'ラーメンを注文する',shop:'買い物をする',job:'バイトを始める',bowling:'ボウリングをする',fortune:'占ってもらう'} satisfies Record<StoryMerchant,string>)[storyOpen.merchant],run:()=>{const kind=storyOpen.merchant!;if(kind==='bowling'&&!bowlingPlayedToday(bowlingState,getTodayDate())&&storyOpen.id==='bowling'&&storyOpen.index===4)pendingBowlStory.current=storyOpen;setStoryOpen(null);serveMerchant(kind,{x:.5,y:.55});}}:undefined}/>}
+    {storyOpen&&<VillageStoryDialogue encounter={storyOpen} onGo={target=>{setStoryOpen(null);enterMap(target);}} onClose={()=>setStoryOpen(null)} onBowl={()=>{pendingBowlStory.current=storyOpen;setStoryOpen(null);serveMerchant('bowling',{x:.72,y:.57});}} service={storyOpen.merchant?{label:storyOpen.id==='supply'&&wholesaleUnlocked(feedState)?'野菜を卸す':({ramen:'ラーメンを注文する',shop:'買い物をする',job:'バイトを始める',bowling:'ボウリングをする',fortune:'占ってもらう'} satisfies Record<StoryMerchant,string>)[storyOpen.merchant],run:()=>{const kind=storyOpen.merchant!;if(kind==='bowling'&&!bowlingPlayedToday(bowlingState,getTodayDate())&&storyOpen.id==='bowling'&&storyOpen.index===4)pendingBowlStory.current=storyOpen;setStoryOpen(null);serveMerchant(kind,{x:.5,y:.55});}}:undefined}/>}
+    {map==='grandma'&&grandmaUnlocked&&gardenPlot!==null&&<GardenSheet plotIndex={gardenPlot} onClose={()=>setGardenPlot(null)} onShop={()=>{setGardenPlot(null);props.onShop('seeds');}}/>}
+    {grandmaOpen&&<BottomSheet visible title="もふもふのおばあさん" onClose={()=>setGrandmaOpen(false)}><View style={{alignItems:'center'}}><GrandmotherResident size={95} active={props.active} reduceMotion={reduceMotion}/></View><Text style={s.dialogue}>{harvested?'「あら、畑の土がいい匂い。育ったところを一緒に見られるの、うれしいよ。お茶もいれてあるからね」':'「よく来たねえ。畑は4つ、どこでも使っておくれ。今日は種をまくだけでもいいんだよ」'}</Text><Text style={s.mapCopy}>水やりは1日1回。種まきの日から最短7日で収穫できます。来られない日があっても枯れず、水をあげた分だけゆっくり育ちます。</Text><WorldPill label="畑を見てくるね" onPress={()=>setGrandmaOpen(false)}/></BottomSheet>}
     {!!props.music.error&&<Text style={[s.musicNotice,{top:insets.top+(tight?112:162)}]}>{props.music.error}</Text>}
     <Modal visible={bowlingOpen} animationType={reduceMotion?'none':'fade'} onRequestClose={()=>{if(!bowlingBusy){setBowlingOpen(false);view.reset();}}} statusBarTranslucent>
       <View style={{flex:1,backgroundColor:'#14131D',paddingTop:Math.max(insets.top,12),paddingBottom:Math.max(insets.bottom,12),paddingHorizontal:10}}>

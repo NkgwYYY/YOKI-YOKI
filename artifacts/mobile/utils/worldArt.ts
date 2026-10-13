@@ -16,6 +16,7 @@ export const MERCHANT_ART = {
 export const FORTUNE_CAT_ART = webArt(require('@/assets/images/world/fortune-cat.webp'), require('@/assets/images/world/fortune-cat.png'));
 export const HOME_ART = { day: webArt(require('@/assets/images/world/home-day.webp'), require('@/assets/images/world/home-day.jpg')), night: webArt(require('@/assets/images/world/home-night.webp'), require('@/assets/images/world/home-night.jpg')) };
 export const OUTDOOR_ART = {
+  grandma: webArt(require('@/assets/images/world/grandmother-garden.webp'), require('@/assets/images/world/grandmother-garden.jpg')),
   bank: webArt(require('@/assets/images/world/village-bank.webp'), require('@/assets/images/world/village-bank.jpg')),
   fortune: webArt(require('@/assets/images/world/village-fortune.webp'), require('@/assets/images/world/village-fortune.jpg')),
   homewares: webArt(require('@/assets/images/world/village-homewares.webp'), require('@/assets/images/world/village-homewares.jpg')),

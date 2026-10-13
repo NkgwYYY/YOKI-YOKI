@@ -1,5 +1,6 @@
-export type WorldMapId = 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'workshop' | 'fortune' | 'bank';
+export type WorldMapId = 'grandma' | 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'workshop' | 'fortune' | 'bank';
 export const WORLD_MAPS = [
+  {id:'grandma',name:'おばあさんの家',level:1,description:'お茶の湯気と、少しずつ育つ畑。いつでも寄っておいで。'},
   {id:'home',name:'おうち',level:1,description:'いつでも帰れる、小さなおうち。'},
   {id:'market',name:'こもれび広場',level:1,description:'風船の子ども、旅人、あやしい儲け話。ときどき出会いが待っている。'},
   {id:'ramen',name:'もふもふラーメン',level:1,description:'赤い提灯が灯る町中華。もふもふ店長がお出迎え。'},
@@ -14,9 +15,10 @@ export const WORLD_MAPS = [
   {id:'village',name:'となりの村',level:4,description:'たまご・もふもふ・はっぱたちの、小さな村。'},
   {id:'lake',name:'星あかりの湖',level:6,description:'観覧車に乗って、いつもの世界を空から。'},
 ] as const;
-export function canVisitMap(id: WorldMapId, level: number) {const map=WORLD_MAPS.find(map=>map.id===id);return !!map&&level>=map.level;}
+export function canVisitMap(id: WorldMapId, level: number, grandmaUnlocked=false) {if(id==='grandma'&&!grandmaUnlocked)return false;const map=WORLD_MAPS.find(map=>map.id===id);return !!map&&level>=map.level;}
 export function mapGroundBounds(map: WorldMapId, y: number) {
   'worklet';
+  if(map==='grandma')return {minX:.23,maxX:.77,minY:.44,maxY:.82};
   if(map==='bowling')return {minX:.28,maxX:.74,minY:.305,maxY:.77};
   if(map==='home') {
     if(y<.50)return {minX:.40,maxX:.61,minY:.43,maxY:.79};
@@ -44,7 +46,7 @@ export function mapGroundPoint(map: WorldMapId, point: {x:number;y:number}) {
 export function isMapGround(map: WorldMapId, point: {x:number;y:number}) {
   'worklet';const p=mapGroundPoint(map,point);return Math.abs(p.x-point.x)<.001&&Math.abs(p.y-point.y)<.001;
 }
-export function mapStart(map: WorldMapId) {return map==='bank'?{x:.60,y:.67}:map==='fortune'?{x:.72,y:.70}:map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.63,y:.66}:{x:.52,y:.61};}
+export function mapStart(map: WorldMapId) {return map==='grandma'?{x:.36,y:.73}:map==='bank'?{x:.60,y:.67}:map==='fortune'?{x:.72,y:.70}:map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.63,y:.66}:{x:.52,y:.61};}
 export function mapRoute(map: WorldMapId, from:{x:number;y:number}, to:{x:number;y:number}) {
   const target=mapGroundPoint(map,to);
   // Keep the approach clear of the cat and the ramen counter's staff.

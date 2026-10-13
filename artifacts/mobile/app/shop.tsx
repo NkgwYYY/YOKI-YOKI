@@ -1,3 +1,5 @@
+import {SeedShop} from '@/components/world/VegetableGarden';
+import {gardenUnlocked} from '@/utils/vegetableGarden';
 import {ROOM_FURNITURE,ROOM_FLOWERS,homewaresGenre} from '@/utils/homewares';
 import {RoomItemPreview} from '@/components/room/RoomFurnitureArt';
 import {BATH_SKIP,readHygiene} from '@/utils/hygiene';
@@ -5,7 +7,7 @@ import {CleaningToolArt} from '@/components/world/CleaningToolArt';
 import {CLEANING_TOOLS,readHousekeeping,type CleaningTool} from '@/utils/housekeeping';
 import React, { useMemo, useRef, useState } from 'react';
 import { Image, Modal, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter,useLocalSearchParams } from 'expo-router';
 import { backToRoom } from '@/utils/backToRoom';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoomView } from '@/components/RoomView';
@@ -16,7 +18,7 @@ import { getMascotStage } from '@/utils/mascotUtils';
 import {useVillageMusic} from '@/contexts/VillageMusicContext';
 import {WorldPill} from '@/components/world/WorldPill';
 
-type ShopGenre = 'furniture' | 'flower' | 'cleaning' | 'wear' | 'decor';
+type ShopGenre = 'seeds' | 'furniture' | 'flower' | 'cleaning' | 'wear' | 'decor';
 type ItemPlacement = { x: number; y: number; scale: number };
 const DEFAULT_PLACEMENT: ItemPlacement = { x: 0, y: 0, scale: 1 };
 const clampPlacement = ({ x, y, scale }: ItemPlacement): ItemPlacement => ({
@@ -30,7 +32,7 @@ const touchDistance = (touches: readonly { pageX: number; pageY: number }[]) => 
 };
 const tabs: { id: ShopGenre; label: string }[] = [
   {id:'furniture',label:'家具'}, {id:'flower',label:'花'}, {id:'decor',label:'置物'},
-  {id:'wear',label:'身につける'}, {id:'cleaning',label:'掃除'},
+  {id:'seeds',label:'種・収穫'}, {id:'wear',label:'身につける'}, {id:'cleaning',label:'掃除'},
 ];
 const genreOf = (id:string,category:ItemCategory) => homewaresGenre({id,category});
 
@@ -71,14 +73,14 @@ function HomeScenePreview({
 
 export default function ShopScreen() {
   const music = useVillageMusic();
-  const router = useRouter(); const { isSignedIn } = useAuth();
+  const router = useRouter(); const {tab:initialTab}=useLocalSearchParams<{tab?:string}>(); const { isSignedIn } = useAuth();
   const { width, fontScale } = useWindowDimensions();
   const stackCards = width < 360 || fontScale >= 1.4;
   const { progress, growth, roomCustomization, feedState, cleanRoom, buyRoomItem } = useApp();
   const bathSkipActive=readHygiene(feedState.hygiene,Date.now()).protectedUntil>Date.now();
   const ownedTools=readHousekeeping(feedState.housekeeping,Date.now()).owned;
   const { items, shopState, loading, error, catalogOnline, refreshItems, buyItem, equipItem, updateItemPlacement } = useItems();
-  const [tab, setTab] = useState<ShopGenre>('furniture'); const [busy, setBusy] = useState<string | null>(null);
+  const [tab, setTab] = useState<ShopGenre>(initialTab==='seeds'&&gardenUnlocked(feedState)?'seeds':'furniture'); const [busy, setBusy] = useState<string | null>(null);
   const actionBusy = useRef(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [customizing, setCustomizing] = useState<Item | null>(null);
@@ -225,9 +227,9 @@ export default function ShopScreen() {
     )}
     <Text style={s.shopHelp}>家具・花・置物は、買ったあと「部屋の模様替え」から飾れるよ。</Text>
     <Pressable testID="shop-open-atelier" accessibilityRole="button" style={s.customButton} onPress={()=>router.replace('/?place=home&atelier=furniture')}><Text style={s.customText}>部屋の模様替えへ　›</Text></Pressable>
-    <View style={s.tabs} accessibilityRole="tablist">{tabs.map(x => <Pressable accessibilityRole="tab" accessibilityState={{ selected: tab === x.id }} aria-selected={tab === x.id} accessibilityLabel={x.label} key={x.id} onPress={() => setTab(x.id)} style={[s.tab, tab === x.id && s.tabOn]}><Text style={[s.tabText, tab === x.id && s.tabTextOn]}>{x.label}</Text></Pressable>)}</View>
-    {tab!=='cleaning'&&error && <View><Text style={s.error}>{error}</Text><Pressable accessibilityRole="button" onPress={refreshItems} style={s.resetButton}><Text style={s.resetText}>お店に再接続する</Text></Pressable></View>}
-    {(tab==='furniture'||tab==='flower') ? (tab==='furniture'?ROOM_FURNITURE:ROOM_FLOWERS).map(item=>{
+    <View style={s.tabs} accessibilityRole="tablist">{tabs.filter(x=>x.id!=='seeds'||gardenUnlocked(feedState)).map(x => <Pressable accessibilityRole="tab" accessibilityState={{ selected: tab === x.id }} aria-selected={tab === x.id} accessibilityLabel={x.label} key={x.id} onPress={() => setTab(x.id)} style={[s.tab, tab === x.id && s.tabOn]}><Text style={[s.tabText, tab === x.id && s.tabTextOn]}>{x.label}</Text></Pressable>)}</View>
+    {tab!=='seeds'&&tab!=='cleaning'&&error && <View><Text style={s.error}>{error}</Text><Pressable accessibilityRole="button" onPress={refreshItems} style={s.resetButton}><Text style={s.resetText}>お店に再接続する</Text></Pressable></View>}
+    {tab==='seeds'?<SeedShop/>:(tab==='furniture'||tab==='flower') ? (tab==='furniture'?ROOM_FURNITURE:ROOM_FLOWERS).map(item=>{
       const owned=(tab==='furniture'?roomCustomization.ownedFurniture:roomCustomization.ownedFlowers).some(id=>id===item.id);
       const insufficient=!owned&&feedState.points<item.cost;
       return <View key={item.id} testID={`shop-room-${item.id}`} style={[s.card,stackCards&&s.cardStack]}><View style={s.preview}><RoomItemPreview kind={tab} id={item.id}/></View><View style={s.info}><Text style={s.name}>{item.name}</Text><Text style={s.cost}>{owned?'購入済み':`${item.cost} YOKIポイント`}</Text><Pressable testID={`shop-buy-room-${item.id}`} accessibilityRole="button" disabled={!!busy||insufficient} style={[s.button,insufficient&&s.buttonOn]} onPress={async()=>{if(owned){router.replace(`/?place=home&atelier=${tab}`);return;}if(actionBusy.current)return;actionBusy.current=true;setBusy(item.id);setActionError(null);try{const result=await buyRoomItem(tab,item.id,item.cost);if(!result.success)throw Error('ポイントが足りません');}catch(e){setActionError(e instanceof Error?e.message:'保存できませんでした');}finally{actionBusy.current=false;setBusy(null);}}}><Text style={s.buttonText}>{busy===item.id?'保存中…':owned?'模様替えで選ぶ':insufficient?'ポイントが足りません':`${item.cost} pt で購入`}</Text></Pressable></View></View>;

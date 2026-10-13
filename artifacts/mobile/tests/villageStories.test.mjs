@@ -16,10 +16,10 @@ function fixture(feed=fallback){
  const store=createRecoverableStorage({getItem:async k=>data.get(k)??null,setItem:async(k,v)=>{if(k===key&&fail){fail=false;throw Error('disk');}data.set(k,v);},removeItem:async k=>data.delete(k)},'journal',[key,bowl]);
  return {data,fail:()=>{fail=true;},run:(op,n=1)=>store.transaction(v=>prepareVillageStory(v,op,date(n),fallback))};
 }
-test('all five arcs contain six reachable episodes, with the first two open',()=>{
- const s=readVillageStories(undefined);assert.equal(VILLAGE_STORIES.length,5);
- for(const st of VILLAGE_STORIES){assert.equal(st.episodes.length,6);for(const ep of st.episodes){assert.ok(['market','ramen','bowling','fortune','homewares','workshop'].includes(ep.place));assert.equal(ep.choices.length,2);assert.equal(ep.replies.length,2);}}
- assert.deepEqual(VILLAGE_STORIES.filter(st=>storyUnlocked(s,st.id)).map(st=>st.id),['newcomer','ramen']);
+test('original and grandmother arcs have six episodes; harvest introduces the wholesale encounter',()=>{
+ const s=readVillageStories(undefined);assert.equal(VILLAGE_STORIES.length,7);
+ for(const st of VILLAGE_STORIES){assert.equal(st.episodes.length,st.id==='supply'?1:6);for(const ep of st.episodes){assert.ok(['market','ramen','bowling','fortune','homewares','workshop'].includes(ep.place));assert.equal(ep.choices.length,2);assert.equal(ep.replies.length,2);}}
+ assert.deepEqual(VILLAGE_STORIES.filter(st=>storyUnlocked(s,st.id)).map(st=>st.id),['newcomer','ramen','grandma']);
 });
 test('two separate arcs can advance today; double taps and same-day next chapters cannot skip',async()=>{
  const f=fixture(),a=await f.run(operation('newcomer',0,1));
@@ -60,7 +60,7 @@ test('all thirty chapters complete, unlock the next arcs, and retain real bowlin
  }
  assert.ok(storyUnlocked(last.state,'festival'));
  for(let i=0;i<6;i++)last=await f.run(operation('festival',i,1),i+13);
- for(const st of VILLAGE_STORIES)assert.ok(storyFinished(last.state,st.id));
+ for(const st of VILLAGE_STORIES.filter(st=>!['grandma','supply'].includes(st.id)))assert.ok(storyFinished(last.state,st.id));
  assert.equal(last.state.arcs.bowling.episodes[1].bowlingPins,3);assert.equal(last.state.arcs.festival.episodes[2].choice,1);
  assert.equal(last.feed.points,137);assert.equal(Object.values(last.state.arcs).flatMap(a=>a.episodes).length,30);
  assert.equal(storyStatus(last.state,'festival',date(25)).finished,true);
