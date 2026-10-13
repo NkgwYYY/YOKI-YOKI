@@ -27,7 +27,7 @@ export function storyEncounters(state:VillageStoryState,today:string,place:World
   const merchant=merchants[st.id][info.index];
   return [{id:st.id,index:info.index,key:`${st.id}:${info.index}:${today}`,place,merchant,
    stage:st.id==='bowling'?'egg':st.id==='cat'?'stage3':'odango',
-   point:st.id==='grandma'?(place==='market'?{x:.27,y:.59}:place==='ramen'?{x:.33,y:.65}:{x:.30,y:.63}):place==='market'?{x:.38,y:.66}:place==='ramen'?{x:.62,y:.58}:place==='bowling'?{x:.40,y:.61}:{x:.68,y:.61},
+   point:st.id==='grandma'?(place==='market'?{x:.60,y:.715}:place==='ramen'?{x:.68,y:.68}:{x:.30,y:.63}):place==='market'?{x:.38,y:.66}:place==='ramen'?{x:.62,y:.58}:place==='bowling'?{x:.40,y:.61}:{x:.68,y:.61},
    hint:hints[st.id][info.index]} as StoryEncounter];
  }).sort((a,b)=>Number(b.index>0)-Number(a.index>0));
 }

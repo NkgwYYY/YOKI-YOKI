@@ -49,3 +49,23 @@ test('an ongoing local story has priority, completed stories no longer start',()
  assert.equal(storyEncounters(state,'2026-10-10','ramen')[0].id,'newcomer');
  assert.equal(storyEncounters({version:1,arcs:{newcomer:arc(6)}},'2026-10-10','market').some(e=>e.id==='newcomer'),false);
 });
+
+// WorldGate uses a 44px tap target above resident sprites. Keep the grandmother
+// clear of those targets: otherwise tapping her accidentally changes the map.
+test('grandmother conversations never overlap a portal touch target',async()=>{
+ const maps=url(source('../utils/worldMaps.ts'));
+ const {mapPortals}=await import(url(source('../utils/villageLife.ts').replace('"./worldMaps"',JSON.stringify(maps))));
+ const story=VILLAGE_STORIES.find(s=>s.id==='grandma');
+ for(let index=0;index<story.episodes.length;index++){
+  const place=story.episodes[index].place,state={version:1,arcs:{grandma:arc(index)}};
+  const resident=storyEncounters(state,'2026-10-20',place).find(e=>e.id==='grandma');
+  for(const width of [390,533,680]){
+   const height=width*1.5,size=width*.17;
+   const x=resident.point.x*width,y=resident.point.y*height;
+   for(const gate of mapPortals(place,false)){
+    const gx=gate.point.x*width,gy=gate.point.y*height;
+    assert.ok(x+size/2<=gx-22||x-size/2>=gx+22||y<=gy-22||y-size>=gy+22,`${place}: ${gate.to} intercepts grandma at ${width}px`);
+   }
+  }
+ }
+});
