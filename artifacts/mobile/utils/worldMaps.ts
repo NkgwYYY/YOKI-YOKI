@@ -46,7 +46,7 @@ export function mapGroundPoint(map: WorldMapId, point: {x:number;y:number}) {
 export function isMapGround(map: WorldMapId, point: {x:number;y:number}) {
   'worklet';const p=mapGroundPoint(map,point);return Math.abs(p.x-point.x)<.001&&Math.abs(p.y-point.y)<.001;
 }
-export function mapStart(map: WorldMapId) {return map==='grandma'?{x:.36,y:.73}:map==='bank'?{x:.60,y:.67}:map==='fortune'?{x:.72,y:.70}:map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.63,y:.66}:{x:.52,y:.61};}
+export function mapStart(map: WorldMapId) {return map==='market'?{x:.55,y:.765}:map==='grandma'?{x:.36,y:.73}:map==='bank'?{x:.60,y:.67}:map==='fortune'?{x:.72,y:.70}:map==='bowling'?{x:.455,y:.715}:map==='home'?{x:.50,y:.48}:map==='ramen'?{x:.63,y:.66}:{x:.52,y:.61};}
 export function mapRoute(map: WorldMapId, from:{x:number;y:number}, to:{x:number;y:number}) {
   const target=mapGroundPoint(map,to);
   // Keep the approach clear of the cat and the ramen counter's staff.

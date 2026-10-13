@@ -21,7 +21,8 @@ const VisitorActor = React.memo(function VisitorActor({visit, size, active, redu
 });
 
 /** Small in-world conversations. Movement and the scene stay available. */
-export function VillageVisitors({map, daySeed, width, height, clearTop, viewportLeft, viewportWidth, active, reduceMotion, onTalk}: {
+export function VillageVisitors({map, daySeed, width, height, clearTop, viewportLeft, viewportWidth, active, reduceMotion, onTalk, occupiedPoints=[]}: {
+  occupiedPoints?:{x:number;y:number}[];
   map: WorldMapId; daySeed: number; width: number; height: number; clearTop: number; viewportLeft: number; viewportWidth: number;
   active: boolean; reduceMotion: boolean; onTalk: () => void;
 }) {
@@ -43,7 +44,7 @@ export function VillageVisitors({map, daySeed, width, height, clearTop, viewport
     setSpoken({visit, text: visitorReply(visit, turn), turn: turn + 1});
   };
   return <>
-    {visits.map(visit => <View key={visit.visitor.id} style={{position: 'absolute', left: width * visit.point.x - size / 2, top: height * visit.point.y - size * .91, zIndex: Math.round(visit.point.y * 1000)}}>
+    {visits.filter(visit=>!occupiedPoints.some(p=>Math.abs(p.x-visit.point.x)<.17&&Math.abs(p.y-visit.point.y)<.12)).map(visit => <View key={visit.visitor.id} style={{position: 'absolute', left: width * visit.point.x - size / 2, top: height * visit.point.y - size * .91, zIndex: Math.round(visit.point.y * 1000)}}>
       <VisitorActor visit={visit} size={size} active={active} reduceMotion={reduceMotion} greeting={spoken?.visit.visitor.id === visit.visitor.id ? spoken.turn : 0} onTalk={() => talk(visit)}/>
     </View>)}
     {spoken && active && <Pressable testID="village-visitor-dialogue" accessibilityRole="button" accessibilityLabel={`${getStageName(spoken.visit.visitor.stage)}の村人：${spoken.text} 会話を閉じる`} onPress={() => setSpoken(null)} style={[s.bubble, {

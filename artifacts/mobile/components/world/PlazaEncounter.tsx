@@ -1,3 +1,4 @@
+import {PLAZA_VISITOR_POINT,PLAZA_RESIDENT_SIZE} from '@/utils/encounterLayout';
 import React,{memo,useEffect} from 'react';
 import {Modal,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
 import Animated,{cancelAnimation,Easing,useAnimatedStyle,useSharedValue,withRepeat,withSequence,withTiming} from 'react-native-reanimated';
@@ -22,7 +23,7 @@ const Visitor=memo(function Visitor({kind,size,active,reduceMotion,parent=false}
 
 export function PlazaActors({encounter,width,height,active,reduceMotion,animating,onTalk}:{encounter:PlazaEncounter;width:number;height:number;active:boolean;reduceMotion:boolean;animating:boolean;onTalk:()=>void}){
  const {kind,outcome}=encounter,helped=outcome?.choice==='accept';
- const size=width*(kind==='balloon'?.14:.18),float=useSharedValue(0),progress=useSharedValue(helped?1:0);
+ const size=width*PLAZA_RESIDENT_SIZE,float=useSharedValue(0),progress=useSharedValue(helped?1:0);
  useEffect(()=>{if(active&&!reduceMotion)float.value=withRepeat(withSequence(withTiming(1,{duration:1700}),withTiming(-1,{duration:1700})),-1);return()=>cancelAnimation(float);},[active,reduceMotion]);
  useEffect(()=>{if(animating){progress.value=0;progress.value=withTiming(1,{duration:1500,easing:Easing.inOut(Easing.quad)});}else progress.value=helped?1:0;return()=>cancelAnimation(progress);},[animating,helped]);
  const balloonStyle=useAnimatedStyle(()=>({transform:[{translateX:-width*.12*progress.value},{translateY:height*.12*progress.value+float.value*3}]}));
@@ -33,9 +34,8 @@ export function PlazaActors({encounter,width,height,active,reduceMotion,animatin
   </View>}
   {kind==='balloon'&&<Animated.View pointerEvents="none" style={[{position:'absolute',left:width*.70,top:height*.52-width*.34,width:width*.085,height:width*.18,zIndex:570},balloonStyle]}><Svg width="100%" height="100%" viewBox="0 0 45 96"><Defs><LinearGradient id="plazaRed" x1="0" y1="0" x2="1" y2="1"><Stop stopColor="#FFAFAC"/><Stop offset=".45" stopColor="#EF5C68"/><Stop offset="1" stopColor="#9C2C50"/></LinearGradient></Defs><Path d="M23 48Q37 59 23 70Q13 80 21 95" fill="none" stroke="#FAEDCC" strokeWidth="1.5"/><Ellipse cx="23" cy="24" rx="20" ry="24" fill="url(#plazaRed)"/><Ellipse cx="16" cy="14" rx="4" ry="8" fill="#FFE5DD99" transform="rotate(25 16 14)"/><Path d="M23 45L19 52H27Z" fill="#C1485D"/></Svg></Animated.View>}
   {kind==='balloon'&&helped&&!animating&&<View pointerEvents="none" style={{position:'absolute',left:width*.73-width*.075,top:height*.56-width*.18,zIndex:580}}><Visitor kind="balloon" parent size={width*.16} active={active} reduceMotion={reduceMotion}/></View>}
-  <Animated.View style={[{position:'absolute',left:width*.63-size/2,top:height*.57-size,width:size,zIndex:620},actorStyle]}>
+  <Animated.View style={[{position:'absolute',left:width*PLAZA_VISITOR_POINT.x-size/2,top:height*PLAZA_VISITOR_POINT.y-size,width:size,zIndex:620},actorStyle]}>
    <Pressable testID="plaza-visitor" accessibilityRole="button" accessibilityLabel={`${PLAZA_STORIES[kind].name}に話しかける`} disabled={!active} onPress={onTalk} style={{alignItems:'center'}}>
-    {!outcome&&<View style={s.bubble}><Text style={s.bubbleText}>{kind==='balloon'?'風船が…':kind==='scammer'?'いい話があるよ':kind==='lost'?'どこかしら…':'ここはどこ？'}</Text></View>}
     <Visitor kind={kind} size={size} active={active} reduceMotion={reduceMotion}/>
    </Pressable>
   </Animated.View>

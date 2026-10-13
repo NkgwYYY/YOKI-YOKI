@@ -1,3 +1,4 @@
+import {STORY_RESIDENT_SIZE} from '@/utils/encounterLayout';
 import {GrandmotherResident} from './VegetableGarden';
 import {MerchantResident} from '@/components/village/MerchantResident';
 import React,{useEffect,useRef,useState} from 'react';
@@ -82,9 +83,8 @@ function StoryDialogue({encounter,onClose,onBowl,onGo,service}:DialogueProps){
 }
 
 export function StoryEncounterActor({encounter,width,height,active,reduceMotion,onTalk}:{encounter:StoryEncounter;width:number;height:number;active:boolean;reduceMotion:boolean;onTalk:()=>void}){
- const size=width*.17;
+ const size=width*(encounter.place==='market'?STORY_RESIDENT_SIZE:.17);
  return <Pressable testID="story-encounter-resident" accessibilityRole="button" accessibilityLabel={`${villageStory(encounter.id).episodes[encounter.index].speaker}に話しかける`} disabled={!active} onPress={onTalk} style={{position:'absolute',left:width*encounter.point.x-size/2,top:height*encounter.point.y-size,width:size,zIndex:700,alignItems:'center'}}>
-  <View pointerEvents="none" style={{position:'absolute',bottom:'100%',backgroundColor:'#FFF4DDEE',borderRadius:12,padding:8,minWidth:120,borderWidth:1,borderColor:'#C2A97C'}}><Text style={{fontSize:11,textAlign:'center',color:'#665146'}}>{encounter.hint}</Text></View>
   {encounter.id==='grandma'?<GrandmotherResident size={size} active={active} reduceMotion={reduceMotion}/>:<VillageResident stage={encounter.stage} size={size} active={active} reduceMotion={reduceMotion}/>}
   {encounter.id==='newcomer'&&encounter.index===0&&<Svg pointerEvents="none" width={size*.65} height={size*.5} viewBox="0 0 80 60" style={{position:'absolute',bottom:0,right:-size*.18}}><Ellipse cx="42" cy="56" rx="34" ry="4" fill="#382F2433"/><Path d="M7 16L29 4L73 13L53 27Z" fill="#E6C690"/><Path d="M7 16L53 27V57L7 44Z" fill="#BB8C55"/><Path d="M53 27L73 13V43L53 57Z" fill="#8E633F"/><Path d="M28 11L40 14L61 19L53 27L31 21V51L22 48V18Z" fill="#E7CAA0"/><Rect x="36" y="32" width="12" height="9" rx="1" fill="#F2DFC0"/></Svg>}
  </Pressable>;

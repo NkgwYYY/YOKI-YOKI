@@ -6,6 +6,9 @@ import {useAuth} from '@/contexts/AuthContext';
 import {CarriedGift} from '@/components/gifts/GiftArt';
 import type {GiftKind} from '@/utils/characterGifts';
 import {usePlazaEvents} from './usePlazaEvents';
+import {EncounterHint} from './EncounterHint';
+import {layoutStoryResidents,storyApproach,nearbyConversation,STORY_RESIDENT_SIZE,PLAZA_RESIDENT_SIZE,PLAZA_VISITOR_POINT,PLAZA_APPROACH_POINT,type ConversationTarget} from '@/utils/encounterLayout';
+import {PLAZA_HINTS} from '@/utils/plazaEvents';
 import {PlazaActors,PlazaDialogue} from './PlazaEncounter';
 import {BankHall} from './BankHall';
 import {FortuneCat,FortuneHall} from './FortuneHall';
@@ -113,7 +116,7 @@ export function WorldHome(props: Props) {
   const heardStories=useRef(new Set<string>()),merchantStories=useRef(new Set<string>()),autoStoryThisVisit=useRef(false);
   const stories=useVillageStories(props.active);
   const localEncounters=stories.ready?storyEncounters(stories.state,stories.today,map,harvested):[];
-  const localResidents=localEncounters.filter(st=>!st.merchant);
+  const localResidents=layoutStoryResidents(localEncounters);
   const sceneResidents=storyOpen&&!storyOpen.merchant&&!localResidents.some(st=>st.key===storyOpen.key)?[...localResidents,storyOpen]:localResidents;
   const [mapOpen,setMapOpen]=useState(false);
   const [fortuneOpen,setFortuneOpen]=useState(false);
@@ -151,6 +154,11 @@ export function WorldHome(props: Props) {
   const viewportHeight = sceneHeight, frameTop = frame.top;
   const view = useWorldCamera({...frame,active,reduceMotion});
   const {follow:camera,zoom,touching}=view;
+  const conversationTargets:ConversationTarget[]=[...sceneResidents.map(e=>({key:e.key,point:e.point,hint:e.hint,size:map==='market'?STORY_RESIDENT_SIZE:.17})),...(map==='market'&&plaza.current?[{key:'plaza',point:PLAZA_VISITOR_POINT,hint:plaza.current.outcome?'':PLAZA_HINTS[plaza.current.kind],size:PLAZA_RESIDENT_SIZE}]:[])];
+  const aimedConversation=destination&&pending.current?.id===destination.id?(pending.current.action.kind==='story'?pending.current.action.encounter.key:pending.current.action.kind==='plaza'?'plaza':null):null;
+  const [nearbyKey,setNearbyKey]=useState<string|null>(null);
+  useAnimatedReaction(()=>active&&!props.food&&!experience&&!bowlingBusy&&!holding.value&&!touching.value?(aimedConversation??nearbyConversation(conversationTargets,{x:footX.value,y:footY.value},nearbyKey)):null,(key,previous)=>{if(key!==previous)runOnJS(setNearbyKey)(key);},[active,props.food,experience,bowlingBusy,map,aimedConversation,conversationTargets.map(t=>t.key).join(','),nearbyKey]);
+  const nearbyTarget=active?conversationTargets.find(t=>t.key===nearbyKey):undefined;
   const openStory=(encounter:StoryEncounter)=>{
     if(!active||props.food||experience||bowlingBusy||cleanTool||riding)return;
     heardStories.current.add(encounter.key);if(encounter.merchant)merchantStories.current.add(encounter.key);autoStoryThisVisit.current=true;
@@ -337,9 +345,9 @@ export function WorldHome(props: Props) {
         <HouseDust width={width} height={height} dirt={housekeeping.dirt} tool={cleanTool} active={active} onClean={housekeeping.clean}/>
         {housekeeping.house.robotPlaced&&<RobotCleaner width={width} height={height} active={active&&!cleanTool&&!props.food&&!experience} reduceMotion={reduceMotion} riding={riding} footX={footX} footY={footY} onClean={housekeeping.clean} onRide={(x,y)=>{setDestination(null);pending.current=null;portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(footX);cancelAnimation(footY);footX.value=x;footY.value=y;setRiding(true);props.onInteract('greet');}}/>}
       </>}
-      {map==='market'&&plaza.current&&<PlazaActors encounter={plaza.current} width={width} height={height} active={active} reduceMotion={reduceMotion} animating={plaza.animating} onTalk={()=>request({x:.48,y:.56},{kind:'plaza'})}/>}
-      {sceneResidents.map(encounter=><StoryEncounterActor key={encounter.key} encounter={encounter} width={width} height={height} active={active&&!props.food&&!experience} reduceMotion={reduceMotion} onTalk={()=>request(encounter.id==='grandma'?{x:encounter.point.x-.14,y:encounter.point.y+.035}:encounter.point,{kind:'story',encounter})}/>)}
-      {stories.ready&&<StoryWorldKeepsakes hideNewcomer={sceneResidents.some(st=>st.id==='newcomer'||st.id==='festival')} state={stories.state} map={map} width={width} height={height} active={active} reduceMotion={reduceMotion} onTalk={()=>setMapMessage(stories.state.arcs.festival?.episodes.length===6?'あのお祭り、楽しかったね。今日もここで、のんびりしていって。':'おかえり！ あのお茶会から、ここで誰かに会うのが楽しみになったんだ。')}/>}
+      {map==='market'&&plaza.current&&<PlazaActors encounter={plaza.current} width={width} height={height} active={active} reduceMotion={reduceMotion} animating={plaza.animating} onTalk={()=>request(PLAZA_APPROACH_POINT,{kind:'plaza'})}/>}
+      {sceneResidents.map(encounter=><StoryEncounterActor key={encounter.key} encounter={encounter} width={width} height={height} active={active&&!props.food&&!experience} reduceMotion={reduceMotion} onTalk={()=>request(storyApproach(encounter),{kind:'story',encounter})}/>)}
+      {stories.ready&&<StoryWorldKeepsakes hideNewcomer={sceneResidents.length>0} state={stories.state} map={map} width={width} height={height} active={active} reduceMotion={reduceMotion} onTalk={()=>setMapMessage(stories.state.arcs.festival?.episodes.length===6?'あのお祭り、楽しかったね。今日もここで、のんびりしていって。':'おかえり！ あのお茶会から、ここで誰かに会うのが楽しみになったんだ。')}/>}
       {map==='grandma'&&grandmaUnlocked&&<>
        <GardenBeds width={width} height={height} active={active&&!props.food} onPlot={i=>request({x:.23,y:GARDEN_PLOTS[i].y+.08},{kind:'garden',plot:i})}/>
        <Pressable testID="garden-grandmother" accessibilityRole="button" accessibilityLabel="おばあさんと話す" disabled={!active||!!props.food} onPress={()=>{steering.value={x:0,y:0};setDestination(null);pending.current=null;setGrandmaOpen(true);}} style={{position:'absolute',left:width*.15,top:height*.45-width*.17,zIndex:700}}><GrandmotherResident size={width*.17} active={active} reduceMotion={reduceMotion}/></Pressable>
@@ -354,7 +362,8 @@ export function WorldHome(props: Props) {
       {map==='bowling'&&merchant('bowling','受付スタッフ',{x:.72,y:.57},'egg','bowling')}
       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>}
-      <VillageVisitors map={map} daySeed={props.daySeed} width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food&&!experience&&!bowlingBusy} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>
+      <VillageVisitors occupiedPoints={conversationTargets.map(t=>t.point)} map={map} daySeed={props.daySeed} width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food&&!experience&&!bowlingBusy} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>
+      {nearbyTarget?.hint&&<EncounterHint key={nearbyTarget.key} target={nearbyTarget} targets={conversationTargets} width={width} height={height} viewportLeft={-frame.left} viewportWidth={bounds.width} clearTop={stageTop-frame.top} footX={footX} footY={footY}/>}
       {mapPortals(map,grandmaUnlocked).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level,grandmaUnlocked)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
       <WorldResident {...props} grandmaUnlocked={grandmaUnlocked} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {map==='home'&&props.carriedGift&&<CarriedGift kind={props.carriedGift} width={width} height={height} footX={footX} footY={footY}/>}
@@ -413,7 +422,7 @@ export function WorldHome(props: Props) {
       {!!smoking.error&&<Text accessibilityRole="alert" style={s.mapCopy}>{smoking.error}</Text>}
       <WorldPill testID="tobacco-smoke" label={smoking.busy?'準備中…':'喫煙所で一服する'} disabled={smoking.busy} icon="wind" onPress={()=>{void smoking.start().then(ok=>{if(ok){setPlacesOpen(false);view.reset();setExperience('smoke');}});}}/>
     </BottomSheet>}
-    {map==='market'&&plaza.current&&!plaza.open&&<View style={[s.placeAction,{bottom:dockBottom+26,left:132}]}><WorldPill testID="plaza-talk" label="話しかける" icon="message-circle" onPress={()=>request({x:.48,y:.56},{kind:'plaza'})} disabled={!active||!!props.food}/></View>}
+    {nearbyTarget&&<View style={[s.placeAction,{bottom:dockBottom+26,left:132}]}><WorldPill testID="nearby-talk" label="話しかける" icon="message-circle" onPress={()=>{if(nearbyTarget.key==='plaza')request(PLAZA_APPROACH_POINT,{kind:'plaza'});else{const encounter=localResidents.find(e=>e.key===nearbyTarget.key);if(encounter)request(storyApproach(encounter),{kind:'story',encounter});}}} disabled={!active||!!props.food}/></View>}
     {map==='market'&&plaza.error&&!plaza.open&&<Pressable accessibilityRole="button" accessibilityLabel="広場の出会いを再読み込み" onPress={plaza.retry} style={[s.experience,{bottom:dockBottom+4,left:132}]}><Text style={s.experienceText}>{plaza.error}　再試行</Text></Pressable>}
     {map==='market'&&plaza.open&&plaza.current&&<PlazaDialogue encounter={plaza.current} busy={plaza.busy} error={plaza.error} animating={plaza.animating} points={feedState.points} onChoose={choice=>{void plaza.choose(choice,reduceMotion);}} onClose={()=>{void plaza.close();}}/>}
     {bankOpen&&<BankHall onClose={()=>{setBankOpen(false);view.reset();}}/>}

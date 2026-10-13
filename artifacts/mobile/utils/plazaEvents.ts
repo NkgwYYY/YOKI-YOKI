@@ -51,3 +51,5 @@ export function preparePlazaEvent(values:Record<string,string|null>,op:PlazaOper
  const next=changed?{...feed,points,plazaEvents:state}:feed;
  return {entries:changed?[[key,JSON.stringify(next)]] as StorageEntry[]:[],result:{feed:next,state,changed}};
 }
+
+export const PLAZA_HINTS:Record<PlazaKind,string>={balloon:'風船が…',scammer:'いい話があるよ',lost:'どこかしら…',traveler:'ここはどこ？'};
