@@ -1,16 +1,17 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {AppState,Pressable,StyleSheet,Text,View} from 'react-native';
-import Svg,{Circle,Defs,Ellipse,G,LinearGradient,Path,RadialGradient,Rect,Stop} from 'react-native-svg';
+import {AppState,Image,Pressable,StyleSheet,Text,View} from 'react-native';
+import Svg,{Circle,Defs,Ellipse,Path,RadialGradient,Rect,Stop} from 'react-native-svg';
 import {useApp} from '@/contexts/AppContext';
 import {useAuth} from '@/contexts/AuthContext';
 import {BottomSheet} from '@/components/ui/BottomSheet';
 import {VillageResident} from '@/components/village/VillageActors';
 import {CROPS,gardenUnlocked,wholesaleUnlocked,readGarden,plotStatus,type CropId,type GardenOperation} from '@/utils/vegetableGarden';
 import {getTodayDate} from '@/utils/dateUtils';
+import {GARDEN_CROP_ART} from '@/utils/worldArt';
 
 const cropIds=Object.keys(CROPS) as CropId[];
 type Action=GardenOperation extends infer O?O extends GardenOperation?Omit<O,'revision'>:never:never;
-function useGarden(){
+export function useGarden(){
  const {feedState,runGarden,isLoading,cloudSynced}=useApp(),{isSignedIn,isLoading:authLoading}=useAuth();
  const [today,setToday]=useState(getTodayDate),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[error,setError]=useState('');
  const pending=useRef(false),alive=useRef(true);
@@ -19,7 +20,7 @@ function useGarden(){
  const unlocked=gardenUnlocked(feedState),ready=unlocked&&!readError&&!isLoading&&!authLoading&&(!isSignedIn||cloudSynced);
  const act=async(op:Action)=>{
   if(!ready||pending.current)return;pending.current=true;setBusy(true);setError('');setMessage('');
-  try{const saved=await runGarden({...op,revision:garden.revision});if(alive.current)setMessage(saved.message);}
+  try{const saved=await runGarden({...op,revision:garden.revision});if(alive.current)setMessage(saved.message);return saved;}
   catch(e){if(alive.current)setError(e instanceof Error?e.message:'保存できませんでした。もう一度お試しください。');}
   finally{pending.current=false;if(alive.current)setBusy(false);}
  };
@@ -33,46 +34,45 @@ export function GrandmotherResident({size,active,reduceMotion}:{size:number;acti
   <Circle cx="37" cy="47" r="10" fill="#FFFFFF08" stroke="#977451" strokeWidth="1.8"/><Circle cx="64" cy="47" r="10" fill="#FFFFFF08" stroke="#977451" strokeWidth="1.8"/><Path d="M47 45Q51 42 54 45M27 45L21 43M74 45L80 43" stroke="#977451" strokeWidth="1.6" fill="none"/>
  </Svg></View>;
 }
+/** A single shared atlas keeps the field lightweight, including on phones. */
 export function CropArt({crop,growth=7,size=72}:{crop:CropId;growth?:number;size?:number}){
- const mature=growth>=7,fruit=growth>=5,leaves=growth>=3;
- return <Svg width={size} height={size} viewBox="0 0 100 100"><Defs><RadialGradient id={`veg-${crop}`} cx=".3" cy=".25"><Stop stopColor={crop==='tomato'?'#FFAD82':crop==='carrot'?'#FFD082':'#FFFDEF'}/><Stop offset="1" stopColor={crop==='tomato'?'#A72F3A':crop==='carrot'?'#CE6127':'#C8BDA6'}/></RadialGradient><LinearGradient id={`leaf-${crop}`}><Stop stopColor="#A9D966"/><Stop offset="1" stopColor="#3F733F"/></LinearGradient></Defs>
-  <Ellipse cx="51" cy="83" rx={leaves?29:17} ry="7" fill="#2F2A1D30"/>
-  {growth===0?<G><Ellipse cx="48" cy="76" rx="13" ry="5" fill="#8B5636"/><Ellipse cx="48" cy="74" rx="3" ry="2" fill="#EBD1A4"/></G>:<G>
-   <Path d={crop==='tomato'&&leaves?'M50 83V30M50 61L26 43M50 53L74 31':'M50 82Q47 62 51 39'} fill="none" stroke="#517F3C" strokeWidth="4"/>
-   {(leaves?[[45,49,-35],[60,35,35],[35,62,-55],[63,57,40]]:[[41,62,-35],[59,54,40]]).map(([x,y,r],i)=><Ellipse key={i} cx={x} cy={y} rx={leaves?10:8} ry={leaves?19:13} rotation={r} origin={`${x}, ${y}`} fill={`url(#leaf-${crop})`}/>)}
-   {fruit&&(crop==='tomato'?<G>{[[31,63],[67,54],[58,76]].map(([x,y],i)=><G key={i}><Circle cx={x} cy={y} r={mature?14:10} fill={mature?`url(#veg-${crop})`:'#BDCC68'}/><Path d={`M${x-7} ${y-10}l7 3l6-4l-3 7l-7-1Z`} fill="#42743A"/><Ellipse cx={x-4} cy={y-4} rx="3" ry="4" fill="#FFE6BF66"/></G>)}</G>:crop==='turnip'?<G><Path d="M50 81Q58 86 54 92" stroke="#E0D2BD" strokeWidth="2" fill="none"/><Ellipse cx="50" cy="71" rx={mature?23:15} ry={mature?19:12} fill={`url(#veg-${crop})`}/></G>:<G><Path d={mature?'M33 62Q49 51 67 61Q64 84 49 94Q36 79 33 62':'M39 68Q50 59 61 68L51 90Z'} fill={`url(#veg-${crop})`}/><Path d="M40 67L50 69M47 77L58 75M48 85L53 83" stroke="#C66C32" strokeWidth="2" strokeLinecap="round"/></G>)}
-  </G>}
- </Svg>;
+ const tile=growth<5?{x:0,y:0}:crop==='turnip'?{x:1,y:0}:crop==='carrot'?{x:0,y:1}:{x:1,y:1};
+ if(growth===0)return <Svg width={size} height={size} viewBox="0 0 100 100"><Ellipse cx="50" cy="86" rx="15" ry="4" fill="#422C2466"/><Ellipse cx="47" cy="84" rx="3" ry="1.5" fill="#C3A06A"/><Ellipse cx="54" cy="86" rx="2" ry="1" fill="#E4C998"/></Svg>;
+ return <View pointerEvents="none" style={{width:size,height:size,overflow:'hidden'}}><Image source={GARDEN_CROP_ART} resizeMode="stretch" style={{position:'absolute',width:size*2,height:size*2,left:-tile.x*size,top:-tile.y*size}}/></View>;
 }
-export const GARDEN_PLOTS=[{x:.45,y:.53},{x:.68,y:.53},{x:.45,y:.65},{x:.68,y:.65}];
+// Logical saved plantings follow the furrows of one continuous field; no plot borders.
+export const GARDEN_PLOTS=[.465,.535,.605,.675].map(y=>({x:.55,y}));
+function GardenCue({kind}:{kind:'water'|'harvest'|'plant'}){
+ return <View style={{width:26,height:26,borderRadius:13,backgroundColor:kind==='water'?'#E6F5F0EA':'#FFF2D4E8',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#FFFFFF80'}}><Svg width={17} height={17} viewBox="0 0 24 24">{kind==='water'?<Path d="M12 3C10 7 5 11 5 15a7 7 0 0 0 14 0c0-4-5-8-7-12Z" fill="#78AFBF" stroke="#47768D" strokeWidth="1.3"/>:kind==='harvest'?<Path d="m12 2 2.8 7.2L22 12l-7.2 2.8L12 22l-2.8-7.2L2 12l7.2-2.8Z" fill="#D3A340"/>:<><Path d="M12 21V10M12 14C3 15 2 6 3 5c7-1 10 3 9 9ZM12 11C12 4 18 2 22 3c0 6-4 9-10 8Z" fill="#72985B" stroke="#4E7041" strokeWidth="1.2"/></>}</Svg></View>;
+}
 export function GardenBeds({width,height,active,onPlot}:{width:number;height:number;active:boolean;onPlot:(i:number)=>void}){
- const {garden,today,error}=useGarden();
- return <>{error?<Text style={{position:'absolute',left:width*.24,top:height*.52,color:'#FFF4D9',backgroundColor:'#4C3843',padding:12}}>{error}</Text>:GARDEN_PLOTS.map((point,i)=>{
-  const plot=garden.plots[i],status=plotStatus(plot,today),size=width*.20;
-  const label=!plot?'種をまく':status.mature?'収穫できるよ':status.watered?'お水をあげたよ':'お水がほしいな';
-  return <Pressable testID={`garden-plot-${i}`} key={i} accessibilityRole="button" accessibilityLabel={`畑${i+1}、${plot?CROPS[plot.crop].name+'、':''}${label}`} disabled={!active} onPress={()=>onPlot(i)} style={{position:'absolute',left:width*point.x-size/2,top:height*point.y-size*.54,width:size,height:size*.85,zIndex:600}}>
-   <Svg width={size} height={size*.85} viewBox="0 0 140 120"><Defs><LinearGradient id={`soil-${i}`} x2="0" y2="1"><Stop stopColor={status.watered?'#594337':'#94704C'}/><Stop offset="1" stopColor={status.watered?'#3E3029':'#69472F'}/></LinearGradient></Defs><Ellipse cx="71" cy="96" rx="65" ry="17" fill="#3A322636"/><Path d="M4 47L116 36L138 88L22 105Z" fill="#8D623D"/><Path d="M5 39L117 29L138 78L22 95Z" fill={`url(#soil-${i})`} stroke="#C29460" strokeWidth="4"/>{[48,59,70,81].map(y=><Path key={y} d={`M20 ${y}L118 ${y-8}`} stroke="#AE84552F" strokeWidth="2"/>)}</Svg>
-   <View pointerEvents="none" style={{position:'absolute',left:size*.16,bottom:size*.18}}>{plot?<CropArt crop={plot.crop} growth={status.growth} size={size*.75}/>:<Text style={{fontSize:24,color:'#DFC9A2'}}>＋</Text>}</View>
-   <View pointerEvents="none" style={{position:'absolute',bottom:-11,alignSelf:'center',paddingHorizontal:6,paddingVertical:4,borderRadius:6,backgroundColor:status.mature?'#516643EF':'#332A35E8'}}><Text style={{fontSize:10,color:'#FFF0D4'}}>{label}</Text></View>
-  </Pressable>;
+ const {garden,today,error,ready}=useGarden();
+ if(error)return <Text accessibilityRole="alert" style={{position:'absolute',left:width*.24,top:height*.52,color:'#FFF4D9',backgroundColor:'#4C3843',padding:12}}>{error}</Text>;
+ return <>{GARDEN_PLOTS.map((row,i)=>{
+  const plot=garden.plots[i],status=plotStatus(plot,today);
+  const label=!plot?'種をまく':status.mature?'収穫する':status.watered?'育ち具合を見る':'水をあげる';
+  const cue=!plot?'plant':status.mature?'harvest':!status.watered?'water':null;
+  const scale=status.growth<3?.057+status.growth*.013:status.growth<5?.085+(status.growth-3)*.012:.11+(status.growth-5)*.012;
+  return <React.Fragment key={i}>{[.34,.48,.62,.76].map((x,j)=>{
+   const y=row.y+(row.x-x)*.16,size=width*scale*(j%2?.95:1.04),hit=Math.max(44,width*.125);
+   return <Pressable key={j} testID={`garden-plot-${i}${j?'--'+j:''}`} accessibilityRole="button" accessibilityLabel={`${plot?CROPS[plot.crop].name+'、':''}${label}、${i+1}列目`} disabled={!active||!ready} onPress={()=>onPlot(i)} style={{position:'absolute',left:width*x-hit/2,top:height*y-hit*.80,width:hit,height:hit,zIndex:600+i}}>
+    {plot&&<View pointerEvents="none" style={{position:'absolute',left:(hit-size)/2,top:hit*.80-size*.90}}><CropArt crop={plot.crop} growth={status.growth} size={size}/></View>}
+
+   </Pressable>;
+  })}{cue&&<Pressable testID={`garden-cue-${i}`} accessibilityRole="button" accessibilityLabel={`${plot?CROPS[plot.crop].name+'、':''}${label}、${i+1}列目`} disabled={!active||!ready} onPress={()=>onPlot(i)} style={{position:'absolute',left:width*.62-22,top:height*(row.y+(row.x-.62)*.16)-Math.max(44,width*.125)*.80+(plot?-Math.max(4,width*scale*1.04-Math.max(44,width*.125)*.58):Math.max(44,width*.125)*.25)-9,width:44,height:44,zIndex:720+i,alignItems:'center',justifyContent:'center'}}><GardenCue kind={cue}/></Pressable>}</React.Fragment>;
  })}</>;
 }
 function Feedback({garden}:{garden:ReturnType<typeof useGarden>}){return <>{!!garden.error&&<Text accessibilityRole="alert" style={s.error}>{garden.error}</Text>}{!!garden.message&&<Text accessibilityLiveRegion="polite" style={s.success}>{garden.message}</Text>}</>;}
 export function GardenSheet({plotIndex,onClose,onShop}:{plotIndex:number;onClose:()=>void;onShop:()=>void}){
  const g=useGarden(),plot=g.garden.plots[plotIndex],status=plotStatus(plot,g.today);
- return <BottomSheet visible title={`おばあさんの畑 · ${plotIndex+1}`} subtitle="少しずつ育つ、ふたりの楽しみ。" onClose={()=>{if(!g.busy)onClose();}}>
+ const plant=async(crop:CropId)=>{const saved=await g.act({kind:'plant',plot:plotIndex,crop});if(saved?.changed)onClose();};
+ return <BottomSheet visible title={plot?CROPS[plot.crop].name:'種をまく'} maxHeightRatio={.55} contentStyle={{gap:12}} onClose={()=>{if(!g.busy)onClose();}}>
   <Feedback garden={g}/>
   {plot?<>
-   <View style={{alignItems:'center'}}><CropArt crop={plot.crop} growth={status.growth} size={118}/><Text style={s.title}>{CROPS[plot.crop].name}</Text></View>
-   <Text style={s.copy}>{status.mature?'大きく育ったね。そろそろ収穫しよう！':`種まき ${plot.planted} · 育った日 ${status.growth}/7日\n${status.growth<1?'土の中で、芽を出す準備をしている。':status.growth<3?'小さな芽が顔を出した。':status.growth<5?'葉が大きく広がってきた。':plot.crop==='tomato'?'小さな実がふくらんできた。':'土の中で、野菜が丸々と育っている。'}`}</Text>
-   <Pressable testID={status.mature?'garden-harvest':'garden-water'} accessibilityRole="button" disabled={!g.ready||g.busy||(!status.mature&&status.watered)} style={[s.button,(!status.mature&&status.watered)&&s.disabled]} onPress={()=>void g.act({kind:status.mature?'harvest':'water',plot:plotIndex})}><Text style={s.buttonText}>{g.busy?'保存しています…':status.mature?`${CROPS[plot.crop].yield}個収穫する`:status.watered?'今日のお水はあげました':'お水をあげる'}</Text></Pressable>
-  </>:<>
-   <Text style={s.copy}>どの種をまこう。最初のお水も一緒にあげるよ。</Text>
-   {cropIds.map(c=><Pressable key={c} testID={`garden-plant-${c}`} accessibilityRole="button" disabled={!g.ready||g.busy||!g.garden.seeds[c]} onPress={()=>void g.act({kind:'plant',plot:plotIndex,crop:c})} style={[s.row,!g.garden.seeds[c]&&s.disabled]}><CropArt crop={c} size={55}/><View style={{flex:1}}><Text style={s.title}>{CROPS[c].seedName}</Text><Text style={s.small}>持っている種 {g.garden.seeds[c]}袋 · 最短7日</Text></View><Text style={s.small}>{g.garden.seeds[c]?'まく':'種がないよ'}</Text></Pressable>)}
-  </>}
-  <Text style={s.small}>1日1回、お水をあげた翌日に少し育ちます。7日分育つと収穫。来られない日があっても、枯れません。</Text>
-  <View style={s.row}><Text style={s.copy}>収穫かご</Text><Text style={s.small}>{cropIds.map(c=>`${CROPS[c].name} ${g.garden.produce[c]}`).join(' / ')}</Text></View>
-  <Pressable accessibilityRole="button" disabled={g.busy} onPress={onShop} style={s.button}><Text style={s.buttonText}>暮らしのお店で種を買う・野菜を売る</Text></Pressable>
+   <View style={{alignItems:'center',flexDirection:'row',gap:20}}><CropArt crop={plot.crop} growth={Math.max(1,status.growth)} size={88}/><View style={{gap:12}}><Text style={s.copy}>{status.mature?'収穫できるよ':status.watered?'今日のお水は、ばっちり。':'お水をあげよう'}</Text><View accessibilityLabel={`成長 ${status.growth} / 7日`} style={{flexDirection:'row',gap:6}}>{Array.from({length:7},(_,i)=><View key={i} style={{width:12,height:12,borderRadius:6,backgroundColor:i<status.growth?'#C4D799':'#544A5C'}}/>)}</View></View></View>
+   {(!status.watered||status.mature)&&<Pressable testID={status.mature?'garden-harvest':'garden-water'} accessibilityRole="button" disabled={!g.ready||g.busy} style={s.button} onPress={async()=>{const saved=await g.act({kind:status.mature?'harvest':'water',plot:plotIndex});if(saved?.changed)onClose();}}><Text style={s.buttonText}>{status.mature?'収穫する':'水をあげる'}</Text></Pressable>}
+  </>:<View style={{flexDirection:'row',gap:8}}>{cropIds.map(c=><Pressable key={c} testID={`garden-plant-${c}`} accessibilityRole="button" accessibilityLabel={`${CROPS[c].seedName}をまく、残り${g.garden.seeds[c]}袋`} disabled={!g.ready||g.busy||!g.garden.seeds[c]} onPress={()=>void plant(c)} style={[{flex:1,alignItems:'center',paddingVertical:12,borderRadius:16,backgroundColor:'#393040',gap:4},!g.garden.seeds[c]&&s.disabled]}><CropArt crop={c} size={68}/><Text style={s.buttonText}>{CROPS[c].name}</Text><Text style={s.small}>× {g.garden.seeds[c]}</Text></Pressable>)}</View>}
+  <Pressable accessibilityRole="button" disabled={g.busy} onPress={onShop} style={{minHeight:44,alignItems:'center',justifyContent:'center'}}><Text style={s.small}>種を買いに行く →</Text></Pressable>
  </BottomSheet>;
 }
 export function ProduceTrade({venue}:{venue:'homewares'|'ramen'}){
@@ -84,6 +84,6 @@ export function ProduceTrade({venue}:{venue:'homewares'|'ramen'}){
 }
 export function SeedShop(){
  const g=useGarden();
- return <View style={{gap:12}}>{!g.unlocked?<Text style={s.copy}>畑の種は、おばあさんに家へ招待してもらうと買えるようになります。</Text>:<><Text style={s.copy}>どの野菜も最短7日で収穫できます。1袋で1つの畑、収穫は3個。</Text><Feedback garden={g}/>{cropIds.map(c=><View key={c} style={s.row}><CropArt crop={c} size={66}/><View style={{flex:1,gap:6}}><Text style={s.title}>{CROPS[c].seedName}</Text><Text style={s.small}>持っている種 {g.garden.seeds[c]}袋</Text><Pressable testID={`garden-buy-${c}`} accessibilityRole="button" disabled={!g.ready||g.busy||g.feedState.points<CROPS[c].price} onPress={()=>void g.act({kind:'buy',crop:c})} style={[s.button,(g.busy||g.feedState.points<CROPS[c].price)&&s.disabled]}><Text style={s.buttonText}>{CROPS[c].price} ptで1袋買う</Text></Pressable></View></View>)}<ProduceTrade venue="homewares"/></>}</View>;
+ return <View style={{gap:12}}>{!g.unlocked?<Text style={s.copy}>畑の種は、おばあさんに家へ招待してもらうと買えるようになります。</Text>:<><Text style={s.small}>7日で収穫 · 1袋から3個</Text><Feedback garden={g}/>{cropIds.map(c=><View key={c} style={s.row}><CropArt crop={c} size={66}/><View style={{flex:1,gap:6}}><Text style={s.title}>{CROPS[c].seedName}</Text><Text style={s.small}>持っている種 {g.garden.seeds[c]}袋</Text><Pressable testID={`garden-buy-${c}`} accessibilityRole="button" disabled={!g.ready||g.busy||g.feedState.points<CROPS[c].price} onPress={()=>void g.act({kind:'buy',crop:c})} style={[s.button,(g.busy||g.feedState.points<CROPS[c].price)&&s.disabled]}><Text style={s.buttonText}>{CROPS[c].price} ptで1袋買う</Text></Pressable></View></View>)}<ProduceTrade venue="homewares"/></>}</View>;
 }
 const s=StyleSheet.create({row:{flexDirection:'row',alignItems:'center',gap:12,padding:12,borderRadius:12,backgroundColor:'#302738',marginVertical:5,flexWrap:'wrap'},title:{fontSize:15,fontWeight:'600',color:'#F4E7D6'},copy:{fontSize:13,lineHeight:24,color:'#E5D5C0',marginVertical:10},small:{fontSize:11,lineHeight:20,color:'#C6B5C9'},button:{minHeight:44,paddingHorizontal:13,paddingVertical:11,borderRadius:10,backgroundColor:'#674F76',justifyContent:'center',marginVertical:6},buttonText:{fontSize:13,lineHeight:20,textAlign:'center',color:'#FFF2DD'},disabled:{opacity:.45},error:{fontSize:12,lineHeight:21,color:'#F4BCB4'},success:{fontSize:13,lineHeight:23,color:'#DFE9BA',padding:10,backgroundColor:'#354735',borderRadius:9}});

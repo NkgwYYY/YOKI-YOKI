@@ -4,6 +4,7 @@ import type { WorldMapId } from './worldMaps';
 
 // Web uses smaller encodings; native retains its existing JPEG/PNG assets.
 const webArt = (web: number, native: number) => Platform.OS === 'web' ? web : native;
+export const GARDEN_CROP_ART = webArt(require('@/assets/images/world/garden-crops.webp'), require('@/assets/images/world/garden-crops.png'));
 export const VILLAGE_ATLAS = webArt(require('@/assets/images/world/village-atlas.webp'), require('@/assets/images/world/village-atlas.jpg'));
 export const MERCHANT_ART = {
   bank: webArt(require('@/assets/images/world/bank-teller.webp'), require('@/assets/images/world/bank-teller.png')),
@@ -53,7 +54,7 @@ export function prepareWorldArt(map: WorldMapId, night = false): Promise<void> {
   const existing = scenes.get(key);
   if (existing) return existing;
   const portrait = map === 'bank' ? MERCHANT_ART.bank : map === 'fortune' ? FORTUNE_CAT_ART : map === 'homewares' ? MERCHANT_ART.shop : map === 'workshop' ? MERCHANT_ART.job : map === 'bowling' ? MERCHANT_ART.bowling : map === 'ramen' ? MERCHANT_ART.ramen : map === 'tobacco' ? MERCHANT_ART.tobacco : undefined;
-  const sources = [worldArt(map, night), ...(portrait ? [portrait] : [])];
+  const sources = [worldArt(map, night), ...(map === 'grandma' ? [GARDEN_CROP_ART] : []), ...(portrait ? [portrait] : [])];
   const promise = Promise.all(sources.map(prepareImage)).then(() => {}).catch(error => { scenes.delete(key); throw error; });
   scenes.set(key, promise);
   return promise;
