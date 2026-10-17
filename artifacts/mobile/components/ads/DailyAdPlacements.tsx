@@ -15,6 +15,7 @@ export interface DailyAdBinding extends DailyRewardBinding {
   /** Render the real SDK banner at this exact size. No mock/test creatives in production.
    * On no-fill/error the shared store must set bannerAvailable=false. */
   renderBanner(options: {placement: 'home' | 'street'; width: number; height: number}): React.ReactNode;
+  onBannerError?(): void;
 }
 
 const disconnectedStore = createDailyAdStore(null);
@@ -33,7 +34,7 @@ export function DailyAdProvider({binding, children}: {
   return <AdContext.Provider value={value}>{children}</AdContext.Provider>;
 }
 
-function useDailyAds() {
+export function useDailyAds() {
   const {binding, store} = useContext(AdContext);
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
   return {binding, snapshot};
@@ -43,20 +44,32 @@ type PlacementProps = {placement: DailyAdPlacement; environment: DailyAdEnvironm
 
 /** Place in a flex-column sibling AFTER the map, never absolute/on top of controls.
  * The parent must use the scene's measured height for its map geometry and dock. */
-export function DailyAdRail({placement, environment}: PlacementProps) {
+export function useDailyAdRailHeight(placement: DailyAdPlacement, environment: DailyAdEnvironment) {
+  const {binding, snapshot} = useDailyAds();
+  // Keep the measured scene stable while a gesture, sheet or keyboard hides the creative.
+  const reserved = dailyAdPresentation(placement, snapshot, {...environment, interacting: false, obscured: false, keyboardOpen: false});
+  return binding && reserved.banner ? BANNER_RAIL_HEIGHT : 0;
+}
+export function DailyAdRail({placement, environment, bottomInset = 0}: PlacementProps & {bottomInset?: number}) {
   const {binding, snapshot} = useDailyAds();
   const model = dailyAdPresentation(placement, snapshot, environment);
-  if (!binding || !model.banner || (placement !== 'home' && placement !== 'street')) return null;
-  return <AdBannerBoundary key={`${snapshot.sessionKey}:${snapshot.revision}:${placement}`}>
-    <AdBannerContent binding={binding} placement={placement}/>
-  </AdBannerBoundary>;
+  const height = useDailyAdRailHeight(placement, environment);
+  if (!binding || !height || (placement !== 'home' && placement !== 'street')) return null;
+  return <View style={{height: height + bottomInset}}>
+    <View style={{height}} pointerEvents={model.banner ? 'auto' : 'none'} accessibilityElementsHidden={!model.banner} importantForAccessibility={model.banner ? 'auto' : 'no-hide-descendants'}>
+      <View style={{display: model.banner ? 'flex' : 'none'}}>
+        <AdBannerBoundary key={snapshot.sessionKey} onError={binding.onBannerError}><AdBannerContent binding={binding} placement={placement}/></AdBannerBoundary>
+      </View>
+    </View>
+  </View>;
 }
 
 /** A surrounding try/catch cannot catch an SDK child failing in React's render.
  * Drop only the ad subtree (including its rail), not the HOME/care screen. */
-class AdBannerBoundary extends React.Component<{children?: React.ReactNode}, {failed: boolean}> {
+class AdBannerBoundary extends React.Component<{children?: React.ReactNode; onError?: () => void}, {failed: boolean}> {
   state = {failed: false};
   static getDerivedStateFromError() { return {failed: true}; }
+  componentDidCatch() { try { this.props.onError?.(); } catch {} }
   render() { return this.state.failed ? null : this.props.children; }
 }
 

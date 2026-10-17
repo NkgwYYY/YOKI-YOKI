@@ -1,3 +1,5 @@
+import {DailyAdRail, DailyAdRewardButton, useDailyAdRailHeight} from '@/components/ads/DailyAdPlacements';
+import {useAdEnvironment} from '@/components/ads/useAdEnvironment';
 import {WORLD_MAPS} from '@/utils/worldMaps';
 import {useAuth} from '@/contexts/AuthContext';
 import {useCharacterGifts} from '@/components/gifts/useCharacterGifts';
@@ -41,7 +43,7 @@ import { useDailyBath } from '@/components/world/useDailyBath';
 import { DailyRecordInvitation } from '@/components/record/DailyRecordInvitation';
 
 const HINT_KEY = '@yoki/world_hints_v3';
-type Sheet = 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | 'gift' | null;
+type Sheet = 'points' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | 'gift' | null;
 export default function HomeScreen() {
   const router = useRouter();
   const {place,bathReturn,atelier,journey}=useLocalSearchParams<{place?:string;bathReturn?:string;atelier?:string;journey?:string}>();
@@ -56,6 +58,7 @@ export default function HomeScreen() {
     getTodayRecord, getCompletedCount, getTotalCheckCount, homeCommentPreferences } = useApp();
   const { items, shopState } = useItems();
   const [sceneBusy,setSceneBusy]=useState(false);
+  const [worldInteracting,setWorldInteracting]=useState(false);
   const [worldMap,setWorldMap]=useState('home');
   const [feedVenue,setFeedVenue]=useState<'ramen'|undefined>(undefined);
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -81,6 +84,11 @@ export default function HomeScreen() {
   const [meal, setMeal] = useState(0);
   const [rest, setRest] = useState(0);
   const [food, setFood] = useState<string | null>(null);
+  const adPlacement = worldMap==='market' ? 'street' : 'home';
+  const adEnvironment = {...useAdEnvironment(!!sheet || sceneBusy, worldInteracting || !!food), screenActive: active && (worldMap==='home' || worldMap==='market')};
+  const rewardEnvironment = useAdEnvironment(sheet!=='points', !!food);
+  const railHeight = useDailyAdRailHeight(adPlacement, adEnvironment);
+  const footerBottom = railHeight ? 12 : tabHeight+12;
   const giftAvailable=!!gifts.waiting&&active&&worldMap==='home'&&!sheet&&!sceneBusy&&!food;
   const [speech, setSpeech] = useState('');
   const speechTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -137,7 +145,8 @@ export default function HomeScreen() {
   const restTogether = () => {voice.play('soft');setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
-    <WorldHome carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={`${bathReturn??'world'}-${journey??''}`} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={tab=>router.push(tab==='seeds'?'/shop?tab=seeds':'/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={WORLD_MAPS.find(p=>p.id===place)?.id} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
+    <View testID="home-world-scene" style={{flex:1}}>
+    <WorldHome dockInset={railHeight ? 12 : undefined} onInteractingChange={setWorldInteracting} carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={`${bathReturn??'world'}-${journey??''}`} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={tab=>router.push(tab==='seeds'?'/shop?tab=seeds':'/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={WORLD_MAPS.find(p=>p.id===place)?.id} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
@@ -148,11 +157,11 @@ export default function HomeScreen() {
       onChat={chat} onRest={restTogether} onAlbum={() => router.push('/(tabs)/growth')} />
     <View pointerEvents="box-none" style={[s.header, {top: insets.top + (compact ? 6 : 16)}]}>
       <View style={s.brandRow}><View pointerEvents="none"><Text style={s.brand}>YOKI YOKI</Text><Text style={s.subtitle}>{time.dateLabel}　{time.label}</Text></View>
-        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={s.points}><Icon name="star" size={14} color="#9476A6"/><Text style={s.pointsText}>{feedState.points} pt</Text></View><WorldPill compact testID="home-more-menu" label="部屋のメニュー" icon="more-horizontal" onPress={()=>setSheet('menu')}/></View>
+        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Pressable testID="home-points" accessibilityRole="button" accessibilityLabel={`${feedState.points}ポイント。ポイントの受け取りを開く`} style={s.points} onPress={()=>setSheet('points')}><Icon name="star" size={14} color="#9476A6"/><Text style={s.pointsText}>{feedState.points} pt</Text></Pressable><WorldPill compact testID="home-more-menu" label="部屋のメニュー" icon="more-horizontal" onPress={()=>setSheet('menu')}/></View>
       </View>
       {(worldMap==='home'||window.height>=660)&&<View style={s.statusRow}><SatietyGauge compact value={currentSatiety} onPress={()=>openFeed()}/><HappinessGauge value={happiness.value} onPress={()=>setSheet('happiness')}/><HygieneGauge value={hygiene} onPress={()=>setSheet('hygiene')}/></View>}
     </View>
-    {worldMap==='home'&&<View pointerEvents="box-none" style={[s.footer, {bottom: tabHeight + 12}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
+    {worldMap==='home'&&<View pointerEvents="box-none" style={[s.footer, {bottom: footerBottom}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
       {!!gifts.error&&<Pressable accessibilityRole="button" onPress={gifts.retry}><Text style={s.whisper}>{gifts.error} タップして再試行</Text></Pressable>}
       {giftAvailable&&gifts.waiting?<GiftInvitation gift={gifts.waiting} onPress={()=>{setOpenedGift({gift:gifts.waiting!,owner:giftOwner});setSheet('gift');}}/>:invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => router.push('/exchange-diary')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
         <Text style={s.residentName}>{mascotName || 'よっきー'}</Text>
@@ -166,6 +175,14 @@ export default function HomeScreen() {
       </View>
     </View>
     }
+    </View>
+    <DailyAdRail placement={adPlacement} environment={adEnvironment} bottomInset={tabHeight}/>
+    {sheet==='points'&&<BottomSheet visible onClose={close} title="YOKIポイント" subtitle="ごはんや、お部屋のお買い物に使えます">
+      <Text style={s.chatText}>{feedState.points} pt</Text>
+      <DailyAdRewardButton placement={adPlacement} environment={rewardEnvironment}/>
+      <Text style={{color:'#C8B9D4',fontSize:13,lineHeight:22}}>今日の記録や、たまごバイトでもポイントを集められます。</Text>
+      <WorldPill label="ごはんを選ぶ" icon="coffee" onPress={()=>openFeed()}/>
+    </BottomSheet>}
     {sheet==='gift'&&openedGift?.owner===giftOwner&&<GiftPresentation key={openedGift.gift.id+giftOwner} gift={openedGift.gift} onClose={close} onReceive={async id=>{const saved=await runCharacterGifts({kind:'receive',id});if(!saved.received)throw Error('Gift missing');voice.play('happy');return saved.received;}} onList={()=>{close();router.push('/gifts');}}/>}
     {sheet==='hygiene'&&<BottomSheet visible title="からだの清潔度" onClose={()=>setSheet(null)}>
       <Text style={s.chatText}>清潔度 {hygiene}%</Text><Text style={s.chatText}>3日以上からだを洗わないと、少しずつ薄汚れていくよ。おふろのタオルを選んで、指でからだをこすって洗おう。お湯に浸かるだけでは汚れは落ちません。</Text>
@@ -187,6 +204,7 @@ export default function HomeScreen() {
       <Button label="少し、お話しする" icon="message-circle" onPress={() => { close(); router.push('/(tabs)/chat'); }} />
     </BottomSheet>}
     {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
+      {menuRow('users', '友だちのおうち', () => { close(); router.push('/friends'); })}
       {menuRow('gift', 'この子からの贈りもの', () => { close(); router.push('/gifts'); })}
       {menuRow('book-open', 'ふたりの交換日記', () => { close(); router.push('/exchange-diary'); })}
       {menuRow('message-circle', 'この子とお話しする', chat)}

@@ -67,6 +67,8 @@ type Props = {
   carriedGift?: GiftKind;
   welcomeRequest?:number; onWelcomeStarted?:(id:number)=>void;
   onMapChange:(map:WorldMapId)=>void;
+  onInteractingChange?:(interacting:boolean)=>void;
+  dockInset?:number;
   cleanliness:number;
   happinessValue:number;
   music:{enabled:boolean;busy:boolean;toggle:()=>void;error:string};
@@ -145,7 +147,8 @@ export function WorldHome(props: Props) {
   const holding = useSharedValue(0);
   const away=map!=='home';
   const tight=away&&bounds.height<660;
-  const dockBottom=72+Math.max(12,insets.bottom);
+  const dockBottom=props.dockInset ?? 72+Math.max(12,insets.bottom);
+  const homeControlOffset=props.dockInset===12?60+Math.max(12,insets.bottom):0;
   const stageTop=insets.top+(tight?136:186);
   const clearBottom=bounds.height-dockBottom-116;
   const sceneHeight=bounds.height;
@@ -154,6 +157,10 @@ export function WorldHome(props: Props) {
   const viewportHeight = sceneHeight, frameTop = frame.top;
   const view = useWorldCamera({...frame,active,reduceMotion});
   const {follow:camera,zoom,touching}=view;
+  const reportInteraction = props.onInteractingChange;
+  useAnimatedReaction(() => !!destination || !!holding.value || !!touching.value || steering.value.x!==0 || steering.value.y!==0,
+    (moving, previous) => { if (moving!==previous && reportInteraction) runOnJS(reportInteraction)(moving); }, [destination, reportInteraction]);
+  useEffect(() => () => reportInteraction?.(false), [reportInteraction]);
   const conversationTargets:ConversationTarget[]=[...sceneResidents.map(e=>({key:e.key,point:e.point,hint:e.hint,size:map==='market'?STORY_RESIDENT_SIZE:.17})),...(map==='market'&&plaza.current?[{key:'plaza',point:PLAZA_VISITOR_POINT,hint:plaza.current.outcome?'':PLAZA_HINTS[plaza.current.kind],size:PLAZA_RESIDENT_SIZE}]:[])];
   const aimedConversation=destination&&pending.current?.id===destination.id?(pending.current.action.kind==='story'?pending.current.action.encounter.key:pending.current.action.kind==='plaza'?'plaza':null):null;
   const [nearbyKey,setNearbyKey]=useState<string|null>(null);
@@ -381,7 +388,7 @@ export function WorldHome(props: Props) {
       <WorldPill compact icon="sliders" label="景色の見かた" disabled={!active||bowlingBusy} onPress={()=>setViewOpen(true)} /></View>
     </View>
     {map!=='home'&&<View pointerEvents="none" style={[s.sceneTitle,{top:insets.top+(tight?115:165)}]}><Text style={[s.sceneName,{fontSize:13}]}>{WORLD_MAPS.find(p=>p.id===map)?.name}</Text></View>}
-    {!experience&&(map==='home'||(map==='market'&&!plaza.current&&!plaza.error)||map==='workshop')&&<View style={{position:'absolute',right:20,bottom:away?dockBottom+30:bounds.height<600?177:244}}><WorldPill testID="world-go-work" label={map==='workshop'?'仕事を始める':'バイトする'} icon="briefcase" onPress={()=>map==='workshop'?openMerchant('job',{x:.5,y:.48}):enterMap('workshop')} disabled={!active||!!props.food||riding||!!cleanTool}/></View>}
+    {!experience&&(map==='home'||(map==='market'&&!plaza.current&&!plaza.error)||map==='workshop')&&<View style={{position:'absolute',right:20,bottom:away?dockBottom+30:(bounds.height<600?177:244)-homeControlOffset}}><WorldPill testID="world-go-work" label={map==='workshop'?'仕事を始める':'バイトする'} icon="briefcase" onPress={()=>map==='workshop'?openMerchant('job',{x:.5,y:.48}):enterMap('workshop')} disabled={!active||!!props.food||riding||!!cleanTool}/></View>}
     {storyOpen&&<VillageStoryDialogue encounter={storyOpen} onGo={target=>{setStoryOpen(null);enterMap(target);}} onClose={()=>setStoryOpen(null)} onBowl={()=>{pendingBowlStory.current=storyOpen;setStoryOpen(null);serveMerchant('bowling',{x:.72,y:.57});}} service={storyOpen.merchant?{label:storyOpen.id==='supply'&&wholesaleUnlocked(feedState)?'野菜を卸す':({ramen:'ラーメンを注文する',shop:'買い物をする',job:'バイトを始める',bowling:'ボウリングをする',fortune:'占ってもらう'} satisfies Record<StoryMerchant,string>)[storyOpen.merchant],run:()=>{const kind=storyOpen.merchant!;if(kind==='bowling'&&!bowlingPlayedToday(bowlingState,getTodayDate())&&storyOpen.id==='bowling'&&storyOpen.index===4)pendingBowlStory.current=storyOpen;setStoryOpen(null);serveMerchant(kind,{x:.5,y:.55});}}:undefined}/>}
     {map==='grandma'&&grandmaUnlocked&&gardenPlot!==null&&<GardenSheet plotIndex={gardenPlot} onClose={()=>setGardenPlot(null)} onShop={()=>{setGardenPlot(null);props.onShop('seeds');}}/>}
     {grandmaOpen&&<BottomSheet visible title="もふもふのおばあさん" onClose={()=>setGrandmaOpen(false)}><View style={{alignItems:'center'}}><GrandmotherResident size={95} active={props.active} reduceMotion={reduceMotion}/></View><Text style={s.dialogue}>{harvested?'「あら、畑の土がいい匂い。育ったところを一緒に見られるの、うれしいよ。お茶もいれてあるからね」':'「よく来たねえ。畑、好きに使っておくれ。お茶もいれてあるよ」'}</Text><WorldPill label="畑を見てくるね" onPress={()=>setGrandmaOpen(false)}/></BottomSheet>}
@@ -409,7 +416,7 @@ export function WorldHome(props: Props) {
       {housekeeping.house.owned.includes('robot')&&<Text style={s.mapCopy}>{housekeeping.house.robotPlaced?'掃除機は自動でお掃除中。タップすると乗ったまま移動できるよ。':'ロボット掃除機はしまっています。「部屋の模様替え」の掃除から置けるよ。'}</Text>}
       <WorldPill label="暮らしのお店へ" icon="shopping-bag" onPress={()=>{setCleanOpen(false);setCleanTool(null);props.onShop();}}/>
     </BottomSheet>}
-    {riding&&<View style={{position:'absolute',right:20,bottom:bounds.height<600?170:230}}><WorldPill testID="room-robot-exit" label="掃除機からおりる" icon="log-out" onPress={()=>{steering.value={x:0,y:0};setRiding(false);}}/></View>}
+    {riding&&<View style={{position:'absolute',right:20,bottom:(bounds.height<600?170:230)-homeControlOffset}}><WorldPill testID="room-robot-exit" label="掃除機からおりる" icon="log-out" onPress={()=>{steering.value={x:0,y:0};setRiding(false);}}/></View>}
     {viewOpen&&<BottomSheet visible title="景色の見かた" onClose={()=>setViewOpen(false)}>
       <View style={{flexDirection:'row',gap:10}}><WorldPill testID="world-zoom-in" label="拡大する" icon="zoom-in" accessibilityLabel="景色を拡大" onPress={view.closer}/><WorldPill testID="world-zoom-reset" label="元の広さへ" icon="maximize" accessibilityLabel="景色の拡大を戻す" onPress={view.reset}/></View>
       <Text style={s.mapCopy}>地面をタップ、または左の丸を動かしておさんぽ。2本指でも景色を拡大できます。</Text>
@@ -435,7 +442,7 @@ export function WorldHome(props: Props) {
       {!!smoking.error&&experience==='smoke'&&<><Text accessibilityRole="alert" style={s.experienceText}>{smoking.error}</Text><WorldPill label="同じ時間で保存し直す" onPress={()=>{void smoking.retry();}} disabled={smoking.busy}/></>}
       <Pressable testID="village-experience-exit" accessibilityRole="button" disabled={experience==='smoke'&&smoking.busy} onPress={finishExperience} style={s.exit}><Text style={s.exitText}>{experience==='bath'?'お湯からあがる':experience==='smoke'?smoking.busy?'保存中…':smoking.running?'一服を終える':'戻る':'観覧車から降りる'}</Text></Pressable>
     </View>}
-    {!riding&&!props.careInvitation&&(!experience||experience==='smoke')&&!cleanTool&&<View style={{position:'absolute',left:16,bottom:away?dockBottom:bounds.height<600?170:230}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowlingBusy} onStart={()=>{portalTravel.value=!riding&&experience!=='smoke';pending.current=null;setDestination(null);}} onStep={(dx,dy)=>{walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04},experience!=='smoke');}}/></View>}
+    {!riding&&!props.careInvitation&&(!experience||experience==='smoke')&&!cleanTool&&<View style={{position:'absolute',left:16,bottom:away?dockBottom:(bounds.height<600?170:230)-homeControlOffset}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowlingBusy} onStart={()=>{portalTravel.value=!riding&&experience!=='smoke';pending.current=null;setDestination(null);}} onStep={(dx,dy)=>{walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04},experience!=='smoke');}}/></View>}
     {speaker&&<BottomSheet visible title={`${getStageName(speaker.stage)}の村人`} subtitle="となりの村の住人" onClose={()=>setNeighbor(null)}><View style={{alignItems:'center'}}><VillageResident stage={speaker.stage} size={112} active={props.active} reduceMotion={reduceMotion}/></View><Text testID="village-dialogue" accessibilityLiveRegion="polite" style={s.dialogue}>{reply||speaker.intro}</Text>{speaker.choices.map(choice=><Pressable key={choice.label} accessibilityRole="button" onPress={()=>setReply(choice.reply)} style={s.mapRow}><Text style={s.mapCopy}>{choice.label}</Text></Pressable>)}<Pressable accessibilityRole="button" onPress={()=>setNeighbor(null)} style={s.exit}><Text style={s.exitText}>またね</Text></Pressable></BottomSheet>}
     {transition.overlay}
 

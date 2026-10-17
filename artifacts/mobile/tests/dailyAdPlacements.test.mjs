@@ -213,7 +213,7 @@ test('UI transpiles; missing binding is inert, no native SDK import or wallet st
   const result = ts.transpileModule(ui, {compilerOptions: {jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022}, reportDiagnostics: true});
   assert.equal(result.diagnostics?.length ?? 0, 0);
   assert.doesNotMatch(ui + source, /AsyncStorage|setItem\(|fetch\(|syncFeedPoints|spendFeedPoints|from ['"]react-native-google-mobile-ads/);
-  assert.match(ui, /if \(!binding \|\| !model\.banner/);
+  assert.match(ui, /if \(!binding \|\| !height/);
   assert.match(ui, /minHeight: 48/);
   assert.match(ui, /accessibilityState=\{\{disabled, busy\}\}/);
   assert.doesNotMatch(ui, /position: ['"]absolute/);

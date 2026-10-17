@@ -7,6 +7,7 @@ import {preparePlazaEvent,type PlazaState,type PlazaOperation,type PlazaResult} 
 import {prepareBank,type BankState,type BankOperation,type BankResult} from '@/utils/villageBank';
 import {prepareFortune,type FortuneInput,type FortuneState,type FortuneResult} from '@/utils/dailyFortune';
 import {prepareEggJob,type EggJobState,type EggJobOperation,type EggJobResult} from '@/utils/eggJob';
+import {prepareVerifiedBonus,type VerifiedBonus} from '@/utils/community/bonusLedger';
 import type {HygieneState} from '@/utils/hygiene';
 import {prepareSmoking,type SmokingOperation,type SmokingResult} from '@/utils/smoking';
 import {prepareCleaning, type HousekeepingState, type CleaningOperation} from '@/utils/housekeeping';
@@ -154,6 +155,7 @@ export interface UnlockedBadge {
 }
 
 export interface FeedState {
+  communityBonuses?: string[];
   vegetableGarden?: VegetableGarden;
   villageStories?: VillageStoryState;
   characterGifts?: CharacterGiftState;
@@ -281,6 +283,7 @@ interface AppContextType {
   storageError: string | null;
   retryStorageRecovery: () => Promise<void>;
   receiveGardenReward: () => Promise<{ received: number }>;
+  receiveCommunityBonus: (claim: VerifiedBonus, current: () => boolean) => Promise<number>;
   /** 直近の「ユーザー操作による」光エネルギー獲得イベント(循環演出用)。
    *  クラウド同期・読込では発火しない。seq は毎回増える識別子 */
   lightGainEvent: { amount: number; seq: number } | null;
@@ -347,6 +350,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const { isSignedIn, getToken, user } = useAuth();
   const bowlingOwner = useRef(user?.id ?? "guest");
   bowlingOwner.current = user?.id ?? "guest";
+  const rewardSession = useRef({owner: user?.id ?? 'guest', token: {}});
+  if (rewardSession.current.owner !== (user?.id ?? 'guest')) rewardSession.current = {owner: user?.id ?? 'guest', token: {}};
+  const rewardSessionToken = rewardSession.current.token;
   const getTokenRef = useRef(getToken);
   useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
   const signedInRef = useRef(isSignedIn);
@@ -1139,6 +1145,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return { success: saved.success, reason: saved.success ? undefined : 'not_enough' };
   }, [runRoomOperation]);
 
+  const receiveCommunityBonus = useCallback(async (claim: VerifiedBonus, current: () => boolean) => {
+    const check = () => {
+      if (!current() || rewardSession.current.token !== rewardSessionToken || isLoading || storageError ||
+        pullingRef.current || (isSignedIn && (!cloudSynced || !user))) throw Error('データの準備ができていません');
+    };
+    check();
+    const saved = await AsyncStorage.transaction(values => { check(); return prepareVerifiedBonus(values, claim, defaultFeedState); });
+    check();
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (saved.gained) void pushDataToCloud().catch(() => {});
+    return saved.gained;
+  }, [rewardSessionToken, isLoading, storageError, isSignedIn, cloudSynced, user, pushDataToCloud]);
+
   const runEggJob = useCallback(async (operation: EggJobOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
@@ -1389,6 +1408,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         storageError,
         retryStorageRecovery: loadAll,
         receiveGardenReward,
+        receiveCommunityBonus,
         lightGainEvent,
         holdLightFlow,
         powerPlant,

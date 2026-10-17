@@ -23,6 +23,8 @@ import { ItemProvider } from '@/contexts/ItemContext';
 import { initAnalytics } from '@/utils/analytics';
 import { SceneTransitionProvider } from '@/components/world/useSceneTransition';
 import { VillageMusicProvider } from '@/contexts/VillageMusicContext';
+import { CommunityProvider } from '@/contexts/CommunityContext';
+import { ConnectedDailyAds } from '@/contexts/DailyAdsContext';
 import { StartupLoadingOverlay } from '@/components/StartupLoadingOverlay';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -96,8 +98,8 @@ function AppContent() {
     <AppProvider>
       <RecordPromptProvider><ItemProvider>
         <GestureHandlerRootView style={styles.root}>
-          <SceneTransitionProvider><VillageMusicProvider><RootLayoutNav />
-          <StartupLoadingOverlay /></VillageMusicProvider></SceneTransitionProvider>
+          <SceneTransitionProvider><VillageMusicProvider><CommunityProvider><ConnectedDailyAds><RootLayoutNav />
+          <StartupLoadingOverlay /></ConnectedDailyAds></CommunityProvider></VillageMusicProvider></SceneTransitionProvider>
         </GestureHandlerRootView>
       </ItemProvider></RecordPromptProvider>
     </AppProvider>

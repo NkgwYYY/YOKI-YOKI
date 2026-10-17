@@ -4,6 +4,7 @@ import {Audio} from 'expo-av';
 const KEY='@yoki/village_bgm_v1';
 export function useVillageBgm(active:boolean) {
   const [enabled,setEnabled]=useState(true),[ready,setReady]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [resumeTick,setResumeTick]=useState(0);
   const sound=useRef<Audio.Sound|null>(null),generation=useRef(0),alive=useRef(true);
   const touched=useRef(false);
   useEffect(()=>{
@@ -25,7 +26,9 @@ export function useVillageBgm(active:boolean) {
       if(alive.current&&id===generation.current)setError('');
     })().catch(()=>{if(alive.current&&id===generation.current){setError('BGMを読み込めませんでした。もう一度お試しください。');setEnabled(false);}})
       .finally(()=>{if(alive.current&&id===generation.current)setBusy(false);});
-  },[ready,enabled,active]);
+  },[ready,enabled,active,resumeTick]);
   const toggle=()=>{touched.current=true;setReady(true);const next=!enabled;setEnabled(next);void AsyncStorage.setItem(KEY,next?'on':'off').catch(()=>{});};
-  return {enabled,busy,toggle,error};
+  const pauseTemporarily=async()=>{generation.current++;await sound.current?.pauseAsync().catch(()=>{});};
+  const resumeTemporarily=()=>setResumeTick(value=>value+1);
+  return {enabled,busy,toggle,error,pauseTemporarily,resumeTemporarily};
 }
