@@ -1,12 +1,13 @@
 import React, {
-  createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore,
+  createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore,
 } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  BANNER_HEIGHT, BANNER_RAIL_HEIGHT, BANNER_WIDTH, DISCONNECTED_DAILY_ADS,
+  BANNER_HEIGHT, BANNER_RAIL_HEIGHT, BANNER_WIDTH,
   createDailyRewardGate, dailyAdPresentation, dailyAdResultMessage,
   type DailyAdEnvironment, type DailyAdPlacement, type DailyRewardBinding,
 } from '../../utils/dailyAdPlacements';
+import {createDailyAdStore} from '../../utils/dailyAdStore';
 
 export interface DailyAdBinding extends DailyRewardBinding {
   /** Subscribe to the existing shared ad store; getSnapshot must be referentially stable. */
@@ -16,10 +17,11 @@ export interface DailyAdBinding extends DailyRewardBinding {
   renderBanner(options: {placement: 'home' | 'street'; width: number; height: number}): React.ReactNode;
 }
 
-const AdContext = createContext<DailyAdBinding | null>(null);
+const disconnectedStore = createDailyAdStore(null);
+const AdContext = createContext<{
+  binding: DailyAdBinding | null; store: ReturnType<typeof createDailyAdStore>;
+}>({binding: null, store: disconnectedStore});
 const rewardGate = createDailyRewardGate();
-const subscribeNothing = (_listener: () => void) => () => {};
-const getDisconnectedSnapshot = () => DISCONNECTED_DAILY_ADS;
 
 /** Connect ONCE to the current ad service, never create one service per placement.
  * Without a binding all placements render nothing. No SDK imports or startup side effects. */
@@ -27,16 +29,13 @@ export function DailyAdProvider({binding, children}: {
   binding: DailyAdBinding | null;
   children: React.ReactNode;
 }) {
-  return <AdContext.Provider value={binding}>{children}</AdContext.Provider>;
+  const value = useMemo(() => ({binding, store: createDailyAdStore(binding)}), [binding]);
+  return <AdContext.Provider value={value}>{children}</AdContext.Provider>;
 }
 
 function useDailyAds() {
-  const binding = useContext(AdContext);
-  const subscribe = useCallback((listener: () => void) =>
-    binding ? binding.subscribe(listener) : subscribeNothing(listener), [binding]);
-  const getSnapshot = useCallback(() =>
-    binding ? binding.getSnapshot() : getDisconnectedSnapshot(), [binding]);
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getDisconnectedSnapshot);
+  const {binding, store} = useContext(AdContext);
+  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
   return {binding, snapshot};
 }
 
@@ -48,12 +47,23 @@ export function DailyAdRail({placement, environment}: PlacementProps) {
   const {binding, snapshot} = useDailyAds();
   const model = dailyAdPresentation(placement, snapshot, environment);
   if (!binding || !model.banner || (placement !== 'home' && placement !== 'street')) return null;
-  let banner: React.ReactNode;
-  try {
-    banner = binding.renderBanner({placement, width: BANNER_WIDTH, height: BANNER_HEIGHT});
-  } catch {
-    return null;
-  }
+  return <AdBannerBoundary key={`${snapshot.sessionKey}:${snapshot.revision}:${placement}`}>
+    <AdBannerContent binding={binding} placement={placement}/>
+  </AdBannerBoundary>;
+}
+
+/** A surrounding try/catch cannot catch an SDK child failing in React's render.
+ * Drop only the ad subtree (including its rail), not the HOME/care screen. */
+class AdBannerBoundary extends React.Component<{children?: React.ReactNode}, {failed: boolean}> {
+  state = {failed: false};
+  static getDerivedStateFromError() { return {failed: true}; }
+  render() { return this.state.failed ? null : this.props.children; }
+}
+
+function AdBannerContent({binding, placement}: {
+  binding: DailyAdBinding; placement: 'home' | 'street';
+}) {
+  const banner = binding.renderBanner({placement, width: BANNER_WIDTH, height: BANNER_HEIGHT});
   if (banner === null || banner === undefined || banner === false) return null;
   return <View testID={`daily-ad-rail-${placement}`} style={styles.rail}>
     <Text style={styles.adLabel}>広告</Text>
@@ -66,7 +76,7 @@ export function DailyAdRail({placement, environment}: PlacementProps) {
 export function DailyAdRewardButton({placement, environment}: PlacementProps) {
   const {binding, snapshot} = useDailyAds();
   const model = dailyAdPresentation(placement, snapshot, environment);
-  const [busy, setBusy] = useState(false);
+  const [localBusy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const pressing = useRef(false);
   const mounted = useRef(true);
@@ -89,8 +99,9 @@ export function DailyAdRewardButton({placement, environment}: PlacementProps) {
   };
 
   if (!binding || !model.reward) return null;
+  const busy = localBusy || snapshot.phase !== 'idle';
   const disabled = busy || !model.canWatch;
-  const label = busy || snapshot.phase !== 'idle' ? '広告の受け取りを確認中…' : model.rewardLabel;
+  const label = busy ? '広告の受け取りを確認中…' : model.rewardLabel;
   return <View testID={`daily-ad-reward-${placement}`} style={styles.reward}>
     <Pressable accessibilityRole="button" accessibilityLabel={label}
       accessibilityHint="視聴は任意です。通常のごはんや移動は、広告なしでも利用できます。"

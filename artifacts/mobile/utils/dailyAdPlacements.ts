@@ -46,8 +46,31 @@ export function isDailyAdPlacement(value: unknown): value is DailyAdPlacement {
   return value === 'home' || value === 'street' || value === 'meal' || value === 'egg-job';
 }
 
+/** Untrusted/mutable service snapshots are copied at the boundary. In particular,
+ * an account switch must not mutate the "before" identity of an in-flight request. */
+export function readDailyAdSnapshot(raw: unknown): DailyAdSnapshot {
+  try {
+    if (!raw || typeof raw !== 'object') return DISCONNECTED_DAILY_ADS;
+    const {sessionKey, revision, ready, remaining, rewardedAvailable, bannerAvailable,
+      removePassiveAds, phase} = raw as Partial<DailyAdSnapshot>;
+    if (typeof sessionKey !== 'string' || typeof revision !== 'string' ||
+      typeof ready !== 'boolean' || typeof rewardedAvailable !== 'boolean' ||
+      typeof bannerAvailable !== 'boolean' || typeof removePassiveAds !== 'boolean' ||
+      !['idle', 'loading', 'playing', 'verifying'].includes(phase ?? '') ||
+      !(remaining === null || (typeof remaining === 'number' && Number.isInteger(remaining) &&
+        remaining >= 0 && remaining <= DAILY_AD_LIMIT)) ||
+      (ready && (!sessionKey.trim() || !revision.trim()))) return DISCONNECTED_DAILY_ADS;
+    return Object.freeze({sessionKey, revision, ready, remaining, rewardedAvailable,
+      bannerAvailable, removePassiveAds, phase: phase as DailyAdPhase});
+  } catch {
+    // A broken SDK adapter/getter must not take down the care screen.
+    return DISCONNECTED_DAILY_ADS;
+  }
+}
+
 /** Invalid/missing counts fail closed. Never invent a fresh local quota. */
 export function sharedAdRemaining(snapshot: DailyAdSnapshot): number | null {
+  snapshot = readDailyAdSnapshot(snapshot);
   const count = snapshot.remaining;
   return snapshot.ready === true && typeof snapshot.sessionKey === 'string' && snapshot.sessionKey.length > 0 &&
     typeof snapshot.revision === 'string' && snapshot.revision.length > 0 &&
@@ -56,6 +79,7 @@ export function sharedAdRemaining(snapshot: DailyAdSnapshot): number | null {
 }
 
 export function canWatchDailyAd(snapshot: DailyAdSnapshot): boolean {
+  snapshot = readDailyAdSnapshot(snapshot);
   const remaining = sharedAdRemaining(snapshot);
   return remaining !== null && remaining > 0 && snapshot.rewardedAvailable && snapshot.phase === 'idle';
 }
@@ -65,6 +89,7 @@ export function dailyAdPresentation(
   snapshot: DailyAdSnapshot,
   environment: DailyAdEnvironment,
 ) {
+  snapshot = readDailyAdSnapshot(snapshot);
   const visible = isDailyAdPlacement(placement) && environment.screenActive &&
     environment.foreground && !environment.obscured && !environment.keyboardOpen;
   const idle = visible && !environment.interacting;
@@ -111,7 +136,7 @@ export function createDailyRewardGate(waitMs = 120_000) {
     async watch(binding: DailyRewardBinding, placement: DailyAdPlacement): Promise<DailyAdResult> {
       if (inFlight) return {status: 'busy'};
       let before: DailyAdSnapshot;
-      try { before = binding.getSnapshot(); } catch { return {status: 'error'}; }
+      try { before = readDailyAdSnapshot(binding.getSnapshot()); } catch { return {status: 'error'}; }
       if (!isDailyAdPlacement(placement) || !canWatchDailyAd(before)) return {status: 'unavailable'};
       inFlight = true;
       // A deadline releases the caller, NOT the SDK lock. Otherwise a slow/late
@@ -121,7 +146,7 @@ export function createDailyRewardGate(waitMs = 120_000) {
       const operation = (async (): Promise<DailyAdResult> => {
         try {
           const result = await binding.watchRewarded(placement);
-          if (binding.getSnapshot().sessionKey !== before.sessionKey) return {status: 'session-changed'};
+          if (readDailyAdSnapshot(binding.getSnapshot()).sessionKey !== before.sessionKey) return {status: 'session-changed'};
           if (!result || typeof result !== 'object') return {status: 'error'};
           if (result.status === 'verified') {
             if (result.points !== DAILY_AD_POINTS || typeof result.receiptId !== 'string' ||
@@ -132,7 +157,7 @@ export function createDailyRewardGate(waitMs = 120_000) {
             ? result : {status: 'error'};
         } catch {
           try {
-            return {status: binding.getSnapshot().sessionKey === before.sessionKey ? 'error' : 'session-changed'};
+            return {status: readDailyAdSnapshot(binding.getSnapshot()).sessionKey === before.sessionKey ? 'error' : 'session-changed'};
           } catch {
             return {status: 'error'};
           }

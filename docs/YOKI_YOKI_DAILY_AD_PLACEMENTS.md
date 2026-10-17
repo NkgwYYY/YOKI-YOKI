@@ -2,60 +2,62 @@
 
 ## Status
 
-This change adds reusable placement components and tests. **It is not yet wired into the application screens or the existing production ad service.** It does not activate ads, change rewards, deploy the app, or install a second SDK.
+This change adds reusable placement components, an error-isolated shared store and tests. **It is not yet wired into the application screens or the production ad service.** It does not activate ads, deploy the app or install a second SDK.
 
-The source base inspected is `b2d12fade2e77dda03a856289cd1ba74e2ada170` on `codex/monetization-visits-20261015`. That snapshot does not include the subsequent production ad implementation. This is an additive extension: no existing application files are replaced. Do not reset a newer working tree to this base, and do not replace the existing SSV/claim implementation with a new local reward counter.
+The inspected source base is `b2d12fade2e77dda03a856289cd1ba74e2ada170` on `codex/monetization-visits-20261015`. A later Replit ad implementation was reported in the previous conversation, but it is not present in that GitHub snapshot. This is an additive extension: no pre-existing application files are replaced. Do not reset a newer Replit working tree to this base or replace its SSV/claim implementation with a local counter.
 
 ## Intended placement
 
 | Surface | Passive banner | Optional reward |
 | --- | --- | --- |
-| HOME | One separate, labelled 320 x 50 banner rail | Available from the daily-care/points surface |
-| Street | The same rail as HOME, not an extra overlapping ad | Available from the shared points surface |
-| Food sheet | None next to purchase or feed controls | A separate “広告を見て＋30pt” action |
-| Egg job | No new passive ad | Reuse the existing shared reward flow |
+| HOME | One separate, labelled 320 x 50 banner rail | Daily-care/points surface |
+| Street | The same rail as HOME, not an overlapping second ad | Shared points surface |
+| Food sheet | None next to purchase/feed controls | Separate ad-for-30pt action |
+| Egg job | No new passive ad | Existing shared reward flow |
 | Diary, conversation, other screens | No new ad | No new ad |
 
-The shared reward amount remains 30pt, with at most three claims per day across all placements. No per-screen counter is introduced. Ordinary feeding, travel and play do not require an ad. An ad-free entitlement removes passive ads; the existing service can also hide optional rewards by setting `rewardedAvailable=false` according to its actual pass policy.
+The extension retains the agreed 30pt reward and a shared three-claim daily limit. No per-screen allowance or wallet is introduced. Normal feeding, travel and play must remain usable without an ad. The adapter may suppress optional rewards independently of passive-ad removal, according to the actual pass policy.
 
 ## Integration contract
 
-Mount `DailyAdProvider` once using an adapter to the **existing** ad service. All placement consumers must use that same service.
+Mount `DailyAdProvider` once with a stable adapter to the **existing** ad service.
 
-- `getSnapshot()` returns a cached, referentially stable snapshot. `subscribe(listener)` invalidates it only when state changes. Keep the adapter identity stable.
-- `sessionKey` changes on login/logout/account switch, including returning to the same user after logout. It must not be a reusable user ID alone. Do not send it to ad targeting or analytics.
-- `revision` identifies the server/provider quota period. `remaining` is null until the existing authoritative common allowance is loaded; do not assume three views on startup or when a request fails.
-- `ready` requires the existing consent, account, entitlement and configuration checks to have finished. Set availability false in unsupported builds, browser previews without a web provider, or on no-fill.
-- `watchRewarded(placement)` is the existing opt-in ad flow. It must resolve `verified` only after existing SSV and the idempotent reward claim have succeeded and the shared wallet/quota have been synchronized. A client SDK earned callback alone is not verification. Preserve existing server transaction IDs and retry/recovery behavior.
-- Cancellation resolves `closed`; SDK/no-fill failure resolves `unavailable` or `error`; slow server verification resolves `pending`. Do not re-watch just to recover a pending reward. Existing service retry/reconciliation remains authoritative.
-- `renderBanner()` returns a real SDK element at exactly 320 x 50. It must not invoke hooks directly. A failed request/no-fill must remove the element, not keep refreshing or record a fake impression. No mock creatives in a production adapter.
-- No diary, mood, MBTI, blood type or health information is added to any ad call. The placement name is the only argument from this extension to `watchRewarded`.
+- `getSnapshot()` publishes account/session, readiness, current authoritative quota, entitlement, availability and phase. Unknown quota is null, not an invented three-view allowance. The wrapper caches immutable copies so mutable or newly allocated service objects cannot cause stale-account notices or React external-store loops.
+- `subscribe(listener)` returns an unsubscribe function. The wrapper shares one upstream subscription across placements. Read/subscribe/cleanup exceptions fail closed for ads; late callbacks after cleanup are ignored. A subscription failure may retry on a subsequent subscription lifecycle, not on an automatic polling loop.
+- `sessionKey` changes on login/logout/account switch, including returning to the same user after logout. It is not merely a reusable user ID. `revision` identifies the authoritative quota period. Do not send either value to advertising targeting.
+- `ready` means the existing consent, account, entitlement and configuration checks have finished. Unsupported builds or unavailable providers must publish unavailable state.
+- `watchRewarded(placement)` resolves `verified` only after existing SSV and the idempotent claim succeed, and the shared wallet/quota have synchronized. An SDK earned callback alone is not verification. Preserve existing server transaction IDs and retry/recovery behavior.
+- Cancel returns `closed`; no-fill/failure returns `unavailable` or `error`; slow verification returns `pending`. Do not require another video to recover a pending reward. The existing service owns reconciliation, native cancellation and timeouts.
+- `renderBanner()` returns a real SDK element at exactly 320 x 50; it must not invoke hooks directly. Its child is inside an ad-only React error boundary, which removes the ad subtree if rendering throws. SDK asynchronous failures still require handling in the adapter. No-fill must remove availability rather than record an impression or create a refresh loop.
+- The placement name is the only argument this extension sends to `watchRewarded`. It does not read diary text, mood, MBTI, blood type or health data, and it does not add targeting or analytics calls.
 
-The wrapper guards cross-placement double taps. Its 120-second UI deadline returns `pending` without releasing the SDK lock: a still-active ad must not permit a second concurrent video. The underlying service must still settle on native close/error and publish any late verified result. This deadline does not cancel a native video or grant a reward.
+The shared reward gate prevents cross-placement double starts. Its 120-second caller deadline returns `pending` **without releasing the SDK lock**. The underlying service must still settle on native close/error and publish late verified results. This timeout does not cancel an SDK video or grant a reward.
 
 ## Screen integration still required
 
-Read the latest working source first, then connect the adapter and mount the new components.
+Read the latest Replit source first, then connect the adapter and mount the components.
 
-1. HOME and street: render `DailyAdRail` in a reserved flex-column sibling outside the map/gesture surface. Do not overlay it on the character, joystick, exit, or navigation. The current `WorldDock` has absolute positioning; its bottom inset and the map's measured height must be reconciled with the reserved rail before enabling it. Merely adding a banner to the HOME footer is insufficient.
-2. Meal: put `DailyAdRewardButton` in the food sheet separately from existing purchase/feed/back buttons. The sheet itself is the visible placement, not an obscuring modal. Set `obscured` for another layer that covers it. Retain normal feeding without any ad condition.
-3. Egg job: use the same binding and gate rather than adding a separate service or daily allowance.
-4. Update the environment from real screen focus, app foreground state, modal/transition state, keyboard state, movement and measured size. Do not hard-code `foreground=true` or `interacting=false`.
-5. Reserve the rail for a stable interaction-safe scene interval. If an active SDK creative temporarily needs to be hidden, do not remount/request it on every joystick press; retain/dismiss it through the existing service until a safe scene boundary. These components are placement primitives, not an ad refresh scheduler.
+1. HOME/street: put `DailyAdRail` in a reserved flex-column sibling outside the map/gesture surface, not on top of characters, controls or navigation. Reconcile the existing absolutely positioned `WorldDock` and measured map height with the rail before enabling it. Adding the rail to the old HOME footer alone is insufficient.
+2. Food sheet: put `DailyAdRewardButton` separately from purchase/feed/back controls. Its own sheet is the visible placement; `obscured` means another layer covers it. Ordinary feeding must not depend on watching an ad.
+3. Egg job: reuse the same service and shared gate. The extension does not independently enforce the limit for an older egg-job button that has not been connected to this gate.
+4. Derive screen focus, app foreground, modal/transition, keyboard, movement and measured size from the real application. Do not hard-code foreground or interaction state.
+5. Integrate at stable scene boundaries. These are placement primitives, not a refresh scheduler: do not let every joystick press remount/request a banner. The existing service must manage creative lifetime and no-fill/backoff before the rail is enabled.
 
-Banners are suppressed in landscape, short views below 640 logical pixels and widths below 352 logical pixels. The rail reserves 88 logical pixels with an advertising label and separation from interaction controls; the native creative is not clipped or scaled. These thresholds are conservative placement rules, not proof of full-screen layout safety.
+Passive banners are suppressed in landscape, views below 640 logical pixels high, and widths below 352. The rail reserves 88 logical pixels including its label and spacing; the native creative is not clipped or scaled. These conservative thresholds are not proof of full-screen layout safety.
 
-## Verification performed for this change
+## Verification actually performed
 
-- 63 focused Node tests passed, including cap sharing, malformed states/results, same/cross-screen taps, account changes, closed/no-fill/pending handling, deadlines and late rejection.
-- Strict TypeScript check of the pure placement/gate module passed (local TypeScript 5.8.3, Node 22.16.0).
-- TSX syntax/transpilation check passed for the component module.
-- No native SDK import, wallet mutation, storage write, network call or automatic ad presentation is added by the UI extension.
+- The original 63 focused tests were executed locally and all passed; the three original code/test blobs matched the GitHub contents by Git blob SHA.
+- After adding fault isolation and immutable snapshots, **94 focused Node tests passed, with zero failures, cancellations or skips**.
+- Strict TypeScript checks passed for both pure modules: `dailyAdPlacements.ts` and `dailyAdStore.ts`.
+- TSX syntax/transpilation and source-boundary assertions passed for the React component. Those checks are not React/native rendering tests.
+- Regressions cover shared caps, malformed states/results, rapid taps, mutable account changes, cancellation, pending verification, deadlines, late rejection, stable snapshots, shared subscriptions and failing cleanup.
+- Environment: Node 22.16.0 and TypeScript 5.8.3. No new runtime dependency was added.
 
-Reproduce in the repository's installed mobile workspace:
+Run in an installed mobile workspace:
 
 ```sh
-pnpm --filter @workspace/mobile exec node --test tests/dailyAdPlacements.test.mjs
+pnpm --filter @workspace/mobile exec node --test tests/dailyAdPlacements.test.mjs tests/dailyAdStore.test.mjs
 ```
 
-Not performed: full application typecheck/build/test suite, React Native rendering, real iPhone/iPad/Android interaction, production ad/consent/SSV tests, revenue/impression validation, current workspace integration, main merge or deployment. The component tests include source/transpilation contracts; they are not a browser/native rendering test.
+Not performed: full application typecheck/build/test suite, React/native rendering, iPhone/iPad/Android interaction, production consent/ad/SSV checks, impression/revenue validation, latest Replit integration, main merge or deployment.
