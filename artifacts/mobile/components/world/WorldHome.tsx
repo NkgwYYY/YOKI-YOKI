@@ -149,6 +149,8 @@ export function WorldHome(props: Props) {
   const tight=away&&bounds.height<660;
   const dockBottom=props.dockInset ?? 72+Math.max(12,insets.bottom);
   const homeControlOffset=props.dockInset===12?60+Math.max(12,insets.bottom):0;
+  // In landscape the HOME footer is on the right; its portrait offset covered the travel button.
+  const steeringBottom=away||bounds.width>bounds.height?dockBottom:(bounds.height<600?170:230)-homeControlOffset;
   const stageTop=insets.top+(tight?136:186);
   const clearBottom=bounds.height-dockBottom-116;
   const sceneHeight=bounds.height;
@@ -442,7 +444,7 @@ export function WorldHome(props: Props) {
       {!!smoking.error&&experience==='smoke'&&<><Text accessibilityRole="alert" style={s.experienceText}>{smoking.error}</Text><WorldPill label="同じ時間で保存し直す" onPress={()=>{void smoking.retry();}} disabled={smoking.busy}/></>}
       <Pressable testID="village-experience-exit" accessibilityRole="button" disabled={experience==='smoke'&&smoking.busy} onPress={finishExperience} style={s.exit}><Text style={s.exitText}>{experience==='bath'?'お湯からあがる':experience==='smoke'?smoking.busy?'保存中…':smoking.running?'一服を終える':'戻る':'観覧車から降りる'}</Text></Pressable>
     </View>}
-    {!riding&&!props.careInvitation&&(!experience||experience==='smoke')&&!cleanTool&&<View style={{position:'absolute',left:16,bottom:away?dockBottom:(bounds.height<600?170:230)-homeControlOffset}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowlingBusy} onStart={()=>{portalTravel.value=!riding&&experience!=='smoke';pending.current=null;setDestination(null);}} onStep={(dx,dy)=>{walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04},experience!=='smoke');}}/></View>}
+    {!riding&&!props.careInvitation&&(!experience||experience==='smoke')&&!cleanTool&&<View testID="world-steering-frame" style={{position:'absolute',left:16,bottom:steeringBottom}}><WorldSteering value={steering} enabled={active&&!props.food&&!bowlingBusy} onStart={()=>{portalTravel.value=!riding&&experience!=='smoke';pending.current=null;setDestination(null);}} onStep={(dx,dy)=>{walkTo({x:footX.value+dx*.055,y:footY.value+dy*.04},experience!=='smoke');}}/></View>}
     {speaker&&<BottomSheet visible title={`${getStageName(speaker.stage)}の村人`} subtitle="となりの村の住人" onClose={()=>setNeighbor(null)}><View style={{alignItems:'center'}}><VillageResident stage={speaker.stage} size={112} active={props.active} reduceMotion={reduceMotion}/></View><Text testID="village-dialogue" accessibilityLiveRegion="polite" style={s.dialogue}>{reply||speaker.intro}</Text>{speaker.choices.map(choice=><Pressable key={choice.label} accessibilityRole="button" onPress={()=>setReply(choice.reply)} style={s.mapRow}><Text style={s.mapCopy}>{choice.label}</Text></Pressable>)}<Pressable accessibilityRole="button" onPress={()=>setNeighbor(null)} style={s.exit}><Text style={s.exitText}>またね</Text></Pressable></BottomSheet>}
     {transition.overlay}
 
