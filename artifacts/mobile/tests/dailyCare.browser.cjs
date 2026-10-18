@@ -43,6 +43,12 @@ async function visibleFit(page, id) {
   assert.ok(box.x >= -1 && box.y >= -1 && box.x+box.width <= size.width+1 && box.y+box.height <= size.height+1,
     id + ' inside viewport: ' + JSON.stringify({box,size}));
 }
+async function saveFailure(page, errors, label) {
+  await page.screenshot({path:path.join(output,'failure-'+label+'.png')}).catch(()=>{});
+  const body = await page.locator('body').innerText().catch(()=> 'Page unavailable');
+  fs.writeFileSync(path.join(output,'failure-'+label+'.txt'),body.slice(0,10000)+'\nERRORS\n'+JSON.stringify(errors));
+  console.log('FAILURE_SCREEN_TEXT ' + JSON.stringify(body.slice(0,3000)));
+}
 async function createPage(viewport, base) {
   const context = await browser.newContext({viewport, reducedMotion:'reduce', locale:'ja-JP', timezoneId:'Asia/Tokyo', serviceWorkers:'block'});
   const page = await context.newPage(), errors = [];
@@ -57,10 +63,19 @@ async function createPage(viewport, base) {
     return route.continue();
   });
   await page.addInitScript(seed);
-  await page.goto(base);
-  await page.getByTestId('room-scene').waitFor({state:'visible'});
-  await page.getByTestId('world-stage').waitFor({state:'visible'});
-  return {context, page, errors};
+  try {
+    await page.goto(base);
+    await page.getByTestId('room-scene').waitFor({state:'visible'});
+    await page.getByTestId('world-stage').waitFor({state:'visible'});
+    // A fresh profile really discovers the egg. Close that legitimate modal through
+    // its UI; do not force-click through a backdrop or mutate the encounter store.
+    await check(`${viewport.width}x${viewport.height} first encounter can be acknowledged`, async () => {
+      await page.getByTestId('new-friend-card').waitFor({state:'visible'});
+      await page.getByRole('button',{name:'よろしくね！',exact:true}).click();
+      await page.getByTestId('new-friend-card').waitFor({state:'hidden'});
+    });
+    return {context, page, errors};
+  } catch (error) {await saveFailure(page,errors,'startup-'+viewport.width+'x'+viewport.height);await context.close();throw error;}
 }
 async function travel(page, map) {
   await page.getByTestId('world-map-open').click();
@@ -111,11 +126,8 @@ async function travel(page, map) {
       await check(label + ' actual atlas travels to street and returns home', async () => {await travel(page,'market'); await travel(page,'home');});
       await check(label + ' no uncaught browser errors', async () => assert.deepEqual(errors,[]));
       await page.screenshot({path:path.join(output,'home-'+label+'.png')});
-    } catch (error) {
-      await page.screenshot({path:path.join(output,'failure-'+label+'.png')}).catch(()=>{});
-      fs.writeFileSync(path.join(output,'failure-'+label+'.txt'), (await page.locator('body').innerText()).slice(0,10000)+'\nERRORS\n'+JSON.stringify(errors));
-      throw error;
-    } finally {await context.close();}
+    } catch (error) {await saveFailure(page,errors,label);throw error;}
+    finally {await context.close();}
   }
   const {context,page,errors} = await createPage({width:390,height:844},base);
   try {
@@ -127,7 +139,8 @@ async function travel(page, map) {
       assert.deepEqual(errors,[]);
     });
     await page.screenshot({path:path.join(output,'workshop-390x844.png')});
-  } finally {await context.close();}
+  } catch (error) {await saveFailure(page,errors,'workshop');throw error;}
+  finally {await context.close();}
 })().catch(error => {console.error(error);process.exitCode=1;}).finally(async () => {
   fs.writeFileSync(path.join(output,'summary.json'),JSON.stringify({results,realCurrentWebApp:true,realNativeAds:false,remoteServices:'isolated unavailable fixtures'},null,2));
   console.log(JSON.stringify({type:'browser:summary',passed:results.filter(r=>r.status==='passed').length,failed:results.filter(r=>r.status==='failed').length}));
