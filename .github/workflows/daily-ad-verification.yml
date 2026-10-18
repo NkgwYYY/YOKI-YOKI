@@ -66,6 +66,13 @@ jobs:
         run: pnpm --filter @workspace/api-server typecheck
       - name: API build
         run: pnpm --filter @workspace/api-server build
+      - name: Existing mobile and API Node regression suites
+        shell: bash
+        run: |
+          mapfile -d '' tests < <(find artifacts/mobile/tests artifacts/api-server/tests -type f \( -name '*.test.mjs' -o -name '*.test.cjs' -o -name '*.test.js' \) -print0 | sort -z)
+          test "${#tests[@]}" -gt 0
+          printf 'Running %s existing test files\n' "${#tests[@]}"
+          node --experimental-strip-types --test --test-concurrency=2 "${tests[@]}"
       # Export is a JS/assets build, not a signed iOS/Android build or a release.
       - name: Web JavaScript and asset export
         env:
