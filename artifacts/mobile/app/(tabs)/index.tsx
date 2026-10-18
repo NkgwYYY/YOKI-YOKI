@@ -161,13 +161,13 @@ export default function HomeScreen() {
       </View>
       {(worldMap==='home'||window.height>=660)&&<View style={s.statusRow}><SatietyGauge compact value={currentSatiety} onPress={()=>openFeed()}/><HappinessGauge value={happiness.value} onPress={()=>setSheet('happiness')}/><HygieneGauge value={hygiene} onPress={()=>setSheet('hygiene')}/></View>}
     </View>
-    {worldMap==='home'&&<View pointerEvents="box-none" style={[s.footer, {bottom: footerBottom}, compact && s.compactFooter, wide && {left: window.width * 0.65, right: 20, width: window.width * 0.32, bottom: tabHeight + 48}]}>
+    {worldMap==='home'&&<View testID="home-care-footer" pointerEvents="box-none" style={[s.footer, {bottom: footerBottom}, compact && s.compactFooter, wide && {left: 136, right: 20, bottom: footerBottom}]}>
       {!!gifts.error&&<Pressable accessibilityRole="button" onPress={gifts.retry}><Text style={s.whisper}>{gifts.error} タップして再試行</Text></Pressable>}
       {giftAvailable&&gifts.waiting?<GiftInvitation gift={gifts.waiting} onPress={()=>{setOpenedGift({gift:gifts.waiting!,owner:giftOwner});setSheet('gift');}}/>:invitation ? <><Text testID="world-speech" accessibilityLiveRegion="polite" style={[s.whisper,{position:'absolute',bottom:'100%',marginBottom:10}]}>{speech}</Text><DailyRecordInvitation compact={compact || wide} onRecord={() => router.push('/exchange-diary')} onSettings={() => router.push('/profile')} /></> : <View pointerEvents="none" style={s.speech}>
         <Text style={s.residentName}>{mascotName || 'よっきー'}</Text>
         <Text testID="world-speech" style={s.whisper} numberOfLines={2} accessibilityLiveRegion="polite">{speech || (happiness.smoking.craving?'たばこ、ほしいな…。ほかの楽しみで気をまぎらわせよう。':today?.mood && today.mood <= 2 ? '今日はここで、一緒にひと休み。' : time.moment)}</Text>
       </View>}
-      <View style={[s.quickActions, wide && {flexDirection: 'column', alignItems: 'center'}]}>
+      <View style={s.quickActions}>
         <Pressable testID="home-daily-record" accessibilityRole="button" accessibilityLabel="交換日記を開く" onPress={() => router.push('/exchange-diary')} style={({pressed}) => [s.noteButton, pressed && {opacity: 0.8}]}>
           <Icon name={feedState.exchangeDiary?.pages[getTodayDate()]?.user ? 'check' : 'book-open'} size={17} color="#CCBADB" /><Text style={s.noteText}>交換日記</Text>
         </Pressable>
