@@ -102,10 +102,16 @@ async function travel(page, map) {
     const {context,page,errors} = await createPage(viewport,base);
     try {
       await check(label + ' HOME controls fit and unsupported native ads leave no rail', async () => {
-        for (const id of ['home-points','home-more-menu','world-map-open','world-navigation']) await visibleFit(page,id);
-        const steering = await visibleFit(page,'world-steering-frame');
-        separate(steering,await visibleFit(page,'world-map-open'),'steering and travel');
-        separate(steering,await visibleFit(page,'world-navigation'),'steering and navigation');
+        const ids = ['home-points','home-more-menu','world-map-open','world-navigation',
+          'world-steering-frame','home-daily-record','home-chat','world-bgm-toggle','world-go-work'];
+        const boxes = [];
+        for (const id of ids) boxes.push(await visibleFit(page,id));
+        for (let i=0;i<boxes.length;i++) for (let j=i+1;j<boxes.length;j++) separate(boxes[i],boxes[j],ids[i]+' and '+ids[j]);
+        if (viewport.width>viewport.height) {
+          const speech = await visibleFit(page,'world-speech');
+          separate(speech,boxes[7],'landscape speech and BGM');
+          separate(speech,boxes[8],'landscape speech and work');
+        }
         assert.equal(await page.locator('[data-testid^="daily-ad-rail-"]').count(),0);
         assert.equal(await page.locator('[data-testid^="daily-ad-reward-"]').count(),0);
       });
