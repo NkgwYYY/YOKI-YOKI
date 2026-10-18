@@ -78,7 +78,27 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=6144
         run: pnpm --filter @workspace/mobile exec expo export --platform web --max-workers 2 --output-dir /tmp/yoki-qa-web
+      - name: Install pinned browser tools outside the application workspace
+        run: |
+          npm install --prefix /tmp/yoki-browser-tools --no-audit --no-fund playwright@1.56.1
+          /tmp/yoki-browser-tools/node_modules/.bin/playwright install --with-deps chromium
+      - name: Actual web application care and navigation checks
+        env:
+          YOKI_QA_PLAYWRIGHT: /tmp/yoki-browser-tools/node_modules/playwright
+          YOKI_QA_EXPORT: /tmp/yoki-qa-web
+          YOKI_QA_OUTPUT: /tmp/yoki-care-browser
+        run: node artifacts/mobile/tests/dailyCare.browser.cjs
       - name: iOS and Android JavaScript and asset export
         env:
           NODE_OPTIONS: --max-old-space-size=6144
         run: pnpm --filter @workspace/mobile exec expo export --platform ios --platform android --max-workers 2 --output-dir /tmp/yoki-qa-native
+      - name: Retain test reports and screenshots only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: daily-care-verification-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            /tmp/yoki-care-browser/
+            /tmp/yoki-existing-tests.tap
