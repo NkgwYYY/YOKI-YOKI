@@ -22,6 +22,10 @@ export function prepareAds() {
     return sdk;
   })().catch(error => { preparation = null; throw error; });
 }
+// Metrics must never keep a native ad open, strand a promise, or affect rewards.
+function reportSafely(operation: () => unknown) {
+  try { void Promise.resolve(operation()).catch(() => {}); } catch {}
+}
 let presenting = false;
 export async function showRewardedAd(session: AdSession, event: (name: string, duration?: number) => void, paid?: (estimate: RevenueEstimate) => void, current: () => boolean = () => true): Promise<boolean> {
   if (!current() || !canShowRewardedAd() || presenting) throw Error('いまは広告を用意できません。');
@@ -34,34 +38,61 @@ export async function showRewardedAd(session: AdSession, event: (name: string, d
       requestNonPersonalizedAdsOnly: true,
       serverSideVerificationOptions: { userId: session.playerId, customData: session.id },
     });
-    const started = Date.now(); event('ad_request');
+    const started = Date.now();
+    const report = (name: string, duration?: number) => reportSafely(() => event(name, duration));
+    report('ad_request');
     return await new Promise<boolean>((resolve, reject) => {
       let earned = false, shown = false, settled = false;
       const off: (() => void)[] = [];
       let timer: ReturnType<typeof setTimeout> | undefined;
+      const clearLoadTimer = () => {
+        if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
+      };
       const finish = (error?: Error) => {
-        if (settled) return; settled = true; if (timer) clearTimeout(timer);
+        if (settled) return;
+        settled = true;
+        clearLoadTimer();
         off.forEach(remove => { try { remove(); } catch {} });
         try { ad.removeAllListeners(); } catch {}
-        if (error) { event('ad_error'); reject(error); } else { event('ad_closed', Math.min(300_000, Date.now() - started)); resolve(earned); }
+        if (error) { report('ad_error'); reject(error); }
+        else { report('ad_closed', Math.min(300_000, Date.now() - started)); resolve(earned); }
       };
-      off.push(ad.addAdEventListener(sdk.RewardedAdEventType.LOADED, () => {
-        if (settled) return;
-        event('ad_loaded', Date.now() - started);
-        if (!current() || AppState.currentState !== 'active') { finish(Error('画面に戻ってから、もう一度お試しください。')); return; }
-        if (timer) clearTimeout(timer); shown = true;
-        void ad.show().catch(() => finish(Error('広告を開けませんでした。')));
-      }));
-      off.push(ad.addAdEventListener(sdk.RewardedAdEventType.EARNED_REWARD, () => { earned = true; }));
-      off.push(ad.addAdEventListener(sdk.AdEventType.PAID, (payload: unknown) => {
-        // v16 emits PaidEvent at runtime but omits it from the fullscreen payload type.
-        const value = payload as { value?: number; currency?: string } | undefined;
-        if (typeof value?.value === 'number' && Number.isFinite(value.value) && typeof value.currency === 'string') paid?.({micros:Math.round(value.value * 1_000_000),currency:value.currency,test});
-      }));
-      off.push(ad.addAdEventListener(sdk.AdEventType.CLOSED, () => finish()));
-      off.push(ad.addAdEventListener(sdk.AdEventType.ERROR, () => finish(Error('いまは広告を用意できません。時間をおいてお試しください。'))));
-      timer = setTimeout(() => { if (!shown) finish(Error('広告の読み込みに時間がかかっています。')); }, 20_000);
-      ad.load();
+      try {
+        off.push(ad.addAdEventListener(sdk.RewardedAdEventType.LOADED, () => {
+          if (settled || shown) return;
+          report('ad_loaded', Date.now() - started);
+          try {
+            if (!current() || AppState.currentState !== 'active') {
+              finish(Error('画面に戻ってから、もう一度お試しください。')); return;
+            }
+            clearLoadTimer();
+            shown = true;
+            // The bridge can throw synchronously as well as reject its promise.
+            void ad.show().catch(() => finish(Error('広告を開けませんでした。')));
+          } catch { finish(Error('広告を開けませんでした。')); }
+        }));
+        off.push(ad.addAdEventListener(sdk.RewardedAdEventType.EARNED_REWARD, () => {
+          if (!settled && shown) earned = true;
+        }));
+        off.push(ad.addAdEventListener(sdk.AdEventType.PAID, (payload: unknown) => {
+          if (settled || !shown) return;
+          // v16 emits PaidEvent at runtime but omits it from the fullscreen payload type.
+          reportSafely(() => {
+            const value = payload as { value?: number; currency?: string } | undefined;
+            if (typeof value?.value === 'number' && Number.isFinite(value.value) && typeof value.currency === 'string') {
+              return paid?.({micros: Math.round(value.value * 1_000_000), currency: value.currency, test});
+            }
+          });
+        }));
+        off.push(ad.addAdEventListener(sdk.AdEventType.CLOSED, () => finish()));
+        off.push(ad.addAdEventListener(sdk.AdEventType.ERROR, () => finish(Error('いまは広告を用意できません。時間をおいてお試しください。'))));
+        timer = setTimeout(() => { if (!shown) finish(Error('広告の読み込みに時間がかかっています。')); }, 20_000);
+        ad.load();
+      } catch {
+        // A rejected Promise executor alone does not detach previously added listeners.
+        // Settle through the same cleanup path so a late LOADED cannot show this ad.
+        finish(Error('いまは広告を用意できません。時間をおいてお試しください。'));
+      }
     });
   } finally { presenting = false; }
 }
