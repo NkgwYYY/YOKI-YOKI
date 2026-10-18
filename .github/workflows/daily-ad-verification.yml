@@ -3,6 +3,7 @@ name: Daily ad verification
 on:
   push:
     branches: [codex/daily-ad-placement-components-20261016]
+    paths-ignore: ['docs/**']
   workflow_dispatch:
 
 # Verification only: no deployment, repository write, production secrets or production database.
@@ -36,10 +37,10 @@ jobs:
       EXPO_NO_TELEMETRY: '1'
       DATABASE_URL: postgresql://yoki_ci:yoki_ci_only@127.0.0.1:5432/yoki_ci
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '22.16.0'
       - name: Install the existing pnpm version
@@ -48,10 +49,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Focused ad, account and server policy tests
         run: >-
-          node --test
+          node --experimental-strip-types --test
           artifacts/mobile/tests/dailyAdPlacements.test.mjs
           artifacts/mobile/tests/dailyAdStore.test.mjs
           artifacts/mobile/tests/dailyAdsIntegration.test.mjs
+          artifacts/mobile/tests/dailyAdsExpiry.test.mjs
           artifacts/mobile/tests/communityBonus.test.mjs
           artifacts/api-server/tests/communityPolicy.test.mjs
       - name: PostgreSQL integration in a disposable local schema

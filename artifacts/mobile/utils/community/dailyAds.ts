@@ -77,6 +77,11 @@ export function createDailyAds(deps: Dependencies) {
     try {
       // Reconcile first: a different screen/background recovery may have received the SSV.
       let result = accept(await deps.collect());
+      // Focus/periodic refresh may not have run after a long closed/background interval.
+      // Keep confirmed claims for the success path, but never replay a cached expired claim.
+      const previous = pending?.reservation;
+      if (previous?.expiresAt && Date.parse(previous.expiresAt) <= Date.now() &&
+          !isConfirmed(previous.id, result)) pending = null;
       const receipt = eggReceipt ?? pending?.receipt ?? `daily-${placement}-${deps.uuid()}`;
       if (pending && pending.receipt !== receipt && pending.watched) return {status: 'pending'};
       if (pending && pending.receipt !== receipt) pending = null;
