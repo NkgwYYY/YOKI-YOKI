@@ -26,17 +26,30 @@ The saved blobs were compared with the locally tested files:
 - `commerce.native.ts`: `f7efbec7c06650aeaf4d56119bf4401acbad8285`
 - `nativeRewardedLifecycle.test.mjs`: `cbaa63e4fbcc6640b3b47233283d142901ddbcbe`
 
-## Clean CI
+## Completed clean CI
 
-GitHub Actions run: `39122831793` (Daily ad verification, run 6), code commit `bd165982bd56b89d274eab66688a87c3d51c573b`.
+GitHub Actions run: [39122831793 — Daily ad verification, run 6](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39122831793), code commit `bd165982bd56b89d274eab66688a87c3d51c573b`.
 
-At this report's first write, frozen workspace installation, focused ad/account/server tests, disposable PostgreSQL integration, shared/mobile/API typechecks, API build, the complete existing Node regression command including the new suite, and Expo Web export had succeeded. The iOS/Android JavaScript/Hermes export was still running; see the run's final status rather than treating that step as already passed. Expo export is not an Xcode/Gradle build or a signed native release.
+The run and its verification job completed **successfully**. The final job log was read and the following results were confirmed:
 
-Previous run `39089672003` on the parent commit had completed successfully after the egg-input fixture was updated for the shared music hook and the bonus-busy input/audio guards. This supersedes older PR descriptions that still reported those two fixture failures or an unexecuted PostgreSQL integration test.
+- Frozen installation: passed across 14 workspace projects; Node 22.16.0, pnpm 10.11.0, installed TypeScript 5.9.3.
+- Focused ad/account/server tests: 125 passed, 0 failed, 0 cancelled, 0 skipped. These overlap the wider Node suite and are not additional unique cases.
+- Disposable PostgreSQL integration: 8 passed, 0 failed, 0 cancelled, 0 skipped. This includes the mixed daily-placement/workshop quota and signed callback cases; no production database was used.
+- Wider Node regression suite: 69 test files, **661 total / 660 passed / 0 failed / 0 cancelled / 1 skipped**. The new 20 native lifecycle cases are included in this count.
+- Shared library TypeScript build, complete mobile application typecheck and complete API typecheck: passed.
+- API build: passed.
+- Expo Web JavaScript/assets export: passed.
+- Expo iOS and Android JavaScript/Hermes/assets export: passed.
+
+The one skipped case is `real build: both OS icon scale files, descriptor hashes and HTTP delivery` in `artifacts/mobile/tests/nativeBuildDelivery.test.mjs`. It is not a passing test. Actual built-file delivery remains unverified by that case.
+
+Expo export is **not** an Xcode/Gradle build, signed native release, physical-device test, live ad test or deployment. The workflow's wider Node suite also does not execute the separate `.browser.cjs` browser scripts. No full current-application browser operation test was completed in this follow-up.
+
+Previous run `39089672003` on the parent commit had completed successfully after the egg-input fixture was updated for the shared music hook and the bonus-busy input/audio guards. The results above supersede older PR descriptions that still reported those two fixture failures or an unexecuted PostgreSQL integration test.
 
 ## Replit and release status
 
-The existing YOKI YOKI project was resolved through the Replit connection and update/resume requests were accepted. Subsequent inspection calls repeatedly returned `phase: paused` and an empty response. No reason, successful synchronization report, updated source identity or completed preview operation report was returned. This is an observed limitation of the current operation, not proof of a missing credential or a particular Replit plan limitation.
+The existing YOKI YOKI project was resolved through the Replit connection and update/resume requests were accepted. Subsequent inspection calls repeatedly returned `phase: paused` and an empty response, including the final inspection after CI completed. No reason, successful synchronization report, updated source identity or completed preview operation report was returned. This is an observed limitation of the current operation, not proof of a missing credential or a particular Replit plan limitation.
 
 The existing deployment was reported as `success` by Replit's publication-status tool. That confirms the existing published deployment status, **not publication of this commit**. No new publication was requested, no GitHub main merge was performed and no App Store submission was made.
 
