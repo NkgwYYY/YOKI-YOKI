@@ -42,6 +42,11 @@ async function visibleFit(page, id) {
   assert.ok(box && box.width > 0 && box.height > 0, id + ' has visible geometry');
   assert.ok(box.x >= -1 && box.y >= -1 && box.x+box.width <= size.width+1 && box.y+box.height <= size.height+1,
     id + ' inside viewport: ' + JSON.stringify({box,size}));
+  return box;
+}
+function separate(a,b,label) {
+  assert.ok(a.x+a.width<=b.x+1 || b.x+b.width<=a.x+1 || a.y+a.height<=b.y+1 || b.y+b.height<=a.y+1,
+    label + ' must not overlap: ' + JSON.stringify({a,b}));
 }
 async function saveFailure(page, errors, label) {
   await page.screenshot({path:path.join(output,'failure-'+label+'.png')}).catch(()=>{});
@@ -98,6 +103,9 @@ async function travel(page, map) {
     try {
       await check(label + ' HOME controls fit and unsupported native ads leave no rail', async () => {
         for (const id of ['home-points','home-more-menu','world-map-open','world-navigation']) await visibleFit(page,id);
+        const steering = await visibleFit(page,'world-steering-frame');
+        separate(steering,await visibleFit(page,'world-map-open'),'steering and travel');
+        separate(steering,await visibleFit(page,'world-navigation'),'steering and navigation');
         assert.equal(await page.locator('[data-testid^="daily-ad-rail-"]').count(),0);
         assert.equal(await page.locator('[data-testid^="daily-ad-reward-"]').count(),0);
       });
@@ -134,7 +142,11 @@ async function travel(page, map) {
     await check('workshop merchant opens the real egg-job route',async()=>{
       await travel(page,'workshop');
       await page.getByTestId('merchant-egg-job').click();
-      await page.getByTestId('egg-job-action').waitFor({state:'visible'});
+      const action = page.getByTestId('egg-job-action');
+      const introduction = page.getByRole('button',{name:'バイトを始める',exact:true});
+      await Promise.race([action.waitFor({state:'visible'}),introduction.waitFor({state:'visible'})]);
+      if (await introduction.isVisible()) await introduction.click();
+      await action.waitFor({state:'visible'});
       await visibleFit(page,'egg-job-action'); await visibleFit(page,'egg-job-back');
       assert.deepEqual(errors,[]);
     });
