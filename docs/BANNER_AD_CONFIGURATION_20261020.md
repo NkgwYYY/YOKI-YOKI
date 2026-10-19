@@ -41,3 +41,14 @@ The refreshed AdSense dashboard now recognizes `ads.txt` as **承認済み**. Si
 The AdMob app remains **要審査**, has no App Store listing linked, and reports zero requests and impressions over the displayed last-seven-days period. A root `app-ads.txt` file now authorizes the same publisher for native ads. It is copied by the existing web-extras build step. This file does not itself approve the app or create a signed iOS build.
 
 For the existing iOS listing, set the App Store marketing URL to `https://yoki-yoki.replit.app/landing/`, link the actual store listing in AdMob, and complete app verification after Google's crawler discovers `https://yoki-yoki.replit.app/app-ads.txt`. Native ad delivery still requires an approved app and an installed signed build containing the configured SDK and production units.
+
+Additional account checks on 2026-10-20 JST:
+
+- AdSense home confirms the payment profile, advertising setup and site linkage are complete. No remaining account-activation task was shown; the site review remains pending.
+- Published the AdMob European-regulations message `YOKI YOKI iOS 広告のプライバシー設定` for the existing YOKIYOKI iOS app. It uses the existing public privacy policy, English default text, EEA/UK/Switzerland targeting, consent/reject/manage choices, rejection enabled for all listed regions, and no logo. The dashboard confirms **公開済み**. Existing native UMP integration and the privacy-options entry point are retained; device rendering is still unverified.
+- The rewarded unit already has `https://yoki-yoki.replit.app/api/community/admob/ssv` configured. This check confirms the saved URL, not a real rewarded-ad transaction.
+- AdMob's store search for `YOKIYOKI` and all 23 results for `YOKI YOKI` did not identify this app. No unrelated listing was linked. The existing App Store / App Store Connect URL or Apple numeric app ID is still needed to identify it accurately.
+- Replit's **Start publishing to the App Store** flow returned **予期しない問題が発生しました** after preparing. No successful signed build, TestFlight upload or App Store submission was confirmed. Web publishing is a separate operation.
+- The previously queued verification run [39281902357](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39281902357) completed successfully.
+
+Source `19a5bb9f3966efb3766827cbe5ce3458aecf93d8` was safely synchronized and republished without Replit Agent. The provider returned `success`. Production checks then confirmed `/app-ads.txt` and `/ads.txt` both return HTTP 200, `text/plain; charset=utf-8`, and the exact publisher authorization line; `/api/healthz` returns 200. No production ad was clicked or synthetic ad impression generated. These checks establish publication and reachability, not Google approval or live ad revenue.
