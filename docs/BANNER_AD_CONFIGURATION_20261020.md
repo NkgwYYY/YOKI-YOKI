@@ -25,3 +25,11 @@ The existing iOS app ID and rewarded unit are unchanged. Android has no producti
 - The existing CI workflow now includes landing checks/build and the new ad tests.
 - Google website review and iOS app approval/store linkage still govern real ad serving. A configured identifier is not evidence that production impressions or revenue are available.
 - Native signed-build/device ad rendering and rewarded server callbacks are separate validation steps. No Replit Agent was used.
+
+## Published verification
+
+Source `7bc4fde7aca075f3446618cb43dd360748c6212f` was synchronized to Replit and published successfully on 2026-10-19 UTC (2026-10-20 JST). The 22 changed files matched GitHub; Replit HEAD/index and unrelated working files were preserved.
+
+Production checks confirmed: `/` → 302 `/landing/`, explicit app entry sets its cookie, remembered app entry returns 200, the public guide and publisher metadata exist in static HTML, `ads.txt` returns 200 with the exact publisher line and `text/plain`, iOS manifest contains the new banner unit, and `/api/healthz` returns 200. The app document has no AdSense script. Browser inspection confirmed the public banner's real client/slot attributes and that the app opens its onboarding screen. No production ad was clicked.
+
+After these checks, AdSense accepted the site's review request and displayed **審査待ち** (pending review). This is not advertising approval. The new GitHub Actions run was queued at release verification; local checks above passed. Real native ad rendering/revenue remains unverified.
