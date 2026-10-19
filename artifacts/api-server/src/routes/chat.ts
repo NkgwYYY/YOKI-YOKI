@@ -12,6 +12,16 @@ interface ChatMessage {
 }
 
 chatRouter.post("/chat/message", async (req, res) => {
+  // Finish before the app's 30-second deadline. Cancel both upstream requests
+  // when the user leaves, or once the conversational reply is ready.
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 25_000);
+  const cancel = () => controller.abort();
+  res.on("close", cancel);
   try {
     const {
       messages = [],
@@ -19,13 +29,21 @@ chatRouter.post("/chat/message", async (req, res) => {
       mascotStage = "stage3",
       todayDate,
       context,
-    } = req.body as {
+    } = (req.body ?? {}) as {
       messages: ChatMessage[];
       mascotName: string;
       mascotStage: string;
       todayDate?: string;
       context?: string;
     };
+
+    if (!Array.isArray(messages) || !messages.length || messages.length > 20 ||
+        messages.some(m => !m || !["user", "assistant"].includes(m.role) ||
+          typeof m.content !== "string" || !m.content.trim() || m.content.length > 12_000) ||
+        messages.at(-1)?.role !== "user") {
+      res.status(400).json({ error: "話しかける内容を確認して、もう一度送ってください。", code: "CHAT_INVALID_REQUEST" });
+      return;
+    }
 
     const stageDesc: Record<string, string> = {
       egg: "たまごから生まれたばかりの小さな存在",
@@ -110,27 +128,55 @@ ${latestUserText}
 
 「yes」か「no」のみ答えてください。`;
 
-    const [chatResponse, stressResponse] = await Promise.all([
-      openai.chat.completions.create({
+    const requestOptions = { signal: controller.signal, timeout: 25_000, maxRetries: 0 };
+    // This is an optional invitation to rest, not the safety policy for the reply.
+    // Its failure or delay must never discard a successful conversation.
+    let restEvent = false;
+    void (async () => {
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-5.6-terra",
+          reasoning_effort: "none",
+          max_completion_tokens: 64,
+          messages: [{ role: "user" as const, content: stressPrompt }],
+        }, requestOptions);
+        restEvent = response.choices[0]?.message?.content?.trim().toLowerCase() === "yes";
+      } catch { /* Optional rest invitation is unavailable. */ }
+    })();
+
+    const chatResponse = await openai.chat.completions.create({
         model: "gpt-5.6-terra",
+        reasoning_effort: "low",
         max_completion_tokens: 8192,
         response_format: {type: "json_object"},
         messages: chatMessages,
-      }),
-      openai.chat.completions.create({
-        model: "gpt-5.6-terra",
-        max_completion_tokens: 5,
-        messages: [{ role: "user" as const, content: stressPrompt }],
-      }),
-    ]);
+      }, requestOptions);
 
+    if (chatResponse.choices[0]?.finish_reason === "length") throw new Error("Incomplete chat reply");
     const reply = parseChatReply(chatResponse.choices[0]?.message?.content ?? "");
-    const stressAnswer = stressResponse.choices[0]?.message?.content?.toLowerCase() ?? "";
-    const restEvent = stressAnswer.includes("yes");
-    res.json({ ...reply, restEvent });
+    if (!res.destroyed) res.json({ ...reply, restEvent });
   } catch (err) {
-    console.error("Chat error:", err);
-    res.status(500).json({ error: "チャットに失敗しました" });
+    if (res.destroyed) return;
+    const upstreamStatus = typeof (err as {status?: unknown})?.status === "number"
+      ? (err as {status: number}).status : undefined;
+    const deadline = timedOut || (err as {name?: string})?.name === "APIConnectionTimeoutError";
+    const unavailable = upstreamStatus === 402 || upstreamStatus === 401 || upstreamStatus === 403 || upstreamStatus === 404;
+    const busy = upstreamStatus === 429;
+    const code = deadline ? "CHAT_TIMEOUT" : unavailable ? "CHAT_UNAVAILABLE" : busy ? "CHAT_BUSY" : "CHAT_FAILED";
+    // Do not log SDK error objects: they can contain request/response headers or
+    // provider details. Conversation text and health records stay out of logs.
+    console.warn("Chat request failed", { code, upstreamStatus });
+    res.status(deadline ? 504 : unavailable || busy ? 503 : 502).json({
+      code,
+      error: deadline ? "返事に時間がかかっています。もう一度試せます。"
+        : unavailable ? "今はおはなしに接続できません。少し時間をおいてお試しください。"
+        : busy ? "今はおはなしが混み合っています。少し時間をおいてお試しください。"
+        : "返事を受け取れませんでした。もう一度試せます。",
+    });
+  } finally {
+    clearTimeout(timeout);
+    res.off("close", cancel);
+    controller.abort();
   }
 });
 

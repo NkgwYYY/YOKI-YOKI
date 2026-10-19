@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getTabBarHeight } from '@/utils/tabLayout';
 import { localDateKey, normalizeStoredMessage, type Message, type Citation } from '@/utils/chatHistory';
+import { chatErrorMessage } from '@/utils/chatErrors';
 import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -213,7 +214,7 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showRestEvent, setShowRestEvent] = useState(false);
-  const [sendError, setSendError] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -231,7 +232,7 @@ export default function ChatScreen() {
       request.current.abort();
       request.current = null;
       setIsLoading(false);
-      setSendError(true);
+      setSendError(chatErrorMessage());
     }
     if (restTimer.current) clearTimeout(restTimer.current);
     setShowRestEvent(false);
@@ -294,7 +295,7 @@ export default function ChatScreen() {
       lastScheduled.current = '[]';
       setSaveError(false);
       setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ` }]);
-      setSendError(false);
+      setSendError(null);
       setHistoryError(false);
     } catch { setHistoryError(true); }
     finally { clearBusy.current = false; setClearing(false); }
@@ -307,7 +308,8 @@ export default function ChatScreen() {
     request.current = controller;
     const timeout = setTimeout(() => controller.abort(), 30000);
     if (!retry) setInput('');
-    setSendError(false);
+    setSendError(null);
+    let failureMessage = chatErrorMessage();
 
     const userMsg = newMessage(`u_${Date.now()}`, 'user', msg);
     const next = retry ? messages : [...messages, userMsg];
@@ -354,7 +356,11 @@ export default function ChatScreen() {
           context: ctxParts.join('\n') || undefined,
         }),
       });
-      if (!res.ok) throw new Error('Chat request failed');
+      if (!res.ok) {
+        const failure = await res.json().catch(() => null);
+        failureMessage = chatErrorMessage(failure?.code);
+        throw new Error('Chat request failed');
+      }
       const data = await res.json();
       if (typeof data?.content !== 'string' || !data.content.trim()) throw new Error('Invalid chat response');
       if (request.current !== controller) return;
@@ -373,7 +379,9 @@ export default function ChatScreen() {
         restTimer.current = setTimeout(() => setShowRestEvent(true), 1200);
       }
     } catch {
-      if (request.current === controller) setSendError(true);
+      if (request.current === controller) {
+        setSendError(controller.signal.aborted ? chatErrorMessage('CHAT_TIMEOUT') : failureMessage);
+      }
     } finally {
       clearTimeout(timeout);
       if (request.current === controller) {
@@ -490,7 +498,7 @@ export default function ChatScreen() {
           <PressScale style={chipStyles.chip} accessibilityLabel="会話履歴を保存し直す" disabled={clearing} onPress={() => { void persistHistory(JSON.stringify(messages.filter(m => m.id !== 'welcome').slice(-MAX_STORED))); }}><Text>保存をもう一度試す</Text></PressScale>
         </View>}
         {sendError && <View>
-          <Text accessibilityRole="alert">返事を受け取れませんでした。もう一度試せます。</Text>
+          <Text accessibilityRole="alert">{sendError}</Text>
           <PressScale style={chipStyles.chip} accessibilityLabel="返事をもう一度受け取る" onPress={() => sendMessage(undefined, true)} disabled={isLoading}>
             <Text style={chipStyles.text}>もう一度試す</Text>
           </PressScale>
