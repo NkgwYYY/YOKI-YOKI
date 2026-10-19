@@ -373,7 +373,7 @@ export function WorldHome(props: Props) {
       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>}
       <VillageVisitors occupiedPoints={conversationTargets.map(t=>t.point)} map={map} daySeed={props.daySeed} width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food&&!experience&&!bowlingBusy} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>
       {nearbyTarget?.hint&&<EncounterHint key={nearbyTarget.key} target={nearbyTarget} targets={conversationTargets} width={width} height={height} viewportLeft={-frame.left} viewportWidth={bounds.width} clearTop={stageTop-frame.top} footX={footX} footY={footY}/>}
-      {mapPortals(map,grandmaUnlocked).map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level,grandmaUnlocked)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
+      {mapPortals(map,grandmaUnlocked).filter(gate=>gate.to!=='home').map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level,grandmaUnlocked)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
       <WorldResident {...props} grandmaUnlocked={grandmaUnlocked} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {map==='home'&&props.carriedGift&&<CarriedGift kind={props.carriedGift} width={width} height={height} footX={footX} footY={footY}/>}
       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
@@ -382,10 +382,13 @@ export function WorldHome(props: Props) {
     <LinearGradient pointerEvents="none" colors={['#15262A75', 'transparent']} style={s.topShade} />
     <LinearGradient pointerEvents="none" colors={['transparent', '#192D2CB8']} style={s.bottomShade} />
     <View style={[s.toolbar,{top:insets.top+(tight?64:114)}]} pointerEvents="box-none">
+      <View style={{flexDirection:'row',gap:8}}>
       <Pressable testID="world-map-open" accessibilityRole="button" accessibilityLabel="おでかけ。村の地図を開く" accessibilityState={{disabled:!active||bowlingBusy}} disabled={!active||!!cleanTool||riding||bowlingBusy} onPress={()=>{steering.value={x:0,y:0};setMapOpen(true);}} style={({pressed})=>[s.travelButton,{opacity:(!active||bowlingBusy)?0.5:pressed?0.85:1}]}>
         <DoorIcon name="log-out" size={18} color="#DDCBA6"/>
         <Text style={s.travelTitle}>おでかけ</Text>
       </Pressable>
+      {away&&<WorldPill compact testID="world-gate-home" label="おうち" icon="home" accessibilityLabel="おうちへの道しるべ" disabled={!active||!!props.food||!!experience||bowlingBusy||riding||!!cleanTool} onPress={()=>enterMap('home')}/>}
+      </View>
       <View style={{flexDirection:'row',gap:8}}>{map==='home'&&<WorldPill compact testID="room-clean-open" label="部屋のお掃除" icon="wind" disabled={!active||!!props.food||!!experience||riding} onPress={()=>setCleanOpen(true)}/>}<WorldPill testID="world-bgm-toggle" label="BGM" icon={props.music.enabled?'volume-2':'volume-x'} accessibilityLabel={props.music.enabled?'BGMを止める':'BGMを流す'} disabled={props.music.busy} onPress={props.music.toggle} style={{paddingHorizontal:11}}/>
       <WorldPill compact icon="sliders" label="景色の見かた" disabled={!active||bowlingBusy} onPress={()=>setViewOpen(true)} /></View>
     </View>
@@ -432,7 +435,7 @@ export function WorldHome(props: Props) {
       <WorldPill testID="tobacco-smoke" label={smoking.busy?'準備中…':'喫煙所で一服する'} disabled={smoking.busy} icon="wind" onPress={()=>{void smoking.start().then(ok=>{if(ok){setPlacesOpen(false);view.reset();setExperience('smoke');}});}}/>
     </BottomSheet>}
     {nearbyTarget&&<View style={[s.placeAction,{bottom:dockBottom+26,left:132}]}><WorldPill testID="nearby-talk" label="話しかける" icon="message-circle" onPress={()=>{if(nearbyTarget.key==='plaza')request(PLAZA_APPROACH_POINT,{kind:'plaza'});else{const encounter=localResidents.find(e=>e.key===nearbyTarget.key);if(encounter)request(storyApproach(encounter),{kind:'story',encounter});}}} disabled={!active||!!props.food}/></View>}
-    {map==='market'&&plaza.error&&!plaza.open&&<Pressable accessibilityRole="button" accessibilityLabel="広場の出会いを再読み込み" onPress={plaza.retry} style={[s.experience,{bottom:dockBottom+4,left:132}]}><Text style={s.experienceText}>{plaza.error}　再試行</Text></Pressable>}
+    {map==='market'&&!!plaza.error&&!plaza.open&&<Pressable accessibilityRole="button" accessibilityLabel="広場の出会いを再読み込み" onPress={plaza.retry} style={[s.experience,{bottom:dockBottom+4,left:132}]}><Text style={s.experienceText}>{plaza.error}　再試行</Text></Pressable>}
     {map==='market'&&plaza.open&&plaza.current&&<PlazaDialogue encounter={plaza.current} busy={plaza.busy} error={plaza.error} animating={plaza.animating} points={feedState.points} onChoose={choice=>{void plaza.choose(choice,reduceMotion);}} onClose={()=>{void plaza.close();}}/>}
     {bankOpen&&<BankHall onClose={()=>{setBankOpen(false);view.reset();}}/>}
     {fortuneOpen&&<FortuneHall onClose={()=>{setFortuneOpen(false);view.reset();}}/>}

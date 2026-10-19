@@ -13,8 +13,19 @@ assert.equal(output.diagnostics?.length ?? 0, 0);
 writeFileSync(join(directory, 'placements.cjs'), output.outputText);
 const {DAILY_AD_POINTS, DAILY_AD_LIMIT, BANNER_RAIL_HEIGHT, DISCONNECTED_DAILY_ADS,
   sharedAdRemaining, canWatchDailyAd, dailyAdPresentation, createDailyRewardGate,
-  dailyAdResultMessage, isDailyAdPlacement} = require(join(directory, 'placements.cjs'));
+  dailyAdResultMessage, dailyAdNoticeAfterRefresh, isDailyAdPlacement} = require(join(directory, 'placements.cjs'));
 process.on('exit', () => rmSync(directory, {recursive: true, force: true}));
+
+test('a background settlement clears the stale pending notice without fabricating credit',()=>{
+  const pending=dailyAdResultMessage({status:'pending'});
+  const idle={ready:true,phase:'idle'};
+  assert.equal(dailyAdNoticeAfterRefresh(pending,{...idle,phase:'verifying'}),pending);
+  assert.equal(dailyAdNoticeAfterRefresh(pending,{...idle,ready:false}),pending);
+  const settled=dailyAdNoticeAfterRefresh(pending,idle);
+  assert.match(settled,/状況を更新/);
+  assert.doesNotMatch(settled,/30|確認中|もう一度/);
+  assert.equal(dailyAdNoticeAfterRefresh('視聴は中止しました。',idle),'視聴は中止しました。');
+});
 
 const state = overrides => ({sessionKey: 'session-A', revision: '2026-10-16', ready: true,
   remaining: 3, rewardedAvailable: true, bannerAvailable: true,

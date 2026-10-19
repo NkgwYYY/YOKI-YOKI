@@ -189,11 +189,13 @@ router.post('/community/homes/:id/visits', wrap(async (req, res) => {
 }));
 router.get('/community/bonus', wrap(async (req, res) => {
   const id = req.player!.id, day = japanDay();
-  const [claims, count] = await Promise.all([
+  const quota = await passOwner(id) ?? id;
+  const [claims, count, pending] = await Promise.all([
     pool.query("SELECT id,receipt_id,amount FROM yoki_bonus_claims WHERE player_id=$1 AND state='earned' AND acknowledged_at IS NULL ORDER BY created_at", [id]),
-    pool.query("SELECT count(*)::int AS used FROM yoki_bonus_claims WHERE player_id=$1 AND day=$2 AND (state='earned' OR (state='reserved' AND expires_at>now()))", [id, day]),
+    pool.query("SELECT count(*)::int AS used FROM yoki_bonus_claims WHERE (player_id=$1 OR quota_key=$3) AND day=$2 AND (state='earned' OR (state='reserved' AND expires_at>now()))", [id, day, quota]),
+    pool.query("SELECT id,receipt_id,expires_at FROM yoki_bonus_claims WHERE player_id=$1 AND mode='ad' AND state='reserved' AND expires_at>now() ORDER BY created_at", [id]),
   ]);
-  res.json({ claims: claims.rows, remaining: Math.max(0, BONUS_DAILY_LIMIT - count.rows[0].used), day });
+  res.json({ claims: claims.rows, remaining: Math.max(0, BONUS_DAILY_LIMIT - count.rows[0].used), day, pending: pending.rows });
 }));
 router.get('/community/pass', wrap(async (req, res) => { res.json({ active: !!await passOwner(req.player!.id), sales: passEnabled() }); }));
 router.post('/community/bonus/reserve', wrap(async (req, res) => {
@@ -201,12 +203,13 @@ router.post('/community/bonus/reserve', wrap(async (req, res) => {
   if (!validReceipt(receipt) || !['ad','pass'].includes(mode)) throw new ClientError(400, '注文の結果を確認できません。');
   if (mode === 'pass' && !receipt.startsWith('egg-')) throw new ClientError(400, 'この特典には広告の視聴が必要です。');
   if (mode === 'ad' && !adsEnabled()) throw new ClientError(503, 'いまは広告を用意できません。');
-  const owner = mode === 'pass' ? await passOwner(id) : null;
+  const entitlementOwner = await passOwner(id);
+  const owner = mode === 'pass' ? entitlementOwner : null;
   if (mode === 'pass' && !owner) throw new ClientError(403, '有効なパスを確認できません。購入を復元してください。');
-  const quota = owner ?? id;
+  const quota = entitlementOwner ?? id;
   const result = await transaction(async client => {
     await client.query('SELECT id FROM yoki_community_players WHERE id=$1 FOR UPDATE', [id]);
-    if (owner) await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [owner]);
+    if (entitlementOwner) await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [entitlementOwner]);
     const prior = (await client.query('SELECT * FROM yoki_bonus_claims WHERE player_id=$1 AND receipt_id=$2 FOR UPDATE', [id, receipt])).rows[0];
     if (prior && (prior.state === 'earned' || (prior.state === 'reserved' && new Date(prior.expires_at).getTime() > Date.now()))) return prior;
     await client.query("UPDATE yoki_bonus_claims SET state='expired' WHERE player_id=$1 AND state='reserved' AND expires_at<=now()", [id]);

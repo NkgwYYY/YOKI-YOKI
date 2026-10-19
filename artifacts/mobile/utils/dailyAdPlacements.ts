@@ -189,3 +189,11 @@ export function dailyAdResultMessage(result: DailyAdResult): string {
     case 'error': return '広告の処理を確認できませんでした。通常の操作は続けられます。';
   }
 }
+
+/** Background SSV recovery/expiry can finish after the button's promise settled.
+ * Do not leave a stale "confirming" notice or invent a new 30pt grant. */
+export function dailyAdNoticeAfterRefresh(notice: string, snapshot: DailyAdSnapshot): string {
+  return notice === dailyAdResultMessage({status: 'pending'}) && snapshot.ready && snapshot.phase === 'idle'
+    ? '受け取り状況を更新しました。ポイント残高をご確認ください。'
+    : notice;
+}

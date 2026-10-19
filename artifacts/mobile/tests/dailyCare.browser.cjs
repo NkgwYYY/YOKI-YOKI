@@ -137,7 +137,19 @@ async function travel(page, map) {
         await page.getByRole('button',{name:'閉じる',exact:true}).last().click();
         await page.getByText('この部屋でできること',{exact:true}).waitFor({state:'hidden'});
       });
-      await check(label + ' actual atlas travels to street and returns home', async () => {await travel(page,'market'); await travel(page,'home');});
+      await check(label + ' actual atlas travels to street and home shortcut stays usable', async () => {
+        await travel(page,'market');
+        const home = await visibleFit(page,'world-gate-home');
+        for (const id of ['world-map-open','world-bgm-toggle','world-steering-frame','world-navigation']) {
+          separate(home,await visibleFit(page,id),'home shortcut and '+id);
+        }
+        await page.screenshot({path:path.join(output,'market-'+label+'.png')});
+        await page.getByTestId('world-gate-home').click();
+        await page.getByTestId('world-gate-home').waitFor({state:'hidden'});
+        await page.getByTestId('world-map-open').click();
+        assert.match(await page.getByTestId('world-map-home').getAttribute('aria-label'), /いまここ/);
+        await page.getByRole('button',{name:'地図を閉じる',exact:true}).click();
+      });
       await check(label + ' no uncaught browser errors', async () => assert.deepEqual(errors,[]));
       await page.screenshot({path:path.join(output,'home-'+label+'.png')});
     } catch (error) {await saveFailure(page,errors,label);throw error;}

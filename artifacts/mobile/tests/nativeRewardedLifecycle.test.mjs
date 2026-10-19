@@ -160,3 +160,19 @@ test('queued paid and reward callbacks after settlement neither report revenue n
   await tick(); assert.equal(paid, 0); assert.equal(result.value, false);
   assert.equal(f.events.filter(e => e.name === 'ad_closed').length, 1); clean(f, ad);
 });
+
+for (const earned of [false, true]) {
+  test(`lost native close callback settles playback and unlocks retries (earned=${earned})`, async () => {
+    const f = fixture(), result = f.start(); await tick(); const ad = f.ads[0];
+    ad.emit('loaded'); if (earned) ad.emit('earned');
+    assert.deepEqual([...f.timers.values()].map(t => t.delay), [180_000]);
+    f.timeout(); await tick();
+    assert.equal(result.status, earned ? 'resolved' : 'rejected');
+    if (earned) assert.equal(result.value, true); // Server verification still owns credit.
+    clean(f, ad);
+    ad.emitQueued('loaded'); ad.emitQueued('earned'); ad.emitQueued('closed');
+    assert.equal(ad.showCount, 1);
+    const retry = f.start(); await tick(); assert.ok(f.ads[1]);
+    f.ads[1].emit('closed'); await tick(); assert.equal(retry.value, false);
+  });
+}

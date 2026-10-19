@@ -20,7 +20,7 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   const collect = useMemo(() => createBonusCollector({
     current: () => current.current === client,
     ready: () => latest.current.ready,
-    status: () => client.call<BonusStatus>('/bonus'),
+    status: () => client.call<BonusStatus & {pending?: import('@/utils/community/dailyAds').PendingBonus[]}>('/bonus'),
     grant: (claim, isCurrent) => latest.current.receiveCommunityBonus(claim, isCurrent),
     acknowledge: id => client.call(`/bonus/${id}/ack`, 'POST'),
   }), [client]);

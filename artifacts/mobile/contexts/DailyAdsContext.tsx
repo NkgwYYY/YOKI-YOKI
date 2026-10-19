@@ -8,7 +8,7 @@ import {useVillageMusic} from './VillageMusicContext';
 import {DailyAdProvider} from '@/components/ads/DailyAdPlacements';
 import {CommunityBanner} from '@/components/ads/CommunityBanner';
 import {createDailyAds, type Reservation} from '@/utils/community/dailyAds';
-import {canBuyPass, canShowBannerAd, canShowRewardedAd, showRewardedAd} from '@/utils/community/commerce';
+import {adPrivacyOptions, canBuyPass, canShowBannerAd, canShowRewardedAd, showRewardedAd} from '@/utils/community/commerce';
 
 const Context = createContext<ReturnType<typeof createDailyAds> | null>(null);
 export function ConnectedDailyAds({children}: {children: React.ReactNode}) {
@@ -37,7 +37,9 @@ export function ConnectedDailyAds({children}: {children: React.ReactNode}) {
     credited: id => latest.current.app.feedState.communityBonuses?.includes(id) === true,
     uuid: () => Crypto.randomUUID(), pause: ms => new Promise(resolve => setTimeout(resolve, ms)),
   }), [session, client]);
-  const binding = useMemo(() => ({...service, onBannerError: service.bannerError, renderBanner: () => <CommunityBanner onError={service.bannerError}/>}), [service]);
+  const binding = useMemo(() => ({...service, onBannerError: service.bannerError,
+    openPrivacy: async () => { await adPrivacyOptions(); await service.refresh(); },
+    renderBanner: () => <CommunityBanner onError={service.bannerError}/>}), [service]);
   useEffect(() => {
     const refresh = () => { if (AppState.currentState === 'active') void service.refresh(); };
     refresh();

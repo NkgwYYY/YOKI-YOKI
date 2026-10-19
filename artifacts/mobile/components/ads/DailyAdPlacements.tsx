@@ -4,7 +4,7 @@ import React, {
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   BANNER_HEIGHT, BANNER_RAIL_HEIGHT, BANNER_WIDTH,
-  createDailyRewardGate, dailyAdPresentation, dailyAdResultMessage,
+  createDailyRewardGate, dailyAdPresentation, dailyAdResultMessage, dailyAdNoticeAfterRefresh,
   type DailyAdEnvironment, type DailyAdPlacement, type DailyRewardBinding,
 } from '../../utils/dailyAdPlacements';
 import {createDailyAdStore} from '../../utils/dailyAdStore';
@@ -16,6 +16,7 @@ export interface DailyAdBinding extends DailyRewardBinding {
    * On no-fill/error the shared store must set bannerAvailable=false. */
   renderBanner(options: {placement: 'home' | 'street'; width: number; height: number}): React.ReactNode;
   onBannerError?(): void;
+  openPrivacy?(): Promise<void>;
 }
 
 const disconnectedStore = createDailyAdStore(null);
@@ -47,7 +48,7 @@ type PlacementProps = {placement: DailyAdPlacement; environment: DailyAdEnvironm
 export function useDailyAdRailHeight(placement: DailyAdPlacement, environment: DailyAdEnvironment) {
   const {binding, snapshot} = useDailyAds();
   // Keep the measured scene stable while a gesture, sheet or keyboard hides the creative.
-  const reserved = dailyAdPresentation(placement, snapshot, {...environment, interacting: false, obscured: false, keyboardOpen: false});
+  const reserved = dailyAdPresentation(placement, {...snapshot, phase: 'idle'}, {...environment, interacting: false, obscured: false, keyboardOpen: false});
   return binding && reserved.banner ? BANNER_RAIL_HEIGHT : 0;
 }
 export function DailyAdRail({placement, environment, bottomInset = 0}: PlacementProps & {bottomInset?: number}) {
@@ -97,6 +98,9 @@ export function DailyAdRewardButton({placement, environment}: PlacementProps) {
   latestSession.current = snapshot.sessionKey;
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { setNotice(''); }, [snapshot.sessionKey]);
+  useEffect(() => {
+    setNotice(previous => dailyAdNoticeAfterRefresh(previous, snapshot));
+  }, [snapshot.ready, snapshot.phase, notice]);
 
   const watch = async () => {
     if (!binding || !model.canWatch || pressing.current) return;
@@ -111,18 +115,31 @@ export function DailyAdRewardButton({placement, environment}: PlacementProps) {
     if (latestSession.current === session) setNotice(dailyAdResultMessage(result));
   };
 
-  if (!binding || !model.reward) return null;
+  const privacyAvailable = !!binding?.openPrivacy && environment.screenActive && environment.foreground &&
+    !environment.obscured && !environment.keyboardOpen && !environment.interacting &&
+    snapshot.ready && (snapshot.rewardedAvailable || snapshot.bannerAvailable);
+  const privacy = async () => {
+    const session = snapshot.sessionKey;
+    try {
+      await binding?.openPrivacy?.();
+    } catch {
+      if (mounted.current && latestSession.current === session) setNotice('広告設定は現在変更できません。時間をおいてお試しください。');
+    }
+  };
+  if (!binding || (!model.reward && !privacyAvailable)) return null;
   const busy = localBusy || snapshot.phase !== 'idle';
   const disabled = busy || !model.canWatch;
   const label = busy ? '広告の受け取りを確認中…' : model.rewardLabel;
   return <View testID={`daily-ad-reward-${placement}`} style={styles.reward}>
-    <Pressable accessibilityRole="button" accessibilityLabel={label}
+    {model.reward && <><Pressable accessibilityRole="button" accessibilityLabel={label}
       accessibilityHint="視聴は任意です。通常のごはんや移動は、広告なしでも利用できます。"
       accessibilityState={{disabled, busy}} disabled={disabled} onPress={watch}
       style={({pressed}) => [styles.button, (disabled || pressed) && styles.dim]}>
       <Text style={styles.buttonText}>{label}</Text>
     </Pressable>
-    <Text style={styles.detail}>{model.rewardDetail}</Text>
+    <Text style={styles.detail}>{model.rewardDetail}</Text></>}
+    {privacyAvailable && <Pressable accessibilityRole="button" disabled={busy} onPress={() => void privacy()}
+      style={styles.privacy}><Text style={styles.detail}>広告のプライバシー設定</Text></Pressable>}
     {!!notice && <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
   </View>;
 }
@@ -142,6 +159,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {fontSize: 14, lineHeight: 21, fontWeight: '600', color: '#F0DDAE', textAlign: 'center'},
   detail: {fontSize: 11, lineHeight: 17, color: '#C8B9D4', textAlign: 'center'},
+  privacy: {minHeight: 44, justifyContent: 'center', alignItems: 'center'},
   notice: {fontSize: 12, lineHeight: 19, color: '#E6DAED', textAlign: 'center'},
   dim: {opacity: 0.5},
 });

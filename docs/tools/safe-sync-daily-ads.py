@@ -22,7 +22,9 @@ BASE = 'b2d12fade2e77dda03a856289cd1ba74e2ada170'
 KNOWN = ('2e59f5601e114a800642a6851fa050d7b7a5440b',
          '2cebb63a1f856aa58f4144e9dba35a789ac9989c',
          'a8666c130479bcf46e42527e80c273626e20d46c',
-         'bd165982bd56b89d274eab66688a87c3d51c573b')
+         'bd165982bd56b89d274eab66688a87c3d51c573b',
+         # Replit source reviewed and reconciled on 2026-10-19.
+         '766dee5956b621db17c6f2fd50663a23846e1e90')
 
 class Stop(Exception):
     pass

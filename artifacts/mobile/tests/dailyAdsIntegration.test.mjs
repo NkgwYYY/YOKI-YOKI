@@ -45,6 +45,54 @@ test('HOME, meal and egg-job consume one server quota; the fourth cannot show an
   assert.equal(f.shown(),3);
 });
 
+test('an existing ad-free entitlement is honoured without purchase SDK availability',async()=>{
+  let checked=0;
+  const f=fixture({
+    eligibility:()=>({ready:true,rewarded:true,banner:true,pass:false}),
+    pass:async()=>{checked++;return true;},
+  });
+  await f.service.refresh();
+  assert.equal(checked,1);
+  assert.equal(f.service.getSnapshot().removePassiveAds,true);
+});
+
+test('an entitlement lookup failure hides advertising instead of ignoring the pass',async()=>{
+  const f=fixture({pass:async()=>{throw Error('offline');}});
+  await f.service.refresh();
+  assert.equal(f.service.getSnapshot().ready,false);
+  assert.equal(f.service.getSnapshot().bannerAvailable,false);
+});
+
+test('a remounted provider recovers a pending reservation without replaying video',async()=>{
+  const id=randomUUID(), receipt=`daily-meal-${randomUUID()}`;
+  let confirmed=false, reads=0;
+  const f=fixture({
+    collect:async()=>{reads++;return {gained:0,remaining:2,day:'2026-10-17',
+      confirmedIds:confirmed?[id]:[],
+      pending:confirmed?[]:[{id,receipt_id:receipt,expires_at:new Date(Date.now()+60_000).toISOString()}]};},
+  });
+  await f.service.refresh();
+  assert.equal(f.service.getSnapshot().phase,'verifying');
+  assert.equal((await f.service.watchRewarded('home')).status,'pending');
+  assert.equal(f.shown(),0);
+  assert.equal(f.reservations.size,0);
+  confirmed=true;await f.service.refresh();
+  assert.equal(f.service.getSnapshot().phase,'idle');
+  assert.ok(reads>1);
+});
+
+test('expired recovered reservations stop blocking rewards',async()=>{
+  let now=Date.now();
+  const f=fixture({now:()=>now,collect:async()=>({gained:0,remaining:2,day:'2026-10-17',confirmedIds:[],
+    pending:[{id:randomUUID(),receipt_id:`daily-home-${randomUUID()}`,expires_at:new Date(now+100).toISOString()}]})});
+  await f.service.refresh();
+  assert.equal(f.service.getSnapshot().phase,'verifying');
+  // Return no live reservations at the next refresh.
+  f.deps.collect=async()=>({gained:0,remaining:3,day:'2026-10-17',confirmedIds:[],pending:[]});
+  now+=200;await f.service.refresh();
+  assert.equal(f.service.getSnapshot().phase,'idle');
+});
+
 test('egg and daily controllers cannot present simultaneously, even after provider remount',async()=>{
   const entered=deferred(), release=deferred();
   const a=fixture({present:async()=>{entered.resolve();return release.promise;}}), b=fixture();

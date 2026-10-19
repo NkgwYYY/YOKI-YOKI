@@ -1,6 +1,7 @@
 import { DISCONNECTED_DAILY_ADS, type DailyAdSnapshot, type DailyAdPlacement, type DailyAdResult } from '../dailyAdPlacements';
 
-export type CollectedBonus = { gained: number; remaining: number; day: string; confirmedIds: string[] };
+export type PendingBonus = { id: string; receipt_id: string; expires_at: string };
+export type CollectedBonus = { gained: number; remaining: number; day: string; confirmedIds: string[]; pending?: PendingBonus[] };
 export type Reservation = { id: string; playerId: string; mode: 'ad' | 'pass'; state: string; expiresAt?: string };
 type Dependencies = {
   sessionKey: string;
@@ -13,6 +14,7 @@ type Dependencies = {
   credited(id: string): boolean;
   uuid(): string;
   pause(ms: number): Promise<void>;
+  now?(): number;
 };
 
 // Shared across egg-job, every daily placement, provider remounts and account changes.
@@ -24,6 +26,7 @@ export function createDailyAds(deps: Dependencies) {
   let pending: { receipt: string; reservation?: Reservation; watched: boolean } | null = null;
   const listeners = new Set<() => void>();
   const current = () => deps.current();
+  const now = () => deps.now?.() ?? Date.now();
   const assertCurrent = () => { if (!current()) throw Error('Account changed'); };
   const publish = (patch: Partial<DailyAdSnapshot>) => {
     if (!current()) return;
@@ -35,6 +38,20 @@ export function createDailyAds(deps: Dependencies) {
     if (!Number.isInteger(result.remaining) || result.remaining < 0 || result.remaining > 3 ||
       !/^\d{4}-\d{2}-\d{2}$/.test(result.day)) throw Error('Invalid quota');
     publish({remaining: result.remaining, revision: result.day});
+    // Recover the server reservation after reload/account-provider remount. Its
+    // viewing outcome is unknown: poll SSV rather than ask for another video.
+    if (!pending) {
+      const saved = result.pending?.find(item =>
+        /^[\da-f-]{36}$/i.test(item.id) &&
+        /^(daily-(home|street|meal)-|egg-)/.test(item.receipt_id) &&
+        Date.parse(item.expires_at) > now());
+      if (saved) {
+        pending = {receipt: saved.receipt_id, watched: true, reservation: {
+          id: saved.id, playerId: '', mode: 'ad', state: 'reserved', expiresAt: saved.expires_at,
+        }};
+        publish({phase: 'verifying'});
+      }
+    }
     return result;
   };
   const isConfirmed = (id: string, result: CollectedBonus) => result.confirmedIds.includes(id) || deps.credited(id);
@@ -48,14 +65,16 @@ export function createDailyAds(deps: Dependencies) {
           publish({ready: false, remaining: null, rewardedAvailable: false, bannerAvailable: false}); return;
         }
         const result = accept(await deps.collect());
-        pass = allowed.pass ? await deps.pass() : false;
+        // Ownership is server-authoritative even when purchasing is unavailable,
+        // sales are disabled, or a store product/key is missing on this device.
+        pass = await deps.pass();
         assertCurrent();
         publish({ready: true, rewardedAvailable: allowed.rewarded,
           bannerAvailable: allowed.banner && !bannerFailed, removePassiveAds: pass});
         if (pending?.reservation && isConfirmed(pending.reservation.id, result) && snapshot.phase === 'verifying') {
           pending = null; publish({phase: 'idle'});
         }
-        if (pending?.reservation?.expiresAt && Date.parse(pending.reservation.expiresAt) <= Date.now() && (snapshot.phase === 'verifying' || snapshot.phase === 'idle')) {
+        if (pending?.reservation?.expiresAt && Date.parse(pending.reservation.expiresAt) <= now() && (snapshot.phase === 'verifying' || snapshot.phase === 'idle')) {
           pending = null; publish({phase: 'idle'});
         }
       } catch {
@@ -80,7 +99,7 @@ export function createDailyAds(deps: Dependencies) {
       // Focus/periodic refresh may not have run after a long closed/background interval.
       // Keep confirmed claims for the success path, but never replay a cached expired claim.
       const previous = pending?.reservation;
-      if (previous?.expiresAt && Date.parse(previous.expiresAt) <= Date.now() &&
+      if (previous?.expiresAt && Date.parse(previous.expiresAt) <= now() &&
           !isConfirmed(previous.id, result)) pending = null;
       const receipt = eggReceipt ?? pending?.receipt ?? `daily-${placement}-${deps.uuid()}`;
       if (pending && pending.receipt !== receipt && pending.watched) return {status: 'pending'};
@@ -92,9 +111,13 @@ export function createDailyAds(deps: Dependencies) {
       if (!pending && result.remaining === 0) return {status: 'unavailable'};
       pending ??= {receipt, watched: false};
       // Entitlements are rechecked on each egg claim; daily rewards still require an ad.
-      const claimPass = !!eggReceipt && allowed.pass ? await deps.pass() : false;
+      const claimPass = !!eggReceipt ? await deps.pass() : false;
       assertCurrent();
       if (!claimPass && !allowed.rewarded) return {status: 'unavailable'};
+      if (pending.reservation?.expiresAt && Date.parse(pending.reservation.expiresAt) <= now()) {
+        pending.reservation = undefined;
+        pending.watched = false;
+      }
       if (!pending.reservation) {
         pending.reservation = await deps.reserve(receipt, claimPass ? 'pass' : 'ad');
         assertCurrent();

@@ -86,6 +86,9 @@ try {
   assert.equal((await call(b.token,'/bonus/reserve','POST',{receipt:'egg-1792030000000-pass1',mode:'pass'})).status,403);
  });
  await test('only a valid signed SSV grants a reward; duplicate callback and acknowledgement are safe',async()=>{
+  const waiting=(await call(a.token,'/bonus')).body.pending;
+  assert.ok(waiting.some(item=>item.id===claim.id && typeof item.expires_at==='string'));
+  assert.ok(!(await call(b.token,'/bonus')).body.pending.some(item=>item.id===claim.id));
   const signed=(extra={})=>{const content=new URLSearchParams({ad_unit:'1234567890',reward_item:'YOKIポイント',custom_data:claim.id,user_id:a.id,timestamp:String(Date.now()),transaction_id:'txn-'+claim.id,...extra}).toString();return content+'&signature='+sign('sha256',Buffer.from(decodeURIComponent(content)),privateKey).toString('base64url')+'&key_id=123';};
   const query=signed();
   const before=(await pool.query('SELECT * FROM yoki_bonus_claims ORDER BY id')).rows;
@@ -105,6 +108,7 @@ try {
   assert.deepEqual((await pool.query('SELECT * FROM yoki_bonus_claims ORDER BY id')).rows,before);
   assert.equal((await originalFetch(base+'/admob/ssv?'+query)).status,200);
   assert.equal((await originalFetch(base+'/admob/ssv?'+query)).status,200);
+  assert.ok(!(await call(a.token,'/bonus')).body.pending.some(item=>item.id===claim.id));
   assert.equal((await call(a.token,'/bonus')).body.claims.length,1);
   await call(b.token,`/bonus/${claim.id}/ack`,'POST');assert.equal((await call(a.token,'/bonus')).body.claims.length,1);
   await call(a.token,`/bonus/${claim.id}/ack`,'POST');await call(a.token,`/bonus/${claim.id}/ack`,'POST');assert.equal((await call(a.token,'/bonus')).body.claims.length,0);

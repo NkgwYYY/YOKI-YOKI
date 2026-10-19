@@ -45,16 +45,16 @@ export async function showRewardedAd(session: AdSession, event: (name: string, d
       let earned = false, shown = false, settled = false;
       const off: (() => void)[] = [];
       let timer: ReturnType<typeof setTimeout> | undefined;
-      const clearLoadTimer = () => {
+      const clearTimer = () => {
         if (timer !== undefined) { clearTimeout(timer); timer = undefined; }
       };
       const finish = (error?: Error) => {
         if (settled) return;
         settled = true;
-        clearLoadTimer();
+        clearTimer();
         off.forEach(remove => { try { remove(); } catch {} });
         try { ad.removeAllListeners(); } catch {}
-        if (error) { report('ad_error'); reject(error); }
+        if (error && !earned) { report('ad_error'); reject(error); }
         else { report('ad_closed', Math.min(300_000, Date.now() - started)); resolve(earned); }
       };
       try {
@@ -65,8 +65,11 @@ export async function showRewardedAd(session: AdSession, event: (name: string, d
             if (!current() || AppState.currentState !== 'active') {
               finish(Error('画面に戻ってから、もう一度お試しください。')); return;
             }
-            clearLoadTimer();
+            clearTimer();
             shown = true;
+            // Recover if the native bridge loses its close/error callback.
+            // The SDK result never grants points; the server still verifies SSV.
+            timer = setTimeout(() => finish(Error('広告の状態を確認できませんでした。')), 180_000);
             // The bridge can throw synchronously as well as reject its promise.
             void ad.show().catch(() => finish(Error('広告を開けませんでした。')));
           } catch { finish(Error('広告を開けませんでした。')); }
@@ -97,7 +100,7 @@ export async function showRewardedAd(session: AdSession, event: (name: string, d
   } finally { presenting = false; }
 }
 export async function adPrivacyOptions() {
-  if (!canShowRewardedAd()) return;
+  if (!canShowRewardedAd() && !canShowBannerAd()) return;
   const { AdsConsent } = await import('react-native-google-mobile-ads');
   await AdsConsent.showPrivacyOptionsForm();
   preparation = null;
