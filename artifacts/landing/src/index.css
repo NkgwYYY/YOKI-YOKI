@@ -141,3 +141,6 @@
   .article-card, .related-article { transition: none; }
   .article-card:hover, .related-article:hover { transform: none; }
 }
+/* Public document ads stay in normal flow, away from app/game controls. */
+.public-banner { position: relative; z-index: 10; width: calc(100% - 48px); max-width: 960px; min-height: 120px; margin: 64px auto; padding: 16px 0; }
+.public-banner-label { display: block; margin-bottom: 10px; text-align: center; font-size: 11px; color: #afa4bc; }

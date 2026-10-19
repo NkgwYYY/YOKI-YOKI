@@ -15,7 +15,7 @@ function ArticleHeader() {
       </a>
       <nav className="flex items-center gap-5 text-sm text-[#cfc3df]" aria-label="記事メニュー">
         <a className="article-nav-link" href={`${base}articles/`}>読みもの</a>
-        <a className="article-nav-link hidden sm:inline" href="https://yoki-yoki.replit.app/" rel="noopener noreferrer">アプリを開く</a>
+        <a className="article-nav-link hidden sm:inline" href="https://yoki-yoki.replit.app/?app=1" rel="noopener noreferrer">アプリを開く</a>
       </nav>
     </header>
   );
@@ -93,7 +93,7 @@ export function JournalCta() {
           <p className="text-xs font-bold tracking-[.24em] text-[#e8c67d]">A LITTLE LIGHT, EVERY DAY</p>
           <h2 id="journal-cta-title" className="mt-4 font-[Zen_Maru_Gothic] text-2xl leading-9 text-[#fbf4ff] sm:text-3xl">毎日の小さな変化を、<br />記録してみませんか？</h2>
           <p className="mt-5 text-sm leading-7 text-[#c4b7d0]">YOKI YOKIは、毎日の小さな頑張りや気持ちを記録し、自分の変化を見える化するメンタルケアアプリです。</p>
-           <a href="https://yoki-yoki.replit.app/" rel="noopener noreferrer" onClick={() => trackEvent('app_cta_clicked', { location: 'journal' })} className="focus-ring mt-7 inline-flex items-center gap-3 rounded-full border border-[#ead091]/60 bg-[#e2bd70] px-5 py-3.5 text-sm font-bold text-[#271a36] shadow-[0_12px_32px_rgba(226,189,112,.2)] transition-transform hover:-translate-y-1">YOKI YOKIを使ってみる <ChevronRight className="h-4 w-4" /></a>
+           <a href="https://yoki-yoki.replit.app/?app=1" rel="noopener noreferrer" onClick={() => trackEvent('app_cta_clicked', { location: 'journal' })} className="focus-ring mt-7 inline-flex items-center gap-3 rounded-full border border-[#ead091]/60 bg-[#e2bd70] px-5 py-3.5 text-sm font-bold text-[#271a36] shadow-[0_12px_32px_rgba(226,189,112,.2)] transition-transform hover:-translate-y-1">YOKI YOKIを使ってみる <ChevronRight className="h-4 w-4" /></a>
         </div>
       </div>
     </section>

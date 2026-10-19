@@ -5,6 +5,7 @@ import { ARTICLES } from '@/data/articles';
 import { updateArticleSeo } from '@/lib/seo';
 import { trackEvent } from '@/lib/analytics';
 import { JournalCta } from './Articles';
+import { PublicBanner } from '@/components/PublicBanner';
 
 const base = import.meta.env.BASE_URL;
 
@@ -17,7 +18,7 @@ function ArticleHeader() {
       </a>
       <nav className="flex items-center gap-5 text-sm text-[#cfc3df]" aria-label="記事メニュー">
         <a className="article-nav-link" href={`${base}articles/`}>読みもの一覧</a>
-       <a className="article-nav-link hidden sm:inline" href="https://yoki-yoki.replit.app/" rel="noopener noreferrer" onClick={() => trackEvent('app_cta_clicked', { location: 'article_header' })}>アプリを開く</a>
+       <a className="article-nav-link hidden sm:inline" href="https://yoki-yoki.replit.app/?app=1" rel="noopener noreferrer" onClick={() => trackEvent('app_cta_clicked', { location: 'article_header' })}>アプリを開く</a>
       </nav>
     </header>
   );
@@ -55,6 +56,7 @@ export default function ArticleDetail({ article }: { article: Article }) {
           <aside className="article-note"><strong>大切なお知らせ</strong><p>この記事は一般的な情報を紹介するもので、診断や治療の代わりにはなりません。つらさが続くとき、生活に支障があるときは医療機関や相談窓口にご相談ください。</p></aside>
         </div>
       </article>
+      <PublicBanner />
       <JournalCta />
       <RelatedArticles current={article} />
        <footer className="article-footer">

@@ -13,6 +13,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const { browserEntry } = require('./browserEntry.cjs');
 
 // Text-based types worth compressing (images/fonts like woff2 are already compressed)
 const COMPRESSIBLE_EXTS = new Set(['.html', '.js', '.json', '.css', '.svg', '.map', '.ttf', '.otf']);
@@ -151,6 +152,8 @@ const MIME_TYPES = {
   '.js': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -314,6 +317,15 @@ const server = http.createServer((req, res) => {
     if (pathname === '/' || pathname === '/manifest') {
       return serveManifest(platform, res);
     }
+  }
+
+  // First browser visit opens the public introduction, with an explicit app entry.
+  const entry = !basePath && hasWebBuild() ? browserEntry(req, pathname) : null;
+  if (entry) {
+    res.writeHead(302, { location: entry.location, 'cache-control': 'no-store',
+      ...(entry.cookie ? { 'set-cookie': entry.cookie } : {}) });
+    res.end();
+    return;
   }
 
   // Google Search Console HTML verification files

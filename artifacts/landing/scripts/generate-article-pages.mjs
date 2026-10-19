@@ -4,6 +4,7 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const dist = path.join(root, 'dist/public');
 const articles = JSON.parse(await readFile(path.join(root, 'src/data/articles.json'), 'utf8'));
+const guide = JSON.parse(await readFile(path.join(root, 'src/data/getting-started.json'), 'utf8'));
 const siteUrl = 'https://yoki-yoki.replit.app/landing';
 const ogImageUrl = `${siteUrl}/og-image.png?v=2`;
 
@@ -49,7 +50,7 @@ function articleMarkup(article) {
       <h1>${escapeHtml(article.title)}</h1>
       <p>${escapeHtml(article.description)}</p>
       ${sections}
-      <aside><h2>毎日の小さな変化を、記録してみませんか？</h2><p>YOKI YOKIは、毎日の小さな頑張りや気持ちを記録し、自分の変化を見える化するメンタルケアアプリです。</p><a href="https://yoki-yoki.replit.app/">YOKI YOKIを使ってみる</a></aside>
+      <aside><h2>毎日の小さな変化を、記録してみませんか？</h2><p>YOKI YOKIは、毎日の小さな頑張りや気持ちを記録し、自分の変化を見える化するメンタルケアアプリです。</p><a href="https://yoki-yoki.replit.app/?app=1">YOKI YOKIを使ってみる</a></aside>
     </article>
   </main>`;
 }
@@ -107,3 +108,18 @@ for (const article of articles) {
 }
 
 console.log(`Generated static HTML for ${articles.length} articles and the article index.`);
+// Readable without JavaScript; the browser app replaces this with the same guide.
+await writeFile(path.join(dist, 'index.html'), pageShell(template, {
+  title: 'YOKI YOKI｜今日の「よき」を、ひとつ。',
+  description: '気分の記録、キャラクターとの暮らし、AIとの会話。YOKI YOKIの使い方と公開の読みものをご案内します。',
+  url: `${siteUrl}/`,
+  jsonLd: JSON.stringify({ '@context': 'https://schema.org', '@type': 'WebSite', name: 'YOKI YOKI', url: `${siteUrl}/`, inLanguage: 'ja-JP' }),
+  body: `<main class="article-reading-shell">
+    <header><h1>YOKI YOKI</h1><p>今日の「よき」を、ひとつ。</p></header>
+    <section><h2>あなたの「よき」が、キャラクターのエネルギーになる。</h2><p>気分の記録、短い会話、自分へのいたわり。大きな変化ではなく、続けられる優しさをゲームのように楽しめます。</p></section>
+    <section><h2>${escapeHtml(guide.title)}</h2><ol>${guide.steps.map(step => `<li><h3>${escapeHtml(step.title)}</h3><p>${escapeHtml(step.description)}</p></li>`).join('')}</ol><p>${escapeHtml(guide.notice)}</p></section>
+    <nav><a href="/landing/articles/">日々の気持ちに寄り添う読みもの</a> · <a href="/?app=1">YOKI YOKIをはじめる</a></nav>
+    <footer><a href="/landing/privacy/">プライバシーポリシー</a> · <a href="/landing/support/">お問い合わせ</a></footer>
+  </main>`,
+}));
+console.log('Generated the public introduction with its getting-started guide.');

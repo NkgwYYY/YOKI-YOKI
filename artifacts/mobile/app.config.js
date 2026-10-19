@@ -12,7 +12,7 @@ module.exports = ({ config }) => {
       yokiAdsConfigured: configured,
       yokiRewardedIosUnit: process.env.EXPO_PUBLIC_ADMOB_REWARDED_IOS ?? 'ca-app-pub-7462386033661667/5206949357',
       // Banner units must be provisioned separately from rewarded units.
-      yokiBannerIosUnit: bannerId(process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS),
+      yokiBannerIosUnit: bannerId(process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS ?? 'ca-app-pub-7462386033661667/1745376179'),
       yokiBannerAndroidUnit: bannerId(process.env.EXPO_PUBLIC_ADMOB_BANNER_ANDROID),
     },
     plugins: [...(config.plugins || []), ['react-native-google-mobile-ads', {

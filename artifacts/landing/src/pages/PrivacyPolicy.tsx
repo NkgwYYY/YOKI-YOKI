@@ -4,7 +4,7 @@ import { PublicPageShell } from '@/components/public-page-shell';
 import { siteUrl } from '@/lib/seo';
 
 const supportEmail = 'nkgw.y.0703@gmail.com';
-const effectiveDate = '2026年9月4日';
+const effectiveDate = '2026年10月20日';
 
 function updatePrivacySeo() {
   const title = 'プライバシーポリシー｜YOKI YOKI';
@@ -71,7 +71,7 @@ export default function PrivacyPolicy() {
           </div>
           <div className="article-subsection">
             <h3>端末・利用状況に関する情報</h3>
-            <p>ゲスト利用を含むアプリのデータは、端末またはブラウザのローカル領域に保存されます。Web版では、ページ閲覧やボタン操作などの利用状況をGoogle Analytics 4で計測する場合があります。</p>
+            <p>ゲスト利用を含むアプリのデータは、端末またはブラウザのローカル領域に保存されます。Web版で「アプリをはじめる」を選ぶと、次回の入口を記憶するためのCookieを最長1年間保存します。Web版では、ページ閲覧やボタン操作などの利用状況をGoogle Analytics 4で計測する場合があります。</p>
           </div>
         </PrivacySection>
 
@@ -98,6 +98,12 @@ export default function PrivacyPolicy() {
           <div className="article-subsection">
             <h3>Google Analytics 4</h3>
             <p>Web版の利用状況やアクセス傾向を把握するために使用します。Googleによるデータ処理については、Googleのポリシーをご確認ください。</p>
+          </div>
+          <div className="article-subsection">
+            <h3>Google AdMob・Google AdSense</h3>
+            <p>アプリ内ではAdMob、公開の紹介・読みものページではAdSenseを広告配信に使用します。広告配信、表示回数の測定、不正利用の防止のため、Cookie、端末情報、IPアドレスなどがGoogleにより処理される場合があります。非パーソナライズ広告をリクエストし、プロフィール、日記、気分記録、AIとの会話内容を広告リクエストの項目に含めません。</p>
+            <p>ブラウザーのアプリ画面（初期登録・記録・会話を含む）にはAdSenseコードを配置しません。対象地域で同意メッセージが表示される場合、ページ下部の広告のプライバシー設定から選択を変更できます。広告のクリックに対する報酬はありません。</p>
+            <p><a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">Googleによるパートナーサイトやアプリの情報の使用</a></p>
           </div>
           <div className="article-subsection">
             <h3>Replit</h3>

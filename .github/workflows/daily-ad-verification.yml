@@ -62,6 +62,13 @@ jobs:
         run: pnpm exec tsc --build
       - name: Mobile application typecheck
         run: pnpm --filter @workspace/mobile typecheck
+      - name: Public advertising and entry routing tests
+        run: node --experimental-strip-types --test artifacts/landing/tests/publicAds.test.mjs artifacts/mobile/tests/productionServer.test.mjs
+      - name: Public website typecheck and static build
+        env:
+          PORT: '18150'
+          BASE_PATH: /landing/
+        run: pnpm --filter @workspace/landing typecheck && pnpm --filter @workspace/landing build
       - name: API typecheck
         run: pnpm --filter @workspace/api-server typecheck
       - name: API build
