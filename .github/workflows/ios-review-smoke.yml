@@ -22,6 +22,8 @@ jobs:
     env:
       CI: 'true'
       EXPO_NO_TELEMETRY: '1'
+      MAESTRO_CLI_NO_ANALYTICS: '1'
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: '300000'
       EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
     defaults:
       run:
@@ -48,7 +50,7 @@ jobs:
       - name: Compile a Release simulator app without Apple credentials
         run: |
           mkdir -p review-results
-          xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/yoki-derived" -jobs 2 CODE_SIGNING_ALLOWED=NO build > review-results/xcodebuild.log 2>&1 || { tail -100 review-results/xcodebuild.log; exit 1; }
+          xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/yoki-derived" -jobs 2 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build > review-results/xcodebuild.log 2>&1 || { tail -100 review-results/xcodebuild.log; exit 1; }
           echo "YOKI_LOCAL_SIM_APP=$RUNNER_TEMP/yoki-derived/Build/Products/Release-iphonesimulator/YOKIYOKI.app" >> "$GITHUB_ENV"
       - name: Install pinned official Maestro CLI
         run: |

@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import plistlib
 import re
+import shutil
 import subprocess
 import tarfile
 import urllib.parse
@@ -39,6 +40,13 @@ if info['CFBundleIdentifier'] != 'app.replit.yokiyoki--':
     raise SystemExit('Unexpected application identity')
 print('Build:', build['build_id'], 'Version:', info.get('CFBundleShortVersionString'), info.get('CFBundleVersion'))
 print('Executable:', run('file', str(app / info['CFBundleExecutable'])))
+# Keep the SDK declarations from the exact compiled app for privacy review.
+# Only manifests are copied, never credentials or local runtime data.
+manifest_root = Path('review-results/privacy-manifests')
+for manifest in app.rglob('PrivacyInfo.xcprivacy'):
+    target = manifest_root / manifest.relative_to(app)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(manifest, target)
 devices = json.loads(run('xcrun', 'simctl', 'list', 'devices', 'available', '--json'))['devices']
 family = os.environ['DEVICE_FAMILY']
 choices = [(runtime, d) for runtime, values in devices.items() if '.iOS-' in runtime
@@ -46,11 +54,17 @@ choices = [(runtime, d) for runtime, values in devices.items() if '.iOS-' in run
 if not choices:
     raise SystemExit('No available iOS simulator for ' + family)
 preferred = 'iPhone 16 Plus' if family == 'iPhone' else 'iPad Air 11-inch (M3)'
+runtime = max((r for r, _ in choices), key=lambda r: tuple(int(x) for x in re.findall(r'\d+', r)))
 choices.sort(key=lambda pair: (pair[1]['name'] == preferred,
     tuple(int(x) for x in re.findall(r'\d+', pair[0])), pair[1]['name']), reverse=True)
-runtime, device = choices[0]
-udid = device['udid']
-print('Testing device:', device['name'], 'Runtime:', runtime, flush=True)
+_, device = choices[0]
+# A runner's pre-created iPhone failed data migration, and its preferred iPad
+# used an older runtime. Create disposable devices on the newest installed OS.
+device_type = device['deviceTypeIdentifier']
+udid = run('xcrun', 'simctl', 'create',
+           'YokiReview-' + os.environ['GITHUB_RUN_ID'] + '-' + family,
+           device_type, runtime)
+print('Testing device:', device['name'], 'Runtime:', runtime, 'Fresh simulator:', udid, flush=True)
 evidence = Path('review-results') / family
 evidence.mkdir(exist_ok=True, parents=True)
 (evidence / 'device-id.txt').write_text(udid)
@@ -59,9 +73,14 @@ evidence.mkdir(exist_ok=True, parents=True)
     'device': device['name'], 'runtime': runtime, 'version': info.get('CFBundleVersion'),
     'note': 'Simulator validation; not a physical-device or signed-IPA installation test.',
 }, indent=2))
-if device['state'] != 'Booted':
-    subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True)
-subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'], check=True)
+subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, timeout=600)
+boot = subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'],
+                      capture_output=True, text=True, timeout=600)
+(evidence / 'boot.log').write_text(boot.stdout + boot.stderr)
+print(boot.stdout, flush=True)
+boot.check_returncode()
+if 'Data Migration Failed' in boot.stdout + boot.stderr:
+    raise SystemExit('Simulator data migration failed; native journeys were not run.')
 subprocess.run(['xcrun', 'simctl', 'install', udid, str(app)], check=True)
 with open(os.environ['GITHUB_ENV'], 'a') as handle:
     handle.write('YOKI_SIMULATOR_UDID=' + udid + '\n')
