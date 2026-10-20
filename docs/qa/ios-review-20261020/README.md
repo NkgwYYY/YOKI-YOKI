@@ -1,76 +1,59 @@
-# iOS resubmission checks — 2026-10-20
+# Native release verification
 
-This is an evidence log, not a claim that App Review submission is complete.
-No Replit Agent or paid plan upgrade is used.
+This public log contains technical facts from this repository and its public
+GitHub Actions runs. Store account administration, private review correspondence,
+credentials and agreement records do not belong in this repository.
 
-## Confirmed
+## Scope
 
-- Production App Store build `1.0.0 (21)` succeeded. This proves compilation and signing, not installation or App Review acceptance.
-- Matching production-profile iOS simulator build `e5b459a4-46eb-4cb4-ae46-85cd635e86b9` succeeded. It is not the signed store IPA.
-- Published browser chat returned a normal Japanese response to a synthetic greeting. A new synthetic guest used unknown age and gender. Sending before AI consent opened the disclosure screen; accepting retained the unsent draft and still required Send. The prior 401 was not reproduced in this request. Consent was then withdrawn in Profile; reopening the consent screen showed the opt-in button again, confirming the saved UI state.
-- Read-only published `/api/community/config` returned `enabled: true`, `ads: true`, `passSales: false`. Native AdMob identifiers are configured. Do **not** describe native advertising as disabled or claim a verified impression.
-- iOS uses `GuestAuthProvider`; it ignores cached Clerk account sessions. GA4 instrumentation is web-only. Native purchase buttons require RevenueCat/product configuration.
-- AI requests include messages, nickname/profile context, and recent mood/sleep/behavior records after explicit consent. Server request logs serialize request ID, method and URL path, not chat bodies. Third-party retention still needs to be represented accurately.
+`.github/workflows/ios-review-smoke.yml` builds the checked-out public source in
+Release configuration on a standard GitHub-hosted macOS runner. No Apple or Expo
+credentials are used. This verifies a source-built simulator application, not a
+signed store IPA or a physical-device installation.
 
-## Native test execution
+The required Maestro flow covers fresh onboarding, diary saving, food, refusal
+of AI consent with draft retention, map travel, a minigame, diary persistence
+after restart, and local guest reflections. Synthetic test profiles use unknown
+age so automated runs do not request live ads.
 
-The prepared Maestro flow covers fresh onboarding; opening and saving a diary; food; rejecting AI consent and retaining the draft; map travel; a minigame; and diary persistence after restart. It uses synthetic data only. Unknown age prevents live advertising during automation.
+Both device steps use `continue-on-error` to preserve their separate evidence.
+Their displayed step conclusions alone do not establish success. The final gate
+requires the **actual outcome** of both iPhone and iPad journeys to be `success`.
 
-EAS rejected the `maestro` job because that job requires a paid plan on this account. A free CI/CD minute allowance does not establish eligibility for this job. No upgrade was accepted, and no native test ran there.
+## Public CI evidence
 
-`.github/workflows/ios-review-smoke.yml` is configured to run the same simulator artifact on standard GitHub-hosted macOS runners for this **public** repository. It captures the exact device/runtime in `environment.json` and uploads failure screens and test reports. iPad compatibility mode must be checked even though `supportsTablet` is false.
-
-GitHub run `39372705595` started the standard macOS jobs, but both stopped at the artifact download with HTTP 403 from Expo. Maestro was skipped; no native interaction test or screenshot was produced. This is an access blocker, not an observed app crash. Do not rerun unchanged or mark native verification complete. Resolve authorized artifact access (without copying Expo credentials into this public repository) or build the public source directly on the runner before continuing. The workflow file and test flow are prepared but **not yet validated end to end**.
-
-The follow-up workflow builds the checked-out public source directly on the standard macOS runner using the production domain, Release configuration and simulator SDK. It uses no Expo or Apple credentials. One compiled app is tested sequentially on iPhone and iPad, with separate evidence and a final gate requiring both to pass. This is a source-built simulator validation, not validation of the signed EAS IPA.
-
-Run `39373152702` reached native Release compilation but failed while bundling JavaScript: `Cannot find module 'babel-preset-expo'`. The mobile Babel configuration referenced this preset without declaring a direct dependency; pnpm's isolated dependency layout exposed the missing declaration. Both device tests were skipped, so they have not passed. The fix declares the already locked SDK 54 preset (`54.0.12`) directly without upgrading it, and checks the iOS JavaScript export before the lengthy native compilation. The next run must still pass both device journeys.
-
-Run `39378757057` successfully compiled the source Release app, but **both journeys failed**. iPhone Air / iOS 26.5 entered onboarding and stopped at Maestro's unreliable iOS `hideKeyboard` command. iPad Air 11-inch (M3) / iOS 26.2 displayed onboarding but did not match the nickname accessibility selector. The evidence reports source bundle version 19, not signed EAS build 21. Step conclusions appear successful because both test steps use `continue-on-error` to collect both devices' evidence; their actual `outcome` values and the final gate are failures. No HOME, diary, chat, map or game journey has passed yet.
-
-The next candidate adds stable onboarding IDs, dismisses the keyboard when choosing profile/diary options, avoids Maestro's `hideKeyboard`, and captures test screenshots plus debug output in the uploaded evidence directory. It also fixes guest reflections: iOS guests previously called the authenticated insight API and received 401. Guests now see factual local recording counts without an AI request; signed-in web users keep the consent-gated AI feature with account-scoped caching. These changes require a **new signed build after native verification**; build 21 does not include them.
-
-Run `39382828233` compiled successfully, but the final gate correctly reports **iPhone=failure, iPad=failure**. The pre-created iPhone Air / iOS 26.5 reported `Data Migration Failed`, followed by a Maestro driver startup timeout, before the app flow ran. On iPad Air 11-inch (M3) / iOS 26.2, the first `profile-nickname` visibility assertion passed, then the tap failed: the failure screenshot shows onboarding, while the captured hierarchy contains only system status bars. This is not evidence that the latest input is absent, nor proof that native controls work. Artifact `12248930602` preserves the screenshots, hierarchy and logs. The next environment creates fresh disposable simulators on the newest installed runtime, checks migration success, allows more driver startup time, compiles only the runner's arm64 architecture, and retains compiled SDK privacy manifests. The same UI assertions remain required; no app runtime behavior is changed for testing.
-
-## Apple review history confirmed in App Store Connect
-
-The account is signed in. Version 1.0 remains rejected with build 18 attached. Apple messages include launch crashes (builds 5/6), registration errors and missing verification email (builds 13/17), missing health sources / disclaimers including English localization (builds 16/17), unresponsive core buttons on iPadOS 27.0.1 (build 18), and stale 6.5-inch screenshots (build 18). The English description's optional-account claim was replaced with the current iOS guest-only behavior; Save is disabled after saving, and the persisted form value matches the corrected text.
-
-Apple also explicitly requested a **physical-device recording on the latest OS**, typical use flows, purpose/audience, setup instructions, external services, and regional behavior. Simulator evidence does not satisfy that physical-device request. The September 8 developer reply already provided two physical-device YouTube recordings (walkthrough and account deletion), stated to be captured on iPhone 11 Pro / iOS 26.6.1. Thus the original video request was answered; do not tell the owner that no video was ever supplied. Those recordings predate the current guest-only interface and are not evidence for the current candidate. A current recording would help demonstrate the new native behavior, but Apple's latest message specifically requests button fixes and current screenshots. The owner explicitly approved the updated Apple Developer Program License Agreement; Apple now shows effective date October 14, 2026 and acceptance date October 20, 2026 after reload, with the warning removed. App Store Connect API access still displays a separate permission request; no new API access has been requested. No new build has been uploaded or submitted for review.
-
-## Additional release risk found
-
-The iOS candidate exposed a repeatable smoking mechanic that grants happiness, offered cigarettes as gifts, and displayed tobacco scenes. App Store Connect answered **None** for alcohol/tobacco/drug depictions. Merely increasing the rating would not address App Review guideline 1.4.3's prohibition on encouraging tobacco consumption.
-
-The next iOS candidate permanently removes access to that scene for **all iOS users**, regardless of account, location, or review status. The atlas and walking gates omit it; old direct routes open Home; the storage action rejects smoking operations on iOS. Existing smoking history is retained but marked retired so withdrawal penalties do not continue. Web/Android behavior is not changed. Native evidence must confirm the tobacco destination is absent, and review notes must disclose this product change. Build 21 still contains the old feature and must not be submitted.
-
-Targeted map, happiness and legacy smoking regression tests: **37 passed**. Mobile typecheck passed. These are not a substitute for the final native journeys.
-
-Runs `39382828154` / commit `ddb6989` and `39383711159` / commit `98340b9` passed the complete existing CI suite, database integration, mobile/API/website typechecks, web/native JS exports, care/navigation browser checks, chat recovery/consent checks, and the new guest reflection browser test with all external APIs blocked. The latter includes the permanent iOS tobacco removal. These successes do not establish native touch behavior.
-
-All seven age-rating questionnaire steps were inspected without changing or saving answers. Existing declarations: advertising Yes; health/wellness Yes; medical/treatment information Infrequent; tobacco None; other mature/sexual/violence content None; simulated gambling/contests None; real-money gambling and loot boxes No. The calculated rating is 13+. Static invite-only rooms and predefined footprints require consideration against the feature definitions; private AI chat is not user-to-user messaging. The bank/fortune mechanics were inspected: no wagering interface, cash conversion, loot-box purchases or user leaderboard was found. The tobacco None answer depends on the new iOS exclusion being present in the submitted binary.
-
-The live App Privacy declaration currently lists 23 data types, including credit information, payment information, environment scans, precise location and audio; all are marked not linked to identity. This does not match the iOS code and requires correction. The iOS app has no account/email collection, no payment flow enabled, no microphone/environment/precise-location feature. AI profile/health/behavior inputs, server-backed friend/room data, pseudonymous player IDs and AdMob SDK data must still be declared accurately; guest-only does not mean no server collection. No privacy declaration has been changed yet.
-
-## Remaining submission gates
-
-| Area | Required evidence / action |
+| Run | Result and limit |
 | --- | --- |
-| 2.1(a) HOME controls | Inspect successful native iPhone and iPad journeys; resolve failures, including overlays and touch targets. Physical-device installation remains a separate check. |
-| 2.3.3 screenshots | Capture actual current native screens at Apple's accepted dimensions and replace every stale screenshot set. Browser images are not native screenshots. |
-| AI | Test native sending, refusal, withdrawal, timeout and retry. Browser response alone is insufficient. |
-| Privacy declaration | Reconcile health data, profile, user content, community identifiers and AdMob SDK data. Do not mark all purposes “Other” or all data “not linked” without evidence. No iOS GA4 or Clerk account collection should be claimed merely because web uses those services. |
-| Age rating | Confirm the permanent iOS tobacco exclusion in the exact submitted binary and retain accurate health/wellness, advertising and applicable community/game declarations. Evaluate simulated gambling against actual wagering mechanics, not random game outcomes alone. |
-| Ads / purchases | Validate native SDK consent and ad failure handling without automated clicks or repeated live-ad impressions. In-app purchase sales currently disabled by server configuration. |
-| Store metadata | Check support/privacy URLs, description, review notes, age rating and privacy settings against this binary. |
-| Credentials / submission | Apple agreement accepted. Resolve the separate submission credential permission issue. Upload the exact store build, wait for processing, attach it, then submit. None of these steps is implied by a successful EAS build. |
+| [39373152702](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39373152702) | Native compilation stopped because `babel-preset-expo` was not declared directly. Fixed using the already locked SDK 54 preset. Neither device journey ran. |
+| [39378757057](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39378757057) | Release compilation succeeded; both journeys failed during onboarding. Follow-up changes add stable field IDs and avoid the iOS `hideKeyboard` command. |
+| [39382828233](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39382828233) | Release compilation succeeded; final outcomes were iPhone=failure and iPad=failure. The iPhone simulator reported data migration failure and driver startup timeout. On iPad, the nickname visibility assertion passed, then the tap failed; the screenshot shows onboarding while the captured hierarchy contains only system status bars. No core journey is established as passing. |
+| [39383711159](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39383711159) | General CI passed for commit `98340b9`: regressions, database integration, typechecks/builds, web care/navigation, chat recovery, guest reflection with external services blocked, and native JavaScript exports. These are not native touch tests. |
 
-## Primary references
+Artifact `12248930602` from run `39382828233` contains synthetic failure
+screenshots, device/runtime metadata, the captured hierarchy and driver logs.
 
-- https://developer.apple.com/app-store/review/guidelines/
-- https://developer.apple.com/app-store/app-privacy-details/
-- https://developer.apple.com/help/app-store-connect/reference/app-information/age-ratings-values-and-definitions
-- https://docs.github.com/en/actions/reference/runners/github-hosted-runners
-- https://docs.expo.dev/submit/ios/
+## Current verification changes
 
-Do not publish account credentials, key identifiers, private review contact details or Apple authentication screenshots in this public repository.
+- Create fresh disposable simulators on the newest installed iOS runtime.
+- Check data migration success before starting the native journey.
+- Allow additional Maestro driver startup time and disable its CLI analytics.
+- Compile only arm64 on the arm64 runner.
+- Retain privacy manifests from the compiled app for SDK data-use inspection.
+- Keep the UI assertions unchanged; do not change app behavior just for tests.
+
+These infrastructure changes require a successful run before claiming that the
+underlying test failures are resolved.
+
+## Source behavior under review
+
+- Guests receive factual local recording counts, without calling the
+  authenticated AI insight endpoint. Signed-in web caches are account-scoped.
+- iOS permanently excludes tobacco gameplay for every user, with legacy smoking
+  history retained but retired so withdrawal penalties do not continue.
+- The map, legacy smoking and happiness regression checks passed 37 focused
+  cases. Native tests must still verify the actual screen behavior.
+
+Before release, verify native AI sending and error recovery, inspect the compiled
+SDK privacy declarations, capture current native screenshots, and validate the
+exact signed build. A compilation result or browser test does not complete those
+checks.
