@@ -22,6 +22,8 @@ EAS rejected the `maestro` job because that job requires a paid plan on this acc
 
 GitHub run `39372705595` started the standard macOS jobs, but both stopped at the artifact download with HTTP 403 from Expo. Maestro was skipped; no native interaction test or screenshot was produced. This is an access blocker, not an observed app crash. Do not rerun unchanged or mark native verification complete. Resolve authorized artifact access (without copying Expo credentials into this public repository) or build the public source directly on the runner before continuing. The workflow file and test flow are prepared but **not yet validated end to end**.
 
+The follow-up workflow builds the checked-out public source directly on the standard macOS runner using the production domain, Release configuration and simulator SDK. It uses no Expo or Apple credentials. One compiled app is tested sequentially on iPhone and iPad, with separate evidence and a final gate requiring both to pass. This is a source-built simulator validation, not validation of the signed EAS IPA. Results are still pending.
+
 ## Remaining submission gates
 
 | Area | Required evidence / action |

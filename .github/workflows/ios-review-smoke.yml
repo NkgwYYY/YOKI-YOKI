@@ -17,12 +17,11 @@ jobs:
   native_review:
     # Standard arm64 runner: free for this public repository. No larger runner.
     runs-on: macos-26
-    timeout-minutes: 25
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        family: [iPhone, iPad]
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
     defaults:
       run:
         working-directory: artifacts/mobile
@@ -30,10 +29,24 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
-      - name: Prepare existing simulator build and select device
-        env:
-          DEVICE_FAMILY: ${{ matrix.family }}
-        run: python3 scripts/prepare-ios-review.py
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Install frozen workspace dependencies
+        working-directory: .
+        run: |
+          npm install --global pnpm@10.11.0
+          pnpm install --frozen-lockfile
+      - name: Generate native project from the reviewed public source
+        run: |
+          pnpm exec expo prebuild --platform ios --no-install
+          cd ios
+          pod install
+      - name: Compile a Release simulator app without Apple credentials
+        run: |
+          mkdir -p review-results
+          xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/yoki-derived" -jobs 2 CODE_SIGNING_ALLOWED=NO build > review-results/xcodebuild.log 2>&1 || { tail -100 review-results/xcodebuild.log; exit 1; }
+          echo "YOKI_LOCAL_SIM_APP=$RUNNER_TEMP/yoki-derived/Build/Products/Release-iphonesimulator/YOKIYOKI.app" >> "$GITHUB_ENV"
       - name: Install pinned official Maestro CLI
         run: |
           curl --fail --location --retry 2 https://github.com/mobile-dev-inc/Maestro/releases/download/cli-2.11.0/maestro.zip -o "$RUNNER_TEMP/maestro.zip"
@@ -41,24 +54,60 @@ jobs:
           unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP/maestro-cli"
           echo "$RUNNER_TEMP/maestro-cli/maestro/bin" >> "$GITHUB_PATH"
           java -version
-      - name: Test fresh launch, diary, food, consent, map, minigame and persistence
+      - name: Test iPhone review journeys
+        id: iphone
+        continue-on-error: true
+        env:
+          DEVICE_FAMILY: iPhone
         run: |
-          mkdir -p review-results
-          maestro --device "$YOKI_SIMULATOR_UDID" test --format junit --output review-results/report.xml --debug-output review-results/debug .maestro/review-smoke.yml
-      - name: Capture current native screen even on failure
-        if: always()
+          python3 scripts/prepare-ios-review.py
+          YOKI_TEST_UDID=$(cat review-results/iPhone/device-id.txt)
+          maestro --device "$YOKI_TEST_UDID" test --format junit --output review-results/iPhone/report.xml --debug-output review-results/iPhone/debug .maestro/review-smoke.yml
+      - name: Preserve iPhone screen and stop simulator
+        if: always() && steps.iphone.outcome != 'skipped'
         run: |
-          mkdir -p review-results
-          if [ -n "${YOKI_SIMULATOR_UDID:-}" ]; then
-            xcrun simctl io "$YOKI_SIMULATOR_UDID" screenshot review-results/final-screen.png || true
+          if [ -f review-results/iPhone/device-id.txt ]; then
+            YOKI_TEST_UDID=$(cat review-results/iPhone/device-id.txt)
+            xcrun simctl io "$YOKI_TEST_UDID" screenshot review-results/iPhone/final-screen.png || true
+            xcrun simctl shutdown "$YOKI_TEST_UDID" || true
+            for shot in ./*.png .maestro/*.png; do
+              [ ! -f "$shot" ] || mv "$shot" review-results/iPhone/
+            done
+          fi
+      - name: Test iPad compatibility review journeys
+        if: always() && steps.iphone.outcome != 'skipped'
+        id: ipad
+        continue-on-error: true
+        env:
+          DEVICE_FAMILY: iPad
+        run: |
+          python3 scripts/prepare-ios-review.py
+          YOKI_TEST_UDID=$(cat review-results/iPad/device-id.txt)
+          maestro --device "$YOKI_TEST_UDID" test --format junit --output review-results/iPad/report.xml --debug-output review-results/iPad/debug .maestro/review-smoke.yml
+      - name: Preserve iPad screen
+        if: always() && steps.ipad.outcome != 'skipped'
+        run: |
+          if [ -f review-results/iPad/device-id.txt ]; then
+            YOKI_TEST_UDID=$(cat review-results/iPad/device-id.txt)
+            xcrun simctl io "$YOKI_TEST_UDID" screenshot review-results/iPad/final-screen.png || true
+            xcrun simctl shutdown "$YOKI_TEST_UDID" || true
+            for shot in ./*.png .maestro/*.png; do
+              [ ! -f "$shot" ] || mv "$shot" review-results/iPad/
+            done
           fi
       - name: Upload synthetic test evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ios-review-${{ matrix.family }}
+          name: ios-review-native
           retention-days: 7
           path: |
             artifacts/mobile/review-results/
             artifacts/mobile/*.png
             artifacts/mobile/.maestro/*.png
+      - name: Require both native journeys to pass
+        if: always()
+        env:
+          IPHONE_RESULT: ${{ steps.iphone.outcome }}
+          IPAD_RESULT: ${{ steps.ipad.outcome }}
+        run: test "$IPHONE_RESULT" = success && test "$IPAD_RESULT" = success

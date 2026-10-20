@@ -13,21 +13,26 @@ def run(*args):
     return subprocess.check_output(args, text=True).strip()
 
 root = Path(__file__).resolve().parents[3]
-build = json.loads((root / 'docs/qa/ios-review-simulator.json').read_text())
-url = build['artifact_url']
-parsed = urllib.parse.urlparse(url)
-if parsed.scheme != 'https' or parsed.hostname != 'expo.dev' or not parsed.path.startswith('/artifacts/eas/'):
-    raise SystemExit('Unexpected simulator artifact source')
-work = Path(os.environ['RUNNER_TEMP']) / 'yoki-review'
-work.mkdir()
-archive = work / 'app.tar.gz'
-urllib.request.urlretrieve(url, archive)
-with tarfile.open(archive) as bundle:
-    bundle.extractall(work, filter='data')
-apps = list(work.glob('*.app'))
-if len(apps) != 1:
-    raise SystemExit('Expected one simulator .app at archive root')
-app = apps[0]
+if os.environ.get('YOKI_LOCAL_SIM_APP'):
+    app = Path(os.environ['YOKI_LOCAL_SIM_APP'])
+    build = {'build_id': 'source-build-' + os.environ['GITHUB_RUN_ID'],
+             'source_commit': os.environ['GITHUB_SHA']}
+else:
+    build = json.loads((root / 'docs/qa/ios-review-simulator.json').read_text())
+    url = build['artifact_url']
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != 'https' or parsed.hostname != 'expo.dev' or not parsed.path.startswith('/artifacts/eas/'):
+        raise SystemExit('Unexpected simulator artifact source')
+    work = Path(os.environ['RUNNER_TEMP']) / 'yoki-review'
+    work.mkdir()
+    archive = work / 'app.tar.gz'
+    urllib.request.urlretrieve(url, archive)
+    with tarfile.open(archive) as bundle:
+        bundle.extractall(work, filter='data')
+    apps = list(work.glob('*.app'))
+    if len(apps) != 1:
+        raise SystemExit('Expected one simulator .app at archive root')
+    app = apps[0]
 with (app / 'Info.plist').open('rb') as handle:
     info = plistlib.load(handle)
 if info['CFBundleIdentifier'] != 'app.replit.yokiyoki--':
@@ -46,8 +51,9 @@ choices.sort(key=lambda pair: (pair[1]['name'] == preferred,
 runtime, device = choices[0]
 udid = device['udid']
 print('Testing device:', device['name'], 'Runtime:', runtime, flush=True)
-evidence = Path('review-results')
-evidence.mkdir(exist_ok=True)
+evidence = Path('review-results') / family
+evidence.mkdir(exist_ok=True, parents=True)
+(evidence / 'device-id.txt').write_text(udid)
 (evidence / 'environment.json').write_text(json.dumps({
     'build_id': build['build_id'], 'source_commit': build['source_commit'],
     'device': device['name'], 'runtime': runtime, 'version': info.get('CFBundleVersion'),
