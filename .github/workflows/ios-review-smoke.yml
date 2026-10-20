@@ -6,6 +6,9 @@ on:
       - .github/workflows/ios-review-smoke.yml
       - artifacts/mobile/.maestro/**
       - artifacts/mobile/scripts/prepare-ios-review.py
+      - artifacts/mobile/package.json
+      - artifacts/mobile/babel.config.js
+      - pnpm-lock.yaml
       - docs/qa/ios-review-simulator.json
   workflow_dispatch:
 permissions:
@@ -37,6 +40,8 @@ jobs:
         run: |
           npm install --global pnpm@10.11.0
           pnpm install --frozen-lockfile
+      - name: Verify iOS JavaScript bundle before native compilation
+        run: pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/yoki-ios-export" --max-workers 2
       - name: Generate native project from the reviewed public source
         run: |
           pnpm exec expo prebuild --platform ios --no-install
