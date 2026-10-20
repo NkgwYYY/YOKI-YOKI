@@ -61,26 +61,38 @@ _, device = choices[0]
 # A runner's pre-created iPhone failed data migration, and its preferred iPad
 # used an older runtime. Create disposable devices on the newest installed OS.
 device_type = device['deviceTypeIdentifier']
-udid = run('xcrun', 'simctl', 'create',
-           'YokiReview-' + os.environ['GITHUB_RUN_ID'] + '-' + family,
-           device_type, runtime)
-print('Testing device:', device['name'], 'Runtime:', runtime, 'Fresh simulator:', udid, flush=True)
 evidence = Path('review-results') / family
 evidence.mkdir(exist_ok=True, parents=True)
-(evidence / 'device-id.txt').write_text(udid)
-(evidence / 'environment.json').write_text(json.dumps({
-    'build_id': build['build_id'], 'source_commit': build['source_commit'],
-    'device': device['name'], 'runtime': runtime, 'version': info.get('CFBundleVersion'),
-    'note': 'Simulator validation; not a physical-device or signed-IPA installation test.',
-}, indent=2))
-subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, timeout=600)
-boot = subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'],
-                      capture_output=True, text=True, timeout=600)
-(evidence / 'boot.log').write_text(boot.stdout + boot.stderr)
-print(boot.stdout, flush=True)
-boot.check_returncode()
-if 'Data Migration Failed' in boot.stdout + boot.stderr:
-    raise SystemExit('Simulator data migration failed; native journeys were not run.')
+attempts = []
+for attempt in range(1, 3):
+    # Only retry an OS bootstrap failure, before installing or opening the app.
+    # Preserve the first failure; never retry a failed application journey here.
+    udid = run('xcrun', 'simctl', 'create',
+               'YokiReview-' + os.environ['GITHUB_RUN_ID'] + '-' + family + '-' + str(attempt),
+               device_type, runtime)
+    print('Testing device:', device['name'], 'Runtime:', runtime,
+          'Fresh simulator:', udid, 'Boot attempt:', attempt, flush=True)
+    (evidence / 'device-id.txt').write_text(udid)
+    subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, timeout=600)
+    boot = subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'],
+                          capture_output=True, text=True, timeout=600)
+    output = boot.stdout + boot.stderr
+    (evidence / f'boot-attempt-{attempt}.log').write_text(output)
+    print(output, flush=True)
+    ready = boot.returncode == 0 and 'Data Migration Failed' not in output
+    attempts.append({'udid': udid, 'ready': ready, 'returncode': boot.returncode})
+    (evidence / 'environment.json').write_text(json.dumps({
+        'build_id': build['build_id'], 'source_commit': build['source_commit'],
+        'device': device['name'], 'runtime': runtime, 'version': info.get('CFBundleVersion'),
+        'boot_attempts': attempts,
+        'note': 'Simulator validation; not a physical-device or signed-IPA installation test.',
+    }, indent=2))
+    if ready:
+        break
+    subprocess.run(['xcrun', 'simctl', 'shutdown', udid], check=False, timeout=60)
+    if attempt == 2:
+        raise SystemExit('Both fresh simulator boot attempts failed; native journeys were not run.')
+    print('OS data migration failed before app installation; trying one new disposable simulator.', flush=True)
 subprocess.run(['xcrun', 'simctl', 'install', udid, str(app)], check=True)
 with open(os.environ['GITHUB_ENV'], 'a') as handle:
     handle.write('YOKI_SIMULATOR_UDID=' + udid + '\n')

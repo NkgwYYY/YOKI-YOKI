@@ -81,7 +81,7 @@ function MessageBubble({ msg, mascotStage, mascotMood }: {
         )}
       </View>
       <View style={bubbleStyles.bubbleMascot}>
-        <Text style={bubbleStyles.mascotText}>{msg.content}</Text>
+        <Text testID={msg.id === 'welcome' ? 'chat-welcome' : 'chat-assistant-message'} style={bubbleStyles.mascotText}>{msg.content}</Text>
         {msg.sourcePolicyVersion===2 && !!msg.citations?.length && (
           <View style={bubbleStyles.citations}>
             <Text style={bubbleStyles.citationsTitle}>健康・相談についての参考情報</Text>
@@ -508,13 +508,14 @@ export default function ChatScreen() {
           <PressScale style={chipStyles.chip} accessibilityLabel="会話履歴を保存し直す" disabled={clearing} onPress={() => { void persistHistory(JSON.stringify(messages.filter(m => m.id !== 'welcome').slice(-MAX_STORED))); }}><Text>保存をもう一度試す</Text></PressScale>
         </View>}
         {sendError && <View>
-          <Text accessibilityRole="alert">{sendError}</Text>
+          <Text testID="chat-send-error" accessibilityRole="alert">{sendError}</Text>
           <PressScale style={chipStyles.chip} accessibilityLabel="返事をもう一度受け取る" onPress={() => sendMessage(undefined, true)} disabled={isLoading}>
             <Text style={chipStyles.text}>もう一度試す</Text>
           </PressScale>
         </View>}
         <View style={styles.inputRow}>
           <TextInput
+            testID="chat-input"
             style={styles.input}
             placeholder={`${displayName}に話しかける…`}
             accessibilityLabel="話しかける内容"

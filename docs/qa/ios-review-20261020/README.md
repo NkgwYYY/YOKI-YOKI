@@ -63,3 +63,19 @@ Before release, verify native AI sending and error recovery, inspect the compile
 SDK privacy declarations, capture current native screenshots, and validate the
 exact signed build. A compilation result or browser test does not complete those
 checks.
+
+
+Follow-up from run `39404007152` (source `cfddc298`): Release compilation
+and the independent XCTest runner compiled. iPad native onboarding, diary
+input/save and food selection passed, then the test stopped on an exact label
+lookup for the chat input. The native hierarchy showed a TextView whose label
+appended its placeholder; the chat screen itself was visible. A stable input
+identifier resolves that selector. The iPhone OS bootstrap reported Data
+Migration Failed before the app was installed. One bounded retry of a new
+simulator is now allowed for that bootstrap failure only; application failures
+are never retried away.
+
+The next native iPad journey also requires a real response to a synthetic
+(non-personal) greeting after explicit AI consent, followed by persisted consent
+withdrawal. These assertions have not yet passed; no release readiness claim is
+made here.

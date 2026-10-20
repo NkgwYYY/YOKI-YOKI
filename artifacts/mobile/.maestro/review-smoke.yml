@@ -92,7 +92,8 @@ name: Fresh guest review journeys
 - tapOn:
     id: home-chat
 - tapOn: '少し、お話しする'
-- tapOn: '話しかける内容'
+- tapOn:
+    id: chat-input
 - inputText: 'Release QA draft'
 - tapOn: '送信'
 - assertVisible: 'AIへの情報送信'
