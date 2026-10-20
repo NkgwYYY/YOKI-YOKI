@@ -9,10 +9,11 @@ import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileToContext } from '@/utils/profileContext';
 import { getTodayDate } from '@/utils/dateUtils';
-import { readInsights, type Insight } from '@/utils/insightData';
+import { guestInsights, insightCacheKey, readInsights, type Insight } from '@/utils/insightData';
+import { useRouter } from 'expo-router';
+import { hasAiConsent, postAiJson } from '@/utils/aiConsent';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
-const STORAGE_KEY = '@mentore/insight_v1';
 
 interface CachedInsight {
   date: string;
@@ -20,8 +21,37 @@ interface CachedInsight {
 }
 
 export function InsightCard() {
+  const { user } = useAuth();
+  // The insight API is authenticated. Guests (including every iOS user) use
+  // a local reflection instead; never send their records to an endpoint they cannot use.
+  return user ? <AiInsightCard key={user.id} /> : <GuestInsightCard />;
+}
+
+function GuestInsightCard() {
+  const { records, progress, checkedState, unlockedBadges, mascotName } = useApp();
+  const insights = guestInsights({ dates: records.map(record => record.date),
+    checkedToday: checkedState.items.filter(item => item.checked).length,
+    streak: progress.streak, badges: unlockedBadges.length });
+  return <Card style={styles.card}>
+    <View style={styles.titleWrap}><IconBadge name="activity" /><View style={styles.titleCopy}>
+      <Text style={styles.title}>{mascotName}のきづき</Text>
+      <Text style={styles.subtitle}>端末の記録から振り返ります。AIには送信しません。</Text>
+    </View></View>
+    {insights.length ? <View style={styles.list} testID="guest-insights">
+      {insights.map(insight => <View key={insight.title} style={styles.item}>
+        <Icon name="check" size={iconSize.sm} color={colors.primaryOnSoft} style={styles.itemMark} />
+        <View style={styles.itemBody}><Text style={styles.itemTitle}>{insight.title}</Text><Text style={styles.itemText}>{insight.body}</Text></View>
+      </View>)}
+    </View> : <Text style={styles.emptyText}>記録がたまると、ここで振り返れます。まずは今日の気分を記録してみよう！</Text>}
+  </Card>;
+}
+
+function AiInsightCard() {
   const { records, progress, checkedState, unlockedBadges, mascotName, profile } = useApp();
-  const { getToken } = useAuth();
+  const { getToken, user } = useAuth();
+  const router = useRouter();
+  const aiOwner = user?.id ?? 'guest';
+  const storageKey = insightCacheKey(aiOwner);
 
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,12 +60,14 @@ export function InsightCard() {
   const busy = useRef(false);
   const requested = useRef(false);
   const mounted = useRef(true);
+  const currentOwner = useRef(aiOwner);
+  currentOwner.current = aiOwner;
   const pendingCache = useRef<CachedInsight | null>(null);
 
   const saveCache = async () => {
     if (!pendingCache.current) return;
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pendingCache.current));
+      await AsyncStorage.setItem(storageKey, JSON.stringify(pendingCache.current));
       if (mounted.current) setCacheFailed(false);
     } catch { if (mounted.current) setCacheFailed(true); }
   };
@@ -56,7 +88,7 @@ export function InsightCard() {
     mounted.current = true;
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(storageKey);
         if (!raw) return;
         const cached = JSON.parse(raw) as CachedInsight;
         const valid = readInsights(cached?.insights);
@@ -69,6 +101,10 @@ export function InsightCard() {
   }, []);
 
   const generate = async () => {
+    if (busy.current) return;
+    const allowed = await hasAiConsent(aiOwner);
+    if (!mounted.current || aiOwner !== currentOwner.current) return;
+    if (!allowed) { router.push('/ai-privacy'); return; }
     if (busy.current) return;
     busy.current = true;
     requested.current = true;
@@ -103,16 +139,14 @@ export function InsightCard() {
         badgeCount: unlockedBadges.length,
       };
       const token = await getToken();
-      const res = await fetch(`${API_BASE}/insight`, {
-        method: 'POST',
+      const res = await postAiJson(aiOwner, `${API_BASE}/insight`, payload, {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('bad status');
-      const data = await res.json();
+      const data = res.data;
       const valid = readInsights(data?.insights);
       if (!valid) throw new Error('Invalid insights');
       if (!mounted.current) return;

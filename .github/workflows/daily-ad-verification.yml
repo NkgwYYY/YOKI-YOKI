@@ -1,0 +1,132 @@
+name: Daily ad verification
+
+on:
+  push:
+    branches: [codex/daily-ad-placement-components-20261016]
+    paths-ignore: ['docs/**']
+  workflow_dispatch:
+
+# Verification only: no deployment, repository write, production secrets or production database.
+permissions:
+  contents: read
+concurrency:
+  group: daily-ad-verification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: yoki_ci
+          POSTGRES_USER: yoki_ci
+          POSTGRES_PASSWORD: yoki_ci_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U yoki_ci -d yoki_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      CI: 'true'
+      TZ: Asia/Tokyo
+      EXPO_NO_TELEMETRY: '1'
+      DATABASE_URL: postgresql://yoki_ci:yoki_ci_only@127.0.0.1:5432/yoki_ci
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.16.0'
+      - name: Install the existing pnpm version
+        run: npm install --global pnpm@10.11.0
+      - name: Install frozen workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Focused ad, account and server policy tests
+        run: >-
+          node --experimental-strip-types --test
+          artifacts/mobile/tests/dailyAdPlacements.test.mjs
+          artifacts/mobile/tests/dailyAdStore.test.mjs
+          artifacts/mobile/tests/dailyAdsIntegration.test.mjs
+          artifacts/mobile/tests/dailyAdsExpiry.test.mjs
+          artifacts/mobile/tests/communityBonus.test.mjs
+          artifacts/api-server/tests/communityPolicy.test.mjs
+      - name: PostgreSQL integration in a disposable local schema
+        run: node --test artifacts/api-server/tests/community.integration.mjs
+      - name: Shared library typecheck
+        run: pnpm exec tsc --build
+      - name: Mobile application typecheck
+        run: pnpm --filter @workspace/mobile typecheck
+      - name: Public advertising and entry routing tests
+        run: node --experimental-strip-types --test artifacts/landing/tests/publicAds.test.mjs artifacts/mobile/tests/productionServer.test.mjs
+      - name: Public website typecheck and static build
+        env:
+          PORT: '18150'
+          BASE_PATH: /landing/
+        run: pnpm --filter @workspace/landing typecheck && pnpm --filter @workspace/landing build
+      - name: API typecheck
+        run: pnpm --filter @workspace/api-server typecheck
+      - name: API build
+        run: pnpm --filter @workspace/api-server build
+      - name: Existing mobile and API Node regression suites
+        shell: bash
+        run: |
+          mapfile -d '' tests < <(find artifacts/mobile/tests artifacts/api-server/tests -type f \( -name '*.test.mjs' -o -name '*.test.cjs' -o -name '*.test.js' \) -print0 | sort -z)
+          test "${#tests[@]}" -gt 0
+          printf 'Running %s existing test files\n' "${#tests[@]}"
+          node --experimental-strip-types --test --test-concurrency=2 --test-reporter=./scripts/ci/node-summary-reporter.mjs --test-reporter-destination=stdout --test-reporter=tap --test-reporter-destination=/tmp/yoki-existing-tests.tap "${tests[@]}"
+      # Export is a JS/assets build, not a signed iOS/Android build or a release.
+      - name: Web JavaScript and asset export
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: pnpm --filter @workspace/mobile exec expo export --platform web --max-workers 2 --output-dir /tmp/yoki-qa-web
+      - name: Install pinned browser tools outside the application workspace
+        run: |
+          npm install --prefix /tmp/yoki-browser-tools --no-audit --no-fund playwright@1.56.1
+          /tmp/yoki-browser-tools/node_modules/.bin/playwright install --with-deps chromium
+      - name: Actual web application care and navigation checks
+        env:
+          YOKI_QA_PLAYWRIGHT: /tmp/yoki-browser-tools/node_modules/playwright
+          YOKI_QA_EXPORT: /tmp/yoki-qa-web
+          YOKI_QA_OUTPUT: /tmp/yoki-care-browser
+        run: node artifacts/mobile/tests/dailyCare.browser.cjs
+      - name: Chat retry, service errors and cancellation in the actual web app
+        env:
+          YOKI_QA_PLAYWRIGHT: /tmp/yoki-browser-tools/node_modules/playwright
+          YOKI_QA_EXPORT: /tmp/yoki-qa-web
+          YOKI_QA_OUTPUT: /tmp/yoki-care-browser
+        run: node artifacts/mobile/tests/chatRecovery.browser.cjs
+      # Guest insight must work without an authenticated server or a paid AI call.
+      - name: Guest reflection works locally without calling the insight API
+        env:
+          YOKI_QA_PLAYWRIGHT: /tmp/yoki-browser-tools/node_modules/playwright
+          YOKI_QA_EXPORT: /tmp/yoki-qa-web
+          YOKI_QA_OUTPUT: /tmp/yoki-care-browser
+        run: node artifacts/mobile/tests/insight.browser.cjs
+      - name: Rest exits, companion presence and diary consent lifecycle
+        env:
+          YOKI_QA_PLAYWRIGHT: /tmp/yoki-browser-tools/node_modules/playwright
+          YOKI_QA_EXPORT: /tmp/yoki-qa-web
+          YOKI_QA_OUTPUT: /tmp/yoki-care-browser
+        run: |
+          node artifacts/mobile/tests/restLayout.browser.cjs
+          node artifacts/mobile/tests/diaryReply.browser.cjs
+      - name: iOS and Android JavaScript and asset export
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+        run: pnpm --filter @workspace/mobile exec expo export --platform ios --platform android --max-workers 2 --output-dir /tmp/yoki-qa-native
+      - name: Retain test reports and screenshots only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: daily-care-verification-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            /tmp/yoki-care-browser/
+            /tmp/yoki-existing-tests.tap

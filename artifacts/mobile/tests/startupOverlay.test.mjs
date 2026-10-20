@@ -34,6 +34,11 @@ function fixture() {
   const ready = async () => { loads.at(-1).resolve(); await flush(); };
   return { render, fire, ready, flush, loads, animations, timers, writes: () => writes, cleanup: () => slots.forEach(s => s?.cleanup?.()) };
 }
+function button(node, label) {
+  if (!React.isValidElement(node)) return null;
+  if (node.props.accessibilityLabel === label) return node;
+  return React.Children.toArray(node.props.children).map(child => button(child, label)).find(Boolean);
+}
 for (const completion of ['success', 'interrupted', 'missing']) test(`startup releases touch input with ${completion} animation completion`, async () => {
   const f = fixture();
   assert.equal(f.render().props.pointerEvents, 'auto');
@@ -54,4 +59,33 @@ test('image error remains retryable and successful retry dismisses the overlay',
 test('unmount clears fallback and ignores late animation callbacks', async () => {
   const f = fixture(); f.render(); await f.ready(); f.cleanup(); const before = f.writes();
   assert.equal(f.timers.size, 0); f.animations[0]({ finished: true }); assert.equal(f.writes(), before);
+});
+for (const outcome of ['pending', 'error']) test(`startup can continue when image loading is ${outcome}`, async () => {
+  const f = fixture();
+  const initial = f.render();
+  assert.equal(button(initial, '画像を待たずにはじめる'), undefined);
+  if (outcome === 'pending') f.fire(2500);
+  else { f.loads[0].reject(Error('offline')); await f.flush(); }
+  button(f.render(), '画像を待たずにはじめる').props.onPress();
+  assert.equal(f.render(), null);
+  assert.equal(f.timers.size, 0);
+  const writes = f.writes();
+  if (outcome === 'pending') { f.loads[0].resolve(); await f.flush(); }
+  assert.equal(f.writes(), writes);
+  assert.equal(f.animations.length, 0);
+  f.cleanup();
+});
+test('retry resets the continue option and successful retry dismisses cleanly', async () => {
+  const f = fixture(); f.render();
+  f.loads[0].reject(Error('offline')); await f.flush();
+  button(f.render(), '画像の読み込みを再試行').props.onPress();
+  assert.equal(button(f.render(), '画像を待たずにはじめる'), undefined);
+  await f.ready(); f.fire(500);
+  assert.equal(f.render(), null); assert.equal(f.timers.size, 0); f.cleanup();
+});
+test('unmount while image is pending removes the continue timer', async () => {
+  const f = fixture(); f.render(); f.cleanup();
+  assert.equal(f.timers.size, 0);
+  const writes = f.writes(); f.loads[0].resolve(); await f.flush();
+  assert.equal(f.writes(), writes);
 });

@@ -22,7 +22,7 @@ export function PublicPageShell({
         </a>
         <nav className="flex items-center gap-4 text-sm text-[#cfc3df]" aria-label="サイトメニュー">
           <a className="article-nav-link hidden sm:inline" href={`${base}articles/`}>読みもの</a>
-          <a className="article-nav-link" href="https://yoki-yoki.replit.app/" rel="noopener noreferrer">アプリを開く</a>
+          <a className="article-nav-link" href="https://yoki-yoki.replit.app/?app=1" rel="noopener noreferrer">アプリを開く</a>
         </nav>
       </header>
 

@@ -17,17 +17,13 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="og:site_name" content="YOKI YOKI" />
         <meta property="og:type" content="website" />
         <meta property="og:description" content="こころを育てるメンタルケアアプリ" />
-        <meta property="og:url" content="https://mental-muscle-trainer.replit.app/" />
+        <meta property="og:url" content="https://yoki-yoki.replit.app/" />
         <meta name="description" content="こころを育てるメンタルケアアプリ" />
 
         <ScrollViewStyleReset />
 
-        {/* Google AdSense automatic ads */}
-        <script
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
-          crossOrigin="anonymous"
-        />
+        {/* Ownership verification only. Advertising runs on public landing pages. */}
+        <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />
 
         {/* Google Analytics 4 */}
         {GA_ID && (

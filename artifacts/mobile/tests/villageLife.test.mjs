@@ -147,3 +147,15 @@ test('the forest exit stays outside the home rug and resting area',()=>{
  assert.ok(forest.x>.62&&forest.y>.67);
  assert.ok(maps.isMapGround('home',forest));
 });
+
+test('iOS cannot reach the tobacco scene from its map, walking gates, or an old route', () => {
+  assert.equal(maps.isMapAvailable('tobacco','ios'),false);
+  assert.equal(maps.canVisitMap('tobacco',999,true,'ios'),false);
+  assert.equal(maps.initialReleasedMap('tobacco','ios'),'home');
+  assert.equal(maps.initialReleasedMap('workshop','ios'),'workshop');
+  for(const map of maps.WORLD_MAPS.filter(m=>maps.isMapAvailable(m.id,'ios'))){
+    assert.ok(mapPortals(map.id,true,'ios').every(g=>g.to!=='tobacco'));
+  }
+  assert.ok(mapPortals('market',true,'ios').some(g=>g.to==='workshop'));
+  assert.ok(mapPortals('market',true,'web').some(g=>g.to==='tobacco'));
+});

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hasAiConsent, postAiJson } from './aiConsent';
 import type { DailyRecord } from '@/contexts/AppContext';
 import {
   buildHomeCommentCacheSource,
@@ -154,6 +155,7 @@ function fallbackComment(
 }
 
 export async function getHomeComment(params: {
+  owner: string;
   date: string;
   mascotName: string;
   record?: DailyRecord;
@@ -169,6 +171,9 @@ export async function getHomeComment(params: {
     if (!Number.isFinite(dayNumber) || dayNumber % 3 !== 0) return '';
   }
 
+  if (!await hasAiConsent(params.owner)) {
+    return fallbackComment(params.record, params.completed, getHomeCommentTimeOfDay());
+  }
   const context = buildRecordContext(params.record, params.completed, params.total);
   const recentChat = preferences.includeRecentChat ? await loadRecentChat() : '';
   const timeOfDay = getHomeCommentTimeOfDay();
@@ -199,19 +204,15 @@ export async function getHomeComment(params: {
 
   let comment = '';
   try {
-    const response = await fetch(`${API_BASE}/home-comment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const response = await postAiJson(params.owner, `${API_BASE}/home-comment`, {
         mascotName: params.mascotName || 'こころん',
         context: context || undefined,
         recentChat: recentChat || undefined,
         timeOfDay,
-      }),
     });
     if (response.ok) {
-      const data = await response.json();
-      if (typeof data.comment === 'string') comment = data.comment.trim().slice(0, 120);
+      const data = response.data;
+      if (typeof data?.comment === 'string') comment = data.comment.trim().slice(0, 120);
     }
   } catch {
     // The local fallback below keeps the character conversational offline.

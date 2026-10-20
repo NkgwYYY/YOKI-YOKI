@@ -12,6 +12,7 @@ const script = fileURLToPath(new URL('../server/serve.js', import.meta.url));
 async function fixture(t, basePath = '/') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'yoki-serving-'));
   const write = (name, data) => { const target = path.join(root, name); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, data); };
+  write('web/ads.txt', 'google.com, pub-7462386033661667, DIRECT, f08c47fec0942fa0\n');
   write('web/index.html', '<!doctype html><html lang="ja">YOKI QA</html>');
   write('web/assets/相棒 の部屋.png', 'web-image');
   write('web/assets/home.0123456789abcdef0123456789abcdef.webp', 'day-webp');
@@ -53,7 +54,7 @@ test('missing bundles/assets return 404 while application deep links still open'
     const res = await fetch(origin + uri); assert.equal(res.status, 404); assert.doesNotMatch(await res.text(), /<html/);
   }
   for (const uri of ['/', '/guide', '/monthly-report']) {
-    const res = await fetch(origin + uri, { headers: { 'accept-encoding': 'gzip' } }); assert.equal(res.status, 200); assert.match(await res.text(), /YOKI QA/); assert.match(res.headers.get('cache-control'), /no-store/);
+    const res = await fetch(origin + uri, { headers: { 'accept-encoding': 'gzip', cookie: 'yoki_app=1' } }); assert.equal(res.status, 200); assert.match(await res.text(), /YOKI QA/); assert.match(res.headers.get('cache-control'), /no-store/);
   }
 });
 
@@ -63,7 +64,7 @@ test('malformed and escaping paths cannot crash the server or expose sibling fil
   for (const uri of ['/%E0%A4', '/bad%00name', '/bad%5Cname']) assert.equal((await raw(uri)).status, 400);
   const escape = await raw('/..%2F' + path.basename(sibling) + '/private.txt');
   assert.notEqual(escape.status, 200); assert.doesNotMatch(escape.text, /must not serve/);
-  assert.equal((await fetch(origin + '/')).status, 200);
+  assert.equal((await fetch(origin + '/', { headers: { cookie: 'yoki_app=1' } })).status, 200);
 });
 
 test('configured base path has a segment boundary and retains deep-link routing', async t => {
@@ -83,5 +84,26 @@ test('hashed WebP images are reusable across launches and updated hashes get dis
  }
  const named=await fetch(origin+'/assets/'+encodeURIComponent('相棒 の部屋.png'));
  assert.equal(named.headers.get('cache-control'),'no-cache');
- const html=await fetch(origin+'/');assert.match(html.headers.get('cache-control'),/no-store/);
+ const html=await fetch(origin+'/', { headers: { cookie: 'yoki_app=1' } });assert.match(html.headers.get('cache-control'),/no-store/);
+});
+
+
+test('public entry, remembered app entry and native manifest are distinct', async t => {
+  const { origin } = await fixture(t);
+  const first = await fetch(origin + '/', { redirect: 'manual' });
+  assert.equal(first.status, 302);
+  assert.equal(first.headers.get('location'), '/landing/');
+  assert.match(first.headers.get('cache-control'), /no-store/);
+  const open = await fetch(origin + '/?app=1', { redirect: 'manual' });
+  assert.equal(open.headers.get('location'), '/');
+  const cookie = open.headers.get('set-cookie');
+  for (const value of ['yoki_app=1', 'HttpOnly', 'Secure', 'SameSite=Lax']) assert.ok(cookie.includes(value));
+  const app = await fetch(origin + '/', { headers: { cookie: cookie.split(';')[0] } });
+  assert.match(await app.text(), /YOKI QA/);
+  const native = await fetch(origin + '/', { headers: { 'expo-platform': 'ios' } });
+  assert.equal(native.status, 200);
+  assert.ok((await native.json()).launchAsset);
+  const ads = await fetch(origin + '/ads.txt');
+  assert.match(ads.headers.get('content-type'), /^text\/plain/);
+  assert.equal(await ads.text(), 'google.com, pub-7462386033661667, DIRECT, f08c47fec0942fa0\n');
 });

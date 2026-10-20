@@ -1,4 +1,4 @@
-import { mapGroundPoint, type WorldMapId } from "./worldMaps";
+import { isMapAvailable, mapGroundPoint, type WorldMapId } from "./worldMaps";
 export type Point = { x: number; y: number };
 export type VillageExperience = "bath" | "wheel" | "smoke";
 export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
@@ -34,8 +34,8 @@ const GATES: Record<WorldMapId, Point[]> = {
   village: [{x:.50,y:.80},{x:.23,y:.60}],
   lake: [{x:.52,y:.81}],
 };
-export function mapPortals(map: WorldMapId, grandmaUnlocked=false) {
-  return VILLAGE_LINKS[map].map((to, i) => ({to, point:mapGroundPoint(map,GATES[map][i])})).filter(g=>g.to!=='grandma'||grandmaUnlocked);
+export function mapPortals(map: WorldMapId, grandmaUnlocked=false, platform='web') {
+  return VILLAGE_LINKS[map].map((to, i) => ({to, point:mapGroundPoint(map,GATES[map][i])})).filter(g=>isMapAvailable(g.to,platform)&&(g.to!=='grandma'||grandmaUnlocked));
 }
 export function nearbyPortalIndex(point: Point, portals: {point:Point}[], direction?:Point) {
   'worklet';

@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { border, colors, control, radius, space, typography } from '@/constants/theme';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import {DailyAdRewardButton} from '@/components/ads/DailyAdPlacements';
+import {useAdEnvironment} from '@/components/ads/useAdEnvironment';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { useAppActivity } from '@/components/room/useRoomActivity';
@@ -133,6 +135,7 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
   const mascotMood = getMascotMood(progress, todayRecord, completedCount, totalCount);
 
   const [isEating, setIsEating] = useState(false);
+  const adEnvironment = useAdEnvironment(!visible || !!serving, saving || isEating);
   const [toast, setToast] = useState({ visible: false, message: '' });
 
   const feeding = useRef(false);
@@ -207,6 +210,7 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
         </View>)}
       </View>}
 
+      <DailyAdRewardButton placement="meal" environment={adEnvironment}/>
       <View style={modalStyles.hint}>
         <Icon name="info" size={iconSize.xs} color={colors.subtleForeground} />
         <Text style={modalStyles.hintText}>バイトや今日の記録で集めたポイントを使えます</Text>

@@ -2,9 +2,11 @@ import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion
 import { ArrowDown, ArrowRight, BookHeart, Heart, MessageCircleHeart, Sparkles, Sprout, Sun, WandSparkles } from 'lucide-react';
 import { Starfield } from '@/components/starfield';
 import { trackEvent } from '@/lib/analytics';
+import { PublicBanner } from '@/components/PublicBanner';
+import guide from '@/data/getting-started.json';
 
 const base = import.meta.env.BASE_URL;
-const appHref = 'https://yoki-yoki.replit.app/';
+const appHref = 'https://yoki-yoki.replit.app/?app=1';
 const worldSteps = [
   { number: '01', Icon: Heart, title: 'それでも大丈夫。', desc: 'いまの気持ちを、そのまま受け止める。', image: 'egg.png', tone: 'from-[#170f2b] to-[#21173a]' },
   { number: '02', Icon: BookHeart, title: '小さな「よき」を記録しよう。', desc: 'できたことを、ひとつ見つける。', image: 'odando.png', tone: 'from-[#211837] to-[#40315b]' },
@@ -108,6 +110,16 @@ export default function Home() {
           <div className="grid gap-4 md:grid-cols-3"><FadeIn className="glass-panel rounded-3xl p-8 md:col-span-2"><MessageCircleHeart className="mb-12 h-8 w-8 text-[#9dcce5]" /><h3 className="font-[Zen_Maru_Gothic] text-2xl">話せない日も、話していい日も。</h3><p className="mt-4 max-w-md leading-8 text-[#aaa0bc]">あなたのペースで話せる、静かなAIチャット。気持ちを整理する場所として、そっと寄り添います。</p></FadeIn><FadeIn delay={.1} className="glass-panel rounded-3xl p-8"><WandSparkles className="mb-12 h-8 w-8 text-[#e2c17b]" /><h3 className="font-[Zen_Maru_Gothic] text-2xl">今日の光を集める</h3><p className="mt-4 leading-8 text-[#aaa0bc]">積み重ねた「よき」が、仲間との新しい景色を開きます。</p></FadeIn></div>
         </div>
       </section>
+
+      <section className="relative z-10 mx-auto max-w-4xl px-6 py-16" aria-labelledby="how-to-start">
+        <h2 id="how-to-start" className="font-[Zen_Maru_Gothic] text-3xl text-[#eee4f9]">{guide.title}</h2>
+        <ol className="mt-8 grid gap-8 leading-8 text-[#cfc3df]">
+          {guide.steps.map(step => <li key={step.title}><h3 className="text-lg font-bold text-[#e4ca91]">{step.title}</h3><p>{step.description}</p></li>)}
+        </ol>
+        <p className="mt-8 leading-8 text-[#aaa0bc]">{guide.notice}</p>
+        <p className="mt-6"><a className="article-nav-link text-[#e4ca91]" href={`${base}articles/`}>日々の気持ちに寄り添う読みものへ →</a></p>
+      </section>
+      <PublicBanner />
 
       <section className="relative z-10 overflow-hidden px-6 py-36 text-center sm:px-10"><div className="absolute inset-0 aurora opacity-50" /><FadeIn className="relative mx-auto max-w-2xl"><img src={`${base}characters/egg.png`} alt="タマゴのキャラクター" className="mx-auto mb-10 w-28 drop-shadow-[0_15px_25px_rgba(0,0,0,.45)]" /><h2 className="font-[Zen_Maru_Gothic] text-4xl leading-tight md:text-6xl">今日の「よき」を、<br />ひとつ。</h2><p className="mx-auto mt-7 max-w-md font-[Zen_Maru_Gothic] leading-8 text-[#aaa0bc]">あなたの世界が少し明るくなるところから、はじめよう。</p><div className="mt-10"><Cta location="footer" /></div></FadeIn></section>
        <footer className="relative z-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-[#c6b2e7]/10 px-6 py-8 text-center text-xs tracking-[.12em] text-[#766b8a]">

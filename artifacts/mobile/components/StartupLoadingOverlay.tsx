@@ -14,21 +14,42 @@ export function StartupLoadingOverlay() {
   const opacity = useRef(new Animated.Value(1)).current;
   const attempt = useRef(0);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const continueTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visible, setVisible] = useState(true);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
+  const [canContinue, setCanContinue] = useState(false);
+
+  const continueWithoutImage = useCallback(() => {
+    // A decorative image must never prevent access to local care and records.
+    attempt.current += 1;
+    if (continueTimer.current) clearTimeout(continueTimer.current);
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    continueTimer.current = null;
+    dismissTimer.current = null;
+    opacity.stopAnimation();
+    setVisible(false);
+  }, [opacity]);
 
   const load = useCallback(() => {
     const currentAttempt = ++attempt.current;
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    if (continueTimer.current) clearTimeout(continueTimer.current);
     dismissTimer.current = null;
     setReady(false);
     setError(false);
+    setCanContinue(false);
     opacity.setValue(1);
+    continueTimer.current = setTimeout(() => {
+      continueTimer.current = null;
+      if (attempt.current === currentAttempt) setCanContinue(true);
+    }, 2500);
 
     preloadStartupImages()
       .then(() => {
         if (attempt.current !== currentAttempt) return;
+        if (continueTimer.current) clearTimeout(continueTimer.current);
+        continueTimer.current = null;
         // Animation completion is cosmetic, not a prerequisite for using HOME.
         setReady(true);
         const dismiss = () => {
@@ -46,7 +67,10 @@ export function StartupLoadingOverlay() {
       })
       .catch(() => {
         if (attempt.current === currentAttempt) {
+          if (continueTimer.current) clearTimeout(continueTimer.current);
+          continueTimer.current = null;
           setError(true);
+          setCanContinue(true);
         }
       });
   }, [opacity]);
@@ -56,7 +80,9 @@ export function StartupLoadingOverlay() {
     return () => {
       attempt.current += 1;
       if (dismissTimer.current) clearTimeout(dismissTimer.current);
+      if (continueTimer.current) clearTimeout(continueTimer.current);
       dismissTimer.current = null;
+      continueTimer.current = null;
       opacity.stopAnimation();
     };
   }, [load, opacity]);
@@ -87,8 +113,18 @@ export function StartupLoadingOverlay() {
       ) : (
         <>
           <ActivityIndicator size="small" color={homePalette.navActive} />
-          <Text style={styles.message}>Loading...</Text>
+          <Text style={styles.message}>{canContinue ? '準備に時間がかかっています' : 'Loading...'}</Text>
         </>
+      )}
+      {canContinue && !ready && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="画像を待たずにはじめる"
+          onPress={continueWithoutImage}
+          style={styles.retryButton}
+        >
+          <Text style={styles.retryText}>そのままはじめる</Text>
+        </Pressable>
       )}
     </Animated.View>
   );

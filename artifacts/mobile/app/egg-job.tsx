@@ -1,3 +1,4 @@
+import {EggBonus} from '@/components/community/EggBonus';
 import React,{useEffect,useRef,useState} from 'react';
 import {Image,Platform,Pressable,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -20,8 +21,9 @@ const RANKS={raw:'TOO EARLY',good:'GOOD',perfect:'PERFECT',hard:'TOO LATE'};
 export default function EggJobScreen(){
  const router=useRouter(),insets=useSafeAreaInsets(),window=useWindowDimensions();
  const {active,reduceMotion}=useRoomActivity(),music=useVillageMusic(),{feedState,runEggJob}=useApp();
- const state=readEggJob(feedState.eggJob),shift=state.active,audio=useKitchenAudio(active,!!shift);
- const [receipt,setReceipt]=useState<EggReceipt|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[elapsed,setElapsed]=useState(0),[lifting,setLifting]=useState(false);
+ const [bonusBusy,setBonusBusy]=useState(false);
+ const state=readEggJob(feedState.eggJob),shift=state.active,audio=useKitchenAudio(active&&!bonusBusy,!!shift);
+ const [receipt,setReceipt]=useState<EggReceipt|null>(()=>state.active?null:state.receipts.at(-1)??null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[elapsed,setElapsed]=useState(0),[lifting,setLifting]=useState(false);
  const lock=useRef(false),pending=useRef<EggJobOperation|null>(null),mounted=useRef(true);
  const progress=useSharedValue(0),lift=useSharedValue(0),scoopTimer=useRef<ReturnType<typeof setTimeout>|null>(null),pressHandled=useRef(false);
  const order=shift?(EGG_RECIPES.find(r=>r.id===shift.recipe)??recipeForTarget(shift.targetMs)):EGG_RECIPES[state.receipts.length%EGG_RECIPES.length];
@@ -41,7 +43,7 @@ export default function EggJobScreen(){
   finally{lock.current=false;if(mounted.current)setBusy(false);}
  };
  const finish=()=>{if(shift&&!busy&&!lifting&&Date.now()>=shift.startedAt){void act({kind:'finish',id:shift.id,finishedAt:Date.now()});}};
- const start=()=>{if(lifting||busy)return;audio.start();void act({kind:'start',id:`egg-${Date.now()}-${Math.random().toString(36).slice(2,9)}`,recipe:order.id});};
+ const start=()=>{if(lifting||busy||bonusBusy)return;audio.start();void act({kind:'start',id:`egg-${Date.now()}-${Math.random().toString(36).slice(2,9)}`,recipe:order.id});};
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;if(scoopTimer.current)clearTimeout(scoopTimer.current);cancelAnimation(lift);};},[]);
  useEffect(()=>{
   cancelAnimation(progress);if(!shift){progress.value=0;setElapsed(0);return;}
@@ -60,7 +62,7 @@ export default function EggJobScreen(){
   <Image source={Platform.OS==='web'?require('@/assets/images/world/egg-workshop-v2.webp'):require('@/assets/images/world/egg-workshop-v2.jpg')} resizeMode="cover" style={[StyleSheet.absoluteFill,{width:'100%',height:'100%'}]}/>
   <LinearGradient pointerEvents="none" colors={['#23192ACA','#23192A15','#211724E6']} style={StyleSheet.absoluteFill}/>
   <ScrollView contentContainerStyle={{paddingTop:insets.top+(compact?8:16),paddingBottom:Math.max(24,insets.bottom+16),minHeight:window.height,alignItems:'center'}} showsVerticalScrollIndicator={false}>
-   <View style={s.top}><WorldPill testID="egg-job-back" compact label="工房へ戻る" icon="arrow-left" onPress={()=>backToRoom(router)}/><WorldPill compact label={audio.enabled?'調理音を止める':'調理音を鳴らす'} icon={audio.enabled?'volume-2':'volume-x'} onPress={audio.toggle}/></View>
+   <View style={s.top}><WorldPill testID="egg-job-back" compact label="工房へ戻る" disabled={bonusBusy} icon="arrow-left" onPress={()=>backToRoom(router)}/><WorldPill compact label={audio.enabled?'調理音を止める':'調理音を鳴らす'} icon={audio.enabled?'volume-2':'volume-x'} onPress={audio.toggle}/></View>
    <View style={[s.heading,compact&&{flexDirection:'row',gap:14,marginVertical:8}]}>{!compact&&<Text style={s.kicker}>EGG ATELIER / PART-TIME WORK</Text>}<Text style={[s.title,compact&&{fontSize:21,letterSpacing:1}]}>ゆでたまご工房</Text><Text style={s.wallet}>✦ {feedState.points} pt</Text></View>
    <View style={s.order}><MerchantResident kind="job" size={compact?42:64} active={active} reduceMotion={reduceMotion}/><View style={{flex:1,gap:5}}><Text style={s.orderLabel}>{shift?'調理中のご注文':receipt?'次のご注文':'店長からのご注文'}</Text><Text testID="egg-job-order" style={s.orderName}>{order.name}</Text>{!compact&&<Text style={s.orderCopy}>{order.description}</Text>}</View><Text style={s.orderNumber}>{String(state.receipts.length+1).padStart(2,'0')}</Text></View>
    <Pressable testID="egg-job-basket" accessibilityRole="button" accessibilityLabel="お玉ですくい上げる" disabled={!shift||busy||lifting||!!countdown} onPressIn={finish} onPress={finish} style={{alignItems:'center',width:potSize,height:potSize,marginTop:8}}>
@@ -74,8 +76,9 @@ export default function EggJobScreen(){
      </View><View style={s.row}><Text style={s.hint}>やわらかい</Text><Text style={s.hint}>火が通る</Text></View>
     </>:lifting?<View testID="egg-job-scooping" style={{minHeight:104,justifyContent:'center'}}><Text style={s.phase}>お玉ですくい上げています…</Text><Text style={s.copy}>湯切りして、できあがり。</Text></View>:receipt?<View testID="egg-job-result" style={s.resultRow}><Svg width={compact?65:83} height={compact?78:96} viewBox="0 0 100 120"><Defs><RadialGradient id="yolk"><Stop offset="0" stopColor={receipt.grade==='hard'?'#E6D992':'#FFDE71'}/><Stop offset="1" stopColor={receipt.grade==='hard'?'#B9AA71':'#F3A134'}/></RadialGradient><RadialGradient id="white"><Stop offset="0" stopColor="#FFFFFF"/><Stop offset="1" stopColor="#E6D4BE"/></RadialGradient></Defs><Ellipse cx="50" cy="109" rx="40" ry="8" fill="#A58B6D33"/><Ellipse cx="50" cy="57" rx="40" ry="50" fill="url(#white)"/><Ellipse cx="50" cy="69" rx={receipt.grade==='raw'?29:25} ry={receipt.grade==='raw'?13:receipt.grade==='perfect'?29:24} fill="url(#yolk)"/><Ellipse cx="43" cy="56" rx="11" ry="6" fill="#FFF2BF66"/></Svg><View style={{flex:1,gap:7}}><Text style={s.rank}>{RANKS[receipt.grade]}</Text><Text style={[s.result,compact&&{fontSize:14,lineHeight:21}]}>{LABELS[receipt.grade]}</Text><Text testID="egg-job-pay" style={s.reward}>{receipt.earned?`お給料 ＋${receipt.earned} pt`:'今回は報酬なし'}</Text>{receipt.targetMs!==undefined&&<Text style={s.hint}>食べごろとの差 {((receipt.elapsed-receipt.targetMs)/1000).toFixed(2)} 秒</Text>}</View></View>:<><Text style={s.phase}>注文に合わせて、ひと鍋ずつ。</Text><Text style={s.copy}>注文ごとに、ゲージの速さが変わるよ。{ '\n' }金色の目印で、お玉ですくい上げよう。</Text></>}
     {!!error&&<Text accessibilityRole="alert" style={s.error}>{error}</Text>}
-    <WorldPill testID="egg-job-action" primary label={lifting?'お玉ですくい上げ中…':busy?'保存中…':error?'同じ結果で保存し直す':countdown?'まもなくスタート':shift?'お玉ですくい上げる':receipt?'次の注文を受ける':'卵を茹ではじめる'} icon={shift?'arrow-up':'play'} disabled={busy||lifting||!!countdown} onPressIn={()=>{pressHandled.current=false;if(shift&&!error){pressHandled.current=true;finish();}}} onPress={()=>{if(pressHandled.current){pressHandled.current=false;return;}if(error&&pending.current)void act(pending.current);else if(shift)finish();else start();}} style={{minHeight:52}}/>
+    <WorldPill testID="egg-job-action" primary label={lifting?'お玉ですくい上げ中…':busy?'保存中…':error?'同じ結果で保存し直す':countdown?'まもなくスタート':shift?'お玉ですくい上げる':receipt?'次の注文を受ける':'卵を茹ではじめる'} icon={shift?'arrow-up':'play'} disabled={busy||bonusBusy||lifting||!!countdown} onPressIn={()=>{pressHandled.current=false;if(shift&&!error){pressHandled.current=true;finish();}}} onPress={()=>{if(pressHandled.current){pressHandled.current=false;return;}if(error&&pending.current)void act(pending.current);else if(shift)finish();else start();}} style={{minHeight:52}}/>
     <View style={s.row}><Text testID="egg-job-reward-rules" style={s.hint}>{shift||receipt?`絶妙 ${rules.perfectPay} pt / おいしい ${rules.goodPay} pt`:'絶妙 30〜180 pt / おいしい 12〜84 pt'}</Text><Text style={s.hint}>{combo>=2?`${combo} 回連続 PERFECT`:'早すぎ・茹ですぎ 0 pt'}</Text></View>
+    {receipt&&!shift&&!lifting&&<EggBonus key={receipt.id} receipt={receipt} onBusy={setBonusBusy}/>}
     {!!audio.blocked&&<Text style={s.hint}>右上の音ボタンで、調理音を再開できます。</Text>}
    </View>
    <View style={s.history}><Text style={s.historyLabel}>最近の仕上がり</Text>{previous.map((r,i)=><View key={r.id} style={s.stamp}><Text style={{fontSize:9,color:r.grade==='perfect'?'#EDCD91':'#C6B5C8'}}>{r.difficulty?eggRules(r.difficulty).name:`${i+1}`} / {RANKS[r.grade]} / {r.earned} pt</Text></View>)}</View>

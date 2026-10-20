@@ -1,18 +1,21 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
-  FlatList, KeyboardAvoidingView, Platform, Linking,
+  FlatList, Keyboard, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getTabBarHeight } from '@/utils/tabLayout';
 import { localDateKey, normalizeStoredMessage, type Message, type Citation } from '@/utils/chatHistory';
+import { chatErrorMessage } from '@/utils/chatErrors';
 import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasAiConsent, postAiJson } from '@/utils/aiConsent';
 import { profileToContext } from '@/utils/profileContext';
 import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
@@ -78,7 +81,7 @@ function MessageBubble({ msg, mascotStage, mascotMood }: {
         )}
       </View>
       <View style={bubbleStyles.bubbleMascot}>
-        <Text style={bubbleStyles.mascotText}>{msg.content}</Text>
+        <Text testID={msg.id === 'welcome' ? 'chat-welcome' : 'chat-assistant-message'} style={bubbleStyles.mascotText}>{msg.content}</Text>
         {msg.sourcePolicyVersion===2 && !!msg.citations?.length && (
           <View style={bubbleStyles.citations}>
             <Text style={bubbleStyles.citationsTitle}>健康・相談についての参考情報</Text>
@@ -193,6 +196,7 @@ function queueHistory<T>(operation: () => Promise<T>): Promise<T> {
 
 export default function ChatScreen() {
   const router = useRouter();
+  const aiOwner = useAuth().user?.id ?? 'guest';
   const insets = useSafeAreaInsets();
   const tabBarHeight = getTabBarHeight(Platform.OS, insets.bottom);
   const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
@@ -213,7 +217,7 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showRestEvent, setShowRestEvent] = useState(false);
-  const [sendError, setSendError] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [saveError, setSaveError] = useState(false);
@@ -223,19 +227,25 @@ export default function ChatScreen() {
   const saveVersion = useRef(0);
   const lastScheduled = useRef('[]');
   const request = useRef<AbortController | null>(null);
+  const sendEpoch = useRef(0);
+  const currentOwner = useRef(aiOwner);
+  currentOwner.current = aiOwner;
   const restTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restInteraction = useRef(0);
   const listRef = useRef<FlatList>(null);
 
   useFocusEffect(useCallback(() => () => {
+    sendEpoch.current += 1;
     if (request.current) {
       request.current.abort();
       request.current = null;
       setIsLoading(false);
-      setSendError(true);
+      setSendError(chatErrorMessage());
     }
     if (restTimer.current) clearTimeout(restTimer.current);
+    restInteraction.current += 1;
     setShowRestEvent(false);
-  }, []));
+  }, [aiOwner]));
 
   const loadHistory = async () => {
       if (loadBusy.current) return;
@@ -294,7 +304,7 @@ export default function ChatScreen() {
       lastScheduled.current = '[]';
       setSaveError(false);
       setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ` }]);
-      setSendError(false);
+      setSendError(null);
       setHistoryError(false);
     } catch { setHistoryError(true); }
     finally { clearBusy.current = false; setClearing(false); }
@@ -303,11 +313,22 @@ export default function ChatScreen() {
   const sendMessage = useCallback(async (text?: string, retry = false) => {
     const msg = (text ?? input).trim();
     if ((!retry && !msg) || request.current || clearBusy.current || !historyLoaded) return;
+    const epoch = sendEpoch.current;
+    const restEpoch = restInteraction.current;
+    const allowed = await hasAiConsent(aiOwner);
+    if (epoch !== sendEpoch.current || aiOwner !== currentOwner.current) return;
+    if (!allowed) {
+      if (!retry) setInput(msg);
+      router.push('/ai-privacy');
+      return;
+    }
+    if (request.current || clearBusy.current) return;
     const controller = new AbortController();
     request.current = controller;
     const timeout = setTimeout(() => controller.abort(), 30000);
     if (!retry) setInput('');
-    setSendError(false);
+    setSendError(null);
+    let failureMessage = chatErrorMessage();
 
     const userMsg = newMessage(`u_${Date.now()}`, 'user', msg);
     const next = retry ? messages : [...messages, userMsg];
@@ -342,20 +363,18 @@ export default function ChatScreen() {
       if (recentWins.length) ctxParts.push(`最近の小さな成功: ${recentWins.join(' / ')}`);
       if (progress?.streak) ctxParts.push(`連続記録${progress.streak}日目`);
 
-      const res = await fetch(`${API_BASE}/chat/message`, {
-        signal: controller.signal,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const res = await postAiJson(aiOwner, `${API_BASE}/chat/message`, {
           messages: history,
           mascotName: displayName,
           mascotStage,
           todayDate: getTodayDate(),
           context: ctxParts.join('\n') || undefined,
-        }),
-      });
-      if (!res.ok) throw new Error('Chat request failed');
-      const data = await res.json();
+      }, { signal: controller.signal });
+      if (!res.ok) {
+        failureMessage = chatErrorMessage(res.data?.code);
+        throw new Error('Chat request failed');
+      }
+      const data = res.data;
       if (typeof data?.content !== 'string' || !data.content.trim()) throw new Error('Invalid chat response');
       if (request.current !== controller) return;
       const validCitations = Array.isArray(data.citations) ? data.citations.filter((item: any) =>
@@ -369,11 +388,13 @@ export default function ChatScreen() {
       );
       setMessages(prev => [...prev, assistantMsg]);
       Analytics.chatMessageSent();
-      if (data.restEvent) {
+      if (data.restEvent && restEpoch === restInteraction.current) {
         restTimer.current = setTimeout(() => setShowRestEvent(true), 1200);
       }
     } catch {
-      if (request.current === controller) setSendError(true);
+      if (request.current === controller) {
+        setSendError(controller.signal.aborted ? chatErrorMessage('CHAT_TIMEOUT') : failureMessage);
+      }
     } finally {
       clearTimeout(timeout);
       if (request.current === controller) {
@@ -382,7 +403,7 @@ export default function ChatScreen() {
         scrollToBottom();
       }
     }
-  }, [input, historyLoaded, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom]);
+  }, [input, historyLoaded, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom, aiOwner, router]);
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
 
@@ -409,15 +430,20 @@ export default function ChatScreen() {
           <Mascot stage={mascotStage} mood={mascotMood} size={40} />
         )}
         <View style={styles.headerCopy}>
-          <Text style={styles.headerName}>{displayName}</Text>
-          <View style={styles.onlineRow}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>
-              {messages.filter(m => m.id !== 'welcome').length > 0
-                ? `${messages.filter(m => m.id !== 'welcome').length}件の会話`
-                : 'いつでもそばにいるよ'}
-            </Text>
+          <View style={styles.headerTitle}>
+            <Text numberOfLines={1} style={[styles.headerName,{flexShrink:1}]}>{displayName}</Text>
+            {messages.length > 1 && <Text numberOfLines={1} style={styles.onlineText}>{messages.filter(m=>m.id!=='welcome').length}件の会話</Text>}
           </View>
+          <PressScale testID="chat-rest-open" accessibilityLabel="一緒に休む" style={styles.restButton}
+          onPress={() => {
+            if (restTimer.current) clearTimeout(restTimer.current);
+            restInteraction.current += 1;
+            Keyboard.dismiss();
+            setShowRestEvent(true);
+          }}>
+          <Icon name="moon" size={15} color={colors.foreground} />
+          <Text style={styles.restButtonText}>一緒に休む</Text>
+          </PressScale>
         </View>
         {messages.length > 1 && (
           <PressScale
@@ -490,13 +516,14 @@ export default function ChatScreen() {
           <PressScale style={chipStyles.chip} accessibilityLabel="会話履歴を保存し直す" disabled={clearing} onPress={() => { void persistHistory(JSON.stringify(messages.filter(m => m.id !== 'welcome').slice(-MAX_STORED))); }}><Text>保存をもう一度試す</Text></PressScale>
         </View>}
         {sendError && <View>
-          <Text accessibilityRole="alert">返事を受け取れませんでした。もう一度試せます。</Text>
+          <Text testID="chat-send-error" accessibilityRole="alert">{sendError}</Text>
           <PressScale style={chipStyles.chip} accessibilityLabel="返事をもう一度受け取る" onPress={() => sendMessage(undefined, true)} disabled={isLoading}>
             <Text style={chipStyles.text}>もう一度試す</Text>
           </PressScale>
         </View>}
         <View style={styles.inputRow}>
           <TextInput
+            testID="chat-input"
             style={styles.input}
             placeholder={`${displayName}に話しかける…`}
             accessibilityLabel="話しかける内容"
@@ -530,7 +557,11 @@ export default function ChatScreen() {
           visible
           level={progress.level}
           mascotName={displayName}
-          onClose={() => setShowRestEvent(false)}
+          onClose={() => {
+            if (restTimer.current) clearTimeout(restTimer.current);
+            restInteraction.current += 1;
+            setShowRestEvent(false);
+          }}
         />
       ) : null}
     </KeyboardAvoidingView>
@@ -543,18 +574,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
+    gap: space.sm,
     paddingHorizontal: screenPadding,
     paddingBottom: space.md,
     borderBottomWidth: border.width,
     borderBottomColor: colors.border,
     backgroundColor: colors.card,
   },
-  headerCopy: { flex: 1, minWidth: 0 },
+  headerCopy: { flex: 1, minWidth: 0, gap: 3 },
+  headerTitle: {flexDirection:'row',alignItems:'center',gap:8},
+  restButton: { minHeight: 44, alignSelf:'flex-start', paddingHorizontal: 12, borderRadius: 22, backgroundColor: colors.muted, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  restButtonText: { fontSize: 11, color: colors.foreground },
   headerName: { ...typography.subhead, color: colors.foreground },
   onlineRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   onlineDot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.success },
-  onlineText: { ...typography.micro, color: colors.mutedForeground },
+  onlineText: { ...typography.micro, color: colors.mutedForeground, flexShrink: 1 },
   clearBtn: {
     width: control.icon,
     height: control.icon,

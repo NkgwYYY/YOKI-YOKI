@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {Platform} from 'react-native';
 import {useApp} from '@/contexts/AppContext';
 import {useAuth} from '@/contexts/AuthContext';
 import {getTodayDate} from '@/utils/dateUtils';
@@ -28,5 +29,5 @@ export function useWorldHappiness(active:boolean) {
     void awardHappiness('visit').then(()=>{if(current)setError('');},()=>{if(current)setError('うれしい気持ちを保存できませんでした。もう一度お試しください。');});
     return()=>{current=false;};
   },[active,ready,visited,today,awardHappiness,retry]);
-  return {value:state.value,actions:state.days[today]??[],smoking:smokingStatus(state.smoking,now),error,retry:()=>setRetry(n=>n+1)};
+  return {value:state.value,actions:state.days[today]??[],smoking:smokingStatus(Platform.OS==='ios'?undefined:state.smoking,now),error,retry:()=>setRetry(n=>n+1)};
 }
