@@ -28,6 +28,7 @@ requires the **actual outcome** of both iPhone and iPad journeys to be `success`
 | [39378757057](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39378757057) | Release compilation succeeded; both journeys failed during onboarding. Follow-up changes add stable field IDs and avoid the iOS `hideKeyboard` command. |
 | [39382828233](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39382828233) | Release compilation succeeded; final outcomes were iPhone=failure and iPad=failure. The iPhone simulator reported data migration failure and driver startup timeout. On iPad, the nickname visibility assertion passed, then the tap failed; the screenshot shows onboarding while the captured hierarchy contains only system status bars. No core journey is established as passing. |
 | [39383711159](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39383711159) | General CI passed for commit `98340b9`: regressions, database integration, typechecks/builds, web care/navigation, chat recovery, guest reflection with external services blocked, and native JavaScript exports. These are not native touch tests. |
+| [39389092325](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39389092325) | Release compilation and fresh simulator startup succeeded. iPhone completed onboarding and opened the diary, then failed to confirm saving: a keyboard-covered mood tap added a `G` to the text and left the save button disabled. iPad still failed the initial nickname assertion; its screenshot shows onboarding but the driver hierarchy contains only status bars. Both final outcomes are failure. |
 
 Artifact `12248930602` from run `39382828233` contains synthetic failure
 screenshots, device/runtime metadata, the captured hierarchy and driver logs.
@@ -40,6 +41,11 @@ screenshots, device/runtime metadata, the captured hierarchy and driver logs.
 - Compile only arm64 on the arm64 runner.
 - Retain privacy manifests from the compiled app for SDK data-use inspection.
 - Keep the UI assertions unchanged; do not change app behavior just for tests.
+- Provide a visible native diary header action to finish multiline input before
+  choosing a mood; verify the draft remains exact and the mood becomes selected.
+- Compare the iPad journey using an independent XCTest runner against the same
+  installed Release app, without changing its iPhone-only device-family setting.
+  The iPhone journey continues to use Maestro. Both must actually pass.
 
 These infrastructure changes require a successful run before claiming that the
 underlying test failures are resolved.

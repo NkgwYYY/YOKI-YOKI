@@ -59,6 +59,10 @@ jobs:
           unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP/maestro-cli"
           echo "$RUNNER_TEMP/maestro-cli/maestro/bin" >> "$GITHUB_PATH"
           java -version
+      - name: Prepare an independent native iPad UI test runner
+        run: |
+          gem install xcodeproj --version 1.27.0 --no-document
+          ruby scripts/create-review-xctest.rb "$RUNNER_TEMP/yoki-review-xctest"
       - name: Test iPhone review journeys
         id: iphone
         continue-on-error: true
@@ -88,7 +92,7 @@ jobs:
         run: |
           python3 scripts/prepare-ios-review.py
           YOKI_TEST_UDID=$(cat review-results/iPad/device-id.txt)
-          maestro --device "$YOKI_TEST_UDID" test --format junit --output review-results/iPad/report.xml --test-output-dir review-results/iPad/steps --debug-output review-results/iPad/steps .maestro/review-smoke.yml
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPad/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test > review-results/iPad/xctest.log 2>&1 || { tail -100 review-results/iPad/xctest.log; exit 1; }
       - name: Preserve iPad screen
         if: always() && steps.ipad.outcome != 'skipped'
         run: |
@@ -96,6 +100,10 @@ jobs:
             YOKI_TEST_UDID=$(cat review-results/iPad/device-id.txt)
             xcrun simctl io "$YOKI_TEST_UDID" screenshot review-results/iPad/final-screen.png || true
             xcrun simctl shutdown "$YOKI_TEST_UDID" || true
+            if [ -d review-results/iPad/native.xcresult ]; then
+              xcrun xcresulttool export attachments --path review-results/iPad/native.xcresult --output-path review-results/iPad/attachments || true
+              xcrun xcresulttool get test-results summary --path review-results/iPad/native.xcresult > review-results/iPad/summary.json || true
+            fi
             for shot in ./*.png .maestro/*.png; do
               [ ! -f "$shot" ] || mv "$shot" review-results/iPad/
             done

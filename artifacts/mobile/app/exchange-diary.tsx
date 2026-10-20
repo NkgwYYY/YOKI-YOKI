@@ -35,6 +35,7 @@ function DiaryNotebook(){
  const [shelf,setShelf]=useState(false),[editing,setEditing]=useState(false),[draft,setDraft]=useState<Draft|null>(null);
  const [detailsOpen,setDetailsOpen]=useState(false),[checklistOpen,setChecklistOpen]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+ const [writing,setWriting]=useState(false);
  const pending=useRef(false),alive=useRef(true),scroll=useRef<ScrollView>(null);
  const pages=feedState.exchangeDiary?.pages??{},page=pages[date];
  const dates=Object.keys(pages).sort().reverse(),index=dates.indexOf(date);
@@ -84,7 +85,7 @@ function DiaryNotebook(){
   return <Pressable accessibilityRole="button" accessibilityLabel={direction==='older'?'前の日記':'次の日記'} disabled={!target||busy} onPress={()=>chooseDate(target)} style={s.iconButton}><Icon name={direction==='older'?'chevron-left':'chevron-right'} size={20} color={target?'#6D547F':'#BFB1C8'}/></Pressable>;
  };
  return <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined}>
-  <View style={[s.top,{paddingTop:Math.max(insets.top,12)}]}><Pressable testID="diary-home" accessibilityRole="button" onPress={goHome} disabled={busy} style={s.topButton}><Icon name="chevron-left" color="#E4D4EA" size={18}/><Text style={s.topText}>おうち</Text></Pressable><Text style={s.topName}>ふたりの交換日記</Text><Pressable testID="diary-history" accessibilityRole="button" accessibilityLabel="これまでの交換日記を開く" disabled={busy} onPress={()=>setShelf(true)} style={s.topButton}><Icon name="book-open" color="#E4D4EA" size={18}/><Text style={s.topText}>本棚</Text></Pressable></View>
+  <View style={[s.top,{paddingTop:Math.max(insets.top,12)}]}><Pressable testID="diary-home" accessibilityRole="button" onPress={goHome} disabled={busy} style={s.topButton}><Icon name="chevron-left" color="#E4D4EA" size={18}/><Text style={s.topText}>おうち</Text></Pressable><Text style={s.topName}>ふたりの交換日記</Text>{writing&&Platform.OS!=='web'?<Pressable testID="diary-keyboard-done" accessibilityRole="button" accessibilityLabel="日記の入力を終える" onPress={()=>Keyboard.dismiss()} style={s.topButton}><Text style={s.topText}>入力完了</Text></Pressable>:<Pressable testID="diary-history" accessibilityRole="button" accessibilityLabel="これまでの交換日記を開く" disabled={busy} onPress={()=>setShelf(true)} style={s.topButton}><Icon name="book-open" color="#E4D4EA" size={18}/><Text style={s.topText}>本棚</Text></Pressable>}</View>
   <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={[s.content,{paddingBottom:Math.max(insets.bottom,20)+20}]}>
    <View style={s.intro}><Text style={s.eyebrow}>OUR LITTLE DAYS</Text><Text style={s.title}>{name}と、今日を分け合う。</Text><Text style={s.hint}>大きなできごとも、何もなかった日も。</Text></View>
    <View style={s.dateRow}>{dateButton('older')}<Text testID="diary-date" style={s.date}>{date.slice(0,4)}年 {formatDateJP(date)}</Text>{dateButton('newer')}</View>
@@ -106,7 +107,7 @@ function DiaryNotebook(){
     {mine&&<Pressable testID="diary-edit" accessibilityRole="button" onPress={edit} style={s.secondary}><Icon name="edit-3" size={16} color="#735580"/><Text style={s.secondaryText}>あなたのページを書き直す</Text></Pressable>}
    </>:mine&&draft?<View style={s.paper}>
     <Text style={s.authorName}>あなたの今日</Text><Text style={s.body}>{name}へ、どんな一日だった？</Text>
-    <TextInput testID="diary-input" accessibilityLabel="今日のできごとを日記に書く" value={draft.text} onChangeText={text=>update({text})} editable={!busy} multiline maxLength={DIARY_TEXT_LIMIT} textAlignVertical="top" placeholder="うれしかったこと、もやもやしたこと。まとまらないままでも、ひとことでも。" placeholderTextColor="#9E919D" style={s.input}/>
+    <TextInput testID="diary-input" accessibilityLabel="今日のできごとを日記に書く" value={draft.text} onChangeText={text=>update({text})} onFocus={()=>setWriting(true)} onBlur={()=>setWriting(false)} editable={!busy} multiline maxLength={DIARY_TEXT_LIMIT} textAlignVertical="top" placeholder="うれしかったこと、もやもやしたこと。まとまらないままでも、ひとことでも。" placeholderTextColor="#9E919D" style={s.input}/>
     <Text style={s.counter}>{draft.text.length} / {DIARY_TEXT_LIMIT}　「渡す」で保存されます</Text>
     <Text style={s.authorName}>いまの気分</Text><View style={s.moods}>{moods.map(m=><Pressable key={m.value} testID={`diary-mood-${m.value}`} accessibilityRole="button" accessibilityLabel={`気分：${m.label}`} accessibilityState={{selected:draft.mood===m.value}} disabled={busy} onPress={()=>{Keyboard.dismiss();update({mood:m.value});}} style={[s.mood,draft.mood===m.value&&s.moodSelected]}><Icon name={m.icon} size={22} color="#84668E"/><Text style={s.moodLabel}>{m.label}</Text></Pressable>)}</View>
     <Text style={s.hint}>言葉が出ない日は、気分だけでも届くよ。気分の推移にも残ります。</Text>

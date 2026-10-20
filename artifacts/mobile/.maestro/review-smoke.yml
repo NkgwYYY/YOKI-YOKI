@@ -52,12 +52,18 @@ name: Fresh guest review journeys
 - tapOn:
     id: diary-input
 - inputText: 'Release QA: a quiet day.'
+- tapOn:
+    id: diary-keyboard-done
+- assertVisible: 'Release QA: a quiet day.'
 - scrollUntilVisible:
     element:
       id: diary-mood-3
     direction: DOWN
 - tapOn:
     id: diary-mood-3
+- assertVisible:
+    id: diary-mood-3
+    selected: true
 - scrollUntilVisible:
     element:
       id: diary-send
