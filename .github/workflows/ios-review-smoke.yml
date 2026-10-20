@@ -22,8 +22,6 @@ jobs:
     env:
       CI: 'true'
       EXPO_NO_TELEMETRY: '1'
-      MAESTRO_CLI_NO_ANALYTICS: '1'
-      MAESTRO_DRIVER_STARTUP_TIMEOUT: '300000'
       EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
     defaults:
       run:
@@ -52,14 +50,7 @@ jobs:
           mkdir -p review-results
           xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/yoki-derived" -jobs 2 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build > review-results/xcodebuild.log 2>&1 || { tail -100 review-results/xcodebuild.log; exit 1; }
           echo "YOKI_LOCAL_SIM_APP=$RUNNER_TEMP/yoki-derived/Build/Products/Release-iphonesimulator/YOKIYOKI.app" >> "$GITHUB_ENV"
-      - name: Install pinned official Maestro CLI
-        run: |
-          curl --fail --location --retry 2 https://github.com/mobile-dev-inc/Maestro/releases/download/cli-2.11.0/maestro.zip -o "$RUNNER_TEMP/maestro.zip"
-          printf '%s  %s\n' '5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a' "$RUNNER_TEMP/maestro.zip" | shasum -a 256 -c -
-          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP/maestro-cli"
-          echo "$RUNNER_TEMP/maestro-cli/maestro/bin" >> "$GITHUB_PATH"
-          java -version
-      - name: Prepare an independent native iPad UI test runner
+      - name: Prepare the native UI test runner
         run: |
           gem install xcodeproj --version 1.27.0 --no-document
           ruby scripts/create-review-xctest.rb "$RUNNER_TEMP/yoki-review-xctest"
@@ -71,12 +62,16 @@ jobs:
         run: |
           python3 scripts/prepare-ios-review.py
           YOKI_TEST_UDID=$(cat review-results/iPhone/device-id.txt)
-          maestro --device "$YOKI_TEST_UDID" test --format junit --output review-results/iPhone/report.xml --test-output-dir review-results/iPhone/steps --debug-output review-results/iPhone/steps .maestro/review-smoke.yml
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test > review-results/iPhone/xctest.log 2>&1 || { tail -100 review-results/iPhone/xctest.log; exit 1; }
       - name: Preserve iPhone screen and stop simulator
         if: always() && steps.iphone.outcome != 'skipped'
         run: |
           if [ -f review-results/iPhone/device-id.txt ]; then
             python3 scripts/finish-ios-review.py iPhone
+            if [ -d review-results/iPhone/native.xcresult ]; then
+              xcrun xcresulttool export attachments --path review-results/iPhone/native.xcresult --output-path review-results/iPhone/attachments || true
+              xcrun xcresulttool get test-results summary --path review-results/iPhone/native.xcresult > review-results/iPhone/summary.json || true
+            fi
             for shot in ./*.png .maestro/*.png; do
               [ ! -f "$shot" ] || mv "$shot" review-results/iPhone/
             done
@@ -114,7 +109,7 @@ jobs:
             artifacts/mobile/review-results/
             artifacts/mobile/*.png
             artifacts/mobile/.maestro/*.png
-            !artifacts/mobile/review-results/iPad/native.xcresult/**
+            !artifacts/mobile/review-results/**/native.xcresult/**
             !artifacts/mobile/review-results/**/*.mp4
             !artifacts/mobile/review-results/**/*.mov
       - name: Require both native journeys to pass

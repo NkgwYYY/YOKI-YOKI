@@ -11,9 +11,10 @@ Release configuration on a standard GitHub-hosted macOS runner. No Apple or Expo
 credentials are used. This verifies a source-built simulator application, not a
 signed store IPA or a physical-device installation.
 
-The required Maestro flow covers fresh onboarding, diary saving, food, refusal
-of AI consent with draft retention, map travel, a minigame, diary persistence
-after restart, and local guest reflections. Synthetic test profiles use unknown
+The required native XCTest journey covers fresh onboarding, diary saving, food,
+AI consent refusal with draft retention, a real synthetic AI reply, persisted
+consent withdrawal, map travel, a minigame, diary persistence after restart, and
+local guest reflections. Synthetic test profiles use unknown
 age so automated runs do not request live ads.
 
 Both device steps use `continue-on-error` to preserve their separate evidence.
@@ -37,15 +38,14 @@ screenshots, device/runtime metadata, the captured hierarchy and driver logs.
 
 - Create fresh disposable simulators on the newest installed iOS runtime.
 - Check data migration success before starting the native journey.
-- Allow additional Maestro driver startup time and disable its CLI analytics.
 - Compile only arm64 on the arm64 runner.
 - Retain privacy manifests from the compiled app for SDK data-use inspection.
 - Keep the UI assertions unchanged; do not change app behavior just for tests.
 - Provide a visible native diary header action to finish multiline input before
   choosing a mood; verify the draft remains exact and the mood becomes selected.
-- Compare the iPad journey using an independent XCTest runner against the same
-  installed Release app, without changing its iPhone-only device-family setting.
-  The iPhone journey continues to use Maestro. Both must actually pass.
+- Run the same native XCTest journey on iPhone and iPad against the installed
+  Release app, without changing its iPhone-only device-family setting. Both must
+  actually pass. The earlier Maestro flow remains for historical diagnostics.
 
 These infrastructure changes require a successful run before claiming that the
 underlying test failures are resolved.
@@ -139,3 +139,19 @@ remain required. No full native pass is claimed from this failed run.
 
 The reduced evidence archive is 29,157,172 bytes and was downloaded and verified
 against SHA-256 `0a1dfc7e17f4dc567a5db682e6d16708ef02e900336a2cede33711c7c3a08888`.
+
+Run `39455617001` (source `cfaff2f7`) passed the complete native XCTest journey
+on iPad (A16) / iOS 26.5: zero failures or skips, including real AI, consent
+withdrawal, map travel, an actual scoop tap and result, restart persistence and
+local guest insights. The game-result screenshot shows TOO EARLY, confirming a
+user-triggered scoop before automatic expiry.
+
+The iPhone 17 Pro / iOS 26.5 boot and install also succeeded. Maestro completed
+the preceding actions but failed the short-lived enabled scoop assertion; its
+captured hierarchy already shows the next-order button after automatic expiry.
+The final job therefore remains failed. iPhone now uses the same successful
+XCTest journey, with per-device summaries and attachments preserved. The two
+actual-outcome gate is unchanged. No application behavior changed for this.
+
+Artifact `12282853687` is 70,950,198 bytes, verified against SHA-256
+`9d7cb81483eb7291e13e2abd4601534f69fdda70d2d5e324942e4b56d1efc5a3`.
