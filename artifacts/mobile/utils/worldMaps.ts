@@ -15,7 +15,13 @@ export const WORLD_MAPS = [
   {id:'village',name:'となりの村',level:4,description:'たまご・もふもふ・はっぱたちの、小さな村。'},
   {id:'lake',name:'星あかりの湖',level:6,description:'観覧車に乗って、いつもの世界を空から。'},
 ] as const;
-export function canVisitMap(id: WorldMapId, level: number, grandmaUnlocked=false) {if(id==='grandma'&&!grandmaUnlocked)return false;const map=WORLD_MAPS.find(map=>map.id===id);return !!map&&level>=map.level;}
+// Permanent iOS product restriction; identical for reviewers and all end users.
+// Tobacco consumption/rewards are not part of the iOS app (App Review 1.4.3).
+export function isMapAvailable(id: WorldMapId, platform: string) { return platform !== 'ios' || id !== 'tobacco'; }
+export function initialReleasedMap(id: WorldMapId | undefined, platform: string): WorldMapId {
+  return id && isMapAvailable(id, platform) ? id : 'home';
+}
+export function canVisitMap(id: WorldMapId, level: number, grandmaUnlocked=false, platform='web') {if(!isMapAvailable(id,platform))return false;if(id==='grandma'&&!grandmaUnlocked)return false;const map=WORLD_MAPS.find(map=>map.id===id);return !!map&&level>=map.level;}
 export function mapGroundBounds(map: WorldMapId, y: number) {
   'worklet';
   if(map==='grandma')return {minX:.23,maxX:.77,minY:.44,maxY:.82};

@@ -4,7 +4,7 @@ import {settleSmoking,type SmokingState} from './smokingState';
 
 export const HAPPY_REWARDS={visit:35,record:12,ramen:6,bath:18,homeBath:4,meal:3} as const;
 export type HappyAction=keyof typeof HAPPY_REWARDS;
-export type HappinessState={value:number;updatedOn:string;days:Record<string,HappyAction[]>;smoking?:SmokingState};
+export type HappinessState={value:number;updatedOn:string;days:Record<string,HappyAction[]>;smoking?:SmokingState;smokingRetired?:true};
 const validDate=(value:unknown):value is string=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value));
 export function readHappiness(raw:unknown,today:string,now=Date.now()):HappinessState {
   if(!validDate(today))throw new Error('Invalid happiness date');
@@ -17,8 +17,9 @@ export function readHappiness(raw:unknown,today:string,now=Date.now()):Happiness
   // Do not punish missed visits or reset happiness at midnight. It settles gently toward 40.
   const updatedOn=validDate(input?.updatedOn)?input.updatedOn:today;
   const elapsed=Math.max(0,Math.floor((Date.parse(today)-Date.parse(updatedOn))/86400000));
-  const settled=input?.smoking?settleSmoking(input.smoking,now):null;
-  return {value:Math.max(40,Math.round(value-elapsed*4-(settled?.loss??0))),updatedOn:updatedOn>today?updatedOn:today,days,...(settled?{smoking:settled.state}:{})};
+  const retired=input?.smokingRetired===true;
+  const settled=input?.smoking&&!retired?settleSmoking(input.smoking,now):null;
+  return {value:Math.max(40,Math.round(value-elapsed*4-(settled?.loss??0))),updatedOn:updatedOn>today?updatedOn:today,days,...(retired?{smoking:input?.smoking,smokingRetired:true as const}:settled?{smoking:settled.state}:{})};
 }
 export function grantHappiness(raw:unknown,action:HappyAction,today:string,now=Date.now()) {
   if(!Object.hasOwn(HAPPY_REWARDS,action))throw new Error('Invalid happiness action');

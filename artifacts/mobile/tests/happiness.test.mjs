@@ -48,3 +48,16 @@ test('interrupted happiness save recovers exactly once without overwriting balan
 test('the old one-off smoke reward is no longer accepted',()=>{
  assert.throws(()=>prepareHappiness({[key]:JSON.stringify(feed)},'smoke',date,feed),/Invalid happiness action/);
 });
+
+test('retired smoking history is preserved without withdrawal penalties', () => {
+  const now=Date.parse(date+'T08:00:00Z');
+  const smoking={sessions:3,lastSmokedAt:now-8*3600000,cravingSteps:0,giftCigarettes:2,active:null,receipts:[]};
+  const saved={value:80,updatedOn:date,days:{},smoking,smokingRetired:true};
+  const restored=readHappiness(saved,date,now);
+  assert.equal(restored.value,80);
+  assert.deepEqual(restored.smoking,smoking,'saved history is not deleted');
+  const rewarded=grantHappiness(restored,'meal',date,now).state;
+  assert.equal(rewarded.smokingRetired,true);
+  assert.deepEqual(rewarded.smoking,smoking);
+  assert.equal(readHappiness(JSON.parse(JSON.stringify(rewarded)),date,now+3600000).value,83);
+});

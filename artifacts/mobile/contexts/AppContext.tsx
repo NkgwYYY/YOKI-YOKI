@@ -13,7 +13,7 @@ import {prepareSmoking,type SmokingOperation,type SmokingResult} from '@/utils/s
 import {prepareCleaning, type HousekeepingState, type CleaningOperation} from '@/utils/housekeeping';
 import { mergeEncounterHistory } from '@/utils/mergeEncounters';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { balanceStorage as AsyncStorage } from '@/utils/balanceStorage';
 import { claimGardenReward } from '@/utils/gardenReward';
 import { prepareItemPurchase } from '@/utils/itemPurchase';
@@ -894,6 +894,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (nameStr)     setMascotNameState(nameStr);
       if (feedStr) {
         const parsed = JSON.parse(feedStr);
+        // Retire old smoking mechanics on iOS without deleting the saved history
+        // or applying withdrawal penalties after the feature is removed.
+        if (Platform.OS === 'ios' && parsed.happiness?.smoking && !parsed.happiness.smokingRetired) {
+          parsed.happiness.smokingRetired = true;
+          await AsyncStorage.setItem(KEYS.FEED_STATE, JSON.stringify(parsed));
+        }
         feedStateRef.current = parsed;
         setFeedState(parsed);
       }
@@ -1278,6 +1284,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
 
   const runSmoking = useCallback(async (operation: SmokingOperation) => {
+    if (Platform.OS === 'ios') throw new Error('この機能はiOS版では利用できません');
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
     const saved = await AsyncStorage.transaction(values => {

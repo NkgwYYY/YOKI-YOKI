@@ -104,6 +104,8 @@ name: Fresh guest review journeys
 - tapOn:
     id: world-map-open
 - assertVisible: '村をめぐる'
+- assertNotVisible:
+    id: world-map-tobacco
 - takeScreenshot: 07-map
 - tapOn:
     id: world-map-workshop

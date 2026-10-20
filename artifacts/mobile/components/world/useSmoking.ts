@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
+import {Platform} from 'react-native';
 import {useApp} from '@/contexts/AppContext';
 import {useAuth} from '@/contexts/AuthContext';
 import {SMOKE_LIMIT_MS,SMOKE_STEP_MS,type SmokeReceipt} from '@/utils/smokingState';
@@ -8,7 +9,7 @@ import type {SmokingOperation} from '@/utils/smoking';
 export function useSmoking(active:boolean){
  const {runSmoking,isLoading,cloudSynced}=useApp();
  const {user,isSignedIn,isLoading:authLoading}=useAuth();
- const owner=user?.id??'guest',ready=!isLoading&&!authLoading&&(!isSignedIn||cloudSynced);
+ const owner=user?.id??'guest',ready=Platform.OS!=='ios'&&!isLoading&&!authLoading&&(!isSignedIn||cloudSynced);
  const [elapsedMs,setElapsed]=useState(0),[running,setRunning]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[receipt,setReceipt]=useState<SmokeReceipt|null>(null);
  const alive=useRef(true),visible=useRef(active);visible.current=active;
  const session=useRef<{id:string;clock:number;elapsed:number;queued:number;stoppedAt:number;save:typeof runSmoking}|null>(null);

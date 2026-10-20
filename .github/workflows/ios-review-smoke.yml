@@ -4,16 +4,7 @@ on:
     branches: [codex/daily-ad-placement-components-20261016]
     paths:
       - .github/workflows/ios-review-smoke.yml
-      - artifacts/mobile/.maestro/**
-      - artifacts/mobile/scripts/prepare-ios-review.py
-      - artifacts/mobile/package.json
-      - artifacts/mobile/babel.config.js
-      - artifacts/mobile/components/InsightCard.tsx
-      - artifacts/mobile/components/ProfileForm.tsx
-      - artifacts/mobile/utils/insightData.ts
-      - artifacts/mobile/app/ai-privacy.tsx
-      - artifacts/mobile/app/onboarding.tsx
-      - artifacts/mobile/app/exchange-diary.tsx
+      - artifacts/mobile/**
       - pnpm-lock.yaml
       - docs/qa/ios-review-simulator.json
   workflow_dispatch:
@@ -21,7 +12,8 @@ permissions:
   contents: read
 concurrency:
   group: ios-review-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserve the first device failure evidence while a follow-up candidate queues.
+  cancel-in-progress: false
 jobs:
   native_review:
     # Standard arm64 runner: free for this public repository. No larger runner.

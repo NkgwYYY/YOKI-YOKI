@@ -36,7 +36,7 @@ import type { WorldPeriod } from '@/utils/worldTime';
 import { WorldAmbient } from './WorldAmbient';
 import {TobaccoHaze} from './TobaccoHaze';
 import { BottomSheet } from '@/components/ui/BottomSheet';
-import { WORLD_MAPS, canVisitMap, isMapGround, mapStart, type WorldMapId } from '@/utils/worldMaps';
+import { WORLD_MAPS, isMapAvailable, initialReleasedMap, canVisitMap, isMapGround, mapStart, type WorldMapId } from '@/utils/worldMaps';
 import { useWorldCamera } from './useWorldCamera';
 import { WorldResident } from './WorldResident';
 import { WorldSteering } from '@/components/village/WorldSteering';
@@ -99,7 +99,7 @@ export function WorldHome(props: Props) {
   const returning=useRef(false);
   const latestActive=useRef(props.active);latestActive.current=props.active;
   const portalTravel=useSharedValue(false);
-  const [map,setMap]=useState<WorldMapId>(props.initialMap??'home');
+  const [map,setMap]=useState<WorldMapId>(()=>initialReleasedMap(props.initialMap,Platform.OS));
   const [diaryDay,setDiaryDay]=useState(getTodayDate);
   useEffect(()=>{
     if(!props.active||map!=='home')return;
@@ -227,7 +227,7 @@ export function WorldHome(props: Props) {
       else setPlacesOpen(true);
     },reduceMotion?0:460);
   };
-  useEffect(()=>{if(stories.ready&&!canVisitMap(map,props.level,grandmaUnlocked))setMap('home');},[map,props.level,grandmaUnlocked,stories.ready]);
+  useEffect(()=>{if(stories.ready&&!canVisitMap(map,props.level,grandmaUnlocked,Platform.OS))setMap('home');},[map,props.level,grandmaUnlocked,stories.ready]);
   useEffect(()=>{if(props.meal){setExperience(null);setNeighbor(null);if(map!=='ramen')setMap('home');}},[props.meal]);
   useEffect(()=>{if(props.rest){setExperience(null);setNeighbor(null);setMap('home');}},[props.rest]);
   // Let the visible scene finish first; warm only the atlas and likely exit.
@@ -243,7 +243,7 @@ export function WorldHome(props: Props) {
         const target=map==='home'?'market':map==='market'?'home':'market';
         for(const next of [target] as WorldMapId[]){
           if(cancelled)return;
-          if(next!==map&&canVisitMap(next,props.level,grandmaUnlocked))try { await prepareWorldArt(next,props.period==='night'); } catch {}
+          if(next!==map&&canVisitMap(next,props.level,grandmaUnlocked,Platform.OS))try { await prepareWorldArt(next,props.period==='night'); } catch {}
         }
       })();
     },2000);
@@ -260,9 +260,10 @@ export function WorldHome(props: Props) {
     if (active&&!cleanTool&&!riding&&!props.food&&(!experience||experience==='smoke')&&!bowlingBusy) {portalTravel.value=throughGate;pending.current=null;setDestination({id:++destinationId.current,point:mapGroundPoint(map,point)});}
   };
   const enterMap=(target:WorldMapId,fromMap=false)=>{
+    if(!isMapAvailable(target,Platform.OS))return;
     if(!props.active||bowlingOpen||cleanTool||riding||neighbor||transition.busy||(!fromMap&&(mapOpen||placesOpen||viewOpen||bankOpen||fortuneOpen))||props.food||experience)return;
     portalTravel.value=false;steering.value={x:0,y:0};setDestination(null);
-    if(!canVisitMap(target,props.level,grandmaUnlocked)){const place=WORLD_MAPS.find(p=>p.id===target)!;setMapMessage(`${place.name}はレベル${place.level}でひらきます。`);return;}
+    if(!canVisitMap(target,props.level,grandmaUnlocked,Platform.OS)){const place=WORLD_MAPS.find(p=>p.id===target)!;setMapMessage(`${place.name}はレベル${place.level}でひらきます。`);return;}
     setMapOpen(false);setPlacesOpen(false);setViewOpen(false);
     if(target===map)return;
     pending.current=null;setDestination(null);steering.value={x:0,y:0};setMapMessage('');
@@ -281,7 +282,7 @@ export function WorldHome(props: Props) {
     const id=++destinationId.current;pending.current={id,action};setDestination({id,point:mapGroundPoint(map,point)});
   };
   const arrive=(id:number)=>{
-    if(portalTravel.value&&destination?.id===id){const gates=mapPortals(map,grandmaUnlocked),gate=nearbyPortalIndex(destination.point,gates);if(gate>=0){enterMap(gates[gate].to);return;}}
+    if(portalTravel.value&&destination?.id===id){const gates=mapPortals(map,grandmaUnlocked,Platform.OS),gate=nearbyPortalIndex(destination.point,gates);if(gate>=0){enterMap(gates[gate].to);return;}}
     setDestination(current=>current?.id===id?null:current);
     const next=pending.current;portalTravel.value=false;if(!next||next.id!==id)return;pending.current=null;
     const a=next.action;
@@ -373,7 +374,7 @@ export function WorldHome(props: Props) {
       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>}
       <VillageVisitors occupiedPoints={conversationTargets.map(t=>t.point)} map={map} daySeed={props.daySeed} width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food&&!experience&&!bowlingBusy} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>
       {nearbyTarget?.hint&&<EncounterHint key={nearbyTarget.key} target={nearbyTarget} targets={conversationTargets} width={width} height={height} viewportLeft={-frame.left} viewportWidth={bounds.width} clearTop={stageTop-frame.top} footX={footX} footY={footY}/>}
-      {mapPortals(map,grandmaUnlocked).filter(gate=>gate.to!=='home').map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level,grandmaUnlocked)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
+      {mapPortals(map,grandmaUnlocked,Platform.OS).filter(gate=>gate.to!=='home').map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level,grandmaUnlocked,Platform.OS)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
       <WorldResident {...props} grandmaUnlocked={grandmaUnlocked} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {map==='home'&&props.carriedGift&&<CarriedGift kind={props.carriedGift} width={width} height={height} footX={footX} footY={footY}/>}
       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}

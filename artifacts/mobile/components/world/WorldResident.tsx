@@ -106,7 +106,7 @@ export function WorldResident(p: Props) {
     if(!active||p.riding||experience||food||p.smoking||p.bowlingBusy||p.destination||interacting||manual)stopWelcome();
   },[active,p.riding,experience,food,p.smoking,p.bowlingBusy,p.destination,interacting,manual]);
   useAnimatedReaction(()=>!p.riding&&Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){stopWelcome();cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
-  const portals=mapPortals(map,p.grandmaUnlocked);
+  const portals=mapPortals(map,p.grandmaUnlocked,Platform.OS);
   const onPortal=p.onPortal;
   useAnimatedReaction(()=>{if(!available.value||!p.portalTravel.value||experience||food||p.bowlingBusy)return -1;const dir=Math.hypot(steering.value.x,steering.value.y)>.05?steering.value:p.destination?{x:p.destination.point.x-x.value,y:p.destination.point.y-y.value}:null;return dir?nearbyPortalIndex({x:x.value,y:y.value},portals,dir):-1;},(index,previous)=>{if(index>=0&&index!==previous){p.portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(x);cancelAnimation(y);walking.value=0;runOnJS(onPortal)(portals[index].to);}},[map,onPortal,experience,food,p.bowlingBusy,p.destination]);
   useEffect(()=>{if(pose==='eating'&&active){mealProgress.value=0;mealProgress.value=withTiming(1,{duration:MEAL_DURATION,easing:Easing.linear});}else mealProgress.value=0;return()=>cancelAnimation(mealProgress);},[pose,active,mealProgress]);

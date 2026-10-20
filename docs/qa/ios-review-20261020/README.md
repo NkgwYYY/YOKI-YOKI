@@ -32,9 +32,21 @@ The next candidate adds stable onboarding IDs, dismisses the keyboard when choos
 
 ## Apple review history confirmed in App Store Connect
 
-The account is signed in. Version 1.0 remains rejected with build 18 attached. Apple messages include launch crashes (builds 5/6), registration errors and missing verification email (builds 13/17), missing health sources / disclaimers including English localization (builds 16/17), unresponsive core buttons on iPadOS 27.0.1 (build 18), and stale 6.5-inch screenshots (build 18). The English description's optional-account claim was replaced with the current iOS guest-only behavior; final save persistence still requires verification.
+The account is signed in. Version 1.0 remains rejected with build 18 attached. Apple messages include launch crashes (builds 5/6), registration errors and missing verification email (builds 13/17), missing health sources / disclaimers including English localization (builds 16/17), unresponsive core buttons on iPadOS 27.0.1 (build 18), and stale 6.5-inch screenshots (build 18). The English description's optional-account claim was replaced with the current iOS guest-only behavior; Save is disabled after saving, and the persisted form value matches the corrected text.
 
 Apple also explicitly requested a **physical-device recording on the latest OS**, typical use flows, purpose/audience, setup instructions, external services, and regional behavior. Simulator evidence does not satisfy that physical-device request. Existing reviewer replies must be checked for any prior recording before requesting a new one. An updated Apple Developer Program License Agreement is pending; it has not been accepted. No new build has been uploaded or submitted for review.
+
+## Additional release risk found
+
+The iOS candidate exposed a repeatable smoking mechanic that grants happiness, offered cigarettes as gifts, and displayed tobacco scenes. App Store Connect answered **None** for alcohol/tobacco/drug depictions. Merely increasing the rating would not address App Review guideline 1.4.3's prohibition on encouraging tobacco consumption.
+
+The next iOS candidate permanently removes access to that scene for **all iOS users**, regardless of account, location, or review status. The atlas and walking gates omit it; old direct routes open Home; the storage action rejects smoking operations on iOS. Existing smoking history is retained but marked retired so withdrawal penalties do not continue. Web/Android behavior is not changed. Native evidence must confirm the tobacco destination is absent, and review notes must disclose this product change. Build 21 still contains the old feature and must not be submitted.
+
+Targeted map, happiness and legacy smoking regression tests: **37 passed**. Mobile typecheck passed. These are not a substitute for the final native journeys.
+
+Run `39382828154` / commit `ddb6989` passed the complete existing CI suite, database integration, mobile/API/website typechecks, web/native JS exports, care/navigation browser checks, chat recovery/consent checks, and the new guest reflection browser test with all external APIs blocked. It does not include the subsequent iOS tobacco removal. Native run `39382828233` is still in progress.
+
+The live App Privacy declaration currently lists 23 data types, including credit information, payment information, environment scans, precise location and audio; all are marked not linked to identity. This does not match the iOS code and requires correction. The iOS app has no account/email collection, no payment flow enabled, no microphone/environment/precise-location feature. AI profile/health/behavior inputs, server-backed friend/room data, pseudonymous player IDs and AdMob SDK data must still be declared accurately; guest-only does not mean no server collection. No privacy declaration has been changed yet.
 
 ## Remaining submission gates
 
