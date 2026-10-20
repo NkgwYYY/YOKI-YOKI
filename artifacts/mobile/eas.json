@@ -8,6 +8,9 @@
       "distribution": "store",
       "environment": "production",
       "autoIncrement": true,
+      "ios": {
+        "image": "sdk-54"
+      },
       "env": {
         "EXPO_PUBLIC_DOMAIN": "yoki-yoki.replit.app"
       }
