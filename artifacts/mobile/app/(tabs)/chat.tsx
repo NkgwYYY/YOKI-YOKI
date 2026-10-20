@@ -14,6 +14,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasAiConsent, postAiJson } from '@/utils/aiConsent';
 import { profileToContext } from '@/utils/profileContext';
 import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
@@ -194,6 +196,7 @@ function queueHistory<T>(operation: () => Promise<T>): Promise<T> {
 
 export default function ChatScreen() {
   const router = useRouter();
+  const aiOwner = useAuth().user?.id ?? 'guest';
   const insets = useSafeAreaInsets();
   const tabBarHeight = getTabBarHeight(Platform.OS, insets.bottom);
   const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
@@ -224,10 +227,14 @@ export default function ChatScreen() {
   const saveVersion = useRef(0);
   const lastScheduled = useRef('[]');
   const request = useRef<AbortController | null>(null);
+  const sendEpoch = useRef(0);
+  const currentOwner = useRef(aiOwner);
+  currentOwner.current = aiOwner;
   const restTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<FlatList>(null);
 
   useFocusEffect(useCallback(() => () => {
+    sendEpoch.current += 1;
     if (request.current) {
       request.current.abort();
       request.current = null;
@@ -236,7 +243,7 @@ export default function ChatScreen() {
     }
     if (restTimer.current) clearTimeout(restTimer.current);
     setShowRestEvent(false);
-  }, []));
+  }, [aiOwner]));
 
   const loadHistory = async () => {
       if (loadBusy.current) return;
@@ -304,6 +311,15 @@ export default function ChatScreen() {
   const sendMessage = useCallback(async (text?: string, retry = false) => {
     const msg = (text ?? input).trim();
     if ((!retry && !msg) || request.current || clearBusy.current || !historyLoaded) return;
+    const epoch = sendEpoch.current;
+    const allowed = await hasAiConsent(aiOwner);
+    if (epoch !== sendEpoch.current || aiOwner !== currentOwner.current) return;
+    if (!allowed) {
+      if (!retry) setInput(msg);
+      router.push('/ai-privacy');
+      return;
+    }
+    if (request.current || clearBusy.current) return;
     const controller = new AbortController();
     request.current = controller;
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -344,24 +360,18 @@ export default function ChatScreen() {
       if (recentWins.length) ctxParts.push(`最近の小さな成功: ${recentWins.join(' / ')}`);
       if (progress?.streak) ctxParts.push(`連続記録${progress.streak}日目`);
 
-      const res = await fetch(`${API_BASE}/chat/message`, {
-        signal: controller.signal,
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const res = await postAiJson(aiOwner, `${API_BASE}/chat/message`, {
           messages: history,
           mascotName: displayName,
           mascotStage,
           todayDate: getTodayDate(),
           context: ctxParts.join('\n') || undefined,
-        }),
-      });
+      }, { signal: controller.signal });
       if (!res.ok) {
-        const failure = await res.json().catch(() => null);
-        failureMessage = chatErrorMessage(failure?.code);
+        failureMessage = chatErrorMessage(res.data?.code);
         throw new Error('Chat request failed');
       }
-      const data = await res.json();
+      const data = res.data;
       if (typeof data?.content !== 'string' || !data.content.trim()) throw new Error('Invalid chat response');
       if (request.current !== controller) return;
       const validCitations = Array.isArray(data.citations) ? data.citations.filter((item: any) =>
@@ -390,7 +400,7 @@ export default function ChatScreen() {
         scrollToBottom();
       }
     }
-  }, [input, historyLoaded, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom]);
+  }, [input, historyLoaded, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom, aiOwner, router]);
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
 

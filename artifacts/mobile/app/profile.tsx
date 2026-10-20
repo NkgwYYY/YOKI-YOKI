@@ -12,6 +12,7 @@ import { PressScale } from '@/components/ui/PressScale';
 import { DEFAULT_HOME_COMMENT_PREFERENCES, type HomeCommentFrequency, type HomeCommentPreferences } from '@/utils/homeComment';
 
 import { RecordPromptSettings } from '@/components/record/RecordPromptSettings';
+import { Button } from '@/components/ui/Button';
 
 const FREQUENCY_OPTIONS: { value: HomeCommentFrequency; label: string; description: string }[] = [
   { value: 'daily', label: '毎日', description: 'その日の最初に、ひとこと話します' },
@@ -98,6 +99,7 @@ export default function ProfileScreen() {
           いつでも変更できます。AIは参考情報として使い、実際の記録を優先します。
         </Text>
         <RecordPromptSettings />
+        <Button label="AIへの情報送信・同意設定" variant="outline" onPress={() => router.push('/ai-privacy')} />
         <View style={styles.commentSettings}>
           <View style={styles.settingHeader}>
             <Icon name="message-circle" size={iconSize.sm} color={colors.primary} />

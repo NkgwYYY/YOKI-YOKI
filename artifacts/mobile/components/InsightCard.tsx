@@ -10,6 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { profileToContext } from '@/utils/profileContext';
 import { getTodayDate } from '@/utils/dateUtils';
 import { readInsights, type Insight } from '@/utils/insightData';
+import { useRouter } from 'expo-router';
+import { hasAiConsent, postAiJson } from '@/utils/aiConsent';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const STORAGE_KEY = '@mentore/insight_v1';
@@ -21,7 +23,9 @@ interface CachedInsight {
 
 export function InsightCard() {
   const { records, progress, checkedState, unlockedBadges, mascotName, profile } = useApp();
-  const { getToken } = useAuth();
+  const { getToken, user } = useAuth();
+  const router = useRouter();
+  const aiOwner = user?.id ?? 'guest';
 
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,6 +34,8 @@ export function InsightCard() {
   const busy = useRef(false);
   const requested = useRef(false);
   const mounted = useRef(true);
+  const currentOwner = useRef(aiOwner);
+  currentOwner.current = aiOwner;
   const pendingCache = useRef<CachedInsight | null>(null);
 
   const saveCache = async () => {
@@ -70,6 +76,10 @@ export function InsightCard() {
 
   const generate = async () => {
     if (busy.current) return;
+    const allowed = await hasAiConsent(aiOwner);
+    if (!mounted.current || aiOwner !== currentOwner.current) return;
+    if (!allowed) { router.push('/ai-privacy'); return; }
+    if (busy.current) return;
     busy.current = true;
     requested.current = true;
     setLoading(true);
@@ -103,16 +113,14 @@ export function InsightCard() {
         badgeCount: unlockedBadges.length,
       };
       const token = await getToken();
-      const res = await fetch(`${API_BASE}/insight`, {
-        method: 'POST',
+      const res = await postAiJson(aiOwner, `${API_BASE}/insight`, payload, {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('bad status');
-      const data = await res.json();
+      const data = res.data;
       const valid = readInsights(data?.insights);
       if (!valid) throw new Error('Invalid insights');
       if (!mounted.current) return;

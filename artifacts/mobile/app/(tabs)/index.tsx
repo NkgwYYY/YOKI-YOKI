@@ -116,11 +116,11 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!active || sheet !== 'chat') return;
     let alive = true;
-    getHomeComment({ date: getTodayDate(), mascotName: mascotName || 'よっきー', record: today,
+    getHomeComment({ owner: giftOwner, date: getTodayDate(), mascotName: mascotName || 'よっきー', record: today,
       completed: getCompletedCount(), total: getTotalCheckCount(), preferences: homeCommentPreferences })
       .then(value => { if (alive && value) setMessage(value); }).catch(() => {});
     return () => { alive = false; };
-  }, [active, sheet, today, mascotName, homeCommentPreferences, getCompletedCount, getTotalCheckCount]);
+  }, [active, sheet, today, mascotName, homeCommentPreferences, getCompletedCount, getTotalCheckCount, giftOwner]);
   const equipment = (category: 'wear' | 'effect' | 'decor') => {
     const id = shopState.equipped[category] ?? (category === 'wear' ? shopState.equipped.accessory : null);
     const item = items.find(i => i.id === id);
