@@ -79,3 +79,20 @@ The next native iPad journey also requires a real response to a synthetic
 (non-personal) greeting after explicit AI consent, followed by persisted consent
 withdrawal. These assertions have not yet passed; no release readiness claim is
 made here.
+
+Run `39429267752` (source `8f5ce35f`) finished with both actual outcomes failed.
+The iPad journey did verify a real AI reply after consent and retained the draft
+after refusing consent. It then stopped at the profile menu lookup: the visible,
+scrollable button's accessibility label contained decorative icon glyphs around
+the text. Room menu buttons now expose their exact visible label for VoiceOver
+and native automation. Consent withdrawal and subsequent map/game/restart steps
+are still unverified in this run. The iPhone OS migration failed before install,
+and its shutdown timed out before the intended fresh-device retry. That cleanup
+timeout is now contained and logged; the two-attempt boot limit and failure gate
+remain unchanged.
+
+The app declares Japanese as its default and supported bundle language, matching
+its interface. Expo SDK 54 config introspection confirms the generated Info.plist
+values. The iOS happiness sheet also omits a stale sentence about the tobacco
+activity that is permanently unavailable on iOS. These changes still require the
+next native run; no complete native pass is claimed.

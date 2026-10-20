@@ -143,7 +143,7 @@ export default function HomeScreen() {
   }[kind]);};
   const openFeed=(venue?:'ramen')=>{if(food){say('いま、おやつを食べているところだよ。');return;}setFeedVenue(venue);setSheet('feed');};
   const restTogether = () => {voice.play('soft');setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
-  const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
+  const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
     <View testID="home-world-scene" style={{flex:1}}>
     <WorldHome dockInset={railHeight ? 12 : undefined} onInteractingChange={setWorldInteracting} carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={`${bathReturn??'world'}-${journey??''}`} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={tab=>router.push(tab==='seeds'?'/shop?tab=seeds':'/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={WORLD_MAPS.find(p=>p.id===place)?.id} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level)} growthSize={growth.growthSize}
@@ -192,7 +192,7 @@ export default function HomeScreen() {
     {sheet === 'happiness' && <BottomSheet visible onClose={close} title="うれしい気持ち" subtitle="会いに来てくれることが、いちばんうれしい。">
       <Text style={s.chatText}>幸福度 {happiness.value}%</Text>
       {(happiness.smoking.dependent||happiness.smoking.recovered)&&<><SmokingCare status={happiness.smoking}/>{happiness.smoking.dependent&&<View style={{gap:8}}><WorldPill label="ごはんで気分転換" icon="coffee" onPress={()=>setSheet('feed')}/><WorldPill label="交換日記を書く" icon="book-open" onPress={()=>router.push('/exchange-diary')}/><WorldPill disabled={bathCompleted} label={bathCompleted?'今日は入浴済み':'おふろでひと休み'} icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/></View>}</>}
-      <Text style={{color:'#C1B2CA',fontSize:13,lineHeight:22}}>下の楽しみの加点は、1日1回。喫煙は吸っている時間に応じて変わるよ。</Text>
+      <Text style={{color:'#C1B2CA',fontSize:13,lineHeight:22}}>下の楽しみの加点は、1日1回。{Platform.OS !== 'ios' && '喫煙は吸っている時間に応じて変わるよ。'}</Text>
       {(Object.entries({visit:'会いに来てくれた',record:'今日のことを教えてくれた',ramen:'ラーメンを食べた',bath:'温泉でひと休み',homeBath:'おうちのおふろ',meal:'一緒にごはん'}) as [HappyAction,string][]).map(([action,label])=><View key={action} style={s.menuRow}>
         <Icon name={happiness.actions.includes(action)?'check-circle':'circle'} color="#A07DAA"/><Text style={s.menuText}>{label}</Text><Text style={{color:'#CDB68E'}}>＋{HAPPY_REWARDS[action]}</Text>
       </View>)}

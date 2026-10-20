@@ -84,12 +84,23 @@ for attempt in range(1, 3):
     (evidence / 'environment.json').write_text(json.dumps({
         'build_id': build['build_id'], 'source_commit': build['source_commit'],
         'device': device['name'], 'runtime': runtime, 'version': info.get('CFBundleVersion'),
+        'development_region': info.get('CFBundleDevelopmentRegion'),
+        'localizations': info.get('CFBundleLocalizations', []),
         'boot_attempts': attempts,
         'note': 'Simulator validation; not a physical-device or signed-IPA installation test.',
     }, indent=2))
     if ready:
         break
-    subprocess.run(['xcrun', 'simctl', 'shutdown', udid], check=False, timeout=60)
+    # A failed OS migration can also hang simctl shutdown. Keep cleanup bounded
+    # without allowing that separate failure to skip the one fresh-device retry.
+    try:
+        cleanup = subprocess.run(['xcrun', 'simctl', 'shutdown', udid],
+                                 check=False, timeout=60, capture_output=True, text=True)
+        cleanup_output = cleanup.stdout + cleanup.stderr
+    except subprocess.TimeoutExpired as error:
+        cleanup_output = str(error)
+        print('Failed simulator shutdown timed out; preserving evidence and continuing the bounded bootstrap flow.', flush=True)
+    (evidence / f'shutdown-attempt-{attempt}.log').write_text(cleanup_output)
     if attempt == 2:
         raise SystemExit('Both fresh simulator boot attempts failed; native journeys were not run.')
     print('OS data migration failed before app installation; trying one new disposable simulator.', flush=True)

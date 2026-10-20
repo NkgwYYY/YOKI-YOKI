@@ -24,6 +24,8 @@
       "buildNumber": "19",
       "supportsTablet": false,
       "infoPlist": {
+        "CFBundleDevelopmentRegion": "ja",
+        "CFBundleLocalizations": ["ja"],
         "ITSAppUsesNonExemptEncryption": false
       }
     },
