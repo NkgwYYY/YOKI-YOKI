@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
-  FlatList, KeyboardAvoidingView, Platform, Linking,
+  FlatList, Keyboard, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -231,6 +231,7 @@ export default function ChatScreen() {
   const currentOwner = useRef(aiOwner);
   currentOwner.current = aiOwner;
   const restTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restInteraction = useRef(0);
   const listRef = useRef<FlatList>(null);
 
   useFocusEffect(useCallback(() => () => {
@@ -242,6 +243,7 @@ export default function ChatScreen() {
       setSendError(chatErrorMessage());
     }
     if (restTimer.current) clearTimeout(restTimer.current);
+    restInteraction.current += 1;
     setShowRestEvent(false);
   }, [aiOwner]));
 
@@ -312,6 +314,7 @@ export default function ChatScreen() {
     const msg = (text ?? input).trim();
     if ((!retry && !msg) || request.current || clearBusy.current || !historyLoaded) return;
     const epoch = sendEpoch.current;
+    const restEpoch = restInteraction.current;
     const allowed = await hasAiConsent(aiOwner);
     if (epoch !== sendEpoch.current || aiOwner !== currentOwner.current) return;
     if (!allowed) {
@@ -385,7 +388,7 @@ export default function ChatScreen() {
       );
       setMessages(prev => [...prev, assistantMsg]);
       Analytics.chatMessageSent();
-      if (data.restEvent) {
+      if (data.restEvent && restEpoch === restInteraction.current) {
         restTimer.current = setTimeout(() => setShowRestEvent(true), 1200);
       }
     } catch {
@@ -427,7 +430,7 @@ export default function ChatScreen() {
           <Mascot stage={mascotStage} mood={mascotMood} size={40} />
         )}
         <View style={styles.headerCopy}>
-          <Text style={styles.headerName}>{displayName}</Text>
+          <Text numberOfLines={1} style={styles.headerName}>{displayName}</Text>
           <View style={styles.onlineRow}>
             <View style={styles.onlineDot} />
             <Text style={styles.onlineText}>
@@ -437,6 +440,16 @@ export default function ChatScreen() {
             </Text>
           </View>
         </View>
+        <PressScale testID="chat-rest-open" accessibilityLabel="一緒に休む" style={styles.restButton}
+          onPress={() => {
+            if (restTimer.current) clearTimeout(restTimer.current);
+            restInteraction.current += 1;
+            Keyboard.dismiss();
+            setShowRestEvent(true);
+          }}>
+          <Icon name="moon" size={15} color={colors.foreground} />
+          <Text style={styles.restButtonText}>一緒に休む</Text>
+        </PressScale>
         {messages.length > 1 && (
           <PressScale
             onPress={clearHistory}
@@ -549,7 +562,11 @@ export default function ChatScreen() {
           visible
           level={progress.level}
           mascotName={displayName}
-          onClose={() => setShowRestEvent(false)}
+          onClose={() => {
+            if (restTimer.current) clearTimeout(restTimer.current);
+            restInteraction.current += 1;
+            setShowRestEvent(false);
+          }}
         />
       ) : null}
     </KeyboardAvoidingView>
@@ -570,6 +587,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
   },
   headerCopy: { flex: 1, minWidth: 0 },
+  restButton: { minHeight: 44, paddingHorizontal: 10, borderRadius: 22, backgroundColor: colors.muted, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  restButtonText: { fontSize: 11, color: colors.foreground },
   headerName: { ...typography.subhead, color: colors.foreground },
   onlineRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   onlineDot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.success },

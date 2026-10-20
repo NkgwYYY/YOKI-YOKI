@@ -60,3 +60,19 @@ test('already cancelled caller never sends data', async () => {
   await assert.rejects(f.postAiJson('A', '/ai', {}, { signal: controller.signal }));
   assert.equal(f.sent.length, 0);
 });
+
+test('existing chat consent does not silently grant diary access; diary grant does not grant chat', async()=>{
+ const f=fixture();await f.setAiConsent('A',true);
+ await assert.rejects(f.postAiJson('A','/diary',{text:'private'},{scope:'diary'}));assert.equal(f.sent.length,0);
+ await f.setAiConsent('B',true,'diary');assert.equal(await f.hasAiConsent('B'),false);
+ await f.postAiJson('B','/diary',{text:'sample'},{scope:'diary'});assert.equal(f.sent.length,1);
+});
+test('profile withdrawal cancels and revokes both diary and general sharing',async()=>{
+ const f=fixture();await f.setAiConsent('A',true);await f.setAiConsent('A',true,'diary');
+ await f.setAiConsent('A',false);assert.equal(await f.hasAiConsent('A'),false);assert.equal(await f.hasAiConsent('A','diary'),false);
+ await f.setAiConsent('A',true);assert.equal(await f.hasAiConsent('A','diary'),false);
+});
+test('diary-only withdrawal leaves explicitly granted chat permission intact',async()=>{
+ const f=fixture();await f.setAiConsent('A',true);await f.setAiConsent('A',true,'diary');await f.setAiConsent('A',false,'diary');
+ assert.equal(await f.hasAiConsent('A'),true);assert.equal(await f.hasAiConsent('A','diary'),false);
+});

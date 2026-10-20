@@ -1,7 +1,8 @@
 const fs=require('node:fs'),http=require('node:http'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.YOKI_QA_PLAYWRIGHT||'playwright');
+fs.mkdirSync(process.env.YOKI_QA_OUTPUT,{recursive:true});
 const root=path.resolve(process.env.YOKI_QA_EXPORT||path.join(__dirname,'../../../build-yoki-v2-storage'));
-const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.jpg':'image/jpeg','.ttf':'font/ttf','.mp3':'audio/mpeg'};
+const mime={'.html':'text/html','.js':'text/javascript','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ttf':'font/ttf','.mp3':'audio/mpeg'};
 const server=http.createServer((req,res)=>{
   let file=path.join(root,decodeURIComponent(new URL(req.url,'http://localhost').pathname));
   if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}
@@ -11,28 +12,45 @@ const server=http.createServer((req,res)=>{
 (async()=>{
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   const browser=await chromium.launch({executablePath:process.env.YOKI_QA_BROWSER,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
+  let activePage;
   try{
-    for(const viewport of [{width:320,height:480},{width:844,height:390},{width:820,height:1180}]){
-      const page=await browser.newPage({viewport,reducedMotion:'reduce'}),errors=[];
+    for(const viewport of [{width:320,height:568},{width:390,height:844},{width:844,height:390},{width:820,height:1180}]){
+      const page=await browser.newPage({viewport,reducedMotion:'reduce'}),errors=[];activePage=page;
       page.on('pageerror',e=>errors.push(e.message));
-      await page.addInitScript(()=>{
+      await page.addInitScript(({level})=>{
+        localStorage.setItem('@yoki/ai-sharing-v1/guest',JSON.stringify({version:1,allowed:true}));
         localStorage.setItem('@mentore/profile_v1',JSON.stringify({nickname:'テスト',ageRange:'回答しない',gender:'回答しない'}));
-        localStorage.setItem('@mentore/encounters_v1',JSON.stringify({list:[{charKey:'egg',metDate:'2026-09-01'}]}));
-      });
+        localStorage.setItem('@mentore/encounters_v1',JSON.stringify({list:['egg','odango','happa','colorful_happa'].map(charKey=>({charKey,metDate:'2026-09-01'}))}));
+        localStorage.setItem('@mentore/progress_v2',JSON.stringify({level,experience:0,mentalMuscle:0,streak:0,totalDays:0,lastRecordDate:''}));
+      },{level:viewport.width===320?1:viewport.width===390?3:viewport.width===844?6:15});
       const headers={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'POST, OPTIONS'};
+      await page.route('**/api/**',route=>route.fulfill({status:503,headers,contentType:'application/json',body:'{}'}));
       await page.route('**/api/chat/message',route=>route.fulfill({status:200,headers,contentType:'application/json',body:JSON.stringify({content:'休憩テストの返事',restEvent:true})}));
       await page.goto('http://127.0.0.1:'+server.address().port+'/chat');
       await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
-      const send=async()=>{await page.getByRole('textbox',{name:'話しかける内容'}).fill('休憩テスト');await page.getByRole('button',{name:'送信',exact:true}).click();await page.getByRole('button',{name:'今は大丈夫',exact:true}).waitFor();};
+      const send=async()=>{await page.getByTestId('chat-rest-open').click();await page.getByRole('button',{name:'今は大丈夫',exact:true}).waitFor();};
       await send();
+      if(viewport.width===390)await page.screenshot({path:process.env.YOKI_QA_OUTPUT+'/rest-menu.png'});
       const skip=page.getByRole('button',{name:'今は大丈夫',exact:true});
       await skip.scrollIntoViewIfNeeded();let box=await skip.boundingBox();assert.ok(box.y>=0&&box.y+box.height<=viewport.height+1);await skip.click();
       for(const label of ['焚き火を見る','雨の音を聞く','夜空を見る','猫を撫でる']){
         await page.emulateMedia({reducedMotion:label==='猫を撫でる'?'reduce':'no-preference'});
         await send();const choice=page.getByRole('button',{name:label,exact:true});await choice.scrollIntoViewIfNeeded();box=await choice.boundingBox();assert.ok(box.width<=560&&box.x>=0);await choice.click();
-        const close=page.getByRole('button',{name:'休憩を閉じる',exact:true});await close.waitFor();
+        const close=page.getByRole('button',{name:'休憩を終えておはなしに戻る',exact:true});await close.waitFor();
+        box=await close.boundingBox();assert.ok(box.x>=0&&box.y>=0&&box.x+box.width<=viewport.width+1&&box.y+box.height<=viewport.height+1);
+        assert.ok((await close.innerText()).includes('休憩を終える'));
+        if(viewport.width===390){await page.getByTestId('rest-companion-reaction').waitFor({state:'hidden'});await page.screenshot({path:process.env.YOKI_QA_OUTPUT+'/quiet-'+label+'.png'});}
+        const companion=page.getByTestId('rest-companion-touch');await companion.click();await page.getByTestId('rest-companion-reaction').waitFor();
+        assert.equal(await page.locator('[data-testid="village-bgm-audio"]').evaluate(el=>el.paused),true);
+        const off=page.getByRole('button',{name:'音をオフにする',exact:true});if(await off.count())await off.click();
+        await page.getByRole('button',{name:'音をオンにする',exact:true}).click();
+        if(label==='猫を撫でる'){await page.getByTestId('rest-pet-cat').click({position:{x:viewport.width*.55,y:viewport.height*.35}});await page.getByText('ゴロゴロ… 気持ちよさそう。',{exact:true}).waitFor();}
+        if(viewport.width===390)await page.screenshot({path:process.env.YOKI_QA_OUTPUT+'/rest-'+label+'.png'});
+        if(viewport.width!==390)await page.screenshot({path:process.env.YOKI_QA_OUTPUT+'/'+viewport.width+'-'+label+'.png'});
         await page.setViewportSize({width:viewport.height,height:viewport.width});
         box=await close.boundingBox();assert.ok(box.width>=44&&box.height>=44&&box.y>=0);
+        assert.ok(box.x>=0&&box.x+box.width<=viewport.height+1&&box.y+box.height<=viewport.width+1);
+        if(viewport.width===390&&label==='焚き火を見る')await page.screenshot({path:process.env.YOKI_QA_OUTPUT+'/rest-landscape.png'});
         if(label==='夜空を見る'){
           await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
           await page.getByRole('button',{name:'今は大丈夫',exact:true}).waitFor();
@@ -42,7 +60,8 @@ const server=http.createServer((req,res)=>{
         await close.waitFor({state:'hidden'});await page.setViewportSize(viewport);
         await page.getByRole('textbox',{name:'話しかける内容'}).waitFor();assert.deepEqual(errors,[]);
       }
-      console.log('PASS four rest scenes, resize during playback, reduced-motion cat, hidden-page reset and exit '+viewport.width+'x'+viewport.height);await page.close();
+      if(viewport.width===390){await send();await page.getByRole('button',{name:'休憩時間 1分',exact:true}).click();await page.clock.install();await page.getByRole('button',{name:'焚き火を見る',exact:true}).click();await page.clock.fastForward(61000);await page.getByRole('button',{name:'もう少し過ごす',exact:true}).click();await page.getByRole('button',{name:'音をオフにする',exact:true}).waitFor();await page.getByRole('button',{name:'休憩を終えておはなしに戻る',exact:true}).click();}
+      console.log('PASS explicit always-visible exit, companion touch, four rest scenes, resize during playback, reduced-motion cat, hidden-page reset and exit '+viewport.width+'x'+viewport.height);await page.close();
     }
-  }finally{await browser.close();server.close();}
+  }catch(error){if(activePage&&!activePage.isClosed())await activePage.screenshot({path:process.env.YOKI_QA_OUTPUT+'/rest-failure.png'});throw error;}finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});

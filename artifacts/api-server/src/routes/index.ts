@@ -7,6 +7,7 @@ import storageRouter from "./storage";
 import homeCommentRouter from "./homeComment";
 import itemRouter from "./items";
 import communityRouter from "./community";
+import diaryReplyRouter from "./diaryReply";
 
 const router: IRouter = Router();
 
@@ -16,6 +17,7 @@ router.use(syncRouter);
 router.use(insightRouter);
 router.use(storageRouter);
 router.use(homeCommentRouter);
+router.use(diaryReplyRouter);
 router.use(itemRouter);
 router.use(communityRouter);
 

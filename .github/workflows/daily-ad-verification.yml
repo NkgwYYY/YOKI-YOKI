@@ -108,6 +108,14 @@ jobs:
           YOKI_QA_EXPORT: /tmp/yoki-qa-web
           YOKI_QA_OUTPUT: /tmp/yoki-care-browser
         run: node artifacts/mobile/tests/insight.browser.cjs
+      - name: Rest exits, companion presence and diary consent lifecycle
+        env:
+          YOKI_QA_PLAYWRIGHT: /tmp/yoki-browser-tools/node_modules/playwright
+          YOKI_QA_EXPORT: /tmp/yoki-qa-web
+          YOKI_QA_OUTPUT: /tmp/yoki-care-browser
+        run: |
+          node artifacts/mobile/tests/restLayout.browser.cjs
+          node artifacts/mobile/tests/diaryReply.browser.cjs
       - name: iOS and Android JavaScript and asset export
         env:
           NODE_OPTIONS: --max-old-space-size=6144

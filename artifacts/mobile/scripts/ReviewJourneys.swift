@@ -100,6 +100,15 @@ final class ReviewJourneys: XCTestCase {
         visible(element("diary-user-page"))
         visible(text(diary))
         capture("03-saved-diary")
+        tap(element("diary-request-reply"))
+        tap(text("今は日記の保存だけ"))
+        XCTAssertFalse(element("diary-ai-reply").exists)
+        visible(text(diary))
+        tap(element("diary-request-reply"))
+        tap(text("同意して、返事をもらう"))
+        visible(element("diary-ai-reply"), timeout: 60)
+        XCTAssertFalse(element("diary-ai-reply").label.isEmpty)
+        capture("03-diary-content-reply")
         tap(element("diary-home"))
 
         tap(element("room-meal"))
@@ -134,6 +143,18 @@ final class ReviewJourneys: XCTestCase {
         XCTAssertFalse(element("chat-send-error").exists)
         XCTAssertFalse(element("chat-assistant-message").label.isEmpty)
         capture("06-native-ai-reply")
+        for scene in ["campfire", "rain", "stars", "cat"] {
+            tap(element("chat-rest-open"))
+            tap(element("rest-choose-\(scene)"))
+            visible(element("rest-companion-touch"))
+            tap(element("rest-companion-touch"))
+            visible(element("rest-companion-reaction"))
+            XCTAssertTrue(element("rest-end").isHittable)
+            capture("06-rest-\(scene)")
+            tap(element("rest-end"))
+            visible(element("chat-input"))
+            XCTAssertFalse(element("rest-end").exists)
+        }
         tap(text("部屋へ戻る"))
         tap(element("home-more-menu"))
         reveal(text("プロフィール・話しかけ設定"))
@@ -157,20 +178,20 @@ final class ReviewJourneys: XCTestCase {
         tap(element("world-go-work"))
         visible(element("egg-job-action"))
         capture("08-game")
+        XCTAssertFalse(element("egg-job-result").exists)
         tap(element("egg-job-action"))
-        // The pot has this label even during the countdown. Wait for the actual
-        // action button to become enabled, not that separate permanent label.
-        // Passing an XCUIElement as the expectation's object causes XCTest to
-        // serialize its full debug hierarchy after a false evaluation. Those
-        // captures consumed the short game window on the hosted simulator.
-        // Poll only the live button properties, then tap without extra snapshots.
+        // A random legend order expires after 1.4 s, sometimes before XCTest
+        // returns from start.tap(). Automatic expiry is a valid result. Require
+        // fresh progress, tap a scoop if still active, and verify result/return.
         let scoopButton = app.buttons["egg-job-action"]
-        let scoopReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            scoopButton.label == "お玉ですくい上げる" && scoopButton.isEnabled
+        let gameProgress = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.element("egg-job-result").exists ||
+                (scoopButton.label == "お玉ですくい上げる" && scoopButton.isEnabled)
         }, object: nil)
-        XCTAssertEqual(XCTWaiter.wait(for: [scoopReady], timeout: 10), .completed)
-        scoopButton.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [gameProgress], timeout: 15), .completed)
+        if !element("egg-job-result").exists { scoopButton.tap() }
         visible(element("egg-job-result"))
+        XCTAssertTrue(scoopButton.isEnabled)
         capture("09-game-result")
         tap(element("egg-job-back"))
         tap(element("world-gate-home"))
@@ -181,6 +202,7 @@ final class ReviewJourneys: XCTestCase {
         tap(element("home-daily-record"))
         tap(element("diary-tab-user"))
         visible(text(diary))
+        visible(element("diary-ai-reply"))
         capture("10-persisted-diary")
         tap(element("diary-home"))
         tap(text("思い出"))

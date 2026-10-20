@@ -15,6 +15,7 @@ import {roomWearableFrame} from '@/utils/roomWearable';
 import {DIARY_TEXT_LIMIT,diaryDetailsFromRecord,type DiaryDetails} from '@/utils/exchangeDiary';
 import {ChecklistSheet} from '@/components/record/ChecklistSheet';
 import {DiaryDetailsEditor,DiaryDetailsSummary} from '@/components/record/DiaryDetails';
+import {DiaryReply} from '@/components/record/DiaryReply';
 
 const moods=[{value:1,label:'つらい',icon:'cloud-lightning'},{value:2,label:'しんどい',icon:'cloud-rain'},{value:3,label:'ふつう',icon:'cloud'},{value:4,label:'いい感じ',icon:'sunrise'},{value:5,label:'うれしい',icon:'sun'}] as const;
 type Draft={text:string;mood:number|null;revision:number;id:string;details:DiaryDetails;detailsDirty:boolean};
@@ -102,7 +103,7 @@ function DiaryNotebook(){
     <Text style={s.footer}>読むだけの日も、大丈夫。日記はいつでも読み返せるよ。</Text>
    </>:page.user&&(!mine||!editing)?<>
     <View testID="diary-user-page" style={s.paper}><View pointerEvents="none" style={s.marginLine}/><View style={s.author}><Text style={s.authorName}>あなたの今日</Text><Text style={s.feeling}>{moods.find(m=>m.value===page.user!.mood)?.label}</Text></View><Text selectable style={s.handwriting}>{page.user.text||'今日は、この気分を届けた。'}</Text>{page.user.details&&<DiaryDetailsSummary value={page.user.details}/>}<Text style={s.signature}>{name}へ</Text></View>
-    <View testID="diary-reply" style={s.reply}><Text style={s.replyLabel}>{name}が、ページのすみに書いたこと</Text><Text style={s.replyText}>{page.reply}</Text></View>
+    <DiaryReply key={`${date}:${page.revision}`} page={page}/>
     {!!notice&&<Text accessibilityLiveRegion="polite" style={s.footer}>{notice}</Text>}
     {mine&&<Pressable testID="diary-edit" accessibilityRole="button" onPress={edit} style={s.secondary}><Icon name="edit-3" size={16} color="#735580"/><Text style={s.secondaryText}>あなたのページを書き直す</Text></Pressable>}
    </>:mine&&draft?<View style={s.paper}>

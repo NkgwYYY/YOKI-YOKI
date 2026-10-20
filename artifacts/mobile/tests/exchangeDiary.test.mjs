@@ -112,3 +112,18 @@ test('read receipts recover after interrupted storage and never change the user 
  const f=fixture();await f.run(open);await f.run(send);f.failAt(2);await assert.rejects(f.run(read),/disk/);
  const restored=await f.run(read);assert.equal(restored.page.letterReadAt,now);assert.equal(restored.page.user.text,send.text);assert.equal(restored.feed.points,105);assert.equal(f.data.has('journal'),false);
 });
+
+test('AI reply is attached to the exact saved entry, never a newer edit, and awards no extra points',async()=>{
+ const f=fixture();await f.run(open);const a=await f.run(send);
+ assert.equal(a.page.replyKind,'pending');
+ const reply={kind:'reply',date:today,id:send.id,revision:1,reply:'帰り道で見た夕焼け、足を止めたくなるくらいきれいだったんだね。いつもの帰り道で見つけた景色が、今日の一枚になったね。'};
+ const b=await f.run(reply);assert.equal(b.page.replyKind,'ai');assert.equal(b.record,null);assert.equal(b.feed.points,a.feed.points);assert.equal(b.page.revision,1);
+ assert.equal((await f.run(reply)).changed,false);
+ await f.run({...send,id:'rewritten',revision:1,text:'今日は仕事でミスして悔しかった。'});
+ const stale=await f.run(reply);assert.equal(stale.changed,false);assert.equal(stale.page.replyKind,'pending');assert.equal(stale.page.user.text,'今日は仕事でミスして悔しかった。');
+});
+test('reply persistence recovers after interrupted storage without changing the diary',async()=>{
+ const f=fixture();await f.run(open);await f.run(send);f.failAt(2);
+ const reply={kind:'reply',date:today,id:send.id,revision:1,reply:'帰り道の夕焼けが、今日の思い出になったんだね。'};
+ await assert.rejects(f.run(reply),/disk/);const saved=await f.run(reply);assert.equal(saved.page.reply,reply.reply);assert.equal(saved.page.user.text,send.text);assert.equal(saved.feed.points,105);
+});

@@ -6,6 +6,7 @@ export function useVillageBgm(active:boolean) {
   const [enabled,setEnabled]=useState(true),[blocked,setBlocked]=useState(false),[ready,setReady]=useState(false);
   const player=useRef<HTMLAudioElement|null>(null),current=useRef(active),generation=useRef(0),alive=useRef(true);
   const touched=useRef(false);
+  const temporaryPause=useRef(false);
   current.current=active;
   const getPlayer=()=>{
     if(!player.current){
@@ -16,7 +17,7 @@ export function useVillageBgm(active:boolean) {
     return player.current;
   };
   const play=()=>{
-    if(!current.current)return;
+    if(!current.current||temporaryPause.current)return;
     const id=++generation.current,audio=getPlayer();
     // Called directly by the BGM button too: Safari gets a real user gesture.
     void audio.play().then(()=>{if(alive.current&&id===generation.current)setBlocked(false);},()=>{if(alive.current&&id===generation.current)setBlocked(true);});
@@ -44,5 +45,7 @@ export function useVillageBgm(active:boolean) {
     void AsyncStorage.setItem(KEY,next?'on':'off').catch(()=>{});
     if(next)play();else {generation.current++;player.current?.pause();}
   };
-  return {enabled:enabled&&!blocked,busy:false,toggle,error:blocked?'BGMを押すと音楽が流れます。':''};
+  const pauseTemporarily=async()=>{temporaryPause.current=true;generation.current++;player.current?.pause();};
+  const resumeTemporarily=()=>{temporaryPause.current=false;if(ready&&enabled&&current.current)play();};
+  return {enabled:enabled&&!blocked,busy:false,toggle,error:blocked?'BGMを押すと音楽が流れます。':'',pauseTemporarily,resumeTemporarily};
 }
