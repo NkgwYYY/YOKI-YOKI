@@ -7,7 +7,7 @@ No Replit Agent or paid plan upgrade is used.
 
 - Production App Store build `1.0.0 (21)` succeeded. This proves compilation and signing, not installation or App Review acceptance.
 - Matching production-profile iOS simulator build `e5b459a4-46eb-4cb4-ae46-85cd635e86b9` succeeded. It is not the signed store IPA.
-- Published browser chat returned a normal Japanese response to a synthetic greeting. A new synthetic guest used unknown age and gender. Sending before AI consent opened the disclosure screen; accepting retained the unsent draft and still required Send. The prior 401 was not reproduced in this request.
+- Published browser chat returned a normal Japanese response to a synthetic greeting. A new synthetic guest used unknown age and gender. Sending before AI consent opened the disclosure screen; accepting retained the unsent draft and still required Send. The prior 401 was not reproduced in this request. Consent was then withdrawn in Profile; reopening the consent screen showed the opt-in button again, confirming the saved UI state.
 - Read-only published `/api/community/config` returned `enabled: true`, `ads: true`, `passSales: false`. Native AdMob identifiers are configured. Do **not** describe native advertising as disabled or claim a verified impression.
 - iOS uses `GuestAuthProvider`; it ignores cached Clerk account sessions. GA4 instrumentation is web-only. Native purchase buttons require RevenueCat/product configuration.
 - AI requests include messages, nickname/profile context, and recent mood/sleep/behavior records after explicit consent. Server request logs serialize request ID, method and URL path, not chat bodies. Third-party retention still needs to be represented accurately.
@@ -18,7 +18,9 @@ The prepared Maestro flow covers fresh onboarding; opening and saving a diary; f
 
 EAS rejected the `maestro` job because that job requires a paid plan on this account. A free CI/CD minute allowance does not establish eligibility for this job. No upgrade was accepted, and no native test ran there.
 
-`.github/workflows/ios-review-smoke.yml` runs the same simulator artifact on standard GitHub-hosted macOS runners for this **public** repository. It captures the exact device/runtime in `environment.json` and uploads failure screens and test reports. iPad compatibility mode must be checked even though `supportsTablet` is false. Results remain pending until the workflow finishes and screenshots are inspected.
+`.github/workflows/ios-review-smoke.yml` is configured to run the same simulator artifact on standard GitHub-hosted macOS runners for this **public** repository. It captures the exact device/runtime in `environment.json` and uploads failure screens and test reports. iPad compatibility mode must be checked even though `supportsTablet` is false.
+
+GitHub run `39372705595` started the standard macOS jobs, but both stopped at the artifact download with HTTP 403 from Expo. Maestro was skipped; no native interaction test or screenshot was produced. This is an access blocker, not an observed app crash. Do not rerun unchanged or mark native verification complete. Resolve authorized artifact access (without copying Expo credentials into this public repository) or build the public source directly on the runner before continuing. The workflow file and test flow are prepared but **not yet validated end to end**.
 
 ## Remaining submission gates
 
