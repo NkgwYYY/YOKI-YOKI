@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {Animated,Easing,Image,PanResponder,Platform,Pressable,StyleSheet,Text,View} from 'react-native';
+import {Animated,Easing,Image,PanResponder,Platform,Pressable,StyleSheet,View} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import Svg,{Defs,RadialGradient,Stop,Ellipse} from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -50,21 +50,19 @@ function Stars({reduceMotion,width,height}:{reduceMotion:boolean;width:number;he
  </View>;
 }
 function CatTouch({reduceMotion,onPet}:{reduceMotion:boolean;onPet:()=>void}){
- const [pet,setPet]=useState(false),[point,setPoint]=useState({x:0,y:0});
- const fade=useRef(new Animated.Value(0)).current,timer=useRef<ReturnType<typeof setTimeout>|null>(null),last=useRef(0);
+ const [point,setPoint]=useState({x:0,y:0});
+ const fade=useRef(new Animated.Value(0)).current,last=useRef(0);
  const handle=(x:number,y:number)=>{
-  const now=Date.now();if(now-last.current<300)return;last.current=now;setPet(true);onPet();
-  if(timer.current)clearTimeout(timer.current);timer.current=setTimeout(()=>setPet(false),2800);
+  const now=Date.now();if(now-last.current<300)return;last.current=now;onPet();
   if(!reduceMotion){setPoint({x,y});fade.stopAnimation();fade.setValue(1);Animated.timing(fade,{toValue:0,duration:1500,useNativeDriver:true}).start();}
   if(Platform.OS!=='web')void Haptics.selectionAsync().catch(()=>{});
  };
  const latest=useRef(handle);latest.current=handle;
  const pan=useRef(PanResponder.create({onStartShouldSetPanResponder:()=>true,onMoveShouldSetPanResponder:()=>true,onPanResponderGrant:e=>latest.current(e.nativeEvent.locationX,e.nativeEvent.locationY),onPanResponderMove:(e,g)=>{if(Math.abs(g.dx)+Math.abs(g.dy)>10)latest.current(e.nativeEvent.locationX,e.nativeEvent.locationY);}})).current;
- useEffect(()=>()=>{if(timer.current)clearTimeout(timer.current);fade.stopAnimation();},[]);
+ useEffect(()=>()=>fade.stopAnimation(),[]);
  return <View style={StyleSheet.absoluteFill} {...pan.panHandlers}>
   <Pressable testID="rest-pet-cat" accessibilityRole="button" accessibilityLabel="猫をそっとなでる" onPress={()=>handle(150,150)} style={[StyleSheet.absoluteFill,{width:'100%',height:'100%'}]}/>
   <Animated.View pointerEvents="none" style={{position:'absolute',left:point.x-25,top:point.y-25,width:50,height:50,borderRadius:25,borderWidth:1,borderColor:'#FFF9ED',backgroundColor:'#FFF9ED16',opacity:fade,transform:[{scale:fade.interpolate({inputRange:[0,1],outputRange:[1.7,.8]})}]}}/>
-  <View pointerEvents="none" style={{position:'absolute',bottom:'23%',left:20,right:20,alignItems:'center'}}><Text accessibilityLiveRegion="polite" style={{color:'#FFF5E7',fontSize:13,backgroundColor:'#241B24A6',paddingVertical:9,paddingHorizontal:17,borderRadius:20}}>{pet?'ゴロゴロ… 気持ちよさそう。':'指で、ゆっくりなでてみて。'}</Text></View>
  </View>;
 }
 export function RestSceneView({scene,reduceMotion,onPet}:{scene:RestScene;reduceMotion:boolean;onPet:()=>void}){

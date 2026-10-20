@@ -430,17 +430,11 @@ export default function ChatScreen() {
           <Mascot stage={mascotStage} mood={mascotMood} size={40} />
         )}
         <View style={styles.headerCopy}>
-          <Text numberOfLines={1} style={styles.headerName}>{displayName}</Text>
-          <View style={styles.onlineRow}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>
-              {messages.filter(m => m.id !== 'welcome').length > 0
-                ? `${messages.filter(m => m.id !== 'welcome').length}件の会話`
-                : 'いつでもそばにいるよ'}
-            </Text>
+          <View style={styles.headerTitle}>
+            <Text numberOfLines={1} style={[styles.headerName,{flexShrink:1}]}>{displayName}</Text>
+            {messages.length > 1 && <Text numberOfLines={1} style={styles.onlineText}>{messages.filter(m=>m.id!=='welcome').length}件の会話</Text>}
           </View>
-        </View>
-        <PressScale testID="chat-rest-open" accessibilityLabel="一緒に休む" style={styles.restButton}
+          <PressScale testID="chat-rest-open" accessibilityLabel="一緒に休む" style={styles.restButton}
           onPress={() => {
             if (restTimer.current) clearTimeout(restTimer.current);
             restInteraction.current += 1;
@@ -449,7 +443,8 @@ export default function ChatScreen() {
           }}>
           <Icon name="moon" size={15} color={colors.foreground} />
           <Text style={styles.restButtonText}>一緒に休む</Text>
-        </PressScale>
+          </PressScale>
+        </View>
         {messages.length > 1 && (
           <PressScale
             onPress={clearHistory}
@@ -579,20 +574,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
+    gap: space.sm,
     paddingHorizontal: screenPadding,
     paddingBottom: space.md,
     borderBottomWidth: border.width,
     borderBottomColor: colors.border,
     backgroundColor: colors.card,
   },
-  headerCopy: { flex: 1, minWidth: 0 },
-  restButton: { minHeight: 44, paddingHorizontal: 10, borderRadius: 22, backgroundColor: colors.muted, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  headerCopy: { flex: 1, minWidth: 0, gap: 3 },
+  headerTitle: {flexDirection:'row',alignItems:'center',gap:8},
+  restButton: { minHeight: 44, alignSelf:'flex-start', paddingHorizontal: 12, borderRadius: 22, backgroundColor: colors.muted, flexDirection: 'row', alignItems: 'center', gap: 6 },
   restButtonText: { fontSize: 11, color: colors.foreground },
   headerName: { ...typography.subhead, color: colors.foreground },
   onlineRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   onlineDot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.success },
-  onlineText: { ...typography.micro, color: colors.mutedForeground },
+  onlineText: { ...typography.micro, color: colors.mutedForeground, flexShrink: 1 },
   clearBtn: {
     width: control.icon,
     height: control.icon,

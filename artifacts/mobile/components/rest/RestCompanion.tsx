@@ -54,8 +54,8 @@ export function RestCompanion({stage, name, scene, size, reduceMotion}: {
     timer.current=setTimeout(()=>{setLooking(false);setGreeting(false);},3600);
     if(Platform.OS!=='web')void Haptics.selectionAsync().catch(()=>{});
   };
-  const feature=(key:string,fill:string,stroke?:string,width?:number)=>path(key)?
-    <Path key={key} d={path(key)} fill={fill} stroke={stroke} strokeWidth={width} strokeLinecap="round"/>:null;
+  const feature=(key:string,fill:string,stroke?:string,width?:number,opacity=1)=>path(key)?
+    <Path key={key} d={path(key)} fill={fill} stroke={stroke} strokeWidth={width} opacity={opacity} strokeLinecap="round"/>:null;
   return <View testID="rest-companion" style={{width:size,alignItems:'center'}}>
     {greeting&&<View pointerEvents="none" style={[s.words,{width:Math.max(180,size+28)}]}>
       <Text testID="rest-companion-reaction" accessibilityLiveRegion="polite" style={s.wordsText}>{palette.words}</Text>
@@ -69,7 +69,10 @@ export function RestCompanion({stage, name, scene, size, reduceMotion}: {
       <Animated.View pointerEvents="none" style={{transform:[{translateY:breath.interpolate({inputRange:[0,1],outputRange:[0,-.6]})},{scaleY:breath.interpolate({inputRange:[0,1],outputRange:[1,.986]})},{scaleX:breath.interpolate({inputRange:[0,1],outputRange:[1,1.006]})}]}}>
         <Svg width={size} height={size} viewBox="0 0 100 100" accessible={false}>
           <Defs>
-            <RadialGradient id={`${id}body`} gradientUnits="userSpaceOnUse" cx="74" cy="29" rx="80" ry="78"><Stop offset="0" stopColor={palette.light}/><Stop offset=".55" stopColor={palette.middle}/><Stop offset="1" stopColor={palette.shade}/></RadialGradient>
+            <RadialGradient id={`${id}body`} gradientUnits="userSpaceOnUse" cx="62" cy="38" fx="69" fy="29" rx="58" ry="62"><Stop offset="0" stopColor={palette.light}/><Stop offset=".48" stopColor={palette.middle}/><Stop offset="1" stopColor={palette.shade}/></RadialGradient>
+            <RadialGradient id={`${id}depth`} gradientUnits="userSpaceOnUse" cx="62" cy="38" rx="55" ry="60"><Stop offset=".25" stopColor={palette.shade} stopOpacity="0"/><Stop offset=".6" stopColor={palette.shade} stopOpacity=".05"/><Stop offset="1" stopColor={palette.shade} stopOpacity=".5"/></RadialGradient>
+            <RadialGradient id={`${id}cheek`}><Stop offset="0" stopColor="#E6BAB5" stopOpacity=".65"/><Stop offset="1" stopColor="#E6BAB5" stopOpacity="0"/></RadialGradient>
+            <RadialGradient id={`${id}eye`}><Stop offset="0" stopColor="#353237"/><Stop offset="1" stopColor="#16171D"/></RadialGradient>
             <LinearGradient id={`${id}rainbow`}><Stop offset="0" stopColor="#B498B2"/><Stop offset=".3" stopColor="#D9CBA2"/><Stop offset=".6" stopColor="#A5BCA5"/><Stop offset="1" stopColor="#A9AACD"/></LinearGradient>
             <ClipPath id={`${id}bodyclip`}><Path d={body}/></ClipPath>
             <Pattern id={`${id}coat`} patternUnits="userSpaceOnUse" width="100" height="100"><Image href={ODANGO_COAT_URI} x="-30" y="-30" width="160" height="160" preserveAspectRatio="none"/></Pattern>
@@ -77,26 +80,26 @@ export function RestCompanion({stage, name, scene, size, reduceMotion}: {
           </Defs>
           <Path d={body} fill={`url(#${id}${stage==='stage4'?'rainbow':'body'})`}/>
           {stage!=='egg'&&<G clipPath={`url(#${id}bodyclip)`}>
-            <Path d={body} fill={`url(#${id}coat)`} opacity=".28"/>
-            {feature('furShade','none',palette.shade,.22)}
-            <G opacity=".45">{feature('furMid','none',palette.middle,.25)}{feature('furLight','none',palette.light,.3)}</G>
+            <Path d={body} fill={`url(#${id}coat)`} opacity=".46"/>
+            {feature('furShade','none',palette.shade,.18,.12)}
+            {feature('furMid','none',palette.middle,.22,.18)}
+            {feature('furLight','none',palette.light,.26,.3)}
           </G>}
+          <Path d={body} fill={`url(#${id}depth)`}/>
           <Path d={body} fill={`url(#${id}rim)`}/>
           {feature('crack','none','#9C8CAB',1.8)}
-          {feature('leftCheek','#BB9595')}{feature('rightCheek','#BB9595')}
+          {feature('leftCheek',`url(#${id}cheek)`)}{feature('rightCheek',`url(#${id}cheek)`)}
           {feature('leftSocket',palette.light)}{feature('rightSocket',palette.light)}
-          {feature('leftEye','#202127')}{feature('rightEye','#202127')}
+          {feature('leftEye',`url(#${id}eye)`)}{feature('rightEye',`url(#${id}eye)`)}
           {feature('leftShine','#F7F0E4')}{feature('rightShine','#F7F0E4')}
           {feature('mouth','none','#28222B',1.5)}
           {stage!=='egg'&&stage!=='odango'&&<>{feature('stem','none','#839360',1.5)}{feature('leftLeaf','#879E55')}{feature('rightLeaf','#A6B871')}</>}
         </Svg>
       </Animated.View>
     </Pressable>
-    <Text numberOfLines={1} style={s.name}>{name}</Text>
   </View>;
 }
 const s=StyleSheet.create({
   words:{position:'absolute',bottom:'110%',left:0,paddingHorizontal:13,paddingVertical:10,borderRadius:14,backgroundColor:'#18141EDB',borderWidth:1,borderColor:'#F7E9D92B'},
   wordsText:{fontSize:12,lineHeight:19,color:'#F2E8E0'},
-  name:{maxWidth:'100%',fontSize:11,letterSpacing:1,color:'#E9DFE6',backgroundColor:'#19132199',paddingHorizontal:12,paddingVertical:5,borderRadius:12,marginTop:-3},
 });

@@ -28,6 +28,7 @@ const server=http.createServer((req,res)=>{
       await page.route('**/api/chat/message',route=>route.fulfill({status:200,headers,contentType:'application/json',body:JSON.stringify({content:'休憩テストの返事',restEvent:true})}));
       await page.goto('http://127.0.0.1:'+server.address().port+'/chat');
       await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
+      await page.screenshot({path:process.env.YOKI_QA_OUTPUT+'/chat-rest-entry-'+viewport.width+'.png'});
       const send=async()=>{await page.getByTestId('chat-rest-open').click();await page.getByRole('button',{name:'今は大丈夫',exact:true}).waitFor();};
       await send();
       if(viewport.width===390)await page.screenshot({path:process.env.YOKI_QA_OUTPUT+'/rest-menu.png'});
@@ -45,6 +46,11 @@ const server=http.createServer((req,res)=>{
         const off=page.getByRole('button',{name:'音をオフにする',exact:true});if(await off.count())await off.click();
         await page.getByRole('button',{name:'音をオンにする',exact:true}).click();
         if(label==='猫を撫でる'){await page.getByTestId('rest-pet-cat').click({position:{x:viewport.width*.55,y:viewport.height*.35}});await page.getByText('ゴロゴロ… 気持ちよさそう。',{exact:true}).waitFor();}
+        if(label==='猫を撫でる'){
+          const status=await page.getByTestId('rest-cat-status').boundingBox();
+          const title=await page.getByText(/と、猫のとなりで。/).boundingBox();
+          assert.ok(status.y>=title.y+title.height,'cat feedback stays below the title');
+        }
         if(viewport.width===390)await page.screenshot({path:process.env.YOKI_QA_OUTPUT+'/rest-'+label+'.png'});
         if(viewport.width!==390)await page.screenshot({path:process.env.YOKI_QA_OUTPUT+'/'+viewport.width+'-'+label+'.png'});
         await page.setViewportSize({width:viewport.height,height:viewport.width});
