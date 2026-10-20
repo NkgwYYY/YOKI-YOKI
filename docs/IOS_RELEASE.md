@@ -1,23 +1,25 @@
 # iOS release workflow
 
-Run commands from `artifacts/mobile`. Keep the existing Expo project and Apple application identity; do not create a replacement app.
+Run commands from `artifacts/mobile`. Use the Expo project linked in `app.json` and keep the existing Apple application identity; do not create a replacement App Store app.
 
 ## Build configuration
 
 - `app.json` supplies the existing iOS bundle identifier and a local build-number seed. EAS production builds use the project's remote version counter and increment it.
 - `eas.json` defines a store build, a simulator build, the production API host and the existing App Store Connect destination.
-- Link to the existing Expo project before building. This checkout intentionally does not invent an `extra.eas.projectId`, owner or credentials.
+- `app.json` links to the configured Expo project. Verify its owner and project ID before building; keep credentials out of source control.
+- When setting up a new Expo project for an existing Apple app, initialize the remote iOS build counter from the latest uploaded App Store Connect build before using automatic increments.
 - Use existing signing credentials where available. Do not commit credentials, tokens or account exports.
 
 ```sh
 pnpm dlx eas-cli@25.2.0 login
 pnpm dlx eas-cli@25.2.0 init
 pnpm dlx eas-cli@25.2.0 config --platform ios --profile production
+pnpm dlx eas-cli@25.2.0 build:version:set --platform ios --profile production
 pnpm dlx eas-cli@25.2.0 build --platform ios --profile production
 pnpm dlx eas-cli@25.2.0 submit --platform ios --profile production
 ```
 
-In `init`, choose the existing project and verify its identity against prior builds. Check the plan's available build allowance before starting a remote build. A paid upgrade is not part of this workflow. Inspect the actual build identifier before submission; do not select an older binary by accident.
+In `init`, use the project ID already configured in `app.json`. For a newly linked project, set the remote iOS build counter to the latest uploaded build so the next production build increments it. Check the plan's available build allowance before starting a remote build. A paid upgrade is not part of this workflow. Inspect the actual build identifier before submission; do not select an older binary by accident.
 
 ## Release checks
 

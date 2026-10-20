@@ -1,7 +1,13 @@
 {
   "expo": {
     "name": "YOKI YOKI",
-    "slug": "mobile",
+    "slug": "yoki-yoki",
+    "owner": "nkgw0703",
+    "extra": {
+      "eas": {
+        "projectId": "fecfbcd8-34e4-46e3-8b82-2f7cfb466434"
+      }
+    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
