@@ -1,0 +1,78 @@
+name: iOS simulator bootstrap diagnostic
+on:
+  push:
+    branches: [codex/daily-ad-placement-components-20261016]
+    paths: [.github/workflows/ios-simulator-diagnostic.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bootstrap:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - name: Diagnose a fresh ordinary iPhone with the Simulator window open
+        run: |
+          mkdir -p evidence
+          python3 -u - <<'PY'
+          import json, re, subprocess
+          from pathlib import Path
+
+          evidence = Path('evidence')
+          def command(name, args, timeout=30):
+              try:
+                  result = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+                  output = result.stdout + result.stderr
+                  code = result.returncode
+              except subprocess.TimeoutExpired as error:
+                  output = str(error)
+                  code = 124
+              (evidence / (name + '.log')).write_text(output)
+              print(name, 'exit', code, flush=True)
+              print(output[-12000:], flush=True)
+              return code, output
+
+          inventory = json.loads(subprocess.check_output(
+              ['xcrun', 'simctl', 'list', 'devices', 'available', '--json'], text=True))
+          (evidence / 'devices.json').write_text(json.dumps(inventory, indent=2))
+          choices = [(runtime, device) for runtime, devices in inventory['devices'].items()
+                     if '.iOS-' in runtime for device in devices
+                     if device.get('isAvailable') and device['name'].startswith('iPhone')
+                     and 'Air' not in device['name'] and 'Duo' not in device['name']]
+          if not choices:
+              raise SystemExit('No ordinary iPhone device is available')
+          newest = max((r for r, _ in choices), key=lambda r: tuple(map(int, re.findall(r'\d+', r))))
+          preferred = ['iPhone 17 Pro', 'iPhone 16 Pro', 'iPhone 17', 'iPhone 16']
+          available = [d for r, d in choices if r == newest]
+          device = min(available, key=lambda d: (preferred.index(d['name']) if d['name'] in preferred else len(preferred), d['name']))
+          udid = subprocess.check_output(['xcrun', 'simctl', 'create', 'YokiBootstrapDiagnostic',
+                                         device['deviceTypeIdentifier'], newest], text=True).strip()
+          (evidence / 'selection.json').write_text(json.dumps({
+              'device': device['name'], 'runtime': newest, 'udid': udid,
+              'note': 'OS bootstrap only; no application is installed or tested.'}, indent=2))
+          print('Selected:', device['name'], newest, udid, flush=True)
+          ready = False
+          try:
+              boot_code, _ = command('boot', ['xcrun', 'simctl', 'boot', udid], 120)
+              command('simulator-window', ['open', '-a', 'Simulator', '--args', '-CurrentDeviceUDID', udid])
+              status, output = command('bootstatus', ['xcrun', 'simctl', 'bootstatus', udid, '-b'], 300)
+              ready = boot_code == 0 and status == 0 and 'Data Migration Failed' not in output
+              (evidence / 'result.json').write_text(json.dumps({'ready': ready}, indent=2))
+              command('migration-diagnostics', ['xcrun', 'simctl', 'spawn', udid, 'log', 'show',
+                      '--last', '5m', '--style', 'compact', '--predicate',
+                      'process == "data_migrator" OR process == "DataMigrator"'], 20)
+              command('screenshot', ['xcrun', 'simctl', 'io', udid, 'screenshot',
+                      str(evidence / 'system-screen.png')], 20)
+          finally:
+              command('shutdown', ['xcrun', 'simctl', 'shutdown', udid], 30)
+          if not ready:
+              raise SystemExit('Simulator bootstrap failed; retained diagnostics')
+          print('SIMULATOR_BOOTSTRAP_READY (not an application test)', flush=True)
+          PY
+      - name: Preserve bounded bootstrap diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ios-bootstrap-diagnostic
+          retention-days: 3
+          path: evidence/
