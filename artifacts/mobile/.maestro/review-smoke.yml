@@ -10,8 +10,13 @@ name: Fresh guest review journeys
 - tapOn: 'ニックネーム（必須）'
 - inputText: 'Yoki QA'
 - hideKeyboard
-- tapOn: '30代'
-- tapOn: 'その他'
+# Do not request live advertising during automated tests. Unknown age is ineligible.
+- tapOn:
+    text: '回答しない'
+    index: 0
+- tapOn:
+    text: '回答しない'
+    index: 1
 - scrollUntilVisible:
     element:
       text: 'いっしょにはじめる'

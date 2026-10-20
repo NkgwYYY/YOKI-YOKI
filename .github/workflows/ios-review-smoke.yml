@@ -1,0 +1,64 @@
+name: iOS review smoke
+on:
+  push:
+    branches: [codex/daily-ad-placement-components-20261016]
+    paths:
+      - .github/workflows/ios-review-smoke.yml
+      - artifacts/mobile/.maestro/**
+      - artifacts/mobile/scripts/prepare-ios-review.py
+      - docs/qa/ios-review-simulator.json
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-review-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native_review:
+    # Standard arm64 runner: free for this public repository. No larger runner.
+    runs-on: macos-26
+    timeout-minutes: 25
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        family: [iPhone, iPad]
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Prepare existing simulator build and select device
+        env:
+          DEVICE_FAMILY: ${{ matrix.family }}
+        run: python3 scripts/prepare-ios-review.py
+      - name: Install pinned official Maestro CLI
+        run: |
+          curl --fail --location --retry 2 https://github.com/mobile-dev-inc/Maestro/releases/download/cli-2.11.0/maestro.zip -o "$RUNNER_TEMP/maestro.zip"
+          printf '%s  %s\n' '5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a' "$RUNNER_TEMP/maestro.zip" | shasum -a 256 -c -
+          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP/maestro-cli"
+          echo "$RUNNER_TEMP/maestro-cli/maestro/bin" >> "$GITHUB_PATH"
+          java -version
+      - name: Test fresh launch, diary, food, consent, map, minigame and persistence
+        run: |
+          mkdir -p review-results
+          maestro --device "$YOKI_SIMULATOR_UDID" test --format junit --output review-results/report.xml --debug-output review-results/debug .maestro/review-smoke.yml
+      - name: Capture current native screen even on failure
+        if: always()
+        run: |
+          mkdir -p review-results
+          if [ -n "${YOKI_SIMULATOR_UDID:-}" ]; then
+            xcrun simctl io "$YOKI_SIMULATOR_UDID" screenshot review-results/final-screen.png || true
+          fi
+      - name: Upload synthetic test evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ios-review-${{ matrix.family }}
+          retention-days: 7
+          path: |
+            artifacts/mobile/review-results/
+            artifacts/mobile/*.png
+            artifacts/mobile/.maestro/*.png
