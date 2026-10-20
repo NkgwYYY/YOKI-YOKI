@@ -37,6 +37,16 @@ const server=http.createServer((req,res)=>{
     await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
     await page.getByRole('textbox',{name:'話しかける内容'}).fill('テストの相談');
     await page.getByRole('button',{name:'送信',exact:true}).click();
+    await page.getByRole('heading',{name:'AIへの情報送信',exact:true}).waitFor();
+    assert.equal(requests.length,0,'no chat payload leaves the app before consent');
+    await page.getByRole('button',{name:'AIを使わずに戻る',exact:true}).click();
+    assert.equal(await page.getByRole('textbox',{name:'話しかける内容'}).inputValue(),'テストの相談');
+    assert.equal(requests.length,0,'declining consent does not send the pending message');
+    await page.getByRole('button',{name:'送信',exact:true}).click();
+    await page.getByRole('button',{name:'同意してAIを使う',exact:true}).click();
+    await page.getByRole('textbox',{name:'話しかける内容'}).waitFor();
+    assert.equal(requests.length,0,'granting consent does not automatically send the pending message');
+    await page.getByRole('button',{name:'送信',exact:true}).click();
     const retry=page.getByRole('button',{name:'返事をもう一度受け取る'});
     await retry.waitFor();
     mode='unavailable';await retry.click();await page.getByRole('alert').filter({hasText:'今はおはなしに接続できません'}).waitFor();
@@ -53,6 +63,6 @@ const server=http.createServer((req,res)=>{
     assert.deepEqual(errors,[]);
     const stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/chat_history_v1')));
     assert.equal(stored.filter(m=>m.role==='assistant').length,1,'late response after leaving is ignored');
-    console.log('PASS HTTP/service unavailable/busy/malformed response retry, same user context, valid reply with invalid citations, cancellation on room return; mocked API only');
+    console.log('PASS explicit consent/decline and retained draft, HTTP/service unavailable/busy/malformed response retry, same user context, valid reply with invalid citations, cancellation on room return; mocked API only');
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});
