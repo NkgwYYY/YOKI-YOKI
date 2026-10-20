@@ -22,7 +22,10 @@
     "ios": {
       "bundleIdentifier": "app.replit.yokiyoki--",
       "buildNumber": "19",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {},
     "web": {
