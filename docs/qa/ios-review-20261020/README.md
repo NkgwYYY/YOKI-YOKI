@@ -96,3 +96,23 @@ its interface. Expo SDK 54 config introspection confirms the generated Info.plis
 values. The iOS happiness sheet also omits a stale sentence about the tobacco
 activity that is permanently unavailable on iOS. These changes still require the
 next native run; no complete native pass is claimed.
+
+Run `39438651637` (source `956dccf9`) again failed both final outcomes. Two fresh
+iPhone Air devices on iOS 26.5 failed OS data migration before app installation.
+The bounded bootstrap retry now selects a different installed compatible runtime
+when available, and selects a device belonging to that runtime. Both actual OS
+versions and failed attempts are retained; application failures are never retried.
+Five synthetic bootstrap scenarios verified the runtime fallback, cleanup timeout,
+first-attempt success, two-failure stop, and minimum-OS guard.
+
+The iPad journey passed meal completion, real AI response and persisted consent
+withdrawal. It then failed at the profile return button: the test's reveal helper
+only scrolled towards the bottom of the page. It now uses the native element frame
+to scroll towards an above-viewport control. The game test also waits for the
+actual action button to finish its countdown, instead of matching the pot's
+permanent accessibility label. Map/game/restart checks still need a passing run.
+
+The run's evidence archive exceeded the connector's 512 MiB limit. Future evidence
+keeps exported screenshots, accessibility text, structured summaries, privacy
+manifests and logs, while omitting duplicate raw xcresult bundles and large videos.
+No failure assertion or required device gate was removed.

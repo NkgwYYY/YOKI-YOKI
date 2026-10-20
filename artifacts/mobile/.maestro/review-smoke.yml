@@ -131,7 +131,10 @@ name: Fresh guest review journeys
 - tapOn:
     id: egg-job-action
 - extendedWaitUntil:
-    visible: 'お玉ですくい上げる'
+    visible:
+      id: egg-job-action
+      text: 'お玉ですくい上げる'
+      enabled: true
     timeout: 10000
 - tapOn:
     id: egg-job-action

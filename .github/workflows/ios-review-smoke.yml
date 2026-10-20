@@ -118,6 +118,9 @@ jobs:
             artifacts/mobile/review-results/
             artifacts/mobile/*.png
             artifacts/mobile/.maestro/*.png
+            !artifacts/mobile/review-results/iPad/native.xcresult/**
+            !artifacts/mobile/review-results/**/*.mp4
+            !artifacts/mobile/review-results/**/*.mov
       - name: Require both native journeys to pass
         if: always()
         env:

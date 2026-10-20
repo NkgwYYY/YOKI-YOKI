@@ -54,17 +54,25 @@ choices = [(runtime, d) for runtime, values in devices.items() if '.iOS-' in run
 if not choices:
     raise SystemExit('No available iOS simulator for ' + family)
 preferred = 'iPhone 16 Plus' if family == 'iPhone' else 'iPad Air 11-inch (M3)'
-runtime = max((r for r, _ in choices), key=lambda r: tuple(int(x) for x in re.findall(r'\d+', r)))
-choices.sort(key=lambda pair: (pair[1]['name'] == preferred,
-    tuple(int(x) for x in re.findall(r'\d+', pair[0])), pair[1]['name']), reverse=True)
-_, device = choices[0]
-# A runner's pre-created iPhone failed data migration, and its preferred iPad
-# used an older runtime. Create disposable devices on the newest installed OS.
-device_type = device['deviceTypeIdentifier']
+runtime_version = lambda value: tuple(int(x) for x in re.findall(r'\d+', value))
+minimum_os = runtime_version(info.get('MinimumOSVersion', '17.0'))
+runtimes = sorted({r for r, _ in choices if runtime_version(r) >= minimum_os},
+                  key=runtime_version, reverse=True)
+if not runtimes:
+    raise SystemExit('No installed simulator runtime meets the app minimum OS')
+# Repeated fresh iPhones on one runtime failed OS data migration before install.
+# Keep the newest OS first, then use a different installed compatible runtime
+# for the single bootstrap retry when available. Never retry an app test failure.
+boot_runtimes = runtimes[:2] if len(runtimes) > 1 else runtimes * 2
 evidence = Path('review-results') / family
 evidence.mkdir(exist_ok=True, parents=True)
+(evidence / 'available-runtimes.json').write_text(json.dumps(runtimes, indent=2))
 attempts = []
-for attempt in range(1, 3):
+for attempt, runtime in enumerate(boot_runtimes, start=1):
+    compatible_devices = [d for r, d in choices if r == runtime]
+    device = max(compatible_devices,
+                 key=lambda d: (d['name'] == preferred, d['name']))
+    device_type = device['deviceTypeIdentifier']
     # Only retry an OS bootstrap failure, before installing or opening the app.
     # Preserve the first failure; never retry a failed application journey here.
     udid = run('xcrun', 'simctl', 'create',
@@ -80,7 +88,8 @@ for attempt in range(1, 3):
     (evidence / f'boot-attempt-{attempt}.log').write_text(output)
     print(output, flush=True)
     ready = boot.returncode == 0 and 'Data Migration Failed' not in output
-    attempts.append({'udid': udid, 'ready': ready, 'returncode': boot.returncode})
+    attempts.append({'udid': udid, 'device': device['name'], 'runtime': runtime,
+                     'ready': ready, 'returncode': boot.returncode})
     (evidence / 'environment.json').write_text(json.dumps({
         'build_id': build['build_id'], 'source_commit': build['source_commit'],
         'device': device['name'], 'runtime': runtime, 'version': info.get('CFBundleVersion'),
@@ -103,7 +112,7 @@ for attempt in range(1, 3):
     (evidence / f'shutdown-attempt-{attempt}.log').write_text(cleanup_output)
     if attempt == 2:
         raise SystemExit('Both fresh simulator boot attempts failed; native journeys were not run.')
-    print('OS data migration failed before app installation; trying one new disposable simulator.', flush=True)
+    print('OS data migration failed before app installation; trying the next bounded bootstrap candidate.', flush=True)
 subprocess.run(['xcrun', 'simctl', 'install', udid, str(app)], check=True)
 with open(os.environ['GITHUB_ENV'], 'a') as handle:
     handle.write('YOKI_SIMULATOR_UDID=' + udid + '\n')

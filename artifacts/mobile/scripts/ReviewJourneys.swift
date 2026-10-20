@@ -41,8 +41,15 @@ final class ReviewJourneys: XCTestCase {
         for _ in 0..<12 {
             if target.exists && target.isHittable { return }
             let scroller = app.scrollViews.allElementsBoundByIndex.first { $0.isHittable }
-            if let scroller = scroller { scroller.swipeUp(velocity: .slow) }
-            else { app.swipeUp(velocity: .slow) }
+            let surface = scroller ?? app
+            // A return button can be above the viewport after scrolling a form.
+            // Use its native screen frame to reveal it in the correct direction.
+            if target.exists && target.frame.height > 0 &&
+                target.frame.minY < surface.frame.minY {
+                surface.swipeDown(velocity: .slow)
+            } else {
+                surface.swipeUp(velocity: .slow)
+            }
         }
         XCTFail("Control could not be reached by scrolling: \(target)", file: file, line: line)
     }
@@ -151,7 +158,12 @@ final class ReviewJourneys: XCTestCase {
         visible(element("egg-job-action"))
         capture("08-game")
         tap(element("egg-job-action"))
-        visible(text("お玉ですくい上げる"))
+        // The pot has this label even during the countdown. Wait for the actual
+        // action button to become enabled, not that separate permanent label.
+        let scoopReady = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == %@ AND enabled == true", "お玉ですくい上げる"),
+            object: element("egg-job-action"))
+        XCTAssertEqual(XCTWaiter.wait(for: [scoopReady], timeout: 10), .completed)
         tap(element("egg-job-action"))
         visible(element("egg-job-result"))
         capture("09-game-result")
