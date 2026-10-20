@@ -87,6 +87,9 @@ name: Fresh guest review journeys
     visible:
       id: home-chat
     timeout: 15000
+- extendedWaitUntil:
+    visible: 'ごちそうさま。また一緒に食べようね。'
+    timeout: 30000
 
 # Refusing AI must return to chat and preserve the unsent draft.
 - tapOn:

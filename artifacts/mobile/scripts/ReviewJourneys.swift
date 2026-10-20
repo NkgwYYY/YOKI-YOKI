@@ -100,6 +100,9 @@ final class ReviewJourneys: XCTestCase {
         capture("04-food")
         tap(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "きのみ、5ポイント、満腹度プラス")).firstMatch)
         visible(element("home-chat"))
+        // Room animation pauses on navigation. Finish the committed meal before
+        // opening another screen, and verify its visible completion feedback.
+        visible(text("ごちそうさま。また一緒に食べようね。"), timeout: 30)
         tap(element("home-chat"))
         tap(text("少し、お話しする"))
         tap(element("chat-input"))
