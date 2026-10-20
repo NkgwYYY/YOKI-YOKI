@@ -76,9 +76,7 @@ jobs:
         if: always() && steps.iphone.outcome != 'skipped'
         run: |
           if [ -f review-results/iPhone/device-id.txt ]; then
-            YOKI_TEST_UDID=$(cat review-results/iPhone/device-id.txt)
-            xcrun simctl io "$YOKI_TEST_UDID" screenshot review-results/iPhone/final-screen.png || true
-            xcrun simctl shutdown "$YOKI_TEST_UDID" || true
+            python3 scripts/finish-ios-review.py iPhone
             for shot in ./*.png .maestro/*.png; do
               [ ! -f "$shot" ] || mv "$shot" review-results/iPhone/
             done
@@ -97,9 +95,7 @@ jobs:
         if: always() && steps.ipad.outcome != 'skipped'
         run: |
           if [ -f review-results/iPad/device-id.txt ]; then
-            YOKI_TEST_UDID=$(cat review-results/iPad/device-id.txt)
-            xcrun simctl io "$YOKI_TEST_UDID" screenshot review-results/iPad/final-screen.png || true
-            xcrun simctl shutdown "$YOKI_TEST_UDID" || true
+            python3 scripts/finish-ios-review.py iPad
             if [ -d review-results/iPad/native.xcresult ]; then
               xcrun xcresulttool export attachments --path review-results/iPad/native.xcresult --output-path review-results/iPad/attachments || true
               xcrun xcresulttool get test-results summary --path review-results/iPad/native.xcresult > review-results/iPad/summary.json || true

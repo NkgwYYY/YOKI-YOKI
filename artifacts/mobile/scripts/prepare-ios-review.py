@@ -53,7 +53,8 @@ choices = [(runtime, d) for runtime, values in devices.items() if '.iOS-' in run
            for d in values if d.get('isAvailable') and d['name'].startswith(family)]
 if not choices:
     raise SystemExit('No available iOS simulator for ' + family)
-preferred = 'iPhone 16 Plus' if family == 'iPhone' else 'iPad Air 11-inch (M3)'
+preferred = (['iPhone 17 Pro', 'iPhone 16 Pro', 'iPhone 17', 'iPhone 16', 'iPhone 16 Plus']
+             if family == 'iPhone' else ['iPad Air 11-inch (M3)'])
 runtime_version = lambda value: tuple(int(x) for x in re.findall(r'\d+', value))
 minimum_os = runtime_version(info.get('MinimumOSVersion', '17.0'))
 runtimes = sorted({r for r, _ in choices if runtime_version(r) >= minimum_os},
@@ -70,8 +71,8 @@ evidence.mkdir(exist_ok=True, parents=True)
 attempts = []
 for attempt, runtime in enumerate(boot_runtimes, start=1):
     compatible_devices = [d for r, d in choices if r == runtime]
-    device = max(compatible_devices,
-                 key=lambda d: (d['name'] == preferred, d['name']))
+    device = min(compatible_devices, key=lambda d: (
+        preferred.index(d['name']) if d['name'] in preferred else len(preferred), d['name']))
     device_type = device['deviceTypeIdentifier']
     # Only retry an OS bootstrap failure, before installing or opening the app.
     # Preserve the first failure; never retry a failed application journey here.
@@ -82,6 +83,17 @@ for attempt, runtime in enumerate(boot_runtimes, start=1):
           'Fresh simulator:', udid, 'Boot attempt:', attempt, flush=True)
     (evidence / 'device-id.txt').write_text(udid)
     subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, timeout=600)
+    if family == 'iPhone':
+        # The isolated bootstrap diagnostic completed on iPhone 17 Pro with the
+        # Simulator window open. Preserve this configuration and its evidence;
+        # boot readiness still does not substitute for the application tests.
+        try:
+            window = subprocess.run(['open', '-a', 'Simulator', '--args', '-CurrentDeviceUDID', udid],
+                                    capture_output=True, text=True, timeout=30)
+            window_output = window.stdout + window.stderr
+        except subprocess.TimeoutExpired as error:
+            window_output = str(error)
+        (evidence / f'simulator-window-attempt-{attempt}.log').write_text(window_output)
     boot = subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'],
                           capture_output=True, text=True, timeout=600)
     output = boot.stdout + boot.stderr

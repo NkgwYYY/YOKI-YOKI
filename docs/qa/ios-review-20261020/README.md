@@ -116,3 +116,13 @@ The run's evidence archive exceeded the connector's 512 MiB limit. Future eviden
 keeps exported screenshots, accessibility text, structured summaries, privacy
 manifests and logs, while omitting duplicate raw xcresult bundles and large videos.
 No failure assertion or required device gate was removed.
+
+Run `39446409295` also observed iPhone Air OS migration failure on both installed
+iOS 26.5 and 26.4 runtimes before app installation. A separate, app-free bootstrap
+diagnostic (`39452702333`) successfully completed OS migration on iPhone 17 Pro /
+iOS 26.5 with the Simulator window open. Its optional 20-second screenshot and
+migration-log captures timed out; this is only evidence of boot readiness, not
+application readiness. The full journey now uses that tested device preference
+and startup method. Screen capture and shutdown also have independent 30-second
+limits so cleanup cannot consume the remaining iPad test time. Both actual
+application journeys are still required by the final gate.
