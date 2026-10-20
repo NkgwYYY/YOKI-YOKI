@@ -23,6 +23,42 @@ requires the **actual outcome** of both iPhone and iPad journeys to be `success`
 
 ## Public CI evidence
 
+### Latest result (2026-10-20)
+
+The complete XCTest journey has passed on each device family, in separate runs
+against unchanged application code and the same Swift test:
+
+| Device | Full passing run | Source | Native result |
+| --- | --- | --- | --- |
+| iPad (A16), iOS 26.5 | [39455617001](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39455617001) | `cfaff2f7` | 1 passed, 0 failed, 0 skipped |
+| iPhone 17 Pro, iOS 26.5 | [39463333461](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39463333461) | `d318680d` | 1 passed, 0 failed, 0 skipped |
+
+Only the workflow and this evidence document changed between those commits.
+Both complete journeys include diary, food, real AI response, refusal/draft
+retention, persisted consent withdrawal, map travel, game result, diary
+persistence after restart and local guest insights.
+
+**The latest combined native job is still failed:** its actual outcomes are
+iPhone=success and iPad=failure. The iPad run reached the game but missed the
+enabled scoop-button interval on the randomly selected highest difficulty
+(`legend`, 1,400 ms). XCTest failed the readiness expectation at Swift line 171.
+The final native screenshot and hierarchy show an automatic TOO LATE result and
+an enabled next-order button, rather than a frozen screen. The prior complete
+iPad pass shows TOO EARLY, confirming a scoop before automatic expiry. This
+distinguishes the remaining timing-sensitive test failure from a demonstrated
+application hang; it does not turn the failed job into a pass.
+
+The required two-device CI gate and the failed run remain unchanged. No app
+behavior or assertions were weakened to obtain a green result. General CI run
+`39463333755` passed. Native artifact `12287530207` is 49,495,186 bytes and was
+verified against SHA-256
+`83fcb513ca0c128cd21a6856d478dfba5c0e3c4d7929da9d2d4cc95724c99f54`.
+These are source-built Release simulator results; physical devices, a signed
+store IPA and live native ad impressions were not tested by this workflow.
+
+The following entries preserve the historical results and limitations at the
+time of each run.
+
 | Run | Result and limit |
 | --- | --- |
 | [39373152702](https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/39373152702) | Native compilation stopped because `babel-preset-expo` was not declared directly. Fixed using the already locked SDK 54 preset. Neither device journey ran. |
