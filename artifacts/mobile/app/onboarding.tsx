@@ -51,6 +51,7 @@ export default function OnboardingScreen() {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <Text style={styles.title}>小さな世界へようこそ</Text>
         <Text style={styles.subtitle}>

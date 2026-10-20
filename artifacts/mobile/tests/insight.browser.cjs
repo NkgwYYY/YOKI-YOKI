@@ -20,42 +20,36 @@ const server=http.createServer((req,res)=>{
       if(!localStorage.getItem('qa-insight-seeded')){
         localStorage.setItem('@mentore/profile_v1',JSON.stringify({nickname:'テスト',ageRange:'回答しない',gender:'回答しない'}));
         localStorage.setItem('@mentore/records_v2',JSON.stringify([{date:'2026-10-02',mood:3,sleep:0,sleepRecorded:false,behaviors:[],notes:''}]));
-        localStorage.setItem('@mentore/insight_v1',JSON.stringify({date:'2026-10-02',insights:{length:1}}));
+        // A cache from an old signed-in session must never appear to the guest.
+        localStorage.setItem('@mentore/insight_v1',JSON.stringify({date:'2026-10-02',insights:[{title:'別アカウントの結果',body:'表示してはいけない'}]}));
         localStorage.setItem('@mentore/encounters_v1',JSON.stringify({list:[{charKey:'egg',metDate:'2026-09-01'}]}));
         localStorage.setItem('qa-insight-seeded','true');
       }
-      const original=Storage.prototype.setItem;
-      Storage.prototype.setItem=function(key,value){
-        if(key==='@mentore/insight_v1'&&localStorage.getItem('qa-fail-insight'))throw new DOMException('QA disk full','QuotaExceededError');
-        return original.call(this,key,value);
-      };
     });
     let calls=0;
-    const headers={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'POST, OPTIONS'};
-    await page.route('**/api/insight',async route=>{
-      if(route.request().method()==='OPTIONS')return route.fulfill({status:204,headers});
-      calls++;
-      await route.fulfill({status:200,headers,contentType:'application/json',body:JSON.stringify({insights:calls===1?[{title:{bad:true},body:'text'}]:[{title:'一歩を残せたね',body:'今日の記録を残したことに気づいたよ。'}]})});
-    });
     const origin='http://127.0.0.1:'+server.address().port;
-    const open=async()=>{await page.goto(origin+'/growth');try { await page.getByTestId('album-details-toggle').click(); } catch(error) { console.error(await page.locator('body').innerText()); throw error; }};
-    await open();const generate=page.getByRole('button',{name:'すごいところを見つけてもらう',exact:true});
-    await generate.click();await page.getByText('うまく見つけられなかった…少し待ってもう一度試してね',{exact:true}).waitFor();
-    assert.equal(calls,1);assert.deepEqual(errors,[]);
-    await page.evaluate(()=>localStorage.setItem('qa-fail-insight','true'));await generate.click();
-    await page.getByText('一歩を残せたね',{exact:true}).waitFor();
-    await page.getByText('この結果を端末に保存できませんでした。画面を閉じる前に確認してください。',{exact:true}).waitFor();
-    assert.equal(calls,2);assert.equal(await generate.count(),0,'valid response remains available after cache failure');
-    await page.getByRole('button',{name:'保存をもう一度試す',exact:true}).click();
-    assert.equal(calls,2,'failed cache retry does not request AI');
-    await page.evaluate(()=>localStorage.removeItem('qa-fail-insight'));
-    await page.getByRole('button',{name:'保存をもう一度試す',exact:true}).click();
-    await page.getByText('一歩を残せたね',{exact:true}).waitFor();
-    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/insight_v1')).insights[0]?.title==='一歩を残せたね');
-    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/insight_v1')).date),'2026-10-02');
-    await open();await page.getByText('一歩を残せたね',{exact:true}).waitFor();
-    assert.equal(calls,2,'cache retry and same local-day reload do not request AI');assert.deepEqual(errors,[]);
-    console.log('PASS corrupt cache, invalid API retry, cache-write warning with retained result, Japanese local-day cache and reload; all API responses mocked');
+    await page.route('**/*',route=>{
+      const url=new URL(route.request().url());
+      if(url.pathname==='/api/insight')calls++;
+      if(url.origin!==origin || url.pathname.startsWith('/api/'))return route.fulfill({status:401,contentType:'application/json',body:'{"error":"guest has no authenticated API session"}'});
+      return route.continue();
+    });
+    const open=async()=>{
+      await page.goto(origin+'/growth');
+      await page.getByTestId('album-details-toggle').click();
+      await page.getByTestId('guest-insights').waitFor();
+      await page.getByText('1日分の記録を残したね',{exact:true}).waitFor();
+    };
+    await open();
+    await page.getByText('端末の記録から振り返ります。AIには送信しません。',{exact:true}).waitFor();
+    assert.equal(await page.getByText('別アカウントの結果',{exact:true}).count(),0,'old account cache stays hidden');
+    assert.equal(await page.getByRole('button',{name:'すごいところを見つけてもらう',exact:true}).count(),0,'guest is not offered an unusable authenticated AI request');
+    assert.equal(calls,0,'guest reflection never calls the authenticated insight endpoint');
+    await open();
+    assert.equal(calls,0,'reloading a guest reflection does not call AI');
+    assert.deepEqual(errors,[]);
+    if(process.env.YOKI_QA_OUTPUT){fs.mkdirSync(process.env.YOKI_QA_OUTPUT,{recursive:true});await page.getByTestId('guest-insights').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(process.env.YOKI_QA_OUTPUT,'guest-insights.png')});}
+    console.log('PASS guest reflection with unavailable authenticated API, no AI request, no old account cache, and reload; external services blocked');
     await page.close();
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});

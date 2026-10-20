@@ -8,6 +8,12 @@ on:
       - artifacts/mobile/scripts/prepare-ios-review.py
       - artifacts/mobile/package.json
       - artifacts/mobile/babel.config.js
+      - artifacts/mobile/components/InsightCard.tsx
+      - artifacts/mobile/components/ProfileForm.tsx
+      - artifacts/mobile/utils/insightData.ts
+      - artifacts/mobile/app/ai-privacy.tsx
+      - artifacts/mobile/app/onboarding.tsx
+      - artifacts/mobile/app/exchange-diary.tsx
       - pnpm-lock.yaml
       - docs/qa/ios-review-simulator.json
   workflow_dispatch:
@@ -67,7 +73,7 @@ jobs:
         run: |
           python3 scripts/prepare-ios-review.py
           YOKI_TEST_UDID=$(cat review-results/iPhone/device-id.txt)
-          maestro --device "$YOKI_TEST_UDID" test --format junit --output review-results/iPhone/report.xml --debug-output review-results/iPhone/debug .maestro/review-smoke.yml
+          maestro --device "$YOKI_TEST_UDID" test --format junit --output review-results/iPhone/report.xml --test-output-dir review-results/iPhone/steps --debug-output review-results/iPhone/steps .maestro/review-smoke.yml
       - name: Preserve iPhone screen and stop simulator
         if: always() && steps.iphone.outcome != 'skipped'
         run: |
@@ -88,7 +94,7 @@ jobs:
         run: |
           python3 scripts/prepare-ios-review.py
           YOKI_TEST_UDID=$(cat review-results/iPad/device-id.txt)
-          maestro --device "$YOKI_TEST_UDID" test --format junit --output review-results/iPad/report.xml --debug-output review-results/iPad/debug .maestro/review-smoke.yml
+          maestro --device "$YOKI_TEST_UDID" test --format junit --output review-results/iPad/report.xml --test-output-dir review-results/iPad/steps --debug-output review-results/iPad/steps .maestro/review-smoke.yml
       - name: Preserve iPad screen
         if: always() && steps.ipad.outcome != 'skipped'
         run: |
@@ -115,4 +121,6 @@ jobs:
         env:
           IPHONE_RESULT: ${{ steps.iphone.outcome }}
           IPAD_RESULT: ${{ steps.ipad.outcome }}
-        run: test "$IPHONE_RESULT" = success && test "$IPAD_RESULT" = success
+        run: |
+          printf 'Actual test outcomes: iPhone=%s iPad=%s\n' "$IPHONE_RESULT" "$IPAD_RESULT"
+          test "$IPHONE_RESULT" = success && test "$IPAD_RESULT" = success

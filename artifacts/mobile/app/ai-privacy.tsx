@@ -29,11 +29,11 @@ export default function AiPrivacyScreen() {
   };
   return <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}>
     <Text accessibilityRole="header" style={styles.title}>AIへの情報送信</Text>
-    <Text style={styles.copy}>おはなし、ホームのひとこと、「きづき」にはOpenAIのAIを使います。利用すると、次の情報をYOKI YOKIのサーバー（Replit）を経由してOpenAIに送信し、返答の作成に使います。</Text>
+    <Text style={styles.copy}>おはなし、ホームのひとこと、ログイン利用時の「きづき」にはOpenAIのAIを使います。利用すると、次の情報をYOKI YOKIのサーバー（Replit）を経由してOpenAIに送信し、返答の作成に使います。ゲスト利用時の「きづき」は端末内で作成し、AIには送信しません。</Text>
     <View style={styles.box}>
       <Text style={styles.copy}>・入力したメッセージと直近の会話履歴</Text>
       <Text style={styles.copy}>・ニックネーム、年代、性別、目標など、入力したプロフィール</Text>
-      <Text style={styles.copy}>・気分、睡眠、行動、メモなどの記録と育成状況。「きづき」では最大1年分の記録を使います。</Text>
+      <Text style={styles.copy}>・気分、睡眠、行動、メモなどの記録と育成状況。ログイン利用時の「きづき」では最大1年分の記録を使います。</Text>
     </View>
     <Text style={styles.copy}>必要な情報は機能ごとに異なります。これらの内容を広告へのリクエストに含めることはありません。同意しなくても、記録・育成・ミニゲームは利用できます。</Text>
     <Text style={styles.copy}>同意はプロフィールからいつでも取り消せます。取り消すと、それ以降のAIへの送信を停止します。すでに送信した情報の取り扱いは、各サービスのプライバシーポリシーをご確認ください。</Text>

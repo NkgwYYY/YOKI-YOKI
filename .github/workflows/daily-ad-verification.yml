@@ -101,6 +101,13 @@ jobs:
           YOKI_QA_EXPORT: /tmp/yoki-qa-web
           YOKI_QA_OUTPUT: /tmp/yoki-care-browser
         run: node artifacts/mobile/tests/chatRecovery.browser.cjs
+      # Guest insight must work without an authenticated server or a paid AI call.
+      - name: Guest reflection works locally without calling the insight API
+        env:
+          YOKI_QA_PLAYWRIGHT: /tmp/yoki-browser-tools/node_modules/playwright
+          YOKI_QA_EXPORT: /tmp/yoki-qa-web
+          YOKI_QA_OUTPUT: /tmp/yoki-care-browser
+        run: node artifacts/mobile/tests/insight.browser.cjs
       - name: iOS and Android JavaScript and asset export
         env:
           NODE_OPTIONS: --max-old-space-size=6144

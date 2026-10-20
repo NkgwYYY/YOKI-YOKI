@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TextInput,
+  Keyboard,
   StyleSheet,
 } from 'react-native';
 import { border, colors, control, radius, space, typography } from '@/constants/theme';
@@ -71,9 +72,11 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
     label,
     selected,
     onPress,
-  }: { label: string; selected: boolean; onPress: () => void }) => (
+    testID,
+  }: { label: string; selected: boolean; onPress: () => void; testID?: string }) => (
     <PressScale
-      onPress={onPress}
+      testID={testID}
+      onPress={() => { Keyboard.dismiss(); onPress(); }}
       disabled={submitting}
       accessibilityState={{ selected, disabled: !!submitting }}
       style={[styles.chip, selected && styles.chipSelected]}
@@ -90,7 +93,10 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
 
         <Text style={styles.label}>ニックネーム *</Text>
         <TextInput
+          testID="profile-nickname"
           accessibilityLabel="ニックネーム（必須）"
+          returnKeyType="done"
+          onSubmitEditing={Keyboard.dismiss}
           editable={!submitting}
           value={nickname}
           onChangeText={setNickname}
@@ -103,14 +109,14 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
         <Text style={styles.label}>年代 *</Text>
         <View style={styles.chipRow}>
           {AGE_RANGES.map((a) => (
-            <Chip key={a} label={a} selected={ageRange === a} onPress={() => setAgeRange(a)} />
+            <Chip key={a} testID={a === '回答しない' ? 'profile-age-unknown' : undefined} label={a} selected={ageRange === a} onPress={() => setAgeRange(a)} />
           ))}
         </View>
 
         <Text style={styles.label}>性別 *</Text>
         <View style={styles.chipRow}>
           {GENDERS.map((g) => (
-            <Chip key={g} label={g} selected={gender === g} onPress={() => setGender(g)} />
+            <Chip key={g} testID={g === '回答しない' ? 'profile-gender-unknown' : undefined} label={g} selected={gender === g} onPress={() => setGender(g)} />
           ))}
         </View>
       </View>

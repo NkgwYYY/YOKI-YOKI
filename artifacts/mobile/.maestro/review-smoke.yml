@@ -5,18 +5,25 @@ name: Fresh guest review journeys
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: 'ニックネーム（必須）'
+    visible:
+      id: profile-nickname
     timeout: 30000
-- tapOn: 'ニックネーム（必須）'
+- tapOn:
+    id: profile-nickname
 - inputText: 'Yoki QA'
-- hideKeyboard
 # Do not request live advertising during automated tests. Unknown age is ineligible.
+- scrollUntilVisible:
+    element:
+      id: profile-age-unknown
+    direction: DOWN
 - tapOn:
-    text: '回答しない'
-    index: 0
+    id: profile-age-unknown
+- scrollUntilVisible:
+    element:
+      id: profile-gender-unknown
+    direction: DOWN
 - tapOn:
-    text: '回答しない'
-    index: 1
+    id: profile-gender-unknown
 - scrollUntilVisible:
     element:
       text: 'いっしょにはじめる'
@@ -45,7 +52,10 @@ name: Fresh guest review journeys
 - tapOn:
     id: diary-input
 - inputText: 'Release QA: a quiet day.'
-- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: diary-mood-3
+    direction: DOWN
 - tapOn:
     id: diary-mood-3
 - scrollUntilVisible:
@@ -136,3 +146,14 @@ name: Fresh guest review journeys
     id: diary-tab-user
 - assertVisible: 'Release QA: a quiet day.'
 - takeScreenshot: 10-persisted-diary
+- tapOn:
+    id: diary-home
+- tapOn: '思い出'
+- tapOn:
+    id: album-details-toggle
+- scrollUntilVisible:
+    element:
+      id: guest-insights
+    direction: DOWN
+- assertVisible: '端末の記録から振り返ります。AIには送信しません。'
+- takeScreenshot: 11-guest-insights
