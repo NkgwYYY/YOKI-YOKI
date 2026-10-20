@@ -160,11 +160,16 @@ final class ReviewJourneys: XCTestCase {
         tap(element("egg-job-action"))
         // The pot has this label even during the countdown. Wait for the actual
         // action button to become enabled, not that separate permanent label.
-        let scoopReady = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@ AND enabled == true", "お玉ですくい上げる"),
-            object: element("egg-job-action"))
+        // Passing an XCUIElement as the expectation's object causes XCTest to
+        // serialize its full debug hierarchy after a false evaluation. Those
+        // captures consumed the short game window on the hosted simulator.
+        // Poll only the live button properties, then tap without extra snapshots.
+        let scoopButton = app.buttons["egg-job-action"]
+        let scoopReady = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            scoopButton.label == "お玉ですくい上げる" && scoopButton.isEnabled
+        }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [scoopReady], timeout: 10), .completed)
-        tap(element("egg-job-action"))
+        scoopButton.tap()
         visible(element("egg-job-result"))
         capture("09-game-result")
         tap(element("egg-job-back"))

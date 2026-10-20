@@ -126,3 +126,16 @@ application readiness. The full journey now uses that tested device preference
 and startup method. Screen capture and shutdown also have independent 30-second
 limits so cleanup cannot consume the remaining iPad test time. Both actual
 application journeys are still required by the final gate.
+
+The iPad portion of `39446409295` ran on iPad mini (A17 Pro) / iOS 26.5, not the
+previous Air model. It passed the profile return, consent withdrawal and map
+travel, then started the egg game. Its final native screen shows a completed
+TOO LATE result. The test failed before its scoop tap: XCTest spent roughly eight
+seconds capturing the expectation object's debug hierarchy between checks,
+missing the brief enabled-action interval. The test now polls button properties
+with a predicate block and no XCUIElement expectation object, then taps directly.
+The explicit readiness, result, restart/persistence and local-insight assertions
+remain required. No full native pass is claimed from this failed run.
+
+The reduced evidence archive is 29,157,172 bytes and was downloaded and verified
+against SHA-256 `0a1dfc7e17f4dc567a5db682e6d16708ef02e900336a2cede33711c7c3a08888`.
