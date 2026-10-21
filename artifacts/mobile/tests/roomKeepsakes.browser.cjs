@@ -58,6 +58,8 @@ let browser,activePage;
   await page.waitForFunction(expected=>JSON.parse(localStorage.getItem('@mentore/progress_v2')).visits.streak===expected,s.streak);
   await page.getByTestId('room-scene').waitFor();
   const calendar=await fit(page,'room-visit-calendar');await fit(page,'room-mood-frame');
+  // Added furniture must leave the existing controls and furniture usable.
+  for(const id of ['world-map-open','room-clean-status','room-record','room-bed'])await page.getByTestId(id).click({trial:true});
   await page.screenshot({path:path.join(out,`keepsakes-home-${s.width}.png`)});
   await calendar.click();
   assert.equal(await page.getByTestId('visit-streak-value').innerText(),s.streak+'日連続');

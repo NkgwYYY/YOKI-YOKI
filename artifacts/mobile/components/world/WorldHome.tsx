@@ -354,7 +354,7 @@ export function WorldHome(props: Props) {
       {props.companion && <View pointerEvents="none" style={{position: 'absolute', left: width * 0.57, top: height * 0.54, zIndex: 615}}><StaticMascot stage="egg" mood="happy" size={width * 0.085} /></View>}
       </>}
       {map==='home'&&<>
-        <RoomKeepsakes width={width} height={height} night={night} disabled={!active||!!props.food||riding||!!cleanTool} onBusy={setKeepsakeOpen}/>
+        <RoomKeepsakes width={width} height={height} frameLeft={frame.left} frameTop={frame.top} viewportWidth={bounds.width} viewportHeight={bounds.height} safeTop={insets.top+162} night={night} disabled={!active||!!props.food||riding||!!cleanTool} onBusy={setKeepsakeOpen}/>
         <HouseDust width={width} height={height} dirt={housekeeping.dirt} tool={cleanTool} active={active} onClean={housekeeping.clean}/>
         {housekeeping.house.robotPlaced&&<RobotCleaner width={width} height={height} active={active&&!cleanTool&&!props.food&&!experience} reduceMotion={reduceMotion} riding={riding} footX={footX} footY={footY} onClean={housekeeping.clean} onRide={(x,y)=>{setDestination(null);pending.current=null;portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(footX);cancelAnimation(footY);footX.value=x;footY.value=y;setRiding(true);props.onInteract('greet');}}/>}
       </>}

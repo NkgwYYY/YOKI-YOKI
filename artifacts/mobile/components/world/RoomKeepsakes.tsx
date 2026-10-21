@@ -13,18 +13,28 @@ const MOODS=['','つらい','少ししんどい','ふつう','穏やか','うれ
 const TINTS=['','#A296BA','#B3A6C7','#C8B6D4','#A4B9A0','#D9BB79'];
 type Kind='calendar'|'moods';
 /** Furniture anchored in the room's coordinate space, rather than another HUD/menu. */
-export function RoomKeepsakes({width,height,night,disabled,onBusy}:{width:number;height:number;night:boolean;disabled:boolean;onBusy:(busy:boolean)=>void}){
+export function RoomKeepsakes({width,height,frameLeft,frameTop,viewportWidth,viewportHeight,safeTop,night,disabled,onBusy}:{width:number;height:number;frameLeft:number;frameTop:number;viewportWidth:number;viewportHeight:number;safeTop:number;night:boolean;disabled:boolean;onBusy:(busy:boolean)=>void}){
  const {progress,records,visitError,refreshVisits}=useApp();
  const [open,setOpen]=useState<Kind|null>(null);
  const today=getTodayDate(),visits=readVisitGrowth(progress.visits),days=moodDays(records,today);
  const next=nextVisitStage(visits),stage=getMascotStage(progress.level,progress.visits);
  const streak=visits?.streak??0,month=Number(today.slice(5,7));
  useEffect(()=>{onBusy(open!==null);return()=>onBusy(false);},[open,onBusy]);
- const w=Math.max(54,Math.min(96,width*.14)),fw=Math.max(50,Math.min(92,width*.14));
+ // Keep the props in scene space so they travel with the room. In a short
+ // portrait room, use the shelf beside the cleanliness badge; in landscape,
+ // use the wall below the status row. Leave space for the rotated corners.
+ const landscape=viewportWidth>viewportHeight;
+ const shelf=!landscape&&frameTop+height*.24<safeTop+36;
+ const w=shelf?44:Math.max(54,Math.min(96,width*.14)),fw=shelf?44:Math.max(50,Math.min(92,width*.14));
+ const withinRoom=(x:number,size:number)=>Math.max(12-frameLeft,Math.min(x,viewportWidth-12-frameLeft-size));
+ const calendarLeft=withinRoom(shelf?Math.max(width*.275,124-frameLeft):width*.275,w);
+ const calendarTop=landscape?Math.max(height*.24,safeTop-50-frameTop):shelf?safeTop+6-frameTop:height*.24;
+ const moodLeft=withinRoom(shelf?176-frameLeft:width*(landscape?.52:.70),fw);
+ const moodTop=Math.max(height*.213,safeTop+(landscape?-50:6)-frameTop);
  const calendarLabel=`カレンダー。${streak?`連続${streak}日、会えた日`:'会えた日の記録'}。進化までの日数を見る`;
  return <>
   <Pressable testID="room-visit-calendar" accessibilityRole="button" accessibilityLabel={calendarLabel} disabled={disabled} onPress={()=>setOpen('calendar')}
-   style={({pressed})=>[s.object,{left:width*.275,top:height*.24,width:w,height:w*1.27,transform:[{rotate:'-5deg'},{scale:pressed ? .97 : 1}],opacity:night ? .88 : 1}]}>
+   style={({pressed})=>[s.object,{left:calendarLeft,top:calendarTop,width:w,height:w*1.27,transform:[{rotate:'-5deg'},{scale:pressed ? .97 : 1}],opacity:night ? .88 : 1}]}>
    <Svg width="100%" height="100%" viewBox="0 0 110 140" pointerEvents="none" accessible={false}>
     <Defs><LinearGradient id="calendarWood" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#E5BD84"/><Stop offset=".5" stopColor="#AC764C"/><Stop offset="1" stopColor="#6E4634"/></LinearGradient><LinearGradient id="calendarPaper" x1="0" y1="0" x2=".7" y2="1"><Stop offset="0" stopColor="#FFF8E7"/><Stop offset="1" stopColor="#E4D3B2"/></LinearGradient></Defs>
     <Ellipse cx="56" cy="132" rx="49" ry="7" fill="#38251E" opacity=".26"/>
@@ -43,7 +53,7 @@ export function RoomKeepsakes({width,height,night,disabled,onBusy}:{width:number
    </Svg>
   </Pressable>
   <Pressable testID="room-mood-frame" accessibilityRole="button" accessibilityLabel="こころのうつろい。最近7日間の気分を見る" disabled={disabled} onPress={()=>setOpen('moods')}
-   style={({pressed})=>[s.object,{left:width*.70,top:height*.213,width:fw,height:fw*.92,transform:[{rotate:'4deg'},{scale:pressed ? .97 : 1}],opacity:night ? .86 : 1}]}>
+   style={({pressed})=>[s.object,{left:moodLeft,top:moodTop,width:fw,height:fw*.92,transform:[{rotate:'4deg'},{scale:pressed ? .97 : 1}],opacity:night ? .86 : 1}]}>
    <Svg width="100%" height="100%" viewBox="0 0 120 110" pointerEvents="none" accessible={false}>
     <Defs><LinearGradient id="moodWood" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#C8A678"/><Stop offset=".55" stopColor="#8E6547"/><Stop offset="1" stopColor="#5A3E34"/></LinearGradient></Defs>
     <Path d="M26 30 L59 6 L94 30" stroke="#806A55" strokeWidth="1.5" fill="none"/><Circle cx="59" cy="6" r="2.7" fill="#C3A778"/>
