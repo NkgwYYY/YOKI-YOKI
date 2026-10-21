@@ -58,8 +58,15 @@ let browser,activePage;
   await page.waitForFunction(expected=>JSON.parse(localStorage.getItem('@mentore/progress_v2')).visits.streak===expected,s.streak);
   await page.getByTestId('room-scene').waitFor();
   const calendar=await fit(page,'room-visit-calendar');await fit(page,'room-mood-frame');
-  // Added furniture must leave the existing controls and furniture usable.
-  for(const id of ['world-map-open','room-clean-status','room-record','room-bed'])await page.getByTestId(id).click({trial:true});
+  // Check collisions in the current camera position. Trial-clicking an existing
+  // world hotspot can scroll the clipped scene in Chromium before any real tap.
+  for(const prop of ['room-visit-calendar','room-mood-frame']){
+   const a=await page.getByTestId(prop).boundingBox();
+   for(const id of ['world-map-open','room-clean-status','room-record','room-bed']){
+    const b=await page.getByTestId(id).boundingBox();
+    assert.ok(a&&b&&(a.x+a.width<=b.x||b.x+b.width<=a.x||a.y+a.height<=b.y||b.y+b.height<=a.y),prop+' clear of '+id+' '+JSON.stringify({a,b}));
+   }
+  }
   await page.screenshot({path:path.join(out,`keepsakes-home-${s.width}.png`)});
   await calendar.click();
   assert.equal(await page.getByTestId('visit-streak-value').innerText(),s.streak+'日連続');
