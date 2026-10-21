@@ -41,7 +41,7 @@ function DiaryNotebook(){
  const pages=feedState.exchangeDiary?.pages??{},page=pages[date];
  const dates=Object.keys(pages).sort().reverse(),index=dates.indexOf(date);
  const mine=date===today,name=page?.name||mascotName||'よっきー';
- const stage=page?.stage??getMascotStage(progress.level);
+ const stage=page?.stage??getMascotStage(progress.level, progress.visits);
  const wear=items.find(i=>i.id===(shopState.equipped.wear??shopState.equipped.accessory));
  const placement=wear?shopState.placements[wear.id]:undefined;
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);

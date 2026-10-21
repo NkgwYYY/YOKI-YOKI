@@ -479,7 +479,7 @@ export function SkylineRunGame({ onFinish, onQuit, onPlayingChange }: Props) {
   const cameraMax = Math.max(0, WORLD_WIDTH - sceneSize.width);
   const cameraX = Math.max(0, Math.min(cameraMax, world.player.x - sceneSize.width * 0.36));
   const currentPlatforms = useMemo(() => getPlatformsAtTime(world.elapsed), [world.elapsed]);
-  const stage = getMascotStage(progress.level);
+  const stage = getMascotStage(progress.level, progress.visits);
   const playerHeight = getPlayerHeight(world.player);
 
   useEffect(() => {

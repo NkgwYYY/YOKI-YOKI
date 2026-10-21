@@ -93,6 +93,7 @@ export function worldResidentScale(y: number) {
 }
 export function worldCameraOffset(y: number, height: number, viewportHeight = height, frameTop = 0) {
   'worklet';
+  if (height <= 0 || viewportHeight <= 0) return 0;
   const follow = -Math.max(0, Math.min(height * 0.13, (y - 0.56) * height * 0.67));
   return Math.min(follow, Math.min(0, viewportHeight - 136 - frameTop - y * height));
 }

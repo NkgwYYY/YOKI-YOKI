@@ -97,7 +97,7 @@ export default function HomeBathScreen(){
    <Animated.View testID="home-bath-resident" style={[{position:'absolute',width:size,height:size,zIndex:20},body]}>
     <Animated.View pointerEvents="none" style={[{position:'absolute',top:size*.62,left:-size*.2,width:size*1.4,height:size*.20,borderRadius:100,borderWidth:2,borderColor:'#CCF4F2'},ripple]}/>
     <GestureDetector gesture={gesture} touchAction="none"><Animated.View testID="home-bath-body" accessible accessibilityRole="adjustable" accessibilityLabel={washing?'タオルでからだをこする':'持ち上げて湯船に入れる'} accessibilityHint={washing?'体全体を指でなぞって洗ってください。矢印キーでもタオルを動かせます。':'たまごをつかんでお湯へ運び、離してください。湯船から外へ運ぶとあがれます。'} accessibilityActions={washing?[{name:'increment',label:'タオルでひとこすり'}]:[{name:'increment',label:'湯船へ運ぶ'},{name:'decrement',label:'床へ運ぶ'}]} onAccessibilityAction={e=>washing?accessibleScrub():drop(e.nativeEvent.actionName==='increment'?BATH_WATER.x:BATH_REST.x,e.nativeEvent.actionName==='increment'?BATH_WATER.y:BATH_REST.y)} {...(Platform.OS==='web'?{tabIndex:0,onKeyDown:keyAction}:{})} style={[{width:size,overflow:'hidden'},crop]}>
-     <VillageResident stage={getMascotStage(progress.level)} size={size} active={active} reduceMotion={reduceMotion} asleep={bathing}/>
+     <VillageResident stage={getMascotStage(progress.level, progress.visits)} size={size} active={active} reduceMotion={reduceMotion} asleep={bathing}/>
      <BodyWashArt size={size} coverage={wash.coverage} cleanliness={cleanliness} towel={wash.towel} saved={wash.saved}/>
     </Animated.View></GestureDetector>
     {bathing&&!holding&&<View pointerEvents="none" style={{position:'absolute',top:size*.68,left:size*.08,width:size*.84,height:5,borderRadius:10,backgroundColor:'#A5D8D29A'}}/>}

@@ -205,7 +205,7 @@ export default function ChatScreen() {
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
   const totalCount = getTotalCheckCount();
-  const mascotStage = getMascotStage(progress.level);
+  const mascotStage = getMascotStage(progress.level, progress.visits);
   const mascotMood = getMascotMood(progress, todayRecord, completedCount, totalCount, {
     inactivityHours, satiety: currentSatiety,
   });

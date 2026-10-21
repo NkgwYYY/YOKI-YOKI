@@ -1,3 +1,4 @@
+import {readVisitGrowth,VISIT_STAGES} from '@/utils/visitGrowth';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -149,12 +150,13 @@ export default function GrowthScreen() {
   const firstGrowth = growth.history[0]?.growthSize ?? 1.0;
   const growthPct = (v: number) => `${(v * 100).toFixed(1)}%`;
   const hasGrown = growth.growthSize - firstGrowth > 0.0005;
-  const currentChar = getCharacter(getMascotStage(progress.level));
+  const currentChar = getCharacter(getMascotStage(progress.level, progress.visits));
   const CHAR_IMG = STAGE_IMAGES[currentChar.key] ?? STAGE_IMAGES.egg;
 
   // 図鑑に出すのは「記録があり、かつ現在のレベルで実際に出会っているはずのキャラ」だけ。
   // ストレージやクラウドに未来のキャラの記録が紛れ込んでも描画されないようにする
-  const metNow = new Set(charsMetByLevel(progress.level));
+  const visitHistory=readVisitGrowth(progress.visits);
+  const metNow = new Set(visitHistory?VISIT_STAGES.slice(0,VISIT_STAGES.findIndex(x=>x.stage===visitHistory.highestStage)+1).map(x=>getCharacter(x.stage).key):charsMetByLevel(progress.level));
   const dexList = encounters.list.filter((e) => metNow.has(e.charKey));
 
   return (
