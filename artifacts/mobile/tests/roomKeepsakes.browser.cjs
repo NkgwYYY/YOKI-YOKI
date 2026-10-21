@@ -25,11 +25,21 @@ function seed({visits}){
  localStorage.setItem('room-keepsakes-qa','1');
 }
 async function fit(page,id){
+ await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
  const element=page.getByTestId(id);await element.waitFor();
  const b=await element.boundingBox(),v=page.viewportSize();
  assert.ok(b&&b.width>=44&&b.height>=44,id+' touch target');
  assert.ok(b.x>=0&&b.y>=0&&b.x+b.width<=v.width&&b.y+b.height<=v.height,id+' inside viewport '+JSON.stringify(b));
- await element.click({trial:true});return element;
+ // Native-like pointer input must not auto-scroll the clipped game world.
+ await page.waitForFunction(id=>{
+  const e=document.querySelector(`[data-testid="${id}"]`),r=e?.getBoundingClientRect();
+  return r&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));
+ },id);
+ return element;
+}
+async function tap(page,id){
+ const element=await fit(page,id),b=await element.boundingBox();
+ await page.mouse.click(b.x+b.width/2,b.y+b.height/2);
 }
 let browser,activePage;
 (async()=>{
@@ -68,12 +78,12 @@ let browser,activePage;
    }
   }
   await page.screenshot({path:path.join(out,`keepsakes-home-${s.width}.png`)});
-  await calendar.click();
+  await tap(page,'room-visit-calendar');
   assert.equal(await page.getByTestId('visit-streak-value').innerText(),s.streak+'日連続');
   assert.equal(await page.getByTestId('visit-current-form').getAttribute('aria-label'),'いまの姿は'+s.stage);
   await page.screenshot({path:path.join(out,`keepsakes-calendar-${s.width}.png`)});
   await page.getByRole('button',{name:'閉じる',exact:true}).last().click();
-  await page.getByTestId('room-mood-frame').click();
+  await tap(page,'room-mood-frame');
   assert.equal(await page.locator('[data-testid^="mood-bar-"]').count(),3);
   assert.equal(await page.getByTestId('mood-bar-2026-10-19').count(),0);
   if(s.width===390)await page.screenshot({path:path.join(out,'keepsakes-moods.png')});
@@ -81,7 +91,7 @@ let browser,activePage;
   const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/progress_v2')));
   assert.equal(before.experience,980);assert.equal(before.streak,4);assert.equal(before.totalDays,28);
   await page.reload();await page.getByTestId('room-visit-calendar').waitFor();
-  await page.getByTestId('room-visit-calendar').click();
+  await tap(page,'room-visit-calendar');
   assert.equal(await page.getByTestId('visit-streak-value').innerText(),s.streak+'日連続');
   assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/progress_v2')).visits),before.visits);
   await page.getByRole('button',{name:'閉じる',exact:true}).last().click();
@@ -101,6 +111,7 @@ let browser,activePage;
  }
 })().catch(async e=>{
  if(activePage&&!activePage.isClosed()){
+  console.log('ROOM_GEOMETRY',await activePage.locator('[data-testid="world-stage"], [data-testid="room-scene"], [data-testid="room-visit-calendar"], [data-testid="room-mood-frame"]').evaluateAll(es=>es.map(e=>({id:e.dataset.testid,rect:e.getBoundingClientRect().toJSON(),transform:getComputedStyle(e).transform,scrollTop:e.scrollTop}))));
   await activePage.screenshot({path:path.join(out,'keepsakes-failure.png')}).catch(()=>{});
   fs.writeFileSync(path.join(out,'keepsakes-failure.txt'),await activePage.locator('body').innerText().catch(()=>''));
  }
