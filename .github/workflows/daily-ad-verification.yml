@@ -2,7 +2,7 @@ name: Daily ad verification
 
 on:
   push:
-    branches: [codex/daily-ad-placement-components-20261016]
+    branches: [codex/daily-ad-placement-components-20261016, codex/home-calendar-evolution-20261021]
     paths-ignore: ['docs/**']
   workflow_dispatch:
 
@@ -116,6 +116,12 @@ jobs:
         run: |
           node artifacts/mobile/tests/restLayout.browser.cjs
           node artifacts/mobile/tests/diaryReply.browser.cjs
+      - name: Room calendar, mood history and visit evolution
+        env:
+          YOKI_QA_PLAYWRIGHT: /tmp/yoki-browser-tools/node_modules/playwright
+          YOKI_QA_EXPORT: /tmp/yoki-qa-web
+          YOKI_QA_OUTPUT: /tmp/yoki-care-browser
+        run: node artifacts/mobile/tests/roomKeepsakes.browser.cjs
       - name: iOS and Android JavaScript and asset export
         env:
           NODE_OPTIONS: --max-old-space-size=6144

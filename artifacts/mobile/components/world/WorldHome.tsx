@@ -1,3 +1,4 @@
+import {RoomKeepsakes} from './RoomKeepsakes';
 import {GardenBeds,GardenSheet,GrandmotherResident,GARDEN_PLOTS,useGarden} from './VegetableGarden';
 import {gardenUnlocked,readGarden,wholesaleUnlocked,plotStatus} from '@/utils/vegetableGarden';
 import {useVillageStories,VillageStoryDialogue,StoryEncounterActor,StoryWorldKeepsakes} from './VillageStories';
@@ -93,6 +94,7 @@ export function WorldHome(props: Props) {
   const [gardenPlot,setGardenPlot]=useState<number|null>(null),[grandmaOpen,setGrandmaOpen]=useState(false);
   const [zooming,setZooming]=useState(false);
   const [merchantGreeting,setMerchantGreeting]=useState({kind:'',count:0});
+  const [keepsakeOpen,setKeepsakeOpen]=useState(false);
   const [cleanOpen,setCleanOpen]=useState(false),[cleanTool,setCleanTool]=useState<CleaningTool|null>(null),[riding,setRiding]=useState(false);
   const [experienceMessage,setExperienceMessage]=useState('');
   const shopTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
@@ -131,13 +133,13 @@ export function WorldHome(props: Props) {
   const pending=useRef<{id:number;action:VillageAction}|null>(null);
   const [mapMessage,setMapMessage]=useState('');
   const transition=useSceneTransition(reduceMotion,()=>setMapMessage('景色を読み込めませんでした。もう一度、行き先を選んでね。'));
-  const active=props.active&&!garden.busy&&gardenPlot===null&&!grandmaOpen&&!storyOpen&&!plaza.open&&!bowlingOpen&&!cleanOpen&&!bankOpen&&!fortuneOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!transition.busy&&!zooming;
+  const active=props.active&&!keepsakeOpen&&!garden.busy&&gardenPlot===null&&!grandmaOpen&&!storyOpen&&!plaza.open&&!bowlingOpen&&!cleanOpen&&!bankOpen&&!fortuneOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!transition.busy&&!zooming;
   const housekeeping=useHousekeeping(props.active);
   useEffect(()=>{if(!housekeeping.house.robotPlaced)setRiding(false);},[housekeeping.house.robotPlaced]);
   const [bowlingBusy,setBowlingBusy]=useState(false);
   const footX=useSharedValue(.5);
   const steering=useSharedValue({x:0,y:0});
-  useEffect(()=>{props.onSceneBusy(gardenPlot!==null||grandmaOpen||!!storyOpen||plaza.open||!!experience||bowlingOpen||bankOpen||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[gardenPlot,grandmaOpen,storyOpen,plaza.open,experience,bowlingOpen,bankOpen,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
+  useEffect(()=>{props.onSceneBusy(keepsakeOpen||gardenPlot!==null||grandmaOpen||!!storyOpen||plaza.open||!!experience||bowlingOpen||bankOpen||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[keepsakeOpen,gardenPlot,grandmaOpen,storyOpen,plaza.open,experience,bowlingOpen,bankOpen,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
   const [loadedArt,setLoadedArt]=useState<ReturnType<typeof worldArt>|null>(null);
   const [bounds, setBounds] = useState({width: 0, height: 0});
   const destinationId=useRef(0);
@@ -352,6 +354,7 @@ export function WorldHome(props: Props) {
       {props.companion && <View pointerEvents="none" style={{position: 'absolute', left: width * 0.57, top: height * 0.54, zIndex: 615}}><StaticMascot stage="egg" mood="happy" size={width * 0.085} /></View>}
       </>}
       {map==='home'&&<>
+        <RoomKeepsakes width={width} height={height} night={night} disabled={!active||!!props.food||riding||!!cleanTool} onBusy={setKeepsakeOpen}/>
         <HouseDust width={width} height={height} dirt={housekeeping.dirt} tool={cleanTool} active={active} onClean={housekeeping.clean}/>
         {housekeeping.house.robotPlaced&&<RobotCleaner width={width} height={height} active={active&&!cleanTool&&!props.food&&!experience} reduceMotion={reduceMotion} riding={riding} footX={footX} footY={footY} onClean={housekeeping.clean} onRide={(x,y)=>{setDestination(null);pending.current=null;portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(footX);cancelAnimation(footY);footX.value=x;footY.value=y;setRiding(true);props.onInteract('greet');}}/>}
       </>}

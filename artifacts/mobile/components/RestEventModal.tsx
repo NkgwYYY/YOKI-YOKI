@@ -1,3 +1,4 @@
+import {useApp} from '@/contexts/AppContext';
 import React,{useEffect,useRef,useState} from 'react';
 import {Image,Modal,ScrollView,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
@@ -14,6 +15,7 @@ import {RestCompanion} from '@/components/rest/RestCompanion';
 
 type Props={visible:boolean;level:number;mascotName:string;onClose:()=>void};
 export function RestEventModal({visible,level,mascotName,onClose}:Props){
+ const {progress}=useApp();
  const insets=useSafeAreaInsets(),{active,reduceMotion}=useAppActivity();
  const [scene,setScene]=useState<RestScene|null>(null),[duration,setDuration]=useState(0);
  const [volume,setVolume]=useState(.55),[muted,setMuted]=useState(false);
@@ -25,7 +27,7 @@ export function RestEventModal({visible,level,mascotName,onClose}:Props){
   <View accessibilityViewIsModal onAccessibilityEscape={close} style={s.overlay}>
    {scene&&visible&&active?<Playing key={scene} scene={scene} duration={duration} reduceMotion={reduceMotion} volume={volume} setVolume={setVolume} muted={muted} setMuted={setMuted} level={level} mascotName={mascotName} onBack={()=>setScene(null)} onClose={close}/>:<ScrollView style={s.sheet} contentContainerStyle={[s.content,{paddingTop:Math.max(18,insets.top),paddingBottom:Math.max(insets.bottom,20)}]}>
     <View style={s.handle}/>
-    <View style={s.header}><StaticMascot stage={getMascotStage(level)} mood="sleepy" size={62}/><Text style={s.eyebrow}>ふたりの、ひとやすみ</Text><Text style={s.title}>今日は一緒に休もう。</Text><Text style={s.subtitle}>{mascotName||'こころん'}と、何もしなくていい時間。</Text></View>
+    <View style={s.header}><StaticMascot stage={getMascotStage(level,progress.visits)} mood="sleepy" size={62}/><Text style={s.eyebrow}>ふたりの、ひとやすみ</Text><Text style={s.title}>今日は一緒に休もう。</Text><Text style={s.subtitle}>{mascotName||'こころん'}と、何もしなくていい時間。</Text></View>
     <View style={s.grid}>{REST_SCENES.map(cfg=><PressScale key={cfg.key} testID={`rest-choose-${cfg.key}`} accessibilityLabel={cfg.label} onPress={()=>choose(cfg.key)} style={s.card}>
      <Image source={cfg.image} resizeMode="cover" style={[StyleSheet.absoluteFill,{width:'100%',height:'100%'}]}/>
      <LinearGradient pointerEvents="none" colors={['#17101D00','#17101D4D','#17101DEB']} locations={[0,.35,1]} style={StyleSheet.absoluteFill}/>
@@ -38,6 +40,7 @@ export function RestEventModal({visible,level,mascotName,onClose}:Props){
  </Modal>;
 }
 function Playing({scene,duration,reduceMotion,volume,setVolume,muted,setMuted,onBack,onClose,level,mascotName}:{level:number;mascotName:string;scene:RestScene;duration:number;reduceMotion:boolean;volume:number;setVolume:(n:number)=>void;muted:boolean;setMuted:(v:boolean)=>void;onBack:()=>void;onClose:()=>void}){
+ const {progress}=useApp();
  const insets=useSafeAreaInsets(),cfg=REST_SCENES.find(c=>c.key===scene)!;
  const window=useWindowDimensions(),landscape=window.width>window.height;
  const [footerHeight,setFooterHeight]=useState(180);
@@ -56,7 +59,7 @@ function Playing({scene,duration,reduceMotion,volume,setVolume,muted,setMuted,on
  const pet=()=>{setPetting(true);if(petTimer.current)clearTimeout(petTimer.current);petTimer.current=setTimeout(()=>setPetting(false),2800);};
  return <View style={s.full}>
   <RestSceneView scene={scene} reduceMotion={reduceMotion} onPet={pet}/>
-  <View pointerEvents="box-none" style={[s.companion,{left:landscape?window.width*.12:Math.max(16,window.width*.055),bottom:landscape?Math.max(insets.bottom+18,20):footerHeight+5}]}><RestCompanion stage={getMascotStage(level)} name={name} scene={scene} size={companionSize} reduceMotion={reduceMotion}/></View>
+  <View pointerEvents="box-none" style={[s.companion,{left:landscape?window.width*.12:Math.max(16,window.width*.055),bottom:landscape?Math.max(insets.bottom+18,20):footerHeight+5}]}><RestCompanion stage={getMascotStage(level,progress.visits)} name={name} scene={scene} size={companionSize} reduceMotion={reduceMotion}/></View>
   <View pointerEvents="box-none" style={[s.top,{top:Math.max(insets.top,12)}]}>
    <PressScale testID="rest-back" accessibilityLabel="休憩を選び直す" onPress={onBack} style={s.back}><Icon name="chevron-left" color="#FFF5E8" size={18}/><Text style={s.controlText}>選び直す</Text></PressScale>
    <PressScale testID="rest-end" accessibilityLabel="休憩を終えておはなしに戻る" onPress={onClose} style={s.end}><Icon name="x" color="#30263A" size={17}/><Text style={s.endText}>休憩を終える</Text></PressScale>

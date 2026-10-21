@@ -1,4 +1,5 @@
-import { DailyRecord, UserProgress } from '@/contexts/AppContext';
+import {readVisitGrowth} from './visitGrowth';
+import type { DailyRecord, UserProgress } from '@/contexts/AppContext';
 
 export type MascotStage = 'egg' | 'odango' | 'stage3' | 'stage4';
 export type MascotMood = 'excited' | 'happy' | 'normal' | 'grumpy' | 'tired' | 'sleepy';
@@ -30,7 +31,9 @@ export function getStageName(stage: MascotStage): string {
   return getCharacter(stage).name;
 }
 
-export function getMascotStage(level: number): MascotStage {
+export function getMascotStage(level: number, visits?: unknown): MascotStage {
+  const attendance=readVisitGrowth(visits);
+  if(attendance)return attendance.stage;
   let result: MascotStage = 'egg';
   for (const s of STAGE_LEVEL_MAP) {
     if (level >= s.minLevel) result = s.stage;

@@ -63,9 +63,10 @@ export function syncEncounters(
   level: number,
   today: string,
   hasHistory: boolean,
+  highestStage?: MascotStage,
 ): { next: EncountersState; newlyMet: CharacterKey[] } {
   const met = new Set(state.list.map((e) => e.charKey));
-  const should = charsMetByLevel(level);
+  const should = highestStage ? STAGE_LEVEL_MAP.slice(0,STAGE_LEVEL_MAP.findIndex(s=>s.stage===highestStage)+1).map(s=>getCharacter(s.stage).key) : charsMetByLevel(level);
   const missing = should.filter((k) => !met.has(k));
   if (missing.length === 0) return { next: state, newlyMet: [] };
 

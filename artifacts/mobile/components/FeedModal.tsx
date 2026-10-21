@@ -131,7 +131,7 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
   const totalCount = getTotalCheckCount();
-  const mascotStage = getMascotStage(progress.level);
+  const mascotStage = getMascotStage(progress.level, progress.visits);
   const mascotMood = getMascotMood(progress, todayRecord, completedCount, totalCount);
 
   const [isEating, setIsEating] = useState(false);

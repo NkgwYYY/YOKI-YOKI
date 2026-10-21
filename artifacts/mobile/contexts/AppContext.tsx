@@ -1,3 +1,4 @@
+import {advanceVisit,mergeVisitGrowth,readVisitGrowth,type VisitGrowth} from '@/utils/visitGrowth';
 import {prepareGarden,type VegetableGarden,type GardenOperation} from '@/utils/vegetableGarden';
 import {storyFinished,prepareVillageStory,type VillageStoryState,type StoryOperation} from '@/utils/villageStories';
 import {prepareCharacterGifts,type CharacterGiftState,type CharacterGiftOperation} from '@/utils/characterGifts';
@@ -141,6 +142,7 @@ export interface CheckedState {
 }
 
 export interface UserProgress {
+  visits?: VisitGrowth;
   level: number;
   experience: number;
   mentalMuscle: number;
@@ -227,6 +229,8 @@ export function computeInactivityHours(lastOpenedAt: string): number {
 
 interface AppContextType {
   progress: UserProgress;
+  visitError: string | null;
+  refreshVisits: () => Promise<void>;
   records: DailyRecord[];
   checkedState: CheckedState;
   checklistItems: ChecklistItemDef[];
@@ -359,6 +363,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { signedInRef.current = isSignedIn; }, [isSignedIn]);
 
   const [progress, setProgress] = useState<UserProgress>(defaultProgress);
+  const [visitError, setVisitError] = useState<string|null>(null);
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [checkedState, setCheckedState] = useState<CheckedState>({ date: '', items: [], bonusEarned: false });
   const [checklistItems, setChecklistItems] = useState<ChecklistItemDef[]>(DEFAULT_CHECKLIST_ITEMS);
@@ -492,7 +497,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (isSignedIn && !cloudSynced) return;
     // アカウントに履歴があるか(既存ユーザーの遡り登録判定に使う)
     const hasHistory = progress.totalDays > 0 || progress.experience > 0 || progress.level > 1;
-    const { next, newlyMet } = syncEncounters(encountersRef.current, progress.level, getTodayDate(), hasHistory);
+    const { next, newlyMet } = syncEncounters(encountersRef.current, progress.level, getTodayDate(), hasHistory, readVisitGrowth(progress.visits)?.highestStage);
     if (next === encountersRef.current) return;
     encountersRef.current = next;
     setEncounters(next);
@@ -502,7 +507,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (newlyMet.length > 0) {
       setNewEncounters((prev) => [...prev, ...newlyMet.filter((k) => !prev.includes(k))]);
     }
-  }, [progress.level, isLoading, isSignedIn, cloudSynced]);
+  }, [progress.level, progress.visits?.highestStage, isLoading, isSignedIn, cloudSynced]);
 
   /** 「新しい仲間が生まれました!」演出を1件消化する */
   const dismissNewEncounter = useCallback(() => {
@@ -632,6 +637,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await next;
   }, []);
 
+  const refreshVisits = useCallback(async () => {
+    if(isLoading || !profile || (isSignedIn && (!cloudSynced || !user)) || pullingRef.current)return;
+    const token=rewardSession.current.token;
+    try {
+      const saved=await AsyncStorage.transaction(values=>{
+        if(rewardSession.current.token!==token)throw Error('Account changed');
+        const current:UserProgress=values[KEYS.PROGRESS]?JSON.parse(values[KEYS.PROGRESS]!):defaultProgress;
+        const visits=advanceVisit(current.visits,getTodayDate(),current.level);
+        const changed=visits!==current.visits;
+        const next={...current,visits};
+        return {entries:changed?[[KEYS.PROGRESS,JSON.stringify(next)] as [string,string]]:[],result:{next,changed}};
+      });
+      if(rewardSession.current.token!==token)return;
+      setVisitError(null);
+      if(saved.changed){setProgress(saved.next);void pushDataToCloud().catch(()=>{});}
+    }catch{
+      if(rewardSession.current.token===token)setVisitError('会えた日の記録を保存できませんでした。もう一度お試しください。');
+    }
+  },[isLoading,profile,isSignedIn,cloudSynced,user?.id,pushDataToCloud]);
+  useEffect(()=>{
+    setVisitError(null);
+    const check=()=>{if(AppState.currentState==='active'||AppState.currentState==null)void refreshVisits();};
+    check();
+    const subscription=AppState.addEventListener('change',state=>{if(state==='active')void refreshVisits();});
+    const timer=setInterval(check,30000);
+    return()=>{subscription.remove();clearInterval(timer);};
+  },[refreshVisits,rewardSessionToken]);
+
   const pullDataFromCloud = useCallback(async (): Promise<{ ok: boolean; data: Record<string, unknown> }> => {
     if (!signedInRef.current) return { ok: false, data: {} };
     const t = await getTokenRef.current();
@@ -677,6 +710,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       merged[KEYS.PROGRESS] = {
         ...cloud,
         ...local,
+        visits: mergeVisitGrowth(cloud.visits, local.visits),
         experience: Math.max(cloud.experience ?? 0, local.experience ?? 0),
         mentalMuscle: Math.max(cloud.mentalMuscle ?? 0, local.mentalMuscle ?? 0),
         totalDays: Math.max(cloud.totalDays ?? 0, local.totalDays ?? 0),
@@ -1183,7 +1217,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const saved = await AsyncStorage.transaction(values => {
       if (bowlingOwner.current !== owner) throw new Error('Account changed');
       return prepareDiary(values, operation, getTodayDate(), getYesterdayDate(), Date.now(),
-        {feed:defaultFeedState,progress:defaultProgress}, {name:mascotName,stage:getMascotStage(progress.level)}, FP_PER_MOOD_RECORD);
+        {feed:defaultFeedState,progress:defaultProgress}, {name:mascotName,stage:getMascotStage(progress.level, progress.visits)}, FP_PER_MOOD_RECORD);
     });
     if (bowlingOwner.current !== owner) throw new Error('Account changed');
     feedStateRef.current = saved.feed; setFeedState(saved.feed);
@@ -1196,7 +1230,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (saved.changed) void pushDataToCloud().catch(() => {});
     return {page:saved.page,changed:saved.changed};
-  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud, mascotName, progress.level, queueGainEvent]);
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud, mascotName, progress.level, progress.visits, queueGainEvent]);
 
   const runCharacterGifts = useCallback(async (operation: CharacterGiftOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
@@ -1209,14 +1243,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const saved = await AsyncStorage.transaction(values => {
       if (bowlingOwner.current !== owner) throw new Error('Account changed');
       return prepareCharacterGifts(values, operation, getTodayDate(), Date.now(), defaultFeedState,
-        {name: mascotName, stage: getMascotStage(progress.level)}, chat);
+        {name: mascotName, stage: getMascotStage(progress.level, progress.visits)}, chat);
     });
     if (bowlingOwner.current !== owner) throw new Error('Account changed');
     const changed=saved.changed||JSON.stringify(feedStateRef.current.characterGifts)!==JSON.stringify(saved.state);
     feedStateRef.current=saved.feed;setFeedState(saved.feed);
     if(changed)void pushDataToCloud().catch(()=>{});
     return saved;
-  }, [user?.id,isSignedIn,isLoading,cloudSynced,pushDataToCloud,mascotName,progress.level]);
+  }, [user?.id,isSignedIn,isLoading,cloudSynced,pushDataToCloud,mascotName,progress.level,progress.visits]);
 
   const runVillageStory = useCallback(async (operation: StoryOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
@@ -1362,6 +1396,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     <AppContext.Provider
       value={{
         progress,
+        visitError,
+        refreshVisits,
         records,
         checkedState,
         checklistItems,
