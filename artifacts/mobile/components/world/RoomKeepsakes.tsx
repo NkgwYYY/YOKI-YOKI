@@ -27,7 +27,7 @@ export function RoomKeepsakes({width,height,frameLeft,frameTop,viewportWidth,vie
  const shelf=!landscape&&frameTop+height*.24<safeTop+36;
  const w=shelf?44:Math.max(54,Math.min(96,width*.14)),fw=shelf?44:Math.max(50,Math.min(92,width*.14));
  const withinRoom=(x:number,size:number)=>Math.max(12-frameLeft,Math.min(x,viewportWidth-12-frameLeft-size));
- const calendarLeft=withinRoom(shelf?Math.max(width*.275,124-frameLeft):width*.275,w);
+ const calendarLeft=withinRoom(shelf?Math.max(width*.275,124-frameLeft):width*(landscape?.34:.275),w);
  const calendarTop=landscape?Math.max(height*.24,safeTop-50-frameTop):shelf?safeTop+6-frameTop:height*.24;
  const moodLeft=withinRoom(shelf?176-frameLeft:width*(landscape?.52:.70),fw);
  const moodTop=Math.max(height*.213,safeTop+(landscape?-50:6)-frameTop);
