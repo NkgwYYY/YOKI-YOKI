@@ -70,6 +70,16 @@ test('perspective is bounded and camera keeps the path clear of the bottom contr
   }
 });
 
+test('the home camera stays neutral until the first room measurement',()=>{
+  assert.equal(worldCameraOffset(.48,0,0,0),0);
+  assert.equal(worldCameraOffset(.48,568,0,0),0);
+  for(const [w,h] of [[320,568],[390,844],[844,390],[820,1180]]){
+    const f=fitWorld(w,h);
+    assert.equal(Math.abs(worldCameraOffset(.48,f.height,h,f.top)),0);
+    assert.ok(worldCameraOffset(.755,f.height,h,f.top)<0,'garden following remains active');
+  }
+});
+
 
 test('outdoor scenery covers every edge without stretching or an inset frame',()=>{
   for(const [w,h] of [[320,568],[390,697],[390,844],[430,932],[640,800],[844,390]]){

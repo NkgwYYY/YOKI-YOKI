@@ -252,9 +252,12 @@ export function WorldHome(props: Props) {
     return()=>{cancelled=true;clearTimeout(timer);};
   },[map,mapOpen,props.active,props.period,props.level,transition.busy]);
   useEffect(()=>{setGardenPlot(null);setGrandmaOpen(false);setBowlingOpen(false);setBankOpen(false);setFortuneOpen(false);setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
-  useAnimatedReaction(() => ({y: footY.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active}), state => {
+  useAnimatedReaction(() => ({y: footY.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active, height, viewportHeight, frameTop}), state => {
+    // Before onLayout, a zero-sized room used to produce a -136px offset.
+    // Never start that animation, and recalculate when the measured frame arrives.
+    if (state.height<=0||state.viewportHeight<=0) {cancelAnimation(camera);camera.value=0;return;}
     if (!state.active) {cancelAnimation(camera); return;}
-    const offset=away?outdoorCameraOffset(state.y,height,viewportHeight,frameTop,clearBottom):worldCameraOffset(state.y,height,viewportHeight,frameTop);
+    const offset=away?outdoorCameraOffset(state.y,state.height,state.viewportHeight,state.frameTop,clearBottom):worldCameraOffset(state.y,state.height,state.viewportHeight,state.frameTop);
     if (!state.held && !state.cameraTouch && state.zoom < 1.02) camera.value = withTiming(offset, {duration: reduceMotion ? 0 : 350});
   }, [height, viewportHeight, frameTop, clearBottom, reduceMotion, active,map,away]);
 
