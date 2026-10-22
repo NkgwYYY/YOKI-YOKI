@@ -3,7 +3,7 @@
  *
  * Serves the output of build.js (static-build/) with two special routes:
  * - GET / or /manifest with expo-platform header → platform manifest JSON
- * - GET / without expo-platform → landing page HTML
+ * - GET / without expo-platform → web app HTML when the web build is present
  * Everything else falls through to static file serving from ./static-build/.
  *
  * Zero external dependencies — uses only Node.js built-ins (http, fs, path).
@@ -319,11 +319,10 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // First browser visit opens the public introduction, with an explicit app entry.
+  // The app opens directly on first visits too. Normalize only legacy ?app=1 links.
   const entry = !basePath && hasWebBuild() ? browserEntry(req, pathname) : null;
   if (entry) {
-    res.writeHead(302, { location: entry.location, 'cache-control': 'no-store',
-      ...(entry.cookie ? { 'set-cookie': entry.cookie } : {}) });
+    res.writeHead(302, { location: entry.location, 'cache-control': 'no-store' });
     res.end();
     return;
   }

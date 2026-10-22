@@ -20,6 +20,8 @@ async function fixture(t, basePath = '/') {
   write('1790000000000-12/assets/ios/icons/相棒 の部屋@3x.png', 'native-image-3x');
   write('1790000000000-12/_expo/static/js/ios/bundle.js', 'console.log("native QA");');
   write('ios/manifest.json', JSON.stringify({ launchAsset: { url: '/1790000000000-12/_expo/static/js/ios/bundle.js' } }));
+  write('1790000000000-12/_expo/static/js/android/bundle.js', 'console.log("android QA");');
+  write('android/manifest.json', JSON.stringify({ launchAsset: { url: '/1790000000000-12/_expo/static/js/android/bundle.js' } }));
   // A similarly prefixed sibling must never pass containment checks.
   const sibling = root + '-private'; fs.mkdirSync(sibling); fs.writeFileSync(path.join(sibling, 'private.txt'), 'must not serve');
   const proc = spawn(process.execPath, [script], { env: { ...process.env, PORT: '0', BASE_PATH: basePath, STATIC_BUILD_DIR: root }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -53,8 +55,8 @@ test('missing bundles/assets return 404 while application deep links still open'
   for (const uri of ['/assets/missing@3x.png', '/_expo/static/js/web/missing.js', '/1790000000000-12/assets/missing', '/not-found.json']) {
     const res = await fetch(origin + uri); assert.equal(res.status, 404); assert.doesNotMatch(await res.text(), /<html/);
   }
-  for (const uri of ['/', '/guide', '/monthly-report']) {
-    const res = await fetch(origin + uri, { headers: { 'accept-encoding': 'gzip', cookie: 'yoki_app=1' } }); assert.equal(res.status, 200); assert.match(await res.text(), /YOKI QA/); assert.match(res.headers.get('cache-control'), /no-store/);
+  for (const uri of ['/', '/guide', '/onboarding', '/monthly-report']) {
+    const res = await fetch(origin + uri, { headers: { 'accept-encoding': 'gzip' }, redirect: 'manual' }); assert.equal(res.status, 200); assert.match(await res.text(), /YOKI QA/); assert.match(res.headers.get('cache-control'), /no-store/);
   }
 });
 
@@ -88,21 +90,75 @@ test('hashed WebP images are reusable across launches and updated hashes get dis
 });
 
 
-test('public entry, remembered app entry and native manifest are distinct', async t => {
+test('first visits and repeated app launches open the app regardless of cookies', async t => {
   const { origin } = await fixture(t);
-  const first = await fetch(origin + '/', { redirect: 'manual' });
-  assert.equal(first.status, 302);
-  assert.equal(first.headers.get('location'), '/landing/');
-  assert.match(first.headers.get('cache-control'), /no-store/);
-  const open = await fetch(origin + '/?app=1', { redirect: 'manual' });
-  assert.equal(open.headers.get('location'), '/');
-  const cookie = open.headers.get('set-cookie');
-  for (const value of ['yoki_app=1', 'HttpOnly', 'Secure', 'SameSite=Lax']) assert.ok(cookie.includes(value));
-  const app = await fetch(origin + '/', { headers: { cookie: cookie.split(';')[0] } });
-  assert.match(await app.text(), /YOKI QA/);
-  const native = await fetch(origin + '/', { headers: { 'expo-platform': 'ios' } });
-  assert.equal(native.status, 200);
-  assert.ok((await native.json()).launchAsset);
+  for (const cookie of [undefined, 'unrelated=1', 'yoki_app=0', 'yoki_app=1']) {
+    const headers = cookie ? { cookie } : {};
+    for (const uri of ['/', '/?utm_source=bookmark', '/?app=0']) {
+      const response = await fetch(origin + uri, { headers, redirect: 'manual' });
+      assert.equal(response.status, 200, uri + ' cookie=' + cookie);
+      assert.equal(response.headers.get('location'), null);
+      assert.equal(response.headers.get('set-cookie'), null);
+      assert.match(response.headers.get('cache-control'), /no-store/);
+      assert.match(response.headers.get('content-type'), /^text\/html/);
+      assert.match(await response.text(), /YOKI QA/);
+    }
+  }
+  // A home-screen launch or reload must also work without storing any cookie.
+  const head = await fetch(origin + '/', { method: 'HEAD', redirect: 'manual' });
+  assert.equal(head.status, 200);
+  assert.equal(head.headers.get('location'), null);
+  assert.equal(await head.text(), '');
+  const reload = await fetch(origin + '/', { redirect: 'manual' });
+  assert.equal(reload.status, 200);
+  assert.match(await reload.text(), /YOKI QA/);
+});
+
+test('legacy app links open without cookies and preserve all other query parameters', async t => {
+  const { origin } = await fixture(t);
+  for (const uri of [
+    '/?app=1',
+    '/?app=1&utm_source=gift&code=a%2Bb&state=hello%20world&tag=one&tag=two',
+  ]) {
+    const response = await fetch(origin + uri, { redirect: 'manual' });
+    assert.equal(response.status, 302);
+    assert.match(response.headers.get('cache-control'), /no-store/);
+    assert.equal(response.headers.get('set-cookie'), null);
+    const location = response.headers.get('location');
+    const destination = new URL(location, origin);
+    const expected = new URL(uri, origin);
+    expected.searchParams.delete('app');
+    assert.equal(destination.origin, origin);
+    assert.equal(destination.pathname, '/');
+    assert.deepEqual([...destination.searchParams], [...expected.searchParams]);
+    // Node fetch does not retain cookies; following the link must still open the app.
+    const app = await fetch(destination, { redirect: 'manual' });
+    assert.equal(app.status, 200);
+    assert.equal(app.headers.get('location'), null);
+    assert.match(await app.text(), /YOKI QA/);
+  }
+});
+
+test('iOS and Android manifest requests take precedence over browser entry links', async t => {
+  const { origin } = await fixture(t);
+  for (const platform of ['ios', 'android']) {
+    for (const uri of ['/', '/?app=1', '/manifest']) {
+      const response = await fetch(origin + uri, {
+        headers: { 'expo-platform': platform }, redirect: 'manual',
+      });
+      assert.equal(response.status, 200);
+      assert.match(response.headers.get('content-type'), /^application\/json/);
+      assert.match(response.headers.get('cache-control'), /no-store/);
+      assert.equal(response.headers.get('location'), null);
+      assert.equal(response.headers.get('set-cookie'), null);
+      const manifest = await response.json();
+      assert.equal(manifest.launchAsset.url, '/1790000000000-12/_expo/static/js/' + platform + '/bundle.js');
+    }
+  }
+});
+
+test('public ads.txt remains available independently of application entry', async t => {
+  const { origin } = await fixture(t);
   const ads = await fetch(origin + '/ads.txt');
   assert.match(ads.headers.get('content-type'), /^text\/plain/);
   assert.equal(await ads.text(), 'google.com, pub-7462386033661667, DIRECT, f08c47fec0942fa0\n');

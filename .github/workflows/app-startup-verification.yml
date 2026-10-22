@@ -1,0 +1,31 @@
+name: App startup routing verification
+
+on:
+  push:
+    branches: [codex/fix-app-startup-20261022]
+    paths:
+      - 'artifacts/mobile/server/**'
+      - 'artifacts/mobile/tests/productionServer.test.mjs'
+      - '.github/workflows/app-startup-verification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.16.0'
+      - name: Check server syntax
+        run: |
+          node --check artifacts/mobile/server/browserEntry.cjs
+          node --check artifacts/mobile/server/serve.js
+      - name: Verify real HTTP startup, native manifests, assets and deep links
+        run: node --test artifacts/mobile/tests/productionServer.test.mjs
