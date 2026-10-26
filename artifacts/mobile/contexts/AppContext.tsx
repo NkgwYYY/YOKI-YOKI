@@ -1,3 +1,5 @@
+import {retireBank} from '@/utils/cozyMigration';
+import {collectionIds,knownKeepsake,prepareCollection,type KeepsakeId} from '@/utils/companionCollection';
 import {advanceVisit,mergeVisitGrowth,readVisitGrowth,type VisitGrowth} from '@/utils/visitGrowth';
 import {prepareGarden,type VegetableGarden,type GardenOperation} from '@/utils/vegetableGarden';
 import {storyFinished,prepareVillageStory,type VillageStoryState,type StoryOperation} from '@/utils/villageStories';
@@ -5,7 +7,7 @@ import {prepareCharacterGifts,type CharacterGiftState,type CharacterGiftOperatio
 import {prepareDiary,type ExchangeDiaryState,type DiaryOperation,type DiaryResult} from '@/utils/exchangeDiary';
 import {getMascotStage} from '@/utils/mascotUtils';
 import {preparePlazaEvent,type PlazaState,type PlazaOperation,type PlazaResult} from '@/utils/plazaEvents';
-import {prepareBank,type BankState,type BankOperation,type BankResult} from '@/utils/villageBank';
+import {type BankState,type BankOperation,type BankResult} from '@/utils/villageBank';
 import {prepareFortune,type FortuneInput,type FortuneState,type FortuneResult} from '@/utils/dailyFortune';
 import {prepareEggJob,type EggJobState,type EggJobOperation,type EggJobResult} from '@/utils/eggJob';
 import {prepareVerifiedBonus,type VerifiedBonus} from '@/utils/community/bonusLedger';
@@ -21,7 +23,7 @@ import { prepareItemPurchase } from '@/utils/itemPurchase';
 import { EMPTY_BOWLING, readBowlingState, prepareBowlingPlay, type BowlingInput, type BowlingState } from '@/utils/bowling';
 import { prepareRhythmReward } from '@/utils/rhythmReward';
 import { prepareDailyRecord } from '@/utils/dailyRecordTransaction';
-import { grantHappiness, prepareHappiness, type HappinessState, type HappyAction } from '@/utils/happiness';
+import { grantHappiness, prepareHappiness, prepareHappinessVisit, type HappinessState, type HappyAction } from '@/utils/happiness';
 import { prepareChecklist, type ChecklistOperation } from '@/utils/checklistTransaction';
 import { prepareRoomOperation, COMPANION_PRICE, type RoomOperation } from '@/utils/roomPurchase';
 import * as Haptics from 'expo-haptics';
@@ -164,6 +166,7 @@ export interface FeedState {
   exchangeDiary?: ExchangeDiaryState;
   plazaEvents?: PlazaState;
   bank?: BankState;
+  bankRetirement?: {version:1;returned:number};
   fortune?: FortuneState;
   happiness?: HappinessState;
   housekeeping?: HousekeepingState;
@@ -179,6 +182,8 @@ export type RoomFlower = 'none' | 'pink' | 'violet' | 'rainbow';
 export type RoomItemKind = 'furniture' | 'flower';
 
 export interface RoomCustomization {
+  keepsakes?: KeepsakeId[];
+  displayedKeepsake?: KeepsakeId | 'none';
   furniture: RoomFurniture;
   flower: RoomFlower;
   ownedFurniture: RoomFurniture[];
@@ -305,6 +310,7 @@ interface AppContextType {
   exchangeEcoPoints: (amount: number) => Promise<{ exchanged: number }>;
   roomCustomization: RoomCustomization;
   /** 家具や花を選択する(購入済みアイテムのみ) */
+  selectKeepsake: (id: KeepsakeId | 'none') => Promise<void>;
   selectRoomItem: (kind: RoomItemKind, id: RoomFurniture | RoomFlower) => Promise<boolean>;
   /** 家具や花をポイントで購入する */
   buyRoomItem: (kind: RoomItemKind, id: RoomFurniture | RoomFlower, cost: number) => Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' | 'invalid' }>;
@@ -641,28 +647,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if(isLoading || !profile || (isSignedIn && (!cloudSynced || !user)) || pullingRef.current)return;
     const token=rewardSession.current.token;
     try {
-      const saved=await AsyncStorage.transaction(values=>{
+      const saved=await AsyncStorage.transaction<{next:UserProgress;changed:boolean;happy?:{feed:FeedState;changed:boolean}}>(values=>{
         if(rewardSession.current.token!==token)throw Error('Account changed');
         const current:UserProgress=values[KEYS.PROGRESS]?JSON.parse(values[KEYS.PROGRESS]!):defaultProgress;
         const visits=advanceVisit(current.visits,getTodayDate(),current.level);
         const changed=visits!==current.visits;
         const next={...current,visits};
-        return {entries:changed?[[KEYS.PROGRESS,JSON.stringify(next)] as [string,string]]:[],result:{next,changed}};
+        const oldFeed:FeedState=values[KEYS.FEED_STATE]?JSON.parse(values[KEYS.FEED_STATE]!):defaultFeedState;
+        const retired=retireBank(oldFeed);
+        const migrated=retired!==oldFeed;
+        const staged=migrated?{...values,[KEYS.FEED_STATE]:JSON.stringify(retired)}:values;
+        const happy=prepareHappinessVisit(staged,getTodayDate(),defaultFeedState,Date.now());
+        if(migrated&&!happy?.entries.length){
+          return {entries:[...(changed?[[KEYS.PROGRESS,JSON.stringify(next)] as [string,string]]:[]),[KEYS.FEED_STATE,JSON.stringify(retired)] as [string,string]],result:{next,changed,happy:{feed:retired,changed:true}}};
+        }
+        return {entries:[...(changed?[[KEYS.PROGRESS,JSON.stringify(next)] as [string,string]]:[]),...(happy?.entries??[])],result:{next,changed,happy:happy?.result}};
       });
       if(rewardSession.current.token!==token)return;
       setVisitError(null);
-      if(saved.changed){setProgress(saved.next);void pushDataToCloud().catch(()=>{});}
+      if(saved.changed)setProgress(saved.next);
+      if(saved.happy?.changed){feedStateRef.current=saved.happy.feed;setFeedState(saved.happy.feed);}
+      if(saved.changed||saved.happy?.changed)void pushDataToCloud().catch(()=>{});
     }catch{
       if(rewardSession.current.token===token)setVisitError('会えた日の記録を保存できませんでした。もう一度お試しください。');
     }
   },[isLoading,profile,isSignedIn,cloudSynced,user?.id,pushDataToCloud]);
   useEffect(()=>{
     setVisitError(null);
-    const check=()=>{if(AppState.currentState==='active'||AppState.currentState==null)void refreshVisits();};
+    const check=()=>{if(Platform.OS==='web'&&document.hidden)return;if(AppState.currentState==='active'||AppState.currentState==null)void refreshVisits();};
     check();
-    const subscription=AppState.addEventListener('change',state=>{if(state==='active')void refreshVisits();});
+    const subscription=AppState.addEventListener('change',state=>{if(state==='active')check();});
+    if(Platform.OS==='web')document.addEventListener('visibilitychange',check);
     const timer=setInterval(check,30000);
-    return()=>{subscription.remove();clearInterval(timer);};
+    return()=>{subscription.remove();clearInterval(timer);if(Platform.OS==='web')document.removeEventListener('visibilitychange',check);};
   },[refreshVisits,rewardSessionToken]);
 
   const pullDataFromCloud = useCallback(async (): Promise<{ ok: boolean; data: Record<string, unknown> }> => {
@@ -717,6 +734,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         level: Math.max(cloud.level ?? 1, local.level ?? 1),
         lastRecordDate: [cloud.lastRecordDate, local.lastRecordDate].filter(Boolean).sort().at(-1) ?? '',
       };
+    }
+    if(cloudData[KEYS.ROOM_CUSTOMIZATION]||localData[KEYS.ROOM_CUSTOMIZATION]){
+      const cloud=(cloudData[KEYS.ROOM_CUSTOMIZATION]??{}) as RoomCustomization;
+      const local=(localData[KEYS.ROOM_CUSTOMIZATION]??{}) as RoomCustomization;
+      merged[KEYS.ROOM_CUSTOMIZATION]={...local,...cloud,
+        ownedFurniture:[...new Set([...(local.ownedFurniture??[]),...(cloud.ownedFurniture??[])])],
+        ownedFlowers:[...new Set([...(local.ownedFlowers??[]),...(cloud.ownedFlowers??[])])],
+        keepsakes:collectionIds([...(local.keepsakes??[]),...(cloud.keepsakes??[])])};
     }
     if (cloudData[KEYS.SHOP_STATE] || localData[KEYS.SHOP_STATE]) {
       const cloud = (cloudData[KEYS.SHOP_STATE] ?? {}) as any;
@@ -888,6 +913,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // A single saved sofa/rose may be a legitimate purchase. Without a
         // versioned receipt we cannot infer starter ownership and remove it.
         const resolved: RoomCustomization = {
+          keepsakes: collectionIds(parsed.keepsakes),
+          displayedKeepsake: parsed.displayedKeepsake==='none'||knownKeepsake(parsed.displayedKeepsake)?parsed.displayedKeepsake:undefined,
           furniture: ownedFurniture.includes(parsed.furniture as RoomFurniture) ? parsed.furniture as RoomFurniture : 'none',
           flower: ownedFlowers.includes(parsed.flower as RoomFlower) ? parsed.flower as RoomFlower : 'none',
           ownedFurniture: Array.from(new Set(ownedFurniture)) as RoomFurniture[],
@@ -1170,6 +1197,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return saved;
   }, [pushDataToCloud]);
 
+  const syncCollection = useCallback(async (selection?:KeepsakeId|'none') => {
+    if(isLoading||storageError||(isSignedIn&&(!cloudSynced||!user))||pullingRef.current){
+      if(selection)throw Error('データの準備ができていません');
+      return;
+    }
+    const token=rewardSession.current.token;
+    const saved=await AsyncStorage.transaction(values=>{
+      if(rewardSession.current.token!==token)throw Error('Account changed');
+      return prepareCollection(values,selection);
+    });
+    if(rewardSession.current.token!==token){if(selection)throw Error('Account changed');return;}
+    if(saved.changed){setRoomCustomization(saved.room);void pushDataToCloud().catch(()=>{});}
+  },[isLoading,storageError,isSignedIn,cloudSynced,user?.id,pushDataToCloud]);
+  const selectKeepsake = useCallback(async (id:KeepsakeId|'none') => {await syncCollection(id);},[syncCollection]);
+  useEffect(()=>{void syncCollection().catch(()=>{});},[syncCollection,progress.visits?.totalVisits,feedState.villageStories,feedState.vegetableGarden?.harvests,bowlingState]);
+
   const selectRoomItem = useCallback(async (kind: RoomItemKind, id: RoomFurniture | RoomFlower): Promise<boolean> => {
     const saved = await runRoomOperation({ kind: 'select', category: kind, id });
     return saved.success;
@@ -1291,18 +1334,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return {state:saved.state,changed:saved.changed};
   }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
 
-  const runBank = useCallback(async (operation: BankOperation) => {
-    if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
-    const owner = user?.id ?? 'guest';
-    const saved = await AsyncStorage.transaction(values => {
-      if (bowlingOwner.current !== owner) throw new Error('Account changed');
-      return prepareBank(values, operation, getTodayDate(), defaultFeedState);
-    });
-    if (bowlingOwner.current !== owner) throw new Error('Account changed');
-    feedStateRef.current = saved.feed; setFeedState(saved.feed);
-    if (saved.changed) void pushDataToCloud().catch(() => {});
-    return saved;
-  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
+  const runBank = useCallback(async (_operation: BankOperation):Promise<BankResult> => {
+    throw new Error('銀行は終了しました。お預かりしていたポイントは手元に戻ります。');
+  }, []);
 
   const drawFortune = useCallback(async (input: FortuneInput) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
@@ -1460,6 +1494,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         buildTownItem,
         exchangeEcoPoints,
         roomCustomization,
+        selectKeepsake,
         selectRoomItem,
         buyRoomItem,
         companionState,

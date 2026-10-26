@@ -22,8 +22,11 @@ const server=http.createServer((req,res)=>{
    localStorage.setItem('@mentore/profile_v1',JSON.stringify({nickname:'確認',ageRange:'回答しない',gender:'回答しない'}));
    localStorage.setItem('@mentore/encounters_v1',JSON.stringify({list:[{charKey:'egg',metDate:'2026-09-01'}]}));
   });
-  await p.goto('http://127.0.0.1:'+server.address().port);await p.getByTestId('room-resident').waitFor();
-  await p.getByText('Loading...', {exact:true}).waitFor({state:'hidden'});await p.waitForTimeout(400);return p;
+  const base='http://127.0.0.1:'+server.address().port;
+  await p.route('**/*',route=>{const url=new URL(route.request().url());if(url.pathname.endsWith('/community/config'))return route.fulfill({contentType:'application/json',body:'{"enabled":false,"ads":false}'});if(url.origin!==base||url.pathname.startsWith('/api/'))return route.fulfill({status:503,contentType:'application/json',body:'{}'});return route.continue();});
+  await p.goto(base);await p.getByTestId('room-resident').waitFor();
+  // Let the initial greeting finish before measuring the independent hold/release spring.
+  await p.getByText('Loading...', {exact:true}).waitFor({state:'hidden'});await p.waitForTimeout(reduce?400:4200);return p;
  };
  const foot=p=>p.evaluate(()=>{
   const r=document.querySelector('[data-testid="room-resident"]').getBoundingClientRect(),s=document.querySelector('[data-testid="world-stage"]').getBoundingClientRect();
@@ -33,6 +36,11 @@ const server=http.createServer((req,res)=>{
   const el=document.querySelector('[data-testid="room-resident"]'),r=el.getBoundingClientRect(),s=document.querySelector('[data-testid="world-stage"]').getBoundingClientRect();
   return Math.abs((r.x+r.width/2-s.x)/s.width-x)<.005&&Math.abs((r.y+r.height*.92-s.y)/s.height-y)<.005&&!el.getAttribute('aria-label').includes('おさんぽ');
  },{x,y},{timeout:18000});
+ const travel=async(p,id,keyboard=false)=>{
+  await p.getByRole('button',{name:'景色の見かた',exact:true}).tap();
+  const button=p.getByTestId('world-travel-'+id);
+  if(keyboard){await button.focus();await p.keyboard.press('Enter');}else await button.tap();
+ };
  try {
   const p=await open({width:390,height:844});
   const resident=p.getByTestId('room-resident'),body=p.getByTestId('resident-body'),shadow=p.getByTestId('resident-contact-shadow');
@@ -48,20 +56,30 @@ const server=http.createServer((req,res)=>{
   assert.ok(Number(await shadow.evaluate(el=>getComputedStyle(el).opacity))>.95);
   assert.ok(Math.abs(await body.evaluate(el=>new DOMMatrix(getComputedStyle(el).transform).d)-1)<.03,'spring restores proportions');
   console.log('PASS scale, press squash, hold shadow, landing recovery');
-  await p.getByTestId('world-travel-garden').tap();await p.waitForTimeout(700);
+  await travel(p,'garden');await p.waitForTimeout(700);
   const a=await foot(p);await p.waitForTimeout(700);const next=await foot(p);
   assert.ok(Math.hypot(a.x-next.x,a.y-next.y)>.002,'continuous walking');
   await waitAt(p,.56,.755);await p.waitForTimeout(700);
   assert.ok((await p.getByTestId('world-stage').boundingBox()).y<stage.y-50,'following camera');
   b=await resident.boundingBox();assert.ok(b.y+b.height<650);await shot(p,'presence-garden');
-  await p.getByTestId('world-travel-room').tap();await p.waitForTimeout(500);
-  await p.getByTestId('world-travel-terrace').tap();await waitAt(p,.51,.535);await p.waitForTimeout(800);
+  await travel(p,'room');await p.waitForTimeout(500);
+  await travel(p,'terrace');await waitAt(p,.51,.535);await p.waitForTimeout(800);
   let s=await p.getByTestId('world-stage').boundingBox();
   await p.touchscreen.tap(s.x+s.width*.59,s.y+s.height*.64);await waitAt(p,.59,.64);
   const before=await foot(p);s=await p.getByTestId('world-stage').boundingBox();
-  await p.touchscreen.tap(s.x+s.width*.29,s.y+s.height*.67);await p.waitForTimeout(500);
-  const after=await foot(p);assert.ok(Math.hypot(before.x-after.x,before.y-after.y)<.002,'creek blocked');
-  await p.getByTestId('home-daily-record').tap();await p.getByTestId('quick-record-save').waitFor();
+  // Pick blocked ground that is not covered by the current joystick/HUD layout.
+  const blocked=await p.evaluate(()=>{
+   const s=document.querySelector('[data-testid="world-stage"]').getBoundingClientRect();
+   for(const [x,y] of [[.25,.62],[.25,.68],[.75,.60],[.78,.66],[.24,.45]]){
+    const px=s.x+s.width*x,py=s.y+s.height*y;
+    if(document.elementFromPoint(px,py)?.closest('[data-testid="world-ground"]'))return {x:px,y:py};
+   }
+   return null;
+  });
+  assert.ok(blocked,'unobstructed blocked-ground target');
+  await p.touchscreen.tap(blocked.x,blocked.y);await p.waitForTimeout(500);
+  const after=await foot(p);assert.ok(Math.hypot(before.x-after.x,before.y-after.y)<.002,'non-walkable ground blocked');
+  await p.getByTestId('home-more-menu').tap();await p.getByRole('button',{name:'ふたりの思い出・飾りもの',exact:true}).waitFor();
   const paused=await foot(p);await p.waitForTimeout(800);assert.deepEqual(await foot(p),paused);
   await p.getByRole('button',{name:'閉じる',exact:true}).last().tap();await p.close();
   console.log('PASS garden/camera, retarget, free ground tap, blocked creek, sheet pause');
@@ -71,12 +89,17 @@ const server=http.createServer((req,res)=>{
    const shapes=await page.getByTestId('resident-body').getAttribute('style');
    await character.focus();await page.keyboard.press('Enter');await page.getByTestId('world-speech').filter({hasText:'きてくれた'}).waitFor();
    assert.equal(await page.getByTestId('resident-body').getAttribute('style'),shapes,'keyboard/reduced motion');
-   await page.getByTestId('world-travel-garden').tap();await waitAt(page,.56,.755);
+   await travel(page,'garden');await waitAt(page,.56,.755);
    const r=await character.boundingBox(),nav=await page.getByTestId('world-navigation').boundingBox();
    assert.ok(r.x>=0&&r.x+r.width<=width&&r.y>120&&r.y+r.height<nav.y,`${name}: garden visible`);
-   for(const id of ['room','terrace','garden'])assert.ok(await page.getByTestId('world-travel-'+id).evaluate(el=>{const b=el.getBoundingClientRect();return b.height>=44&&el.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}));
+   await page.getByRole('button',{name:'景色の見かた',exact:true}).tap();
+   for(const id of ['room','terrace','garden']){
+    const button=page.getByTestId('world-travel-'+id);await button.scrollIntoViewIfNeeded();
+    assert.ok(await button.evaluate(el=>{const b=el.getBoundingClientRect();return b.height>=44&&el.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}));
+   }
+   await page.getByRole('button',{name:'閉じる',exact:true}).last().tap();
    await shot(page,'presence-garden-'+name);
-   await page.getByTestId('world-travel-room').focus();await page.keyboard.press('Enter');await waitAt(page,.50,.47);
+   await travel(page,'room',true);await waitAt(page,.50,.47);
    await shot(page,'presence-room-'+name);await page.close();console.log(`PASS ${name}: accessible stops, reduced motion, camera bounds, return`);
   }
   assert.deepEqual(errors,[]);console.log('PASS no page errors');

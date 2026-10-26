@@ -1,3 +1,4 @@
+import {colors} from '@/constants/theme';
 import React, {useEffect, useRef, useState} from 'react';
 import {ActivityIndicator, Linking, Pressable, StyleSheet, Text, View} from 'react-native';
 import {useApp} from '@/contexts/AppContext';
@@ -79,5 +80,5 @@ const s=StyleSheet.create({
  card:{backgroundColor:'#E9E0ED',padding:19,gap:12,borderRadius:10,borderLeftWidth:3,borderColor:'#AA8DB4'},
  label:{fontSize:11,color:'#92709F'},body:{fontSize:14,lineHeight:26,color:'#665070'},status:{flexDirection:'row',alignItems:'center',gap:10,flexWrap:'wrap'},
  action:{minHeight:46,borderWidth:1,borderColor:'#B7A1C0',borderRadius:9,padding:12,justifyContent:'center',alignItems:'center'},actionText:{fontSize:13,color:'#735580'},
- settings:{minHeight:44,justifyContent:'center'},small:{fontSize:11,color:'#816A8A'},disclosure:{fontSize:14,lineHeight:24,color:'#E8DDEF',marginBottom:14},
+ settings:{minHeight:44,justifyContent:'center'},small:{fontSize:11,color:'#816A8A'},disclosure:{fontSize:14,lineHeight:24,color:colors.foreground,marginBottom:14},
 });

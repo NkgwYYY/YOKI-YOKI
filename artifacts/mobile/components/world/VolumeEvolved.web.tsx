@@ -13,12 +13,11 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
   useEffect(()=>{
     const canvas=ref.current;if(!canvas||failed)return;
     let renderer:ReturnType<typeof createEvolvedRenderer>|undefined;
-    let frame=0,last=0,previous='',visible=true,stopped=false;
+    let frame=0,previous='',visible=true,stopped=false;
     const cancel=()=>{cancelAnimationFrame(frame);frame=0;};
     const tick=(now:number)=>{
       frame=0;if(stopped||!active||document.hidden||!visible)return;
       frame=requestAnimationFrame(tick);
-      if(now-last<1000/30)return;last=now;
       const p=latest.current,meal=mealSample(p.mealProgress?.value??0);
       const pose={rx:p.rx.value,ry:p.ry.value,rz:p.rz.value,blink:p.blink.value,happy:p.mood==='happy'||p.mood==='excited',sleepy:p.mood==='sleepy',night:!!p.night,mouthOpen:meal.open,chew:meal.chew,smoking:!!p.smoking};
       const key=JSON.stringify(pose);
@@ -28,6 +27,7 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
     
     try{
       canvas.width=canvas.height=Math.min(640,Math.max(192,Math.ceil(size*Math.min(window.devicePixelRatio||1,2))));
+      canvas.dataset.motion='display-refresh';
       renderer=createEvolvedRenderer(canvas,stage as EvolvedForm,size<200?'room':'portrait');
       // Paint even when reduced motion or a static preview is selected.
       const p=latest.current;

@@ -26,6 +26,7 @@ type Props = {
   grandmaUnlocked?:boolean;
   welcomeRequest?:number; onWelcomeStarted?:(id:number)=>void;
   riding:boolean;cleanliness:number;smoking?:boolean;
+  keepsake?:string; bondDays?:number;
   happinessValue:number;
   portalTravel:SharedValue<boolean>;
   bowlingBusy:boolean;
@@ -37,7 +38,7 @@ type Props = {
   footY: SharedValue<number>; holding: SharedValue<number>; destination: WorldDestination | null;
   onInteract: (kind: ResidentInteraction) => void; onMealFinished: () => void; onChat: () => void;
 };
-const SOFT = {mass: 0.7, damping: 10, stiffness: 180};
+const SOFT = {mass: 0.85, damping: 15, stiffness: 150};
 
 /** Scene-sized art, one motion owner, no React state or layout update on animation frames. */
 export function WorldResident(p: Props) {
@@ -52,7 +53,8 @@ export function WorldResident(p: Props) {
   const welcomed=useRef(0);
   const mealProgress=useSharedValue(0);
   const lift = useSharedValue(0), jelly = useSharedValue(0), lean = useSharedValue(0);
-  const breath = useSharedValue(0), gait = useSharedValue(0), walking = useSharedValue(0);
+  const breath = useSharedValue(0), gait = useSharedValue(0), walkBlend=useSharedValue(0), walking = useSharedValue(0);
+  const lastWalkX=useSharedValue(0),lastWalkY=useSharedValue(0);
   const downX = useSharedValue(0), downY=useSharedValue(0), touchMode = useSharedValue(0), blink = useSharedValue(0);
   const startX = useSharedValue(0), startY = useSharedValue(0), petDistance = useSharedValue(0);
   const available = useSharedValue(active);
@@ -77,7 +79,7 @@ export function WorldResident(p: Props) {
     rolling.value=0;idleTime.value=0;setRollingLabel(false);setInteracting(false);
     cancelAnimation(x);cancelAnimation(y);
   },[p.destination?.id]);
-  const pose = useWorldResident({...p, x, y, walking, manualOnly:!!p.smoking, interacting:welcoming||interacting||manual||p.riding||!!experience||p.bowlingBusy});
+  const {pose,atKeepsake} = useWorldResident({...p, x, y, walking, manualOnly:!!p.smoking, interacting:welcoming||interacting||manual||p.riding||!!experience||p.bowlingBusy});
   const stopWelcome=()=>{
     'worklet';
     if(!welcomeRunning.value)return;
@@ -140,10 +142,11 @@ export function WorldResident(p: Props) {
   useEffect(() => {
     if (!active || reduceMotion) {breath.value = 0; gait.value = 0; return;}
     breath.value = withRepeat(withSequence(withTiming(1, {duration: 2200, easing: Easing.inOut(Easing.sin)}), withTiming(0, {duration: 2400, easing: Easing.inOut(Easing.sin)})), -1);
-    if (pose === 'walking'||manual) gait.value = withRepeat(withTiming(Math.PI * 2, {duration: 740, easing: Easing.linear}), -1);
-    else gait.value = withTiming(0, {duration: 180});
+    gait.value=0;
+    gait.value=withRepeat(withTiming(Math.PI*2,{duration:960,easing:Easing.linear}),-1);
     return () => {cancelAnimation(breath); cancelAnimation(gait);};
-  }, [active, reduceMotion, pose, manual, breath, gait]);
+  }, [active, reduceMotion, breath, gait]);
+  useAnimatedReaction(()=>walking.value,value=>{walkBlend.value=reduceMotion?0:withTiming(value?1:0,{duration:260,easing:Easing.inOut(Easing.sin)});});
   useEffect(() => {
     if (p.reaction === reaction.current || !active || interacting) return;
     reaction.current = p.reaction;
@@ -152,15 +155,6 @@ export function WorldResident(p: Props) {
     if (!reduceMotion) jelly.value = withSequence(withTiming(0.7, {duration: 90}), withSpring(0, SOFT));
   }, [p.reaction, active, interacting, reduceMotion, jelly]);
 
-  useAnimatedReaction(()=>({x:x.value,y:y.value,walking:walking.value}), (now,previous)=>{
-    if(!previous||!now.walking||holding.value||rolling.value||welcomeRunning.value||reduceMotion)return;
-    const dx=now.x-previous.x,dy=now.y-previous.y;
-    if(Math.hypot(dx,dy)<.00001)return;
-    const target=residentWalkYaw(dx,dy,height/width);
-    // Choose the equivalent closest angle, so crossing +/-pi never spins around.
-    const delta=Math.atan2(Math.sin(target-ry.value),Math.cos(target-ry.value));
-    ry.value=withTiming(ry.value+delta,{duration:160});
-  });
   const settleRotation=()=>{
     'worklet';
     rx.value=withSpring(Math.round(rx.value/(Math.PI*2))*Math.PI*2,{damping:16,stiffness:100});
@@ -190,11 +184,19 @@ export function WorldResident(p: Props) {
     if(!available.value||cameraTouch.value||p.riding)return;
     const dt=Math.min(1/30,(frame.timeSincePreviousFrame??16.67)/1000);
     if(p.bowlingBusy||p.riding)return;
+    const dx=x.value-lastWalkX.value,dy=y.value-lastWalkY.value;
+    lastWalkX.value=x.value;lastWalkY.value=y.value;
+    if(walking.value&&!holding.value&&!rolling.value&&!welcomeRunning.value&&!reduceMotion&&Math.hypot(dx,dy)>.00001){
+      const target=residentWalkYaw(dx,dy,height/width),delta=Math.atan2(Math.sin(target-ry.value),Math.cos(target-ry.value));
+      ry.value+=delta*(1-Math.exp(-dt/0.10));
+    }
     if(welcomeRunning.value){
       if(welcomeStartedAt.value<0)welcomeStartedAt.value=frame.timestamp;
       const elapsed=(frame.timestamp-welcomeStartedAt.value)/1000;
       if(reduceMotion){if(elapsed>=2.8)stopWelcome();return;}
       const joy=welcomeSample(elapsed);
+      const familiarity=(p.bondDays??0)>=30?1:(p.bondDays??0)>=7?.8:.6;
+      joy.jump*=familiarity;joy.dx*=familiarity;joy.lean*=familiarity;
       const point=mapGroundPoint(map,{x:welcomeX.value+joy.dx,y:welcomeY.value+joy.dy});
       const enter=Math.min(1,elapsed/.4);
       x.value=welcomeFromX.value*(1-enter)+point.x*enter;
@@ -343,7 +345,7 @@ export function WorldResident(p: Props) {
     return {transform: [{translateY: (1 - scale) * size * 0.42}, {scale}]};
   });
   const body = useAnimatedStyle(() => {
-    const step = walking.value ? Math.sin(gait.value) : 0;
+    const step = Math.sin(gait.value)*walkBlend.value;
     const meal=mealSample(mealProgress.value);
     const mealMove=reduceMotion?0:meal.reach;
     const soft=residentSoftScale(jelly.value,breath.value);
@@ -360,14 +362,14 @@ export function WorldResident(p: Props) {
     const air = Math.min(1, Math.abs(lift.value) / (size * 0.55));
     return {opacity: 1 - air * 0.65, transform: [{scaleX: worldResidentScale(y.value) * (1 + air * 0.45)}, {scaleY: 1 + air * 0.3}]};
   });
-  const mood: MascotMood = welcoming?'happy':touchMood ?? (interacting || pose === 'eating' ? 'happy' : p.resting || pose === 'sleeping' ? 'sleepy' : p.happinessValue>=75?'happy':'normal');
+  const mood: MascotMood = welcoming?'happy':touchMood ?? (interacting || pose === 'eating' ? 'happy' : p.resting || pose === 'sleeping' ? 'sleepy' : p.happinessValue>=75?'happy':p.happinessValue<=30?'tired':'normal');
   useEffect(() => {
     blink.value = 0;
     if (!active || reduceMotion || mood !== 'normal') return;
     blink.value = withRepeat(withDelay(4100, withSequence(withTiming(1, {duration: 80}), withTiming(0, {duration: 130}))), -1);
     return () => cancelAnimation(blink);
   }, [active, reduceMotion, mood, blink]);
-  const activity = welcoming?'会えたのがうれしくて、お出迎えしています':p.smoking?'一服しながらおさんぽできます':p.riding?'掃除機に乗っています':manual?'おさんぽしています':rollingLabel ? 'ころころしています' : pose === 'walking' ? 'おさんぽしています' : pose === 'sleeping' ? 'ひと休みしています' : pose === 'eating' ? 'おやつの時間' : pose === 'watching' ? '景色を眺めています' : 'のんびりしています';
+  const activity = welcoming?'会えたのがうれしくて、お出迎えしています':p.smoking?'一服しながらおさんぽできます':p.riding?'掃除機に乗っています':manual?'おさんぽしています':rollingLabel ? 'ころころしています' : pose === 'walking' ? 'おさんぽしています' : pose === 'sleeping' ? (atKeepsake?'お気に入りのそばで、ひと休みしています':'ひと休みしています') : pose === 'eating' ? 'おやつの時間' : pose === 'watching' ? (atKeepsake?'飾った思い出を眺めています':'景色を眺めています') : 'のんびりしています';
   const acknowledge = (kind: ResidentInteraction) => {
     if (!active || experience || food) return;
     stopWelcome();notify(kind);

@@ -7,6 +7,8 @@ export const WORLD_PLACES: Record<ResidentActivity, RoomPoint> = {
   idle: {x: 0.50, y: 0.48}, window: {x: 0.36, y: 0.385},
   bed: {x: 0.72, y: 0.375}, meal: {x: 0.66, y: 0.605},
 };
+/** A keepsake sits at the near edge of the rug; feet stop alongside its base. */
+export const WORLD_KEEPSAKE={left:.375,top:.41,scale:.11,depth:471,approach:{x:.49,y:.475}} as const;
 export function fitWorld(width: number, height: number) {
   if (width <= 0 || height <= 0) return {width: 0, height: 0, left: 0, top: 0};
   // Landscape pulls the camera back. Portrait fills the display; key props are in the safe centre.

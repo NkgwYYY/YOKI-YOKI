@@ -60,11 +60,18 @@ function hull(points:Point3[]) {
 export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeometry>,rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
   'worklet';
   const model=geometry.model,r=model.radius,f=model.face;
-  const rotate=(p:Point3)=>{'worklet';return rotatePoint(p,rx,ry,rz);};
+  // Compute the basis once, rather than trigonometry per fibre/feature.
+  const bx=rotatePoint({x:1,y:0,z:0},rx,ry,rz),by=rotatePoint({x:0,y:1,z:0},rx,ry,rz),bz=rotatePoint({x:0,y:0,z:1},rx,ry,rz);
+  const rotate=(p:Point3)=>{'worklet';return {x:bx.x*p.x+by.x*p.y+bz.x*p.z,y:bx.y*p.x+by.y*p.y+bz.y*p.z,z:bx.z*p.x+by.z*p.y+bz.z*p.z};};
   const axes=[rotate({x:r.x,y:0,z:0}),rotate({x:0,y:r.y,z:0}),rotate({x:0,y:0,z:r.z})];
   const support=Math.sqrt(axes[0].y**2+axes[1].y**2+axes[2].y**2);
   const rot=(p:Point3)=>{'worklet';const q=rotate(p),spread=softContactSpread(q.y,support);return {x:q.x*spread,y:softContactHeight(q.y,support),z:q.z*spread};};
-  const silhouette=hull(geometry.outline.map(rot));
+  // Analytic projected ellipsoid: stable contour, no sorting hundreds of
+  // vertices each frame. Contact compression follows the same surface model.
+  const xx=axes.reduce((n,a)=>n+a.x*a.x,0),yy=axes.reduce((n,a)=>n+a.y*a.y,0),xy=axes.reduce((n,a)=>n+a.x*a.y,0);
+  const delta=Math.sqrt((xx-yy)**2+4*xy*xy),a=Math.sqrt((xx+yy+delta)/2),b=Math.sqrt(Math.max(.01,(xx+yy-delta)/2)),angle=.5*Math.atan2(2*xy,xx-yy);
+  const ca=Math.cos(angle),sa=Math.sin(angle),silhouette:Point3[]=[];
+  for(let i=0;i<96;i++){const t=i*Math.PI/48,u=a*Math.cos(t),v=b*Math.sin(t),y=u*sa+v*ca;silhouette.push({x:(u*ca-v*sa)*softContactSpread(y,support),y:softContactHeight(y,support),z:0});}
   const originY=91-Math.max(...silhouette.map(p=>p.y));
   // Small soft tufts extend the silhouette without stretching the underlying body.
   let furHalo='';

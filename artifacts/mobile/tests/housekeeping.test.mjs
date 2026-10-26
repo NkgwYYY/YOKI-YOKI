@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CLEANING_TOOLS,DUST_SPOTS,readHousekeeping,roomDirt,sweptSpots,prepareCleaning,BODY_WASH_SPOTS,rubBody,isBodyWashComplete,bodyWashPercent,hasBathedToday,bathDateKey} from '../utils/housekeeping.ts';
-import {hygieneValue,readHygiene,DAY_MS,BATH_SKIP} from '../utils/hygiene.ts';
+import {hygieneValue,cleanlinessValue,readHygiene,DAY_MS,BATH_SKIP} from '../utils/hygiene.ts';
 import {prepareHappiness,HAPPY_REWARDS,prepareSmoking} from './careModules.mjs';
 import {createRecoverableStorage} from '../utils/recoverableStorage.ts';
 const now=Date.parse('2026-10-08T10:00:00Z'),key='@mentore/feed_state_v1';
@@ -160,4 +160,17 @@ test('an interrupted robot placement recovers without repurchase or loss of inve
  await assert.rejects(createRecoverableStorage(storage,'journal',[key]).transaction(values=>prepareCleaning(values,action,now,feed)),/disk/);
  const retry=await createRecoverableStorage(storage,'journal',[key]).transaction(values=>prepareCleaning(values,action,now,feed));
  assert.equal(retry.changed,false);assert.equal(retry.feed.housekeeping.robotPlaced,true);assert.equal(retry.feed.points,300);assert.deepEqual(retry.feed.housekeeping.owned,['robot']);
+});
+
+
+test('one cleanliness score gives body and room equal weight and never counts room dust twice',()=>{
+ const fresh={lastBathAt:now,protectedUntil:0};
+ assert.equal(cleanlinessValue(fresh,0,now),100);
+ assert.equal(cleanlinessValue(fresh,100,now),50);
+ const dirty={lastBathAt:now-8*DAY_MS,protectedUntil:0,smokeDirt:20};
+ const before=cleanlinessValue(dirty,100,now);
+ assert.equal(before,8);
+ assert.equal(cleanlinessValue(dirty,0,now),58,'sweeping improves the combined score');
+ assert.equal(cleanlinessValue(fresh,100,now),50,'bathing improves the combined score but leaves the dirty room');
+ assert.equal(cleanlinessValue(fresh,0,now),100,'both kinds of care restore the score');
 });

@@ -22,6 +22,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export function PressScale({
   children,
   onPress,
+  onPressIn,
   onLongPress,
   delayLongPress,
   disabled,
@@ -37,6 +38,7 @@ export function PressScale({
 }: {
   children?: React.ReactNode;
   onPress?: () => void;
+  onPressIn?: () => void;
   onLongPress?: () => void;
   delayLongPress?: number;
   disabled?: boolean;
@@ -79,6 +81,7 @@ export function PressScale({
       <Pressable
         testID={testID}
         onPress={onPress}
+        onPressIn={onPressIn}
         onLongPress={onLongPress}
         delayLongPress={delayLongPress}
         disabled={disabled}
@@ -101,7 +104,7 @@ export function PressScale({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={delayLongPress}
-      onPressIn={() => spring(scaleTo)}
+      onPressIn={() => {spring(scaleTo);onPressIn?.();}}
       onPressOut={() => spring(1)}
       disabled={disabled}
       hitSlop={hitSlop}

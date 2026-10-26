@@ -1,3 +1,4 @@
+import {CompanionCollection} from '@/components/collection/CompanionCollection';
 import {DailyAdRail, DailyAdRewardButton, useDailyAdRailHeight} from '@/components/ads/DailyAdPlacements';
 import {useAdEnvironment} from '@/components/ads/useAdEnvironment';
 import {WORLD_MAPS} from '@/utils/worldMaps';
@@ -6,7 +7,7 @@ import {useCharacterGifts} from '@/components/gifts/useCharacterGifts';
 import {GiftInvitation,GiftPresentation} from '@/components/gifts/GiftPresentation';
 import type {CharacterGift} from '@/utils/characterGifts';
 import {HygieneGauge} from '@/components/world/HygieneGauge';
-import {hygieneValue,readHygiene} from '@/utils/hygiene';
+import {cleanlinessValue,readHygiene} from '@/utils/hygiene';
 import {readHousekeeping,roomDirt} from '@/utils/housekeeping';
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
@@ -43,7 +44,7 @@ import { useDailyBath } from '@/components/world/useDailyBath';
 import { DailyRecordInvitation } from '@/components/record/DailyRecordInvitation';
 
 const HINT_KEY = '@yoki/world_hints_v3';
-type Sheet = 'points' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | 'gift' | null;
+type Sheet = 'collection' | 'points' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'hygiene' | 'gift' | null;
 export default function HomeScreen() {
   const router = useRouter();
   const {place,bathReturn,atelier,journey}=useLocalSearchParams<{place?:string;bathReturn?:string;atelier?:string;journey?:string}>();
@@ -62,6 +63,7 @@ export default function HomeScreen() {
   const [worldMap,setWorldMap]=useState('home');
   const [feedVenue,setFeedVenue]=useState<'ramen'|undefined>(undefined);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [cleanRequest,setCleanRequest]=useState(0);
   const giftOwner=useAuth().user?.id??'guest';
   const {runCharacterGifts}=useApp();
   const gifts=useCharacterGifts(active&&worldMap==='home');
@@ -75,7 +77,7 @@ export default function HomeScreen() {
   const [hygieneNow,setHygieneNow]=useState(Date.now);
   useEffect(()=>{if(!active)return;setHygieneNow(Date.now());const timer=setInterval(()=>setHygieneNow(Date.now()),60000);return()=>clearInterval(timer);},[active]);
   const dust=roomDirt(readHousekeeping(feedState.housekeeping,hygieneNow),hygieneNow);
-  const hygiene=hygieneValue(feedState.hygiene,dust.reduce((a,b)=>a+b,0)/dust.length*100,hygieneNow);
+  const hygiene=cleanlinessValue(feedState.hygiene,dust.reduce((a,b)=>a+b,0)/dust.length*100,hygieneNow);
   const hygieneState=readHygiene(feedState.hygiene,hygieneNow);
   const music=useVillageMusic();
   const [hints, setHints] = useState(false);
@@ -146,7 +148,7 @@ export default function HomeScreen() {
   const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#786081" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#786081" /></Pressable>;
   return <View style={s.root}>
     <View testID="home-world-scene" style={{flex:1}}>
-    <WorldHome dockInset={railHeight ? 12 : undefined} onInteractingChange={setWorldInteracting} carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={`${bathReturn??'world'}-${journey??''}`} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={tab=>router.push(tab==='seeds'?'/shop?tab=seeds':'/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={WORLD_MAPS.find(p=>p.id===place)?.id} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level, progress.visits)} growthSize={growth.growthSize}
+    <WorldHome cleanRequest={cleanRequest} onCleaningOpened={()=>setCleanRequest(0)} dockInset={railHeight ? 12 : undefined} onInteractingChange={setWorldInteracting} carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={`${bathReturn??'world'}-${journey??''}`} cleanliness={hygiene} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={tab=>router.push(tab==='seeds'?'/shop?tab=seeds':'/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={WORLD_MAPS.find(p=>p.id===place)?.id} level={progress.level} customization={roomCustomization} stage={getMascotStage(progress.level, progress.visits)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
@@ -169,9 +171,9 @@ export default function HomeScreen() {
       </View>}
       <View style={s.quickActions}>
         <Pressable testID="home-daily-record" accessibilityRole="button" accessibilityLabel="交換日記を開く" onPress={() => router.push('/exchange-diary')} style={({pressed}) => [s.noteButton, pressed && {opacity: 0.8}]}>
-          <Icon name={feedState.exchangeDiary?.pages[getTodayDate()]?.user ? 'check' : 'book-open'} size={17} color="#CCBADB" /><Text style={s.noteText}>交換日記</Text>
+          <Icon name={feedState.exchangeDiary?.pages[getTodayDate()]?.user ? 'check' : 'book-open'} size={17} color="#9675AA" /><Text style={s.noteText}>交換日記</Text>
         </Pressable>
-        <Pressable testID="home-chat" accessibilityRole="button" accessibilityLabel="この子とお話しする" onPress={chat} style={s.talkButton}><Icon name="message-circle" size={18} color="#CCBADB" /><Text style={s.talkText}>おはなし</Text></Pressable>
+        <Pressable testID="home-chat" accessibilityRole="button" accessibilityLabel="この子とお話しする" onPress={chat} style={s.talkButton}><Icon name="message-circle" size={18} color="#9675AA" /><Text style={s.talkText}>おはなし</Text></Pressable>
       </View>
     </View>
     }
@@ -180,19 +182,21 @@ export default function HomeScreen() {
     {sheet==='points'&&<BottomSheet visible onClose={close} title="YOKIポイント" subtitle="ごはんや、お部屋のお買い物に使えます">
       <Text style={s.chatText}>{feedState.points} pt</Text>
       <DailyAdRewardButton placement={adPlacement} environment={rewardEnvironment}/>
-      <Text style={{color:'#C8B9D4',fontSize:13,lineHeight:22}}>今日の記録や、たまごバイトでもポイントを集められます。</Text>
+      <Text style={{color:'#796B89',fontSize:13,lineHeight:22}}>今日の記録や、たまごバイトでもポイントを集められます。</Text>
       <WorldPill label="ごはんを選ぶ" icon="coffee" onPress={()=>openFeed()}/>
     </BottomSheet>}
     {sheet==='gift'&&openedGift?.owner===giftOwner&&<GiftPresentation key={openedGift.gift.id+giftOwner} gift={openedGift.gift} onClose={close} onReceive={async id=>{const saved=await runCharacterGifts({kind:'receive',id});if(!saved.received)throw Error('Gift missing');voice.play('happy');return saved.received;}} onList={()=>{close();router.push('/gifts');}}/>}
-    {sheet==='hygiene'&&<BottomSheet visible title="からだの清潔度" onClose={()=>setSheet(null)}>
-      <Text style={s.chatText}>清潔度 {hygiene}%</Text><Text style={s.chatText}>3日以上からだを洗わないと、少しずつ薄汚れていくよ。おふろのタオルを選んで、指でからだをこすって洗おう。お湯に浸かるだけでは汚れは落ちません。</Text>
+    {sheet==='hygiene'&&<BottomSheet visible title="からだとお部屋の清潔度" onClose={()=>setSheet(null)}>
+      <Text style={s.chatText}>清潔度 {hygiene}%</Text><Text style={s.chatText}>からだとお部屋を合わせた清潔度です。おふろでからだを洗い、お掃除で床をきれいにすると上がります。どちらもお世話して、気持ちよく暮らそう。</Text>
       {hygieneState.protectedUntil>hygieneNow&&<Text style={s.chatText}>風呂キャン中。あと{Math.ceil((hygieneState.protectedUntil-hygieneNow)/86400000)}日間は、入浴しなくてもさっぱり。</Text>}
       <WorldPill disabled={bathCompleted} label={bathCompleted?'今日は入浴済み。また明日':'おうちのおふろへ'} icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/>
+      <WorldPill label="お部屋を掃除する" icon="wind" onPress={()=>{setSheet(null);setCleanRequest(n=>n+1);}}/>
     </BottomSheet>}
     {sheet === 'happiness' && <BottomSheet visible onClose={close} title="うれしい気持ち" subtitle="会いに来てくれることが、いちばんうれしい。">
       <Text style={s.chatText}>幸福度 {happiness.value}%</Text>
+      <Text testID="happiness-decay-guide" style={{color:'#796B89',fontSize:13,lineHeight:22}}>幸福度は、アプリを閉じている間も1時間に1ずつ下がります。24時間以上会わないと、その先は1時間に2ずつ。会いに来ると1日1回、24回復します。毎日少し会えれば保ちやすく、2日空くと大きく下がります。ごはんや日記、おふろでも回復するよ。</Text>
       {(happiness.smoking.dependent||happiness.smoking.recovered)&&<><SmokingCare status={happiness.smoking}/>{happiness.smoking.dependent&&<View style={{gap:8}}><WorldPill label="ごはんで気分転換" icon="coffee" onPress={()=>setSheet('feed')}/><WorldPill label="交換日記を書く" icon="book-open" onPress={()=>router.push('/exchange-diary')}/><WorldPill disabled={bathCompleted} label={bathCompleted?'今日は入浴済み':'おふろでひと休み'} icon="droplet" onPress={()=>{setSheet(null);router.push('/(tabs)/plant');}}/></View>}</>}
-      <Text style={{color:'#C1B2CA',fontSize:13,lineHeight:22}}>下の楽しみの加点は、1日1回。{Platform.OS !== 'ios' && '喫煙は吸っている時間に応じて変わるよ。'}</Text>
+      <Text style={{color:'#796B89',fontSize:13,lineHeight:22}}>下の楽しみの加点は、1日1回。{Platform.OS !== 'ios' && '喫煙は吸っている時間に応じて変わるよ。'}</Text>
       {(Object.entries({visit:'会いに来てくれた',record:'今日のことを教えてくれた',ramen:'ラーメンを食べた',bath:'温泉でひと休み',homeBath:'おうちのおふろ',meal:'一緒にごはん'}) as [HappyAction,string][]).map(([action,label])=><View key={action} style={s.menuRow}>
         <Icon name={happiness.actions.includes(action)?'check-circle':'circle'} color="#A07DAA"/><Text style={s.menuText}>{label}</Text><Text style={{color:'#CDB68E'}}>＋{HAPPY_REWARDS[action]}</Text>
       </View>)}
@@ -203,7 +207,9 @@ export default function HomeScreen() {
       <Text style={s.chatText}>{today && today.mood <= 2 ? '今日は一緒に休もう。話したいことがあったら、ここにいるよ。' : message}</Text>
       <Button label="少し、お話しする" icon="message-circle" onPress={() => { close(); router.push('/(tabs)/chat'); }} />
     </BottomSheet>}
+    {sheet === 'collection' && <BottomSheet visible onClose={close} title="ふたりの思い出" subtitle="少しずつ、この部屋が好きになる。"><CompanionCollection/></BottomSheet>}
     {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
+      {menuRow('gift', 'ふたりの思い出・飾りもの', () => setSheet('collection'))}
       {menuRow('users', '友だちのおうち', () => { close(); router.push('/friends'); })}
       {menuRow('gift', 'この子からの贈りもの', () => { close(); router.push('/gifts'); })}
       {menuRow('book-open', 'ふたりの交換日記', () => { close(); router.push('/exchange-diary'); })}
@@ -215,7 +221,7 @@ export default function HomeScreen() {
       {menuRow('home', '部屋の模様替え', () => {setAtelierCategory('furniture');setSheet('atelier');})}
       {menuRow(voice.enabled?'volume-2':'volume-x',`鳴き声：${voice.enabled?'オン':'オフ'}`,voice.toggle)}
       {voice.enabled&&menuRow('music','鳴き声を聞く',()=>voice.play('chat','preview'))}
-      {voice.enabled&&<Text testID="voice-pacing-hint" style={{color:'#C8B9D4',fontSize:12,lineHeight:19,paddingLeft:34}}>タップの鳴き声は、ときどき。続けて触っても鳴きすぎないよ。</Text>}
+      {voice.enabled&&<Text testID="voice-pacing-hint" style={{color:'#796B89',fontSize:12,lineHeight:19,paddingLeft:34}}>タップの鳴き声は、ときどき。続けて触っても鳴きすぎないよ。</Text>}
       {!!voice.error&&<Text style={{color:'#DFC8DB'}}>{voice.error}</Text>}
       {menuRow('edit-3', 'なまえをつける', () => { setName(mascotName); setNameError(''); setSheet('name'); })}
       {menuRow('clock', '記録する時間', () => { close(); router.push('/profile'); })}
@@ -235,23 +241,23 @@ const s = StyleSheet.create({
   header: { position: 'absolute', left: 20, right: 20, gap: 10 },
   brandRow: {flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
   statusRow: {flexDirection:'row',gap:8,alignItems:'center'},
-  points:{minHeight:44,paddingHorizontal:12,backgroundColor:'#211B30EC',borderColor:'#B7A48290',borderWidth:1,borderRadius: 7,flexDirection:'row',alignItems:'center',gap:6},
-  pointsText:{fontSize:11,fontWeight:'700',color:'#D6C4E8'},
+  points:{minHeight:44,paddingHorizontal:12,backgroundColor:'#FFFAFFF2',borderColor:'#DFD0E8',borderWidth:1,borderRadius: 18,flexDirection:'row',alignItems:'center',gap:6},
+  pointsText:{fontSize:11,fontWeight:'700',color:'#725388'},
   brand: { fontSize: 12, letterSpacing: 3, color: '#FFF5E6', fontWeight: '700', textShadowColor: '#263A35', textShadowRadius: 6 },
   subtitle: { marginTop: 6, fontSize: 11, color: '#FFF1D9', textShadowColor: '#263A35', textShadowRadius: 6 },
-  headerTools: { flexDirection: 'row', gap: 5 }, iconButton: { width: 44, height: 44, borderRadius: 7, backgroundColor: '#223D367A', alignItems: 'center', justifyContent: 'center' },
+  headerTools: { flexDirection: 'row', gap: 5 }, iconButton: { width: 44, height: 44, borderRadius: 18, backgroundColor: '#223D367A', alignItems: 'center', justifyContent: 'center' },
   footer: { position: 'absolute', left: 22, right: 22, alignItems: 'center', gap: 14 },
   compactFooter: {left: 14, right: 14, gap: 5},
   speech: {alignItems: 'center', gap: 6, maxWidth: 380},
   residentName: {fontSize: 10, letterSpacing: 1, color: '#FAE3B8', textShadowColor: '#17291B', textShadowRadius: 6},
   whisper: { color: '#FFFAEF', fontSize: 14, lineHeight: 22, textAlign: 'center', textShadowColor: '#17291B', textShadowRadius: 6 },
-  quickActions: {flexDirection:'row',gap:0,padding:4,borderRadius: 7,backgroundColor:'#211B30F2',borderWidth:1,borderColor:'#B7A48290',justifyContent:'center',shadowColor:'#50355F',shadowOpacity:.12,shadowRadius:12},
-  noteButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 20, borderRadius: 7, backgroundColor: '#51415F88'},
-  noteText: {fontSize: 12, fontWeight: '600', color: '#E6DAED'},
-  talkButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 15, borderRadius: 7, backgroundColor:'transparent'},
-  talkText: {fontSize: 12, color: '#E6DAED'},
+  quickActions: {flexDirection:'row',gap:0,padding:4,borderRadius: 18,backgroundColor:'#FFFAFFF2',borderWidth:1,borderColor:'#DFD0E8',justifyContent:'center',shadowColor:'#50355F',shadowOpacity:.12,shadowRadius:12},
+  noteButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 20, borderRadius: 18, backgroundColor: '#ECE0F4AA'},
+  noteText: {fontSize: 12, fontWeight: '600', color: '#655072'},
+  talkButton: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 15, borderRadius: 18, backgroundColor:'transparent'},
+  talkText: {fontSize: 12, color: '#655072'},
   menuRow: { minHeight: 50, flexDirection: 'row', gap: 14, alignItems: 'center', paddingVertical: 10 },
-  menuText: { flex: 1, fontSize: 14, color: '#EEE3F4' },
-  chatText: { fontSize: 17, lineHeight: 28, color: '#EEE3F4', marginVertical: 18 },
-  input: { minHeight: 48, borderWidth: 1, borderColor: '#CEBDCE', borderRadius: 12, padding: 12, marginVertical: 18, color: '#EEE3F4' },
+  menuText: { flex: 1, fontSize: 14, color: '#51405F' },
+  chatText: { fontSize: 17, lineHeight: 28, color: '#51405F', marginVertical: 18 },
+  input: { minHeight: 48, borderWidth: 1, borderColor: '#CEBDCE', borderRadius: 12, padding: 12, marginVertical: 18, color: '#51405F' },
 });

@@ -1,3 +1,4 @@
+import {colors} from '@/constants/theme';
 import React,{useEffect,useRef,useState} from 'react';
 import {Pressable,StyleSheet,Text,View} from 'react-native';
 import {BottomSheet} from '@/components/ui/BottomSheet';
@@ -35,5 +36,5 @@ export function GiftPresentation({gift,onClose,onReceive,onList}: {gift:Characte
 }
 const s=StyleSheet.create({
   invitation:{flexDirection:'row',alignItems:'center',gap:8,padding:12,borderRadius:19,backgroundColor:'#F8EEDD',borderWidth:1,borderColor:'#D7C1A4',marginBottom:12},eyebrow:{fontSize:11,color:'#856A80'},invitationText:{fontSize:14,lineHeight:21,color:'#554254'},invitationLink:{fontSize:12,color:'#806482'},
-  letter:{borderRadius:18,backgroundColor:'#F8EFE1',padding:20,gap:13},art:{alignItems:'center'},title:{fontSize:18,lineHeight:26,color:'#574154',textAlign:'center',fontWeight:'600'},message:{fontSize:15,lineHeight:27,color:'#674F62'},date:{fontSize:11,lineHeight:18,color:'#967C85',textAlign:'center'},button:{minHeight:50,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:'#C5ACC9',marginTop:14},buttonText:{color:'#32263D',fontSize:15,fontWeight:'600'},link:{minHeight:44,alignItems:'center',justifyContent:'center'},linkText:{fontSize:13,color:'#D4BDDC'},error:{fontSize:13,lineHeight:20,color:'#F3C6C6',paddingTop:12},
+  letter:{borderRadius:18,backgroundColor:'#F8EFE1',padding:20,gap:13},art:{alignItems:'center'},title:{fontSize:18,lineHeight:26,color:'#574154',textAlign:'center',fontWeight:'600'},message:{fontSize:15,lineHeight:27,color:'#674F62'},date:{fontSize:11,lineHeight:18,color:'#967C85',textAlign:'center'},button:{minHeight:50,borderRadius:14,alignItems:'center',justifyContent:'center',backgroundColor:'#C5ACC9',marginTop:14},buttonText:{color:'#32263D',fontSize:15,fontWeight:'600'},link:{minHeight:44,alignItems:'center',justifyContent:'center'},linkText:{fontSize:13,color:colors.primary},error:{fontSize:13,lineHeight:20,color:colors.danger,paddingTop:12},
 });

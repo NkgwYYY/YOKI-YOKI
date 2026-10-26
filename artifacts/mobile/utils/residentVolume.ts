@@ -37,7 +37,8 @@ export function cigaretteProjection(anchor:Point3,rx:number,ry:number,rz:number,
 }
 export function projectEgg(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
   'worklet';
-  const rot=(p:Point3)=>{'worklet';return rotatePoint(p,rx,ry,rz);};
+  const bx=rotatePoint({x:1,y:0,z:0},rx,ry,rz),by=rotatePoint({x:0,y:1,z:0},rx,ry,rz),bz=rotatePoint({x:0,y:0,z:1},rx,ry,rz);
+  const rot=(p:Point3)=>{'worklet';return {x:bx.x*p.x+by.x*p.y+bz.x*p.z,y:bx.y*p.x+by.y*p.y+bz.y*p.z,z:bx.z*p.x+by.z*p.y+bz.z*p.z};};
   const patch=(x:number,y:number,wx:number,hy:number)=>{
     'worklet';
     const front=rot({x:x/33,y:y/50,z:1});
