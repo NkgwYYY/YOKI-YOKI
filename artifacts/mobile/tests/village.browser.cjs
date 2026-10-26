@@ -135,8 +135,8 @@ const server = http.createServer((req,res) => {
       await map(q,'onsen');await q.getByTestId('village-bath').tap();await q.getByTestId('village-bathing').waitFor();await bounds(q,'village-experience-exit');await shot(q,'village-bath-'+viewport.width);await q.getByTestId('village-experience-exit').tap();await q.close();
     }
     const locked=await open({level:1});await map(locked,'market');await locked.getByTestId('village-portal-village').tap();
-    await locked.getByText(/となりの村はレベル4でひらきます/).waitFor();await locked.getByTestId('village-shop').waitFor();await locked.close();
-    assert.deepEqual(errors,[]);console.log('PASS level locks, small/landscape controls, no page errors');
+    await locked.getByText(/「となりに、きみが来た」を最後まで読むと、道がひらきます/).waitFor();await locked.getByTestId('village-shop').waitFor();await locked.close();
+    assert.deepEqual(errors,[]);console.log('PASS story locks, small/landscape controls, no page errors');
   }catch(e){for(const [i,p] of browser.contexts().flatMap(c=>c.pages()).entries()){await shot(p,'failure-'+i);console.error((await p.locator('body').innerText()).slice(0,2000));}throw e;
   }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});

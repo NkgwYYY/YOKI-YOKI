@@ -12,11 +12,11 @@ import type {DailyRecord} from '@/contexts/AppContext';
 import {memoryDate,recentWorldMemories} from '@/utils/worldMemories';
 
 type Props={
-  current:CharacterKey; name:string; totalDays:number; hasGrown:boolean;
+  current:CharacterKey; name:string; visitDays:number; hasGrown:boolean;
   encounters:{charKey:CharacterKey;metDate:string}[]; records:DailyRecord[]; diaryPages?:Record<string,DiaryPage>;
   onCharacter:(key:CharacterKey)=>void; onRecords:()=>void;
 };
-export function MemoryBook({current,name,totalDays,hasGrown,encounters,records,diaryPages,onCharacter,onRecords}:Props) {
+export function MemoryBook({current,name,visitDays,hasGrown,encounters,records,diaryPages,onCharacter,onRecords}:Props) {
   const diary=Object.values(diaryPages??{}).filter(p=>p.user?.text).map(p=>({date:p.date,caption:p.user!.text}));
   const memories=[...diary,...recentWorldMemories(records).filter(r=>!diary.some(p=>p.date===r.date))].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,3);
   const first=encounters.map(e=>e.metDate).filter(Boolean).sort()[0];
@@ -33,7 +33,7 @@ export function MemoryBook({current,name,totalDays,hasGrown,encounters,records,d
         <Text style={s.photoNote}>{name}と、ここで。</Text>
       </View>
       <View style={s.caption}>
-        <Text style={s.days}>{totalDays>0?`一緒に残した、${totalDays}日の記録。`:'ここから、ふたりの記録を。'}</Text>
+        <Text style={s.days}>{visitDays>0?`ふたりで過ごした、累計${visitDays}日。`:'ここから、ふたりの記録を。'}</Text>
         {first?<Text style={s.quiet}>{memoryDate(first)}に出会ってから、少しずつ。</Text>:null}
         <Text style={s.quiet}>{hasGrown?'この子も、少し大きくなったみたい。':'どんな日も、ここに残していこう。'}</Text>
       </View>

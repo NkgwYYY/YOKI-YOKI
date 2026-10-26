@@ -1,3 +1,4 @@
+import {retainWorldAccess,mergeWorldAccess,type WorldAccess} from '@/utils/worldProgress';
 import {retireBank} from '@/utils/cozyMigration';
 import {collectionIds,knownKeepsake,prepareCollection,type KeepsakeId} from '@/utils/companionCollection';
 import {advanceVisit,mergeVisitGrowth,readVisitGrowth,type VisitGrowth} from '@/utils/visitGrowth';
@@ -145,6 +146,8 @@ export interface CheckedState {
 
 export interface UserProgress {
   visits?: VisitGrowth;
+  worldAccess?: WorldAccess;
+  /** Retired counters: retained solely to import older saves and interoperate with older clients. */
   level: number;
   experience: number;
   mentalMuscle: number;
@@ -494,7 +497,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [flushGainEvent]);
 
-  // ── 出会い記録の最新化: レベル(=進化段階)が変わるたびに図鑑へ登録する ──
+  // ── 出会い記録の最新化: 一緒に過ごした日数で姿が変わるたびに図鑑へ登録する ──
   // ロード完了前(defaultProgress)や、ログイン済みでクラウド取得が終わる前は
   // 誤登録・偽の「新しい仲間」演出につながるためスキップする
   useEffect(() => {
@@ -503,7 +506,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (isSignedIn && !cloudSynced) return;
     // アカウントに履歴があるか(既存ユーザーの遡り登録判定に使う)
     const hasHistory = progress.totalDays > 0 || progress.experience > 0 || progress.level > 1;
-    const { next, newlyMet } = syncEncounters(encountersRef.current, progress.level, getTodayDate(), hasHistory, readVisitGrowth(progress.visits)?.highestStage);
+    const { next, newlyMet } = syncEncounters(encountersRef.current, getMascotStage(progress), getTodayDate(), hasHistory);
     if (next === encountersRef.current) return;
     encountersRef.current = next;
     setEncounters(next);
@@ -651,9 +654,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if(rewardSession.current.token!==token)throw Error('Account changed');
         const current:UserProgress=values[KEYS.PROGRESS]?JSON.parse(values[KEYS.PROGRESS]!):defaultProgress;
         const visits=advanceVisit(current.visits,getTodayDate(),current.level);
-        const changed=visits!==current.visits;
-        const next={...current,visits};
         const oldFeed:FeedState=values[KEYS.FEED_STATE]?JSON.parse(values[KEYS.FEED_STATE]!):defaultFeedState;
+        const withAccess=retainWorldAccess(current,oldFeed.villageStories);
+        const changed=visits!==current.visits||withAccess!==current;
+        const next={...withAccess,visits};
         const retired=retireBank(oldFeed);
         const migrated=retired!==oldFeed;
         const staged=migrated?{...values,[KEYS.FEED_STATE]:JSON.stringify(retired)}:values;
@@ -728,6 +732,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...cloud,
         ...local,
         visits: mergeVisitGrowth(cloud.visits, local.visits),
+        worldAccess: mergeWorldAccess(cloud,local,(cloudData[KEYS.FEED_STATE] as FeedState|undefined)?.villageStories,(localData[KEYS.FEED_STATE] as FeedState|undefined)?.villageStories),
         experience: Math.max(cloud.experience ?? 0, local.experience ?? 0),
         mentalMuscle: Math.max(cloud.mentalMuscle ?? 0, local.mentalMuscle ?? 0),
         totalDays: Math.max(cloud.totalDays ?? 0, local.totalDays ?? 0),
@@ -1260,7 +1265,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const saved = await AsyncStorage.transaction(values => {
       if (bowlingOwner.current !== owner) throw new Error('Account changed');
       return prepareDiary(values, operation, getTodayDate(), getYesterdayDate(), Date.now(),
-        {feed:defaultFeedState,progress:defaultProgress}, {name:mascotName,stage:getMascotStage(progress.level, progress.visits)}, FP_PER_MOOD_RECORD);
+        {feed:defaultFeedState,progress:defaultProgress}, {name:mascotName,stage:getMascotStage(progress)}, FP_PER_MOOD_RECORD);
     });
     if (bowlingOwner.current !== owner) throw new Error('Account changed');
     feedStateRef.current = saved.feed; setFeedState(saved.feed);
@@ -1286,7 +1291,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const saved = await AsyncStorage.transaction(values => {
       if (bowlingOwner.current !== owner) throw new Error('Account changed');
       return prepareCharacterGifts(values, operation, getTodayDate(), Date.now(), defaultFeedState,
-        {name: mascotName, stage: getMascotStage(progress.level, progress.visits)}, chat);
+        {name: mascotName, stage: getMascotStage(progress)}, chat);
     });
     if (bowlingOwner.current !== owner) throw new Error('Account changed');
     const changed=saved.changed||JSON.stringify(feedStateRef.current.characterGifts)!==JSON.stringify(saved.state);
@@ -1300,10 +1305,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const owner = user?.id ?? 'guest';
     const saved = await AsyncStorage.transaction(values => {
       if (bowlingOwner.current !== owner) throw new Error('Account changed');
-      return prepareVillageStory(values, operation, getTodayDate(), defaultFeedState);
+      const prepared=prepareVillageStory(values, operation, getTodayDate(), defaultFeedState);
+      const current:UserProgress=values[KEYS.PROGRESS]?JSON.parse(values[KEYS.PROGRESS]!):defaultProgress;
+      const next=retainWorldAccess(current,prepared.result.state);
+      return {entries:[...prepared.entries,...(next!==current?[[KEYS.PROGRESS,JSON.stringify(next)] as [string,string]]:[])],
+        result:{...prepared.result,progress:next,changed:prepared.result.changed||next!==current}};
     });
     if (bowlingOwner.current !== owner) throw new Error('Account changed');
-    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    feedStateRef.current = saved.feed; setFeedState(saved.feed); setProgress(saved.progress);
     if (saved.changed) void pushDataToCloud().catch(() => {});
     return saved;
   }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);

@@ -92,7 +92,7 @@ export default function ShopScreen() {
   const gestureStart = useRef({ placement: DEFAULT_PLACEMENT, pinchDistance: 0, pinchScale: 1, pinching: false });
   draftPlacementRef.current = draftPlacement;
   customizingRef.current = customizing;
-  const previewStage = getMascotStage(progress.level, progress.visits);
+  const previewStage = getMascotStage(progress);
   const visibleItems = items.filter(x => x.category !== 'food' && genreOf(x.id, x.category) === tab && (x.isActive || shopState.inventory.includes(x.id)));
   const slot = (item: Item): EquipmentSlot => genreOf(item.id, item.category) as EquipmentSlot;
   const equippedIdFor = (target: EquipmentSlot) => target === 'wear'

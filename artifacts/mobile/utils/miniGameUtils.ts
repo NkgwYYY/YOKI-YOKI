@@ -55,7 +55,7 @@ export function getSlotConfig(slot: GameSlot) {
       icon: 'moon' as IconName,
       color: activityPalette.journal,
       time: '18:00〜4:59',
-      rewardLabel: 'XP 5〜10 獲得',
+      rewardLabel: '遊んだ結果に応じてYOKIポイント獲得',
     },
   }[slot];
 }

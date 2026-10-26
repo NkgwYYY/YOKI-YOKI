@@ -1,7 +1,6 @@
 import type { DailyRecord, FeedState, RecordExtras, UnlockedBadge, UserProgress } from '../contexts/AppContext';
 import type { StorageEntry } from './recoverableStorage';
 import { grantHappiness } from './happiness';
-import { calculateLevel, calculateMentalMuscle, XP_FOR_MOOD_RECORD } from './gameLogic';
 import { applyElapsedEnergy, applyEnergyGain, resolveLightEnergyState, GAIN_MOOD_RECORD, GAIN_DIARY } from './lightEnergy';
 
 export const RECORD_KEYS = {
@@ -43,9 +42,8 @@ export function prepareDailyRecord(
     win: input.extras?.win?.trim() || undefined, activities: input.extras?.activities,
   };
   const nextRecords = isNew ? [...records, record] : records.map((r, i) => i === index ? record : r);
-  const experience = progress.experience + (isNew ? XP_FOR_MOOD_RECORD : 0);
   const nextProgress = isNew ? {
-    ...progress, experience, level: calculateLevel(experience), mentalMuscle: calculateMentalMuscle(experience),
+    ...progress,
     streak: progress.lastRecordDate === input.yesterday ? progress.streak + 1 : progress.lastRecordDate === input.today ? progress.streak : 1,
     totalDays: progress.totalDays + 1, lastRecordDate: input.today,
   } : progress;
@@ -67,7 +65,6 @@ export function prepareDailyRecord(
   unlock('streak7', nextProgress.streak >= 7);
   unlock('streak30', nextProgress.streak >= 30);
   unlock('moodLogger7', nextRecords.length >= 7);
-  unlock('levelUp5', nextProgress.level >= 5);
   unlock('checkMaster', !!allChecked);
   const entries: StorageEntry[] = [
     [RECORD_KEYS.records, JSON.stringify(nextRecords)], [RECORD_KEYS.progress, JSON.stringify(nextProgress)],

@@ -15,7 +15,7 @@ export default function FriendsScreen() {
   const {progress,roomCustomization,feedState}=useApp();
   const [me,setMe]=useState<CommunityMe|null>(null),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[invite,setInvite]=useState('');
   const [confirm,setConfirm]=useState<{label:string;action:()=>Promise<void>}|null>(null);
-  const home={stage:getMascotStage(progress.level, progress.visits),furniture:roomCustomization.furniture,flower:roomCustomization.flower,robot:feedState.housekeeping?.robotPlaced===true};
+  const home={stage:getMascotStage(progress),furniture:roomCustomization.furniture,flower:roomCustomization.flower,robot:feedState.housekeeping?.robotPlaced===true};
   const refresh=useCallback(async()=>{setMe(await client.call<CommunityMe>('/me'));},[client]);
   useFocusEffect(useCallback(()=>{let alive=true;void client.exists().then(async exists=>{if(exists&&config?.enabled){const data=await client.call<CommunityMe>('/me');if(alive)setMe(data);}}).catch(()=>{if(alive)setError('つながりませんでした。もう一度お試しください。');}).finally(()=>{if(alive)setLoading(false);});return()=>{alive=false;};},[client,config?.enabled]));
   const run=async(work:()=>Promise<void>)=>{if(busy)return;setBusy(true);setError('');try{await work();}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
@@ -25,7 +25,7 @@ export default function FriendsScreen() {
     <View style={s.top}><WorldPill compact label="おうちへ戻る" icon="arrow-left" onPress={()=>router.back()}/><Text style={s.eyebrow}>YOKI YOKI / FRIENDS</Text><WorldPill compact label="更新する" icon="refresh-cw" disabled={busy} onPress={()=>void run(async()=>{await reloadConfig();if(me)await refresh();})}/></View>
     <Text style={s.title}>ふらっと、会いに。</Text><Text style={s.lead}>留守でも、おうちへ遊びにいける。{ '\n' }小さな足跡が、帰りを待っています。</Text>
     {loading?<ActivityIndicator color="#DCC8A5"/>:!me?<View style={s.welcome}>
-      <View style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:25}}><StaticMascot stage={getMascotStage(progress.level, progress.visits)} mood="happy" size={95}/><Icon name="heart" color="#D3B8D9" size={24}/><StaticMascot stage="odango" mood="happy" size={95}/></View>
+      <View style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:25}}><StaticMascot stage={getMascotStage(progress)} mood="happy" size={95}/><Icon name="heart" color="#D3B8D9" size={24}/><StaticMascot stage="odango" mood="happy" size={95}/></View>
       <Text style={s.text}>招待コードで友だちとつながろう。見せるのはキャラクターと部屋の家具だけ。日記・会話・気分の記録は共有されません。</Text>
       <WorldPill primary label={busy?'準備しています…':'友だち機能をはじめる'} icon="users" disabled={busy||config?.enabled===false} onPress={()=>void begin()}/>
       {config?.enabled===false&&<Text style={s.small}>ただいま準備中です。</Text>}

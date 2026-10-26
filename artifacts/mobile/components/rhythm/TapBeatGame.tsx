@@ -43,7 +43,7 @@ interface Props {
 export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
   const clock = useSongClock();
   const { progress } = useApp();
-  const mascotStage = getMascotStage(progress.level, progress.visits);
+  const mascotStage = getMascotStage(progress);
   /* キャラは判定に合わせてリアクション (既存キャラシステムをそのまま利用) */
   const [mascotMood, setMascotMood] = useState<MascotMood>('normal');
   const moodTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

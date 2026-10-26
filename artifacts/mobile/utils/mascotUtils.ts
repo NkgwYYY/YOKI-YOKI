@@ -1,4 +1,4 @@
-import {readVisitGrowth} from './visitGrowth';
+import {readVisitGrowth,legacyStage} from './visitGrowth';
 import type { DailyRecord, UserProgress } from '@/contexts/AppContext';
 
 export type MascotStage = 'egg' | 'odango' | 'stage3' | 'stage4';
@@ -19,33 +19,14 @@ export function getCharacter(
   }
 }
 
-export const STAGE_LEVEL_MAP: { stage: MascotStage; minLevel: number; name: string; desc: string }[] = [
-  { stage: 'egg',    minLevel: 1,  name: 'たまご',         desc: 'まだ眠っている…' },
-  { stage: 'odango', minLevel: 3,  name: 'モフモフ',       desc: 'すこしずつ育っています' },
-  { stage: 'stage3', minLevel: 6,  name: 'はっぱ',         desc: '元気いっぱいです！' },
-  { stage: 'stage4', minLevel: 15, name: 'カラフルはっぱ', desc: 'ぐんぐん育っています' },
-];
-
 /** 表示用ステージ名（キャラクター名） */
 export function getStageName(stage: MascotStage): string {
   return getCharacter(stage).name;
 }
 
-export function getMascotStage(level: number, visits?: unknown): MascotStage {
-  const attendance=readVisitGrowth(visits);
-  if(attendance)return attendance.stage;
-  let result: MascotStage = 'egg';
-  for (const s of STAGE_LEVEL_MAP) {
-    if (level >= s.minLevel) result = s.stage;
-  }
-  return result;
-}
-
-export function getNextStageLevel(level: number): number | null {
-  for (let i = 0; i < STAGE_LEVEL_MAP.length - 1; i++) {
-    if (level < STAGE_LEVEL_MAP[i + 1].minLevel) return STAGE_LEVEL_MAP[i + 1].minLevel;
-  }
-  return null;
+/** Cumulative visits drive evolution. Level is only an older-save import fallback. */
+export function getMascotStage(progress: Pick<Partial<UserProgress>, 'visits' | 'level'>): MascotStage {
+  return readVisitGrowth(progress.visits)?.stage ?? legacyStage(progress.level ?? 1);
 }
 
 /** Pick a random idle behavior for this app-open session */

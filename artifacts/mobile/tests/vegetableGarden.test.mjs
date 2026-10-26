@@ -23,14 +23,14 @@ function fixture(feed=baseline){
 }
 test('six natural meetings unlock the hidden house, garden, and starter seeds together',async()=>{
  const f=fixture({...baseline,villageStories:undefined});
- assert.equal(gardenUnlocked(f.current()),false);assert.equal(canVisitMap('grandma',100),false);
+ assert.equal(gardenUnlocked(f.current()),false);assert.equal(canVisitMap('grandma',{version:1,unlocked:[]}),false);
  await assert.rejects(f.run({kind:'buy',crop:'tomato'}),/招待/);
  const places=['market','ramen','homewares','market','market','market'];
  for(let i=0;i<6;i++){
   await f.story({id:'grandma',episode:i,choice:0,place:places[i]},i+1);
   assert.equal(gardenUnlocked(f.current()),i===5);
  }
- assert.equal(canVisitMap('grandma',1,gardenUnlocked(f.current())),true);
+ assert.equal(canVisitMap('grandma',{version:1,unlocked:[]},gardenUnlocked(f.current())),true);
  assert.deepEqual(readGarden(f.current().vegetableGarden).seeds,{turnip:2,carrot:1,tomato:0});
  assert.equal(f.current().points,100);
 });

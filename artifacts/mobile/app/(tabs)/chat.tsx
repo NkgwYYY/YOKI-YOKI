@@ -205,7 +205,7 @@ export default function ChatScreen() {
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
   const totalCount = getTotalCheckCount();
-  const mascotStage = getMascotStage(progress.level, progress.visits);
+  const mascotStage = getMascotStage(progress);
   const mascotMood = getMascotMood(progress, todayRecord, completedCount, totalCount, {
     inactivityHours, satiety: currentSatiety,
   });
@@ -555,7 +555,6 @@ export default function ChatScreen() {
       {showRestEvent ? (
         <RestEventModal
           visible
-          level={progress.level}
           mascotName={displayName}
           onClose={() => {
             if (restTimer.current) clearTimeout(restTimer.current);

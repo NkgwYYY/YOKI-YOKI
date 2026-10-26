@@ -1,7 +1,6 @@
 import type { CheckedState, DailyRecord, FeedState, UnlockedBadge, UserProgress } from '../contexts/AppContext';
 import type { ChecklistItemDef } from '../data/defaultChecklist';
 import type { StorageEntry } from './recoverableStorage';
-import { calculateLevel, calculateMentalMuscle, XP_FOR_CHECKLIST_ITEM, XP_FULL_DAY_BONUS } from './gameLogic';
 import { applyElapsedEnergy, applyEnergyGain, resolveLightEnergyState, GAIN_CHECK_ITEM, GAIN_FULL_DAY_BONUS } from './lightEnergy';
 
 export const CHECK_KEYS = {
@@ -69,9 +68,6 @@ export function prepareChecklist(values: Record<string, string | null>, operatio
     const allChecked = checked.items.length > 0 && checked.items.every(i => i.checked);
     const fullDay = operation.checked && allChecked && !checked.bonusEarned;
     checked.bonusEarned ||= fullDay;
-    const xp = (firstCheck ? XP_FOR_CHECKLIST_ITEM : 0) + (fullDay ? XP_FULL_DAY_BONUS : 0);
-    const experience = progress.experience + xp;
-    progress = { ...progress, experience, level: calculateLevel(experience), mentalMuscle: calculateMentalMuscle(experience) };
     feed = { ...feed, points: feed.points + (firstCheck ? rewards.item : 0) + (fullDay ? rewards.fullDay : 0) };
     const settled = applyElapsedEnergy(energy, today, now);
     energy = firstCheck ? applyEnergyGain(settled, GAIN_CHECK_ITEM, today) : settled;
@@ -85,7 +81,7 @@ export function prepareChecklist(values: Record<string, string | null>, operatio
     };
     unlock('firstStep', records.length >= 1);
     unlock('streak3', progress.streak >= 3); unlock('streak7', progress.streak >= 7); unlock('streak30', progress.streak >= 30);
-    unlock('moodLogger7', records.length >= 7); unlock('levelUp5', progress.level >= 5); unlock('checkMaster', allChecked);
+    unlock('moodLogger7', records.length >= 7); unlock('checkMaster', allChecked);
     entries.push([CHECK_KEYS.progress, JSON.stringify(progress)], [CHECK_KEYS.feed, JSON.stringify(feed)],
       [CHECK_KEYS.energy, JSON.stringify(energy)], [CHECK_KEYS.badges, JSON.stringify(badges)]);
   }

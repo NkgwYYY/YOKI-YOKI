@@ -1,4 +1,4 @@
-import {readVisitGrowth,VISIT_STAGES} from '@/utils/visitGrowth';
+import {readVisitGrowth,nextVisitStage} from '@/utils/visitGrowth';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -28,13 +28,12 @@ import { BadgeCard } from '@/components/BadgeCard';
 import { MoodCalendar } from '@/components/MoodCalendar';
 import { InsightCard } from '@/components/InsightCard';
 import { BADGE_DEFINITIONS } from '@/data/badges';
-import { xpToNextLevel, XP_PER_LEVEL } from '@/utils/gameLogic';
 import { getMascotStage, getCharacter } from '@/utils/mascotUtils';
 import { Image, ImageSourcePropType } from 'react-native';
 import { ACTIVITY_DEFS, totalActivityCount } from '@/utils/activities';
 import { CharacterDexModal } from '@/components/dex/CharacterDexModal';
 import type { CharacterKey } from '@/utils/mascotUtils';
-import { charsMetByLevel } from '@/utils/encounters';
+import { charsMetThroughStage } from '@/utils/encounters';
 import { getTodayDate, getLast7Days } from '@/utils/dateUtils';
 import { Analytics } from '@/utils/analytics';
 import { PressScale } from '@/components/ui/PressScale';
@@ -51,7 +50,7 @@ function FadeIn({ children }: { children: React.ReactNode; delay?: number }) {
   return <View>{children}</View>;
 }
 
-function AnimatedXPBar({ pct, color }: { pct: number; color: string }) {
+function VisitProgressBar({ pct, color }: { pct: number; color: string }) {
   const width = `${Math.max(0, Math.min(100, pct))}%` as any;
   return (
     <View
@@ -108,7 +107,6 @@ export default function GrowthScreen() {
   };
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
-  const xpInLevel = progress.experience % XP_PER_LEVEL;
   const weekDates = new Set(getLast7Days());
   const last7 = records.filter(record => weekDates.has(record.date));
   const avgMood = last7.length > 0
@@ -150,13 +148,15 @@ export default function GrowthScreen() {
   const firstGrowth = growth.history[0]?.growthSize ?? 1.0;
   const growthPct = (v: number) => `${(v * 100).toFixed(1)}%`;
   const hasGrown = growth.growthSize - firstGrowth > 0.0005;
-  const currentChar = getCharacter(getMascotStage(progress.level, progress.visits));
+  const currentChar = getCharacter(getMascotStage(progress));
   const CHAR_IMG = STAGE_IMAGES[currentChar.key] ?? STAGE_IMAGES.egg;
 
-  // 図鑑に出すのは「記録があり、かつ現在のレベルで実際に出会っているはずのキャラ」だけ。
+  // 図鑑に出すのは「記録があり、かつ到達済みの姿で実際に出会っているキャラ」だけ。
   // ストレージやクラウドに未来のキャラの記録が紛れ込んでも描画されないようにする
   const visitHistory=readVisitGrowth(progress.visits);
-  const metNow = new Set(visitHistory?VISIT_STAGES.slice(0,VISIT_STAGES.findIndex(x=>x.stage===visitHistory.highestStage)+1).map(x=>getCharacter(x.stage).key):charsMetByLevel(progress.level));
+  const metNow = new Set(charsMetThroughStage(getMascotStage(progress)));
+  const nextForm=nextVisitStage(visitHistory),sharedDays=visitHistory?.totalVisits??0;
+  const shownBadges=BADGE_DEFINITIONS.filter(b=>!b.retired||unlockedBadges.some(u=>u.id===b.id));
   const dexList = encounters.list.filter((e) => metNow.has(e.charKey));
 
   return (
@@ -302,7 +302,7 @@ export default function GrowthScreen() {
 
         <Button label="村でのできごと" icon="book-open" onPress={()=>router.push('/stories')}/>
         <Button label="この子からの贈りもの" icon="gift" onPress={()=>router.push('/gifts')}/>
-        <MemoryBook current={currentChar.key} name={mascotName||'よっきー'} totalDays={progress.totalDays}
+        <MemoryBook current={currentChar.key} name={mascotName||'よっきー'} visitDays={sharedDays}
           hasGrown={hasGrown} records={records} diaryPages={feedState.exchangeDiary?.pages} encounters={dexList} onCharacter={setDexChar} onRecords={()=>router.push('/monthly-report')}/>
 
         <PressScale onPress={() => setShowDetails(value => !value)}
@@ -367,56 +367,25 @@ export default function GrowthScreen() {
         )}
 
 
-        {/* Level Card */}
+        {/* The same shared-day progression as the room calendar. */}
         <FadeIn delay={100}>
-          <View style={styles.card}>
-            <View style={styles.levelHeader}>
+          <View testID="album-shared-days" style={styles.card}>
+            <View style={styles.bondHeader}>
               <View>
-                <Text style={styles.levelLabel}>現在のレベル</Text>
-                <Text style={styles.levelValue}>Lv.{progress.level}</Text>
+                <Text style={styles.bondLabel}>一緒に過ごした日数</Text>
+                <Text style={styles.bondValue}>累計 {sharedDays}日</Text>
               </View>
-              <View style={styles.levelIcon}>
-                <Icon name="trending-up" size={22} color={colors.primaryOnSoft} />
-              </View>
+              <View style={styles.bondIcon}><Icon name="heart" size={22} color={colors.primaryOnSoft} /></View>
             </View>
-
-            <View style={styles.xpSection}>
-              <View style={styles.xpRow}>
-                <Text style={styles.xpLabel}>
-                  {xpInLevel} / {XP_PER_LEVEL} XP
-                </Text>
-                <Text style={styles.xpNext}>次まで {xpToNextLevel(progress.experience)} XP</Text>
-              </View>
-              <View style={styles.xpTrack}>
-                <AnimatedXPBar pct={progress.mentalMuscle} color={colors.primary} />
-              </View>
-            </View>
-
+            <Text style={styles.bondLabel}>いまの姿は、{currentChar.name}。</Text>
+            {nextForm ? <View style={styles.visitSection}>
+              <Text style={styles.visitNext}>{nextForm.name}まで、あと{Math.max(0,nextForm.days-sharedDays)}日</Text>
+              <View style={styles.visitTrack}><VisitProgressBar pct={sharedDays/nextForm.days*100} color={colors.primary} /></View>
+              <Text style={styles.bondLabel}>累計{nextForm.days}日で進化します。日記を書かない日も、会いに来れば数えます。</Text>
+            </View> : <Text style={styles.bondLabel}>いろんな日を、一緒に過ごしてきたね。これからも思い出を重ねていこう。</Text>}
+            <Text style={styles.growthNote}>お休みしても、姿や積み重ねはそのまま。</Text>
             <View style={styles.divider} />
-
-            <View style={styles.statsRow}>
-              {([
-                { icon: 'repeat', value: progress.streak, label: '連続' },
-                { icon: 'calendar', value: progress.totalDays, label: '記録日数' },
-                { icon: 'zap', value: progress.experience, label: '総XP' },
-                {
-                  icon: 'maximize-2',
-                  value: `${Math.round(growth.growthSize * 100)}%`,
-                  label: '成長',
-                },
-              ] as { icon: IconName; value: string | number; label: string }[]).map((stat, i) => (
-                <React.Fragment key={stat.label}>
-                  {i > 0 && <View style={styles.statDivider} />}
-                  <View style={styles.statItem}>
-                    <Icon name={stat.icon} size={iconSize.sm} color={colors.subtleForeground} />
-                    <Text style={styles.statValue}>{stat.value}</Text>
-                    <Text style={styles.statLabel}>{stat.label}</Text>
-                  </View>
-                </React.Fragment>
-              ))}
-            </View>
-
-            {grownSinceSeen && <Text style={styles.growthNote}>前回より少し大きくなったよ</Text>}
+            <Text style={styles.bondLabel}>気持ちを残した日：{progress.totalDays}日</Text>
           </View>
         </FadeIn>
 
@@ -531,11 +500,11 @@ export default function GrowthScreen() {
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>バッジ</Text>
               <Text style={styles.badgeCount}>
-                {unlockedBadges.length} / {BADGE_DEFINITIONS.length}
+                {unlockedBadges.length} / {shownBadges.length}
               </Text>
             </View>
             <View style={styles.badgeGrid}>
-              {BADGE_DEFINITIONS.map((badge) => (
+              {shownBadges.map((badge) => (
                 <BadgeCard
                   key={badge.id}
                   badge={badge}
@@ -593,11 +562,11 @@ const styles = StyleSheet.create({
   cardTitle: { ...typography.subhead, color: colors.foreground },
   divider: { height: border.width, backgroundColor: colors.border },
 
-  /* レベル */
-  levelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  levelLabel: { ...typography.caption, color: colors.mutedForeground },
-  levelValue: { ...typography.display, color: colors.foreground, marginTop: space.xs },
-  levelIcon: {
+  /* ふたりの日数 */
+  bondHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  bondLabel: { ...typography.caption, color: colors.mutedForeground },
+  bondValue: { ...typography.display, color: colors.foreground, marginTop: space.xs },
+  bondIcon: {
     width: control.icon,
     height: control.icon,
     borderRadius: radius.pill,
@@ -605,11 +574,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  xpSection: { gap: space.sm },
-  xpRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  xpLabel: { ...typography.caption, color: colors.mutedForeground },
-  xpNext: { ...typography.label, color: colors.primaryOnSoft },
-  xpTrack: {
+  visitSection: { gap: space.sm },
+  visitRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  visitLabel: { ...typography.caption, color: colors.mutedForeground },
+  visitNext: { ...typography.label, color: colors.primaryOnSoft },
+  visitTrack: {
     height: space.sm,
     borderRadius: radius.pill,
     backgroundColor: colors.muted,

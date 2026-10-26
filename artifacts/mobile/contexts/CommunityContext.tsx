@@ -29,7 +29,7 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
     void client.exists().then(exists => exists ? client.call('/metrics', 'POST', { id: Crypto.randomUUID(), event, durationMs }) : undefined).catch(() => {});
   }, [client]);
   useEffect(() => { void reloadConfig().catch(() => {}); }, [reloadConfig]);
-  const snapshot = JSON.stringify({stage:getMascotStage(progress.level, progress.visits),furniture:roomCustomization.furniture,flower:roomCustomization.flower,robot:feedState.housekeeping?.robotPlaced===true});
+  const snapshot = JSON.stringify({stage:getMascotStage(progress),furniture:roomCustomization.furniture,flower:roomCustomization.flower,robot:feedState.housekeeping?.robotPlaced===true});
   useEffect(() => {
     if (!config?.enabled || isLoading || storageError || (user && !cloudSynced)) return;
     const timer = setTimeout(() => { void client.exists().then(exists => exists ? client.call('/home','PATCH',{home:JSON.parse(snapshot)}) : undefined).catch(()=>{}); }, 1500);
