@@ -1,15 +1,16 @@
 import React from 'react';
-import {Pressable,StyleSheet,Text,View,type StyleProp,type ViewStyle} from 'react-native';
+import {StyleSheet,Text,View,type StyleProp,type ViewStyle} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {Icon,type IconName} from '@/components/ui/Icon';
-export const worldUI={cream:'#231D31EE',ink:'#EEE4F5',violet:'#D3BDDF',pale:'#41324F',edge:'#B7A48288'};
-/** Shared command frame: quiet glass, a fine metal edge and inset highlight. */
+import {PressScale} from '@/components/ui/PressScale';
+export const worldUI={cream:'#FFFAFFF2',ink:'#574363',violet:'#86679D',pale:'#EFE5F5',edge:'#DFD0E8'};
+/** Milk glass, lavender piping, one shared press spring across the world. */
 export function WorldPill({label,icon,onPress,onPressIn,disabled=false,primary=false,compact=false,testID,accessibilityLabel,style}:{label:string;icon?:IconName;onPress:()=>void;onPressIn?:()=>void;disabled?:boolean;primary?:boolean;compact?:boolean;testID?:string;accessibilityLabel?:string;style?:StyleProp<ViewStyle>}){
- return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={accessibilityLabel||label} accessibilityState={{disabled}} disabled={disabled} onPress={onPress} onPressIn={onPressIn} style={({pressed})=>[s.command,primary&&s.primary,compact&&s.compact,style,disabled&&{opacity:.43},pressed&&{opacity:.86,transform:[{scale:.985}]}]}>
-  <LinearGradient pointerEvents="none" colors={primary?['#A891B938','#33274100']:['#BDABD018','#231D3100']} style={StyleSheet.absoluteFill}/>
+ return <PressScale testID={testID} accessibilityRole="button" accessibilityLabel={accessibilityLabel||label} accessibilityState={{disabled}} disabled={disabled} onPress={onPress} onPressIn={onPressIn} style={[s.command,primary&&s.primary,compact&&s.compact,style,disabled&&{opacity:.45}]}>
+  <LinearGradient pointerEvents="none" colors={primary?['#B39BC7','#8E71A8']:['#FFFFFFB0','#F4EBF700']} style={StyleSheet.absoluteFill}/>
   <View pointerEvents="none" style={s.inset}/>
-  {icon&&<Icon name={icon} size={17} color={primary?'#F0DAB2':'#D6C4E4'}/>}
-  {!compact&&<Text numberOfLines={1} style={[s.label,primary&&{color:'#F8EBDA'}]}>{label}</Text>}
- </Pressable>;
+  {icon&&<Icon name={icon} size={17} color={primary?'#FFF9FF':worldUI.violet}/>}
+  {!compact&&<Text numberOfLines={1} style={[s.label,primary&&{color:'#FFF9FF'}]}>{label}</Text>}
+ </PressScale>;
 }
-const s=StyleSheet.create({command:{minHeight:44,paddingHorizontal:15,borderRadius:6,borderWidth:1,borderColor:worldUI.edge,backgroundColor:worldUI.cream,overflow:'hidden',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,shadowColor:'#090511',shadowOpacity:.25,shadowRadius:9,shadowOffset:{width:0,height:3}},inset:{position:'absolute',left:3,right:3,top:3,bottom:3,borderRadius:3,borderTopWidth:1,borderColor:'#EADCF014'},primary:{backgroundColor:'#5C466FEC',borderColor:'#D3B989'},compact:{width:44,paddingHorizontal:0},label:{fontSize:12,fontWeight:'600',letterSpacing:.7,color:worldUI.ink}});
+const s=StyleSheet.create({command:{minHeight:44,paddingHorizontal:16,borderRadius:18,borderWidth:1,borderColor:worldUI.edge,backgroundColor:worldUI.cream,overflow:'hidden',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,shadowColor:'#665075',shadowOpacity:.12,shadowRadius:12,shadowOffset:{width:0,height:4}},inset:{position:'absolute',left:2,right:2,top:2,bottom:2,borderRadius:16,borderTopWidth:1,borderColor:'#FFFFFFB0'},primary:{backgroundColor:'#9377AE',borderColor:'#AA8DBF'},compact:{width:44,paddingHorizontal:0},label:{fontSize:12,fontWeight:'600',letterSpacing:.3,color:worldUI.ink}});

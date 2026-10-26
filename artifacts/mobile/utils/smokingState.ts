@@ -24,18 +24,12 @@ export function canReceiveSmokingGift(raw:unknown,date:string,patron:TobaccoPatr
  const state=readSmoking(raw);
  return /^\d{4}-\d{2}-\d{2}$/.test(date)&&smokingGiftPatron(date)===patron&&!state.giftDays.some(day=>day>=date)&&state.giftCigarettes<99;
 }
-/** Pure elapsed-time settlement. Reading repeatedly never charges the same interval twice. */
-export function settleSmoking(raw:unknown,now:number){
- const state=readSmoking(raw),age=state.lastSmokedAt?Math.max(0,now-state.lastSmokedAt):0;
- const dependent=state.sessions>=SMOKER_THRESHOLD;
- const steps=dependent?Math.floor(Math.min(age,QUIT_DURATION_MS-1)/CRAVING_INTERVAL_MS):0;
- const loss=Math.max(0,steps-state.withdrawalSteps)*CRAVING_LOSS;
- state.withdrawalSteps=Math.max(state.withdrawalSteps,steps);
- if(state.sessions>0&&age>=QUIT_DURATION_MS){state.sessions=0;state.withdrawalSteps=0;state.recoveredAt=state.lastSmokedAt+QUIT_DURATION_MS;}
- return {state,loss};
+/** Legacy receipts stay readable. Dependency, withdrawal and quit timers are retired. */
+export function settleSmoking(raw:unknown,_now:number){
+ const state=readSmoking(raw);state.withdrawalSteps=0;state.recoveredAt=0;
+ return {state,loss:0};
 }
 export function smokingStatus(raw:unknown,now:number){
- const {state}=settleSmoking(raw,now),dependent=state.sessions>=SMOKER_THRESHOLD;
- const elapsed=state.lastSmokedAt?Math.max(0,now-state.lastSmokedAt):0;
- return {state,dependent,craving:dependent&&elapsed>=CRAVING_INTERVAL_MS,quitDays:dependent?Math.min(5,Math.floor(elapsed/86400000)):0,remainingMs:dependent?Math.max(0,QUIT_DURATION_MS-elapsed):0,recovered:!!state.recoveredAt&&!state.sessions};
+ const {state}=settleSmoking(raw,now);
+ return {state,dependent:false,craving:false,quitDays:0,remainingMs:0,recovered:false};
 }

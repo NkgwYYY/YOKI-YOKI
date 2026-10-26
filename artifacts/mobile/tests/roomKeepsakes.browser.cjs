@@ -13,9 +13,11 @@ const server=http.createServer((req,res)=>{
 const date='2026-10-21';
 const day=(offset)=>new Date(Date.parse(date+'T12:00:00Z')+offset*86400000).toISOString().slice(0,10);
 function saved(streak,stage,gap=1){return {version:1,lastDate:day(-gap),streak,bestStreak:streak,totalVisits:streak,stage,highestStage:stage,dates:Array.from({length:streak},(_,i)=>day(i-streak-gap+1))};}
-function seed({visits}){
+function seed({visits,absenceHours=24}){
+ const now=Date.parse("2026-10-21T03:00:00Z"),last=now-absenceHours*3600000,previous=new Date(last).toISOString().slice(0,10);
  if(localStorage.getItem('room-keepsakes-qa'))return;
  const values={
+  '@mentore/feed_state_v1':{points:200,lastFeedTime:new Date(now).toISOString(),satietyAtFeed:100,happiness:{value:75,updatedOn:previous,updatedAt:last,lastSeenAt:last,days:{[previous]:['visit']}},hygiene:{lastBathAt:now,protectedUntil:0},housekeeping:{startedAt:now-4*86400000,updatedAt:now-4*86400000,owned:['broom'],cleaned:{},robotPlaced:false}},
   '@mentore/profile_v1':{nickname:'テスト',ageRange:'回答しない',gender:'回答しない'},
   '@mentore/encounters_v1':{list:['egg','odango','happa','colorful_happa'].map(charKey=>({charKey,metDate:'2026-09-01'}))},
   '@mentore/progress_v2':{level:15,experience:980,mentalMuscle:42,streak:4,totalDays:28,lastRecordDate:'2026-10-20',visits},
@@ -45,19 +47,19 @@ let browser,activePage;
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const base='http://127.0.0.1:'+server.address().port;
- browser=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+ browser=await chromium.launch({headless:true,executablePath:process.env.YOKI_QA_BROWSER,args:['--no-sandbox','--disable-dev-shm-usage']});
  const scenarios=[
   {width:320,height:568,visits:saved(2,'egg'),stage:'モフモフ',streak:3},
   {width:390,height:844,visits:saved(9,'odango'),stage:'はっぱ',streak:10},
   {width:844,height:390,visits:saved(29,'stage3'),stage:'カラフルはっぱ',streak:30},
-  {width:820,height:1180,visits:saved(30,'stage4',12),stage:'はっぱ',streak:1},
+  {width:820,height:1180,visits:saved(30,'stage4',12),stage:'カラフルはっぱ',streak:1,absenceHours:48},
  ];
  for(const s of scenarios){
   const context=await browser.newContext({viewport:{width:s.width,height:s.height},reducedMotion:'reduce',locale:'ja-JP',timezoneId:'Asia/Tokyo',serviceWorkers:'block'});
   const page=await context.newPage(),errors=[];activePage=page;
   page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
   await page.clock.setFixedTime(new Date('2026-10-21T03:00:00Z'));
-  await page.addInitScript(seed,{visits:s.visits});
+  await page.addInitScript(seed,{visits:s.visits,absenceHours:s.absenceHours});
   await context.route('**/*',route=>{
    const url=new URL(route.request().url());
    if(url.pathname.endsWith('/community/config'))return route.fulfill({contentType:'application/json',body:'{"enabled":false,"ads":false}'});
@@ -68,18 +70,26 @@ let browser,activePage;
   await page.waitForFunction(expected=>JSON.parse(localStorage.getItem('@mentore/progress_v2')).visits.streak===expected,s.streak);
   await page.getByTestId('room-scene').waitFor();
   const calendar=await fit(page,'room-visit-calendar');await fit(page,'room-mood-frame');
+  await page.waitForFunction(expected=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).happiness?.value===expected,s.absenceHours===48?27:75);
+  assert.match(await page.getByTestId('home-hygiene').getAttribute('aria-label'),/^清潔度50パーセント/);
+  await page.getByTestId('home-hygiene').click();
+  await page.getByRole('button',{name:'お部屋を掃除する',exact:true}).click();
+  await page.getByRole('heading',{name:'お部屋のお掃除',exact:true}).waitFor();
+  await page.getByRole('button',{name:'閉じる',exact:true}).last().click();
   // Check collisions in the current camera position. Trial-clicking an existing
   // world hotspot can scroll the clipped scene in Chromium before any real tap.
   for(const prop of ['room-visit-calendar','room-mood-frame']){
    const a=await page.getByTestId(prop).boundingBox();
-   for(const id of ['world-map-open','room-clean-status','room-record','room-bed']){
+   for(const id of ['world-map-open','room-clean-open','room-record','room-bed']){
     const b=await page.getByTestId(id).boundingBox();
     assert.ok(a&&b&&(a.x+a.width<=b.x||b.x+b.width<=a.x||a.y+a.height<=b.y||b.y+b.height<=a.y),prop+' clear of '+id+' '+JSON.stringify({a,b}));
    }
   }
+  assert.equal(await page.getByTestId('room-clean-status').count(),0,'one cleanliness indicator');
+  assert.ok((await calendar.boundingBox()).width>=58,'calendar is more prominent');
   await page.screenshot({path:path.join(out,`keepsakes-home-${s.width}.png`)});
   await tap(page,'room-visit-calendar');
-  assert.equal(await page.getByTestId('visit-streak-value').innerText(),s.streak+'日連続');
+  assert.equal(await page.getByTestId('visit-streak-value').innerText(),'累計 '+(s.visits.totalVisits+1)+'日');
   assert.equal(await page.getByTestId('visit-current-form').getAttribute('aria-label'),'いまの姿は'+s.stage);
   await page.screenshot({path:path.join(out,`keepsakes-calendar-${s.width}.png`)});
   await page.getByRole('button',{name:'閉じる',exact:true}).last().click();
@@ -92,18 +102,19 @@ let browser,activePage;
   assert.equal(before.experience,980);assert.equal(before.streak,4);assert.equal(before.totalDays,28);
   await page.reload();await page.getByTestId('room-visit-calendar').waitFor();
   await tap(page,'room-visit-calendar');
-  assert.equal(await page.getByTestId('visit-streak-value').innerText(),s.streak+'日連続');
+  assert.equal(await page.getByTestId('visit-streak-value').innerText(),'累計 '+(s.visits.totalVisits+1)+'日');
   assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/progress_v2')).visits),before.visits);
   await page.getByRole('button',{name:'閉じる',exact:true}).last().click();
   if(s.width===390){
    await page.clock.setFixedTime(new Date('2026-10-21T13:00:00Z'));await page.reload();
    await fit(page,'room-visit-calendar');await fit(page,'room-mood-frame');
+   assert.match(await page.getByTestId('home-happiness').getAttribute('aria-label'),/^幸福度65パーセント/,'ten offline hours decay on reopening');
    await page.screenshot({path:path.join(out,'keepsakes-home-night.png')});
    await page.clock.setFixedTime(new Date('2026-10-22T03:00:00Z'));await page.reload();
    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/progress_v2')).visits.streak===11);
    await page.clock.setFixedTime(new Date('2026-10-24T03:00:00Z'));await page.reload();
    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('@mentore/progress_v2')).visits.streak===1);
-   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/progress_v2')).visits.stage),'odango');
+   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/progress_v2')).visits.stage),'stage3');
   }
   assert.deepEqual(errors,[]);
   console.log('PASS room furniture, actual visit evolution, mood gaps, close/reopen and persistence '+s.width+'x'+s.height);

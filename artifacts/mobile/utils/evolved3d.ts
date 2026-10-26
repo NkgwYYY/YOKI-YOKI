@@ -69,7 +69,7 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
   const shape=EVOLVED_SHAPES[form],r=shape.radius;
   const colors:V[]=[[255,229,155],[200,233,184],[175,220,228],[192,185,230],[221,183,219],[174,222,198],[251,193,201],[255,210,192]];
   const coat=(p:V):V=>{
-        let c:V=[250,247,238];
+        let c:V=[252,248,246];
         if(form==='stage4'){
           // Broad pastel patches continue around the body without a seam.
           const angle=Math.atan2(p[0],-p[1])+p[2]*.004;
@@ -84,7 +84,7 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
         }
         return c;
       };
-  const fibreCount=detail==='room'?7200:14000;
+  const fibreCount=detail==='room'?2400:10000;
   const hairs=Array.from({length:fibreCount},(_,i)=>{
     const y=1-2*(i+.5)/fibreCount,a=i*2.399963229728653+(random(i+108)-.5)*.18,s=Math.sqrt(1-y*y);
     const p:V=[r[0]*s*Math.cos(a),r[1]*y,r[2]*s*Math.sin(a)];
@@ -140,10 +140,10 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
       };
       drawLeaves(false);
       ellipse([0,0,0],r,true);
-      const bodyGradient=ctx.createRadialGradient(-14,-18,4,3,4,49);bodyGradient.addColorStop(0,color(form==='stage4'?[239,228,187]:[255,254,247]));bodyGradient.addColorStop(.6,color(form==='stage4'?[205,213,195]:[247,245,238]));bodyGradient.addColorStop(1,color(form==='stage4'?[167,169,178]:[201,207,199]));ctx.fillStyle=bodyGradient;ctx.fill();
+      const bodyGradient=ctx.createRadialGradient(-14,-18,4,3,4,49);bodyGradient.addColorStop(0,color(form==='stage4'?[239,228,187]:[255,254,247]));bodyGradient.addColorStop(.6,color(form==='stage4'?[205,213,195]:[247,245,238]));bodyGradient.addColorStop(1,color(form==='stage4'?[167,169,178]:[211,207,220]));ctx.fillStyle=bodyGradient;ctx.fill();
       ctx.save();ctx.clip();
       if(form==='stage4'){
-        const patches=hairs.filter((_,i)=>i%700===0).map(h=>({p:h.p,q:rot(h.p)})).filter(h=>h.q[2]>0).sort((a,b)=>a.q[2]-b.q[2]);
+        const patches=hairs.filter((_,i)=>i%Math.floor(fibreCount/20)===0).map(h=>({p:h.p,q:rot(h.p)})).filter(h=>h.q[2]>0).sort((a,b)=>a.q[2]-b.q[2]);
         for(const patch of patches){const c=coat(patch.p),g=ctx.createRadialGradient(patch.q[0],patch.q[1],0,patch.q[0],patch.q[1],25);g.addColorStop(0,color(c));g.addColorStop(1,`rgba(${c.join(',')},0)`);ctx.fillStyle=g;ctx.fillRect(-50,-50,100,100);}
       }
       ctx.restore();
@@ -155,7 +155,7 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
         const c=hair.color.map(v=>Math.round(v*shade/4)*4) as V;
         const key=color(c);let path=groups.get(key);if(!path){path=new Path2D();groups.set(key,path);}path.moveTo(p[0],p[1]);path.quadraticCurveTo(mid[0],mid[1],tip[0],tip[1]);
       }
-      ctx.lineCap='round';ctx.lineWidth=.105;ctx.globalAlpha=.78;
+      ctx.lineCap='round';ctx.lineWidth=detail==='room'?.20:.105;ctx.globalAlpha=detail==='room'?.72:.78;
       for(const [c,path] of groups){ctx.strokeStyle=c;ctx.stroke(path);}
       ctx.globalAlpha=1;
       const visible=(p:V)=>rotate(normalAt(p))[2]>.04;

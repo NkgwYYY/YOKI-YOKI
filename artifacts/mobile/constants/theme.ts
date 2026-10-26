@@ -1,7 +1,7 @@
 /**
  * YOKI-YOKI デザインシステム — 単一のソース・オブ・トゥルース。
  *
- * コンセプト: "Moonlit Atelier" (紫水晶と古金を使う、静かなRPGの街)
+ * コンセプト: "Lavender Keepsakes" (ラベンダーの布とミルク色の紙、柔らかな暮らし)
  * ピンク、ラベンダー、パープルを基調とした、透明感と温かみのある世界観。
  */
 
@@ -10,22 +10,22 @@
  * ------------------------------------------------------------------ */
 
 const atelierColors = {
-  900: '#F4EDF9', // Bright headings
-  800: '#ECE2F3', // Main text
-  700: '#BDB3CC', // Muted text
-  600: '#B3A4CB', // Borders strong, Icons
-  500: '#80788D', // Disabled
-  400: '#978671', // Borders subtle
-  300: '#3A334B', // Muted backgrounds / Dividers
-  200: '#292337', // Secondary surfaces
-  100: '#15121E', // App background
-  50:  '#211C2C', // Raised purple surfaces
+  900: '#4B3D5C', // Bright headings
+  800: '#5B4C69', // Main text
+  700: '#796B89', // Muted text
+  600: '#8C7B9C', // Borders strong, Icons
+  500: '#A398AE', // Disabled
+  400: '#CEBEDC', // Borders subtle
+  300: '#E7DDEC', // Muted backgrounds / Dividers
+  200: '#F3EDF7', // Secondary surfaces
+  100: '#F7F2FA', // App background
+  50:  '#FFFBFF', // Raised purple surfaces
 } as const;
 
 const charmColors = {
-  500: '#756293', // Violet command fill
-  600: '#55436F', // Primary pressed
-  900: '#352B45', // Selected purple surface
+  500: '#8465A3', // Violet command fill
+  600: '#6B5089', // Primary pressed
+  900: '#EDE2F5', // Selected purple surface
 } as const;
 
 export const colors = {
@@ -35,7 +35,7 @@ export const colors = {
   card: atelierColors[50], // Raised purple surface
   cardForeground: atelierColors[900],
   sheet: atelierColors[50],
-  scrim: 'rgba(8, 6, 17, 0.76)', // Soft purple shadow
+  scrim: 'rgba(45, 32, 60, 0.38)', // Soft purple shadow
 
   /* 文字 */
   foreground: atelierColors[900],
@@ -60,16 +60,16 @@ export const colors = {
   primaryForeground: '#FFFFFF',
   primaryPressed: charmColors[600],
   primarySoft: charmColors[900],
-  primaryOnSoft: '#DEC8EE',
+  primaryOnSoft: '#705188',
   ring: charmColors[500],
   tint: charmColors[500],
 
   /* 補助 */
-  success: '#20D695', // Cool-toned green
+  success: '#52856B', // Cool-toned green
   successSoft: 'rgba(32, 214, 149, 0.15)',
-  warning: '#FF9533', // Vibrant orange
+  warning: '#AF763C', // Vibrant orange
   warningSoft: 'rgba(255, 149, 51, 0.15)',
-  danger: '#FF4D6D',
+  danger: '#B75574',
   dangerSoft: 'rgba(255, 77, 109, 0.15)',
   destructive: '#FF4D6D',
   destructiveForeground: '#FFFFFF',
@@ -104,8 +104,8 @@ export const homePalette = {
   gaugeTrack: '#EDE8F5',
   dateText: '#6D5F8A',
   navActive: '#756293',
-  navInactive: '#BAA6C2',
-  navBackground: '#382B37',
+  navInactive: '#94849F',
+  navBackground: '#FFFAFF',
   navBorder: 'rgba(160, 149, 181, 0.22)',
   softShadow: 'rgba(180, 170, 210, 0.25)',
   actionShadow: 'rgba(200, 180, 210, 0.35)',
@@ -148,11 +148,11 @@ export const screenPadding = space.xl;
  * Radius
  * ------------------------------------------------------------------ */
 export const radius = {
-  sm: 6,
-  md: 8, // Softer curves for dream aesthetic
-  homeCard: 10,
-  lg: 10,
-  xl: 12,
+  sm: 12,
+  md: 16, // Softer curves for dream aesthetic
+  homeCard: 20,
+  lg: 22,
+  xl: 28,
   pill: 999,
 } as const;
 

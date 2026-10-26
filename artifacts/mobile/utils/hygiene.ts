@@ -15,3 +15,9 @@ export function hygieneValue(raw:unknown,roomDirty:number,now:number){
   const dust=Math.max(0,Math.min(100,roomDirty))*.2*Math.min(1,Math.max(0,now-state.lastBathAt)/DAY_MS);
   return Math.max(15,Math.round(100-bathDirt-dust-(state.smokeDirt??0)));
 }
+
+/** One visible care score: body and room each contribute half, without double-counting dust. */
+export function cleanlinessValue(raw:unknown,roomDirty:number,now:number){
+  const room=100-Math.max(0,Math.min(100,Number.isFinite(roomDirty)?roomDirty:0));
+  return Math.round((hygieneValue(raw,0,now)+room)/2);
+}

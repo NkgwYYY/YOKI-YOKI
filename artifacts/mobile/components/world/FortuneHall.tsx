@@ -1,3 +1,4 @@
+import {colors} from '@/constants/theme';
 import Svg,{Path,Circle,Defs,LinearGradient,Stop} from 'react-native-svg';
 import React,{useEffect,useRef,useState} from 'react';
 import {Image,Pressable,StyleSheet,Text,View} from 'react-native';
@@ -64,7 +65,7 @@ export function FortuneHall({onClose}:{onClose:()=>void}){
  </BottomSheet>;
 }
 const s=StyleSheet.create({
- catLabel:{alignSelf:'center',paddingHorizontal:12,paddingVertical:6,color:'#F1E0BC',fontSize:11,backgroundColor:'#251C31E8',borderWidth:1,borderColor:'#B89C6377',borderRadius:5},
- welcome:{flexDirection:'row',gap:14,alignItems:'center',marginBottom:20},eyebrow:{fontSize:10,letterSpacing:1.2,color:'#BFA571'},copy:{fontSize:14,lineHeight:25,color:'#E4D7ED'},
- result:{borderWidth:1,borderColor:'#B4976255',borderRadius:12,padding:20,gap:13,backgroundColor:'#2C213A'},stars:{fontSize:23,letterSpacing:5,color:'#EAC989'},title:{fontSize:22,lineHeight:33,color:'#F9EACB',fontWeight:'600'},divider:{height:1,backgroundColor:'#B4976233',marginVertical:4},note:{fontSize:11,lineHeight:20,color:'#B8A7C3'},error:{fontSize:13,lineHeight:22,color:'#F0BBA6',marginTop:12},
+ catLabel:{alignSelf:'center',paddingHorizontal:12,paddingVertical:6,color:colors.primary,fontSize:11,backgroundColor:colors.card,borderWidth:1,borderColor:colors.border,borderRadius:5},
+ welcome:{flexDirection:'row',gap:14,alignItems:'center',marginBottom:20},eyebrow:{fontSize:10,letterSpacing:1.2,color:colors.primary},copy:{fontSize:14,lineHeight:25,color:colors.foreground},
+ result:{borderWidth:1,borderColor:colors.border,borderRadius:12,padding:20,gap:13,backgroundColor:colors.muted},stars:{fontSize:23,letterSpacing:5,color:colors.warning},title:{fontSize:22,lineHeight:33,color:colors.foreground,fontWeight:'600'},divider:{height:1,backgroundColor:colors.border,marginVertical:4},note:{fontSize:11,lineHeight:20,color:colors.mutedForeground},error:{fontSize:13,lineHeight:22,color:colors.danger,marginTop:12},
 });

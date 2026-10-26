@@ -1,3 +1,4 @@
+import {CompanionCollection} from '@/components/collection/CompanionCollection';
 import React,{useEffect,useState} from 'react';
 import {Pressable,StyleSheet,Text,View} from 'react-native';
 import Svg,{Circle,Defs,Ellipse,Line,LinearGradient,Path,Rect,Stop,Text as Ink} from 'react-native-svg';
@@ -11,43 +12,43 @@ import {moodDays,nextVisitStage,readVisitGrowth,shiftDay,VISIT_STAGES} from '@/u
 
 const MOODS=['','つらい','少ししんどい','ふつう','穏やか','うれしい'];
 const TINTS=['','#A296BA','#B3A6C7','#C8B6D4','#A4B9A0','#D9BB79'];
-type Kind='calendar'|'moods';
+type Kind='calendar'|'moods'|'collection';
 /** Furniture anchored in the room's coordinate space, rather than another HUD/menu. */
 export function RoomKeepsakes({width,height,frameLeft,frameTop,viewportWidth,viewportHeight,safeTop,night,disabled,onBusy}:{width:number;height:number;frameLeft:number;frameTop:number;viewportWidth:number;viewportHeight:number;safeTop:number;night:boolean;disabled:boolean;onBusy:(busy:boolean)=>void}){
  const {progress,records,visitError,refreshVisits}=useApp();
  const [open,setOpen]=useState<Kind|null>(null);
  const today=getTodayDate(),visits=readVisitGrowth(progress.visits),days=moodDays(records,today);
  const next=nextVisitStage(visits),stage=getMascotStage(progress.level,progress.visits);
- const streak=visits?.streak??0,month=Number(today.slice(5,7));
+ const streak=visits?.totalVisits??0,month=Number(today.slice(5,7));
  useEffect(()=>{onBusy(open!==null);return()=>onBusy(false);},[open,onBusy]);
  // Keep the props in scene space so they travel with the room. In a short
- // portrait room, use the shelf beside the cleanliness badge; in landscape,
+ // portrait room, use the open shelf area; in landscape,
  // use the wall below the status row. Leave space for the rotated corners.
  const landscape=viewportWidth>viewportHeight;
  const shelf=!landscape&&frameTop+height*.24<safeTop+36;
- const w=shelf?44:Math.max(54,Math.min(96,width*.14)),fw=shelf?44:Math.max(50,Math.min(92,width*.14));
+ const w=shelf?58:Math.max(68,Math.min(112,width*.17)),fw=shelf?44:Math.max(50,Math.min(92,width*(landscape?.125:.14)));
  const withinRoom=(x:number,size:number)=>Math.max(12-frameLeft,Math.min(x,viewportWidth-12-frameLeft-size));
- const calendarLeft=withinRoom(shelf?Math.max(width*.275,124-frameLeft):width*(landscape?.34:.275),w);
+ const calendarLeft=withinRoom(shelf?102-frameLeft:width*(landscape?.34:.275),w);
  const calendarTop=landscape?Math.max(height*.24,safeTop-50-frameTop):shelf?safeTop+6-frameTop:height*.24;
- const moodLeft=withinRoom(shelf?176-frameLeft:width*(landscape?.52:.70),fw);
+ const moodLeft=withinRoom(shelf?174-frameLeft:width*(landscape?.53:.70),fw);
  const moodTop=Math.max(height*.213,safeTop+(landscape?-50:6)-frameTop);
- const calendarLabel=`カレンダー。${streak?`連続${streak}日、会えた日`:'会えた日の記録'}。進化までの日数を見る`;
+ const calendarLabel=`カレンダー。${streak?`累計${streak}日、会えた日`:'会えた日の記録'}。進化までの日数を見る`;
  return <>
   <Pressable testID="room-visit-calendar" accessibilityRole="button" accessibilityLabel={calendarLabel} disabled={disabled} onPress={()=>setOpen('calendar')}
-   style={({pressed})=>[s.object,{left:calendarLeft,top:calendarTop,width:w,height:w*1.27,transform:[{rotate:'-5deg'},{scale:pressed ? .97 : 1}],opacity:night ? .88 : 1}]}>
+   style={({pressed})=>[s.object,{left:calendarLeft,top:calendarTop,width:w,height:w*1.27,transform:[{rotate:'-5deg'},{scale:pressed ? .97 : 1}],opacity:1,shadowColor:'#3D2516',shadowOpacity:.3,shadowRadius:5,shadowOffset:{width:0,height:3}}]}>
    <Svg width="100%" height="100%" viewBox="0 0 110 140" pointerEvents="none" accessible={false}>
-    <Defs><LinearGradient id="calendarWood" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#E5BD84"/><Stop offset=".5" stopColor="#AC764C"/><Stop offset="1" stopColor="#6E4634"/></LinearGradient><LinearGradient id="calendarPaper" x1="0" y1="0" x2=".7" y2="1"><Stop offset="0" stopColor="#FFF8E7"/><Stop offset="1" stopColor="#E4D3B2"/></LinearGradient></Defs>
+    <Defs><LinearGradient id="calendarWood" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#E5BD84"/><Stop offset=".5" stopColor="#AC764C"/><Stop offset="1" stopColor="#6E4634"/></LinearGradient><LinearGradient id="calendarPaper" x1="0" y1="0" x2=".7" y2="1"><Stop offset="0" stopColor="#FFFBEF"/><Stop offset="1" stopColor="#E4D3B2"/></LinearGradient></Defs>
     <Ellipse cx="56" cy="132" rx="49" ry="7" fill="#38251E" opacity=".26"/>
     <Path d="M16 21 L31 18 L105 129 L91 132 Z" fill="#76503A"/>
     <Rect x="7" y="14" width="91" height="116" rx="5" fill="url(#calendarWood)"/>
     <Path d="M12 21 H93 M12 124 H91" stroke="#F6D7A4" strokeWidth="1" opacity=".6"/>
     <Rect x="14" y="19" width="77" height="104" rx="2" fill="#7A573D"/>
     <Rect x="13" y="17" width="77" height="103" rx="2" fill="url(#calendarPaper)"/>
-    <Rect x="13" y="17" width="77" height="24" fill="#806C87"/>
+    <Rect x="13" y="17" width="77" height="24" fill="#74547F"/>
     {[31,73].map(x=><Path key={x} d={`M${x} 23 V11 C${x} 5 ${x+5} 5 ${x+5} 11 V22`} fill="none" stroke="#C6AB77" strokeWidth="3"/>)}
     <Ink x="52" y="34" textAnchor="middle" fontSize="10" fill="#FFF4DB">{month}月 · 会えた日</Ink>
     <Ink x="52" y="77" textAnchor="middle" fontSize="34" fontWeight="600" fill="#65506D">{streak||'—'}</Ink>
-    <Ink x="52" y="92" textAnchor="middle" fontSize="10" fill="#806B72">{streak?'日つづいてる':'今日から'}</Ink>
+    <Ink x="52" y="92" textAnchor="middle" fontSize="10" fill="#806B72">{streak?'日いっしょ':'今日から'}</Ink>
     {Array.from({length:7},(_,i)=>{const date=shiftDay(today,i-6),met=visits?.dates.includes(date);return <Circle key={date} cx={24+i*9.1} cy="106" r="2.4" fill={met?'#9A809D':'#CFC2A9'}/>;})}
     <Path d="M77 120 L90 106 V120 Z" fill="#CAB89A"/>
    </Svg>
@@ -71,15 +72,15 @@ export function RoomKeepsakes({width,height,frameLeft,frameTop,viewportWidth,vie
     <Path d="M15 33 H71 L14 82 Z" fill="#FFFFFF" opacity=".11"/>
    </Svg>
   </Pressable>
-  <BottomSheet visible={open!==null} title={open==='moods'?'こころのうつろい':'ふたりのカレンダー'} subtitle={open==='moods'?'記録した気分を、そのまま。':'会いに来た日に、ひとつずつ。'} onClose={()=>setOpen(null)}>
-   {open==='calendar'?<>
-    <View style={s.summary} testID="visit-current-form" accessibilityLabel={`いまの姿は${VISIT_STAGES.find(v=>v.stage===stage)?.name}`}><StaticMascot stage={stage} mood="happy" size={80}/><View style={{flex:1}}><Text testID="visit-streak-value" style={s.big}>{streak}日連続</Text><Text style={s.note}>これまで{visits?.totalVisits??0}日 · 最長{visits?.bestStreak??0}日</Text></View></View>
+  <BottomSheet visible={open!==null} title={open==='moods'?'こころのうつろい':open==='collection'?'ふたりの思い出':'ふたりのカレンダー'} subtitle={open==='moods'?'記録した気分を、そのまま。':'会いに来た日に、ひとつずつ。'} onClose={()=>setOpen(null)}>
+   {open==='collection'?<CompanionCollection/>:open==='calendar'?<>
+    <View style={s.summary} testID="visit-current-form" accessibilityLabel={`いまの姿は${VISIT_STAGES.find(v=>v.stage===stage)?.name}`}><StaticMascot stage={stage} mood="happy" size={80}/><View style={{flex:1}}><Text testID="visit-streak-value" style={s.big}>累計 {streak}日</Text><Text style={s.note}>会えた日は、ずっと残ります</Text></View></View>
     {visitError&&<View><Text accessibilityRole="alert" style={s.note}>{visitError}</Text><Pressable accessibilityRole="button" onPress={()=>void refreshVisits()} style={s.retry}><Text style={s.body}>もう一度保存する</Text></Pressable></View>}
+    <Pressable testID="calendar-open-collection" accessibilityRole="button" onPress={()=>setOpen('collection')} style={{padding:16,borderRadius:18,backgroundColor:colors.primarySoft}}><Text style={{color:colors.primary,fontSize:14,fontWeight:'600'}}>ふたりの思い出・飾りもの　›</Text></Pressable>
     <MonthCalendar today={today} dates={visits?.dates??[]}/>
-    <View style={s.growth}><Text style={s.eyebrow}>次の姿へ</Text><Text testID="visit-next-evolution" style={s.heading}>{next?`${next.name}まで、あと${Math.max(0,next.days-streak)}日`:'カラフルはっぱと、今日も一緒。'}</Text><Text style={s.note}>{next?`連続${next.days}日で進化します。日記を書かない日も、アプリを開けば数えます。`:(visits?.bestStreak??0)>=30?'30日連続で会えた、特別な姿です。':'これまで一緒に育ってきた、特別な姿です。'}</Text></View>
+    <View style={s.growth}><Text style={s.eyebrow}>次の姿へ</Text><Text testID="visit-next-evolution" style={s.heading}>{next?`${next.name}まで、あと${Math.max(0,next.days-streak)}日`:'カラフルはっぱと、今日も一緒。'}</Text><Text style={s.note}>{next?`累計${next.days}日で進化します。日記を書かない日も、アプリを開けば数えます。`:(visits?.totalVisits??0)>=30?'30日、一緒に過ごした、特別な姿です。':'これまで一緒に育ってきた、特別な姿です。'}</Text></View>
     <View style={s.steps}>{VISIT_STAGES.map((v,i)=><View key={v.stage} style={s.step}><View style={[s.seed,{backgroundColor:v.stage===stage?'#94779C':'#DAD0D7'}]}><Text style={[s.stepNumber,{color:v.stage===stage?'#FFF9ED':'#77687E'}]}>{i+1}</Text></View><Text style={s.stepLabel}>{v.name}</Text><Text style={s.note}>{i?`${v.days}日`:'はじまり'}</Text></View>)}</View>
-    {visits?.change==='returned'&&visits.changedOn===today&&<Text style={s.welcome}>おかえり。ひとつ前の姿で、また一緒に。</Text>}
-    <Text style={s.fine}>1日以上会わない日があると、次に会ったときに1段階だけ前の姿へ戻ります。連続日数は1日から。日記・持ち物・思い出は残ります。</Text>
+    <Text style={s.fine}>お休みしても、姿や思い出はそのまま。会えた日をひとつずつ重ねていこう。</Text>
    </>:<>
     <View style={s.moodChart}>{days.map(d=><View key={d.date} style={s.moodColumn}><View style={s.barTrack}>{d.mood!==null&&<View testID={`mood-bar-${d.date}`} style={[s.bar,{height:`${d.mood*20}%`,backgroundColor:TINTS[d.mood]}]}/>}</View><Text style={s.dayLabel}>{Number(d.date.slice(5,7))}/{Number(d.date.slice(8))}</Text><Text style={s.moodName}>{d.mood===null?'未記録':MOODS[d.mood]}</Text></View>)}</View>
     <Text style={s.note}>{days.some(d=>d.mood!==null)?'気分の上下に、良い・悪いはありません。記録のない日は空けています。':'まだ記録がありません。交換日記で気分を選ぶと、この額にも色がついていきます。'}</Text>

@@ -26,9 +26,9 @@ test('each full five seconds adds happiness and dirt; only the first tick counts
  assert.equal(f.happiness.smoking.lastSmokedAt,now+16999);assert.equal(hygieneValue(f.hygiene,0,now+16999),97);
  assert.equal(f.points,feed.points);assert.equal(f.satietyAtFeed,feed.satietyAtFeed);assert.equal(f.lastFeedTime,feed.lastFeedTime);
 });
-test('leaving before five seconds does not count, and the third separate session creates dependence',()=>{
+test('leaving before five seconds does not count, and repeated sessions never create dependence',()=>{
  let f=puff(feed,'short',now,4999);assert.equal(f.happiness.smoking.sessions,0);
- for(let i=1;i<=3;i++){f=puff(f,'count-'+i,now+i*10000);assert.equal(smokingStatus(f.happiness.smoking,now+i*10000+5000).dependent,i===3);}
+ for(let i=1;i<=3;i++){f=puff(f,'count-'+i,now+i*10000);assert.equal(smokingStatus(f.happiness.smoking,now+i*10000+5000).dependent,false);}
  assert.equal(f.happiness.smoking.sessions,3);
 });
 test('time and rewards cap at sixty seconds; full happiness never prevents dirt or habit formation',()=>{
@@ -38,34 +38,17 @@ test('time and rewards cap at sixty seconds; full happiness never prevents dirt 
  assert.equal(f.happiness.smoking.receipts[0].elapsedMs,SMOKE_LIMIT_MS);
  assert.equal(hygieneValue(f.hygiene,100,now+180000),15);
 });
-test('four-hour craving boundaries deduct once and cannot be replayed or reversed by the clock',()=>{
+test('old dependent saves have no withdrawal losses, cravings or quit countdown',()=>{
  const f=dependent(),last=f.happiness.smoking.lastSmokedAt;
- assert.equal(readHappiness(f.happiness,day(last),last+CRAVING_INTERVAL_MS-1).value,73);
- const at=readHappiness(f.happiness,day(last),last+CRAVING_INTERVAL_MS);
- assert.equal(at.value,70);assert.equal(smokingStatus(at.smoking,last+CRAVING_INTERVAL_MS).craving,true);
- assert.equal(readHappiness(at,day(last),last+CRAVING_INTERVAL_MS).value,70);
- assert.equal(readHappiness(at,day(last),last).value,70);
- assert.equal(readHappiness(at,day(last),last+CRAVING_INTERVAL_MS*2).value,67);
- assert.equal(smokingStatus(puff(feed,'one',now).happiness.smoking,now+CRAVING_INTERVAL_MS*2).craving,false);
-});
-test('five full days cures dependence offline, resets the count and stops withdrawal',()=>{
- const f=dependent(),last=f.happiness.smoking.lastSmokedAt,end=last+QUIT_DURATION_MS;
- assert.equal(smokingStatus(f.happiness.smoking,end-1).dependent,true);
- const h=readHappiness(f.happiness,day(end),end),status=smokingStatus(h.smoking,end);
- assert.equal(status.dependent,false);assert.equal(status.craving,false);assert.equal(status.recovered,true);assert.equal(h.smoking.sessions,0);assert.equal(h.value,40);
- const later=readHappiness({...h,value:85},day(end),end+CRAVING_INTERVAL_MS*2);assert.equal(later.value,85);
- const next=puff({...f,happiness:h},'after-quit',end+1);assert.equal(next.happiness.smoking.sessions,1);assert.equal(smokingStatus(next.happiness.smoking,end+5001).dependent,false);
-});
-test('smoking again restarts the five-day clock and calms craving; other happiness helps without resetting abstinence',()=>{
- const f=dependent(),last=f.happiness.smoking.lastSmokedAt,t=last+CRAVING_INTERVAL_MS;
- for(const action of ['meal','record','homeBath','bath','ramen','visit']){
-  const reward=grantHappiness(f.happiness,action,day(t),t);
-  assert.ok(reward.gained>0);assert.equal(reward.state.smoking.lastSmokedAt,last);assert.equal(smokingStatus(reward.state.smoking,t).craving,true);
+ for(const age of [0,CRAVING_INTERVAL_MS,QUIT_DURATION_MS,QUIT_DURATION_MS*20]){
+  const status=smokingStatus(f.happiness.smoking,last+age);
+  assert.equal(status.dependent,false);assert.equal(status.craving,false);assert.equal(status.remainingMs,0);
+  assert.equal(status.state.sessions,3);assert.equal(status.state.receipts.length,3);
  }
- const next=puff(f,'relapse',t);assert.equal(next.happiness.smoking.lastSmokedAt,t+5000);
- assert.equal(smokingStatus(next.happiness.smoking,t+5000).craving,false);
- assert.equal(smokingStatus(next.happiness.smoking,last+QUIT_DURATION_MS).dependent,true);
- assert.equal(smokingStatus(next.happiness.smoking,t+5000+QUIT_DURATION_MS).dependent,false);
+ const h=readHappiness(f.happiness,day(last),last+CRAVING_INTERVAL_MS);
+ const plain=readHappiness({...f.happiness,smoking:undefined},day(last),last+CRAVING_INTERVAL_MS);
+ assert.equal(h.value,plain.value,'only normal happiness decay remains');
+ assert.equal(readHappiness(h,day(last),last+CRAVING_INTERVAL_MS).value,h.value);
 });
 test('washing removes dirt without curing dependence or moving the quit clock',()=>{
  const f=dependent(),t=now+30000;
@@ -76,7 +59,7 @@ test('reopening an abandoned session uses only confirmed time, not hours spent a
  let f=apply(feed,{kind:'start',id:'abandoned'},now).feed;
  f=apply(f,{kind:'progress',id:'abandoned',elapsedMs:10000},now+10000).feed;
  const result=apply(f,{kind:'recover'},now+CRAVING_INTERVAL_MS);
- assert.equal(result.receipt.elapsedMs,10000);assert.equal(result.feed.happiness.value,72);assert.equal(result.feed.hygiene.smokeDirt,2);assert.equal(result.feed.happiness.smoking.lastSmokedAt,now+10000);
+ assert.equal(result.receipt.elapsedMs,10000);assert.equal(result.feed.happiness.value,68);assert.equal(result.feed.hygiene.smokeDirt,2);assert.equal(result.feed.happiness.smoking.lastSmokedAt,now+10000);
  assert.equal(apply(result.feed,{kind:'recover'},now+CRAVING_INTERVAL_MS).changed,false);
 });
 test('duplicate and out-of-order checkpoints and concurrent finishes never add rewards twice',async()=>{

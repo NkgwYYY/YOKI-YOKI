@@ -197,13 +197,13 @@ export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
       {saving && <Text accessibilityLiveRegion="polite">ごはんを保存しています…</Text>}
       {venue === 'ramen' ? <View style={{alignItems:'center',gap:12}}>
         <RamenArt size={250} />
-        <Text style={{fontSize:21,fontWeight:'700',color:'#EBDFF0'}}>店長の特製ラーメン</Text>
-        <Text style={{fontSize:13,lineHeight:22,textAlign:'center',color:'#C0B1CC'}}>とろけるチャーシュー、半熟たまご。{ '\n' }お店だけの、とっておきのごちそう。</Text>
+        <Text style={{fontSize:21,fontWeight:'700',color:colors.foreground}}>店長の特製ラーメン</Text>
+        <Text style={{fontSize:13,lineHeight:22,textAlign:'center',color:colors.mutedForeground}}>とろけるチャーシュー、半熟たまご。{ '\n' }お店だけの、とっておきのごちそう。</Text>
         <WorldPill testID="ramen-order" primary icon="coffee" label={saving?'ご用意しています…':'注文する  ·  60 pt'} disabled={saving||feedState.points<60} onPress={()=>handleFeed('ramen')} style={{width:'100%'}} />
-        {feedState.points<60&&<Text style={{fontSize:12,color:'#D3B783'}}>あと{60-feedState.points}ポイントで注文できます</Text>}
-        {storyFinished(feedState.villageStories,'ramen')&&<View testID="story-recipe-menu" style={{width:'100%',paddingTop:16,gap:9,borderTopWidth:1,borderColor:'#A690AD66'}}><Text style={{color:'#EBCB92',fontSize:17,fontWeight:'600'}}>こもれびラーメン</Text><Text style={{color:'#C0B1CC',fontSize:13,lineHeight:22}}>あなたと店長で作った一杯。やさしいスープと、工房の半熟たまご。</Text><WorldPill testID="ramen-story-order" primary icon="coffee" label="注文する · 55 pt" disabled={saving||feedState.points<55} onPress={()=>handleFeed('komorebi-ramen')}/></View>}
+        {feedState.points<60&&<Text style={{fontSize:12,color:colors.warning}}>あと{60-feedState.points}ポイントで注文できます</Text>}
+        {storyFinished(feedState.villageStories,'ramen')&&<View testID="story-recipe-menu" style={{width:'100%',paddingTop:16,gap:9,borderTopWidth:1,borderColor:'#A690AD66'}}><Text style={{color:colors.primary,fontSize:17,fontWeight:'600'}}>こもれびラーメン</Text><Text style={{color:colors.mutedForeground,fontSize:13,lineHeight:22}}>あなたと店長で作った一杯。やさしいスープと、工房の半熟たまご。</Text><WorldPill testID="ramen-story-order" primary icon="coffee" label="注文する · 55 pt" disabled={saving||feedState.points<55} onPress={()=>handleFeed('komorebi-ramen')}/></View>}
         <View style={{width:'100%'}}><ProduceTrade venue="ramen"/></View>
-        <Pressable testID="ramen-preview" accessibilityRole="button" accessibilityLabel="できたてのラーメンを見る" onPress={()=>setServing('preview')} style={{minHeight:44,justifyContent:'center'}}><Text style={{color:'#C6AFD9',fontSize:13}}>できたてを見る</Text></Pressable>
+        <Pressable testID="ramen-preview" accessibilityRole="button" accessibilityLabel="できたてのラーメンを見る" onPress={()=>setServing('preview')} style={{minHeight:44,justifyContent:'center'}}><Text style={{color:colors.primary,fontSize:13}}>できたてを見る</Text></Pressable>
       </View> : <View style={modalStyles.grid}>
         {foodsForVenue().map((food) => <View key={food.id} style={modalStyles.gridItem}>
           <FoodCard food={food} canAfford={feedState.points >= food.cost} saving={saving} reduceMotion={reduceMotion} onFeed={handleFeed} />

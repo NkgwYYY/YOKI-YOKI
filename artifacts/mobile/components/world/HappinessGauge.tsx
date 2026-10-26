@@ -9,4 +9,4 @@ export function HappinessGauge({value,onPress}:{value:number;onPress:()=>void}) 
     <View style={s.body}><Text style={s.number}>幸福 {amount}%</Text><View style={s.track}><View style={[s.fill,{width:`${amount}%`}]}/></View></View>
   </Pressable>;
 }
-const s=StyleSheet.create({root:{flex:1,minHeight:44,paddingHorizontal:8,paddingVertical:8,borderRadius: 7,backgroundColor:'#211B30EC',borderWidth:1,borderColor:'#B7A48290',flexDirection:'row',alignItems:'center',gap:4},body:{flex:1,gap:5},number:{fontSize:10,fontWeight:'700',color:'#E6C9DB'},track:{height:5,borderRadius:4,backgroundColor:'#55455B',overflow:'hidden'},fill:{height:5,borderRadius:4,backgroundColor:'#C493AC'}});
+const s=StyleSheet.create({root:{flex:1,minHeight:44,paddingHorizontal:8,paddingVertical:8,borderRadius: 18,backgroundColor:'#FFFAFFF2',borderWidth:1,borderColor:'#DFD0E8',flexDirection:'row',alignItems:'center',gap:4},body:{flex:1,gap:5},number:{fontSize:10,fontWeight:'700',color:'#7E576E'},track:{height:5,borderRadius:4,backgroundColor:'#EAE0EF',overflow:'hidden'},fill:{height:5,borderRadius:4,backgroundColor:'#C493AC'}});

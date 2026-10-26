@@ -17,7 +17,7 @@ export const WORLD_MAPS = [
 ] as const;
 // Permanent iOS product restriction; identical for reviewers and all end users.
 // Tobacco consumption/rewards are not part of the iOS app (App Review 1.4.3).
-export function isMapAvailable(id: WorldMapId, platform: string) { return platform !== 'ios' || id !== 'tobacco'; }
+export function isMapAvailable(id: WorldMapId, platform: string) { return id !== 'bank' && (platform !== 'ios' || id !== 'tobacco'); }
 export function initialReleasedMap(id: WorldMapId | undefined, platform: string): WorldMapId {
   return id && isMapAvailable(id, platform) ? id : 'home';
 }
