@@ -64,7 +64,7 @@ const server=http.createServer((req,res)=>{
     await p.waitForTimeout(350);assert.match(await p.getByTestId('room-resident').getAttribute('aria-label'),/ころころ/);const rolling=await foot(p);assert.ok(Math.hypot(rolling.x-beforeRoll.x,rolling.y-beforeRoll.y)>.01);await shot(p,'expansion-roll');
     await p.getByTestId('home-daily-record').tap();const paused=await foot(p);await p.waitForTimeout(400);assert.deepEqual(await foot(p),paused,'sheet cancels rolling');
     await p.getByRole('button',{name:'閉じる',exact:true}).last().tap();
-    await p.getByTestId('world-map-open').tap();await p.waitForTimeout(500);await shot(p,'expansion-maps-locked');assert.match(await p.getByTestId('world-map-forest').innerText(),/レベル3でひらきます/);await p.close();
+    await p.getByTestId('world-map-open').tap();await p.waitForTimeout(500);await shot(p,'expansion-maps-locked');assert.match(await p.getByTestId('world-map-forest').getAttribute('aria-label'),/荷物を抱えたもふもふに話しかけよう/);await p.close();
     console.log('PASS pinch/HUD, zoom reset, held volumetric shape, rolling, modal pause, map locks');
 
     const q=await open({level:6,reduce:true});
@@ -77,7 +77,7 @@ const server=http.createServer((req,res)=>{
     }
     assert.equal(await q.evaluate(()=>localStorage.getItem('@mentore/progress_v2')),balance,'travel never mints XP');
     await q.getByTestId('world-navigation').getByRole('tab',{name:'ひかり',exact:true}).tap();await q.getByTestId('energy-garden').waitFor();await shot(q,'expansion-light-garden');await q.close();
-    console.log('PASS level-gated maps, dry ground travel, return, no rewards, light garden');
+    console.log('PASS migrated and story-gated maps, dry ground travel, return, no rewards, light garden');
 
     }
     if(process.env.YOKI_QA_SECTION!=='world'){

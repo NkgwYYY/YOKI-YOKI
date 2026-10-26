@@ -1,19 +1,20 @@
+import type {WorldAccess} from './worldProgress';
 export type WorldMapId = 'grandma' | 'home' | 'forest' | 'lake' | 'market' | 'onsen' | 'village' | 'ramen' | 'bowling' | 'tobacco' | 'homewares' | 'workshop' | 'fortune' | 'bank';
 export const WORLD_MAPS = [
-  {id:'grandma',name:'おばあさんの家',level:1,description:'お茶の湯気と、少しずつ育つ畑。いつでも寄っておいで。'},
-  {id:'home',name:'おうち',level:1,description:'いつでも帰れる、小さなおうち。'},
-  {id:'market',name:'こもれび広場',level:1,description:'風船の子ども、旅人、あやしい儲け話。ときどき出会いが待っている。'},
-  {id:'ramen',name:'もふもふラーメン',level:1,description:'赤い提灯が灯る町中華。もふもふ店長がお出迎え。'},
-  {id:'bowling',name:'ころころボウリング',level:1,description:'受付の店員に話しかけて、1日5回までのボウリング。'},
-  {id:'tobacco',name:'こかげのタバコ屋',level:1,description:'お店のとなりに、小さな屋外喫煙所。'},
-  {id:'homewares',name:'暮らしのお店',level:1,description:'ほうき、リネン、小さな暮らしの道具。'},
-  {id:'workshop',name:'ゆでたまご工房',level:1,description:'店長の注文を受けて、ひと鍋ずつ働こう。'},
-  {id:'bank',name:'こもれび銀行',level:1,description:'利息がつく村の銀行。好景気、強盗、経営破綻の出来事も。'},
-  {id:'fortune',name:'月あかりの占い館',level:1,description:'大きな猫が、血液型とMBTIから今日の運勢を占う。1日1回。'},
-  {id:'forest',name:'木もれびの森',level:3,description:'葉の音を聞きながら、ゆっくりおさんぽ。'},
-  {id:'onsen',name:'森の温泉',level:3,description:'お湯にゆられて、ゆっくりひと休み。'},
-  {id:'village',name:'となりの村',level:4,description:'たまご・もふもふ・はっぱたちの、小さな村。'},
-  {id:'lake',name:'星あかりの湖',level:6,description:'観覧車に乗って、いつもの世界を空から。'},
+  {id:'grandma',name:'おばあさんの家',description:'お茶の湯気と、少しずつ育つ畑。いつでも寄っておいで。'},
+  {id:'home',name:'おうち',description:'いつでも帰れる、小さなおうち。'},
+  {id:'market',name:'こもれび広場',description:'風船の子ども、旅人、あやしい儲け話。ときどき出会いが待っている。'},
+  {id:'ramen',name:'もふもふラーメン',description:'赤い提灯が灯る町中華。もふもふ店長がお出迎え。'},
+  {id:'bowling',name:'ころころボウリング',description:'受付の店員に話しかけて、1日5回までのボウリング。'},
+  {id:'tobacco',name:'こかげのタバコ屋',description:'お店のとなりに、小さな屋外喫煙所。'},
+  {id:'homewares',name:'暮らしのお店',description:'ほうき、リネン、小さな暮らしの道具。'},
+  {id:'workshop',name:'ゆでたまご工房',description:'店長の注文を受けて、ひと鍋ずつ働こう。'},
+  {id:'bank',name:'こもれび銀行',description:'利息がつく村の銀行。好景気、強盗、経営破綻の出来事も。'},
+  {id:'fortune',name:'月あかりの占い館',description:'大きな猫が、血液型とMBTIから今日の運勢を占う。1日1回。'},
+  {id:'forest',name:'木もれびの森',description:'葉の音を聞きながら、ゆっくりおさんぽ。'},
+  {id:'onsen',name:'森の温泉',description:'お湯にゆられて、ゆっくりひと休み。'},
+  {id:'village',name:'となりの村',description:'たまご・もふもふ・はっぱたちの、小さな村。'},
+  {id:'lake',name:'星あかりの湖',description:'観覧車に乗って、いつもの世界を空から。'},
 ] as const;
 // Permanent iOS product restriction; identical for reviewers and all end users.
 // Tobacco consumption/rewards are not part of the iOS app (App Review 1.4.3).
@@ -21,7 +22,12 @@ export function isMapAvailable(id: WorldMapId, platform: string) { return id !==
 export function initialReleasedMap(id: WorldMapId | undefined, platform: string): WorldMapId {
   return id && isMapAvailable(id, platform) ? id : 'home';
 }
-export function canVisitMap(id: WorldMapId, level: number, grandmaUnlocked=false, platform='web') {if(!isMapAvailable(id,platform))return false;if(id==='grandma'&&!grandmaUnlocked)return false;const map=WORLD_MAPS.find(map=>map.id===id);return !!map&&level>=map.level;}
+export function canVisitMap(id: WorldMapId, access: WorldAccess, grandmaUnlocked=false, platform='web') {
+  if(!isMapAvailable(id,platform))return false;
+  if(id==='grandma')return grandmaUnlocked;
+  if(id==='forest'||id==='onsen'||id==='village'||id==='lake')return access.unlocked.includes(id);
+  return WORLD_MAPS.some(map=>map.id===id);
+}
 export function mapGroundBounds(map: WorldMapId, y: number) {
   'worklet';
   if(map==='grandma')return {minX:.23,maxX:.77,minY:.44,maxY:.82};

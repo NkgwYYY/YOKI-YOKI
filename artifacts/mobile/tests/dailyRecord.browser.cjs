@@ -54,14 +54,14 @@ const server=http.createServer((req,res)=>{
       const snapshot=()=>page.evaluate(()=>Object.fromEntries(['records_v2','progress_v2','feed_state_v1','light_energy_v1','badges_v2'].map(k=>[k,JSON.parse(localStorage.getItem('@mentore/'+k))])));
       const saved=await snapshot();
       assert.equal(saved.records_v2.length,1);assert.equal(saved.records_v2[0].mood,4);assert.equal(saved.records_v2[0].sleepRecorded,false);
-      assert.equal(saved.progress_v2.experience,15);assert.equal(saved.progress_v2.totalDays,1);
+      assert.equal(saved.progress_v2.experience,0);assert.equal(saved.progress_v2.totalDays,1);
       assert.equal(saved.feed_state_v1.points,105);assert.equal(saved.light_energy_v1.totalEnergy,5);
       assert.ok(saved.badges_v2.some(b=>b.id==='firstStep'));
       await page.goto(base+'/record');await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
       await page.getByTestId('quick-mood-5').click();await page.getByTestId('quick-record-save').click();
       await page.getByTestId('room-scene').waitFor();
       const edited=await snapshot();
-      assert.equal(edited.records_v2[0].mood,5);assert.equal(edited.progress_v2.experience,15);
+      assert.equal(edited.records_v2[0].mood,5);assert.equal(edited.progress_v2.experience,0);
       assert.equal(edited.feed_state_v1.points,105);assert.equal(edited.light_energy_v1.totalEnergy,5);
       assert.deepEqual(errors,[]);await page.close();
       console.log('PASS daily-record '+mode+': record/progress/points/energy/badge recovery and same-day edit without duplicate reward');

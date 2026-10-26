@@ -128,7 +128,7 @@ function AiInsightCard() {
           win: r.win?.slice(0, 40) || undefined,
         })),
         progress: {
-          level: progress.level,
+          totalVisits: progress.visits?.totalVisits ?? 0,
           streak: progress.streak,
           totalDays: progress.totalDays,
         },

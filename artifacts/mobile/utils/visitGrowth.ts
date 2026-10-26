@@ -1,6 +1,6 @@
 import type {MascotStage} from './mascotUtils';
 
-/** Visits are distinct from diary streaks and earned XP. Dates are device-local civil days. */
+/** Evolution uses cumulative visits, independently of diary records. Dates are device-local civil days. */
 export const VISIT_STAGES: {stage:MascotStage;days:number;name:string}[] = [
   {stage:'egg',days:1,name:'たまご'}, {stage:'odango',days:3,name:'モフモフ'},
   {stage:'stage3',days:10,name:'はっぱ'}, {stage:'stage4',days:30,name:'カラフルはっぱ'},

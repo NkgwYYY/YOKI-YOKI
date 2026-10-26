@@ -18,7 +18,7 @@ export function RoomKeepsakes({width,height,frameLeft,frameTop,viewportWidth,vie
  const {progress,records,visitError,refreshVisits}=useApp();
  const [open,setOpen]=useState<Kind|null>(null);
  const today=getTodayDate(),visits=readVisitGrowth(progress.visits),days=moodDays(records,today);
- const next=nextVisitStage(visits),stage=getMascotStage(progress.level,progress.visits);
+ const next=nextVisitStage(visits),stage=getMascotStage(progress);
  const streak=visits?.totalVisits??0,month=Number(today.slice(5,7));
  useEffect(()=>{onBusy(open!==null);return()=>onBusy(false);},[open,onBusy]);
  // Keep the props in scene space so they travel with the room. In a short

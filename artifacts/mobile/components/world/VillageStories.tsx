@@ -1,3 +1,4 @@
+import {STORY_DESTINATIONS} from '@/utils/worldProgress';
 import {colors} from '@/constants/theme';
 import {STORY_RESIDENT_SIZE} from '@/utils/encounterLayout';
 import {GrandmotherResident} from './VegetableGarden';
@@ -64,6 +65,7 @@ function StoryDialogue({encounter,onClose,onBowl,onGo,service}:DialogueProps){
   catch(e){if(alive.current)setError(e instanceof Error?e.message:'保存できませんでした。もう一度お試しください。');}
   finally{pending.current=false;if(alive.current)setBusy(false);}
  };
+ const invitations=receipt?STORY_DESTINATIONS.filter(p=>p.story===encounter.id&&p.episodes===encounter.index+1):[];
  const close=()=>{if(!pending.current)onClose();};
  const hasBowled=Object.values(bowlingState.plays).some(p=>p.date===today);
  return <Modal transparent visible animationType="fade" onRequestClose={close}>
@@ -73,6 +75,7 @@ function StoryDialogue({encounter,onClose,onBowl,onGo,service}:DialogueProps){
     <View style={s.row}><Text style={[s.title,{flex:1}]}>{episode.speaker}</Text><Pressable accessibilityRole="button" accessibilityLabel="またあとで" disabled={busy} onPress={close} style={{width:36,height:36,alignItems:'center',justifyContent:'center'}}><Icon name="x" size={20} color={colors.primary}/></Pressable></View>
     <ScrollView style={{flexShrink:1}} contentContainerStyle={{gap:9,paddingBottom:5}}><Text testID="story-encounter-text" accessibilityLiveRegion="polite" style={s.talkText}>{receipt?episode.replies[receipt.choice]:episode.text}</Text>
      {receipt&&encounter.index===story.episodes.length-1&&<Text style={s.tag}>{story.keepsake}を思い出にしまった。</Text>}
+     {invitations.length>0&&<Text testID="story-path-invitation" accessibilityLiveRegion="polite" style={s.tag}>{invitations.map(p=>p.name).join('と')}への道を教えてもらった。地図から、いつでも遊びに行けます。</Text>}
      {!!(readError||error)&&<Text accessibilityRole="alert" style={s.error}>{readError||error}</Text>}
     </ScrollView>
     {receipt?<Pressable testID="story-close" accessibilityRole="button" onPress={close} style={s.answer}><Text style={s.buttonText}>またね</Text></Pressable>:episode.bowl&&!hasBowled?<Pressable testID="story-bowl" accessibilityRole="button" onPress={onBowl} style={s.answer}><Text style={s.buttonText}>受付へ行って、一投する</Text></Pressable>:<View style={{flexDirection:'row',gap:8}}>{episode.choices.map((label,i)=><Pressable key={i} testID={`story-choice-${i}`} accessibilityRole="button" disabled={!ready||busy} onPress={()=>void choose(i as 0|1)} style={[s.answer,{flex:1},(!ready||busy)&&{opacity:.5}]}><Text style={s.buttonText}>{busy?'思い出を残しています…':label}</Text></Pressable>)}</View>}

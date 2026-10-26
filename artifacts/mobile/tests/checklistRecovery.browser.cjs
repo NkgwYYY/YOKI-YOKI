@@ -50,7 +50,7 @@ const server=http.createServer((req,res)=>{
       await page.waitForFunction(()=>document.querySelector('[data-testid="checklist-item-b1"]')?.getAttribute('aria-checked')==='true');
       const snapshot=()=>page.evaluate(()=>Object.fromEntries(['checked_state_v2','progress_v2','feed_state_v1','light_energy_v1','badges_v2','checklist_items_v3'].map(k=>[k,JSON.parse(localStorage.getItem('@mentore/'+k))])));
       const saved=await snapshot();
-      assert.equal(saved.progress_v2.experience,30);assert.equal(saved.feed_state_v1.points,112);assert.equal(saved.light_energy_v1.totalEnergy,10);
+      assert.equal(saved.progress_v2.experience,0);assert.equal(saved.feed_state_v1.points,112);assert.equal(saved.light_energy_v1.totalEnergy,10);
       assert.ok(saved.badges_v2.some(b=>b.id==='checkMaster'));
       await page.getByLabel('項目を編集',{exact:true}).click();
       await page.getByText('リセット',{exact:true}).click();await page.getByText('元の項目に戻す',{exact:true}).click();
@@ -67,7 +67,7 @@ const server=http.createServer((req,res)=>{
       await page.getByText('チェック項目を追加',{exact:true}).waitFor({state:'hidden'});
       assert.equal((await snapshot()).checklist_items_v3.filter(i=>i.text==='中断しても一つだけ追加').length,1);
       await open();const final=await snapshot();
-      assert.equal(final.feed_state_v1.points,112);assert.equal(final.progress_v2.experience,30);
+      assert.equal(final.feed_state_v1.points,112);assert.equal(final.progress_v2.experience,0);
       assert.equal(final.checklist_items_v3.filter(i=>i.text==='中断しても一つだけ追加').length,1);
       assert.deepEqual(errors,[]);await page.close();
       console.log('PASS checklist '+mode+': reward recovery, reset without extra reward, interrupted add retry without duplicates and reload');

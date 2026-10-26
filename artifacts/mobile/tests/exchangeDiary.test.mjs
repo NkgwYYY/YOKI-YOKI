@@ -3,12 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 import * as energy from '../utils/lightEnergy.ts';
-import * as game from '../utils/gameLogic.ts';
 import * as happiness from './careModules.mjs';
 import {preparePlazaEvent} from '../utils/plazaEvents.ts';
 import {createRecoverableStorage} from '../utils/recoverableStorage.ts';
 function load(path,deps){const out={};const code=ts.transpileModule(fs.readFileSync(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;new Function('require','exports',code)(name=>{if(!Object.hasOwn(deps,name))throw Error(name);return deps[name];},out);return out;}
-const daily=load('../utils/dailyRecordTransaction.ts',{'./gameLogic':game,'./lightEnergy':energy,'./happiness':happiness});
+const daily=load('../utils/dailyRecordTransaction.ts',{'./lightEnergy':energy,'./happiness':happiness});
 const {prepareDiary,makeDiaryLetter,diaryReply,diaryAttention}=load('../utils/exchangeDiary.ts',{'./dailyRecordTransaction':daily});
 const k=daily.RECORD_KEYS,today='2026-10-09',yesterday='2026-10-08',now=Date.parse('2026-10-09T10:00:00Z');
 const defaults={progress:{experience:0,level:1,mentalMuscle:0,streak:0,totalDays:0,lastRecordDate:''},feed:{points:100,lastFeedTime:'',satietyAtFeed:65}};

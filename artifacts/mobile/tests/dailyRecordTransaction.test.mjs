@@ -3,17 +3,15 @@ import test from 'node:test';
 import fs from 'node:fs';
 import ts from 'typescript';
 import * as energy from '../utils/lightEnergy.ts';
-import * as game from '../utils/gameLogic.ts';
 import * as happiness from './careModules.mjs';
 import { createRecoverableStorage } from '../utils/recoverableStorage.ts';
 
-// Load the production helper with its real pure energy/level dependencies.
+// Load the production helper with its real pure energy/happiness dependencies.
 const code=ts.transpileModule(fs.readFileSync(new URL('../utils/dailyRecordTransaction.ts',import.meta.url),'utf8'),{
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
 }).outputText;
 const exports={};
 new Function('require','exports',code)(name=>{
-  if(name==='./gameLogic')return game;
   if(name==='./lightEnergy')return energy;
   if(name==='./happiness')return happiness;
   throw Error('Unexpected dependency: '+name);
@@ -39,13 +37,13 @@ for(const failAt of [1,2,3,4,5,6,7])test(`daily record interrupted write ${failA
   const result=await save(store);
   assert.equal(result.records.length,1);assert.equal(result.records[0].sleepRecorded,false);
   assert.deepEqual(result.records[0].activities,{rest:1});
-  assert.equal(result.progress.experience,15);assert.equal(result.progress.totalDays,1);
+  assert.equal(result.progress.experience,0);assert.equal(result.progress.totalDays,1);
   assert.equal(result.progress.streak,1);assert.equal(result.feed.points,105);
   assert.equal(result.energy.totalEnergy,8);assert.equal(result.energy.flags.mood,true);assert.equal(result.energy.flags.diary,true);
   assert.deepEqual(result.badges.map(b=>b.id),['firstStep']);
   const retry=await save(store);
   assert.equal(retry.gainedEnergy,0);assert.equal(retry.newestBadge,null);
-  assert.equal(retry.feed.points,105);assert.equal(retry.progress.experience,15);
+  assert.equal(retry.feed.points,105);assert.equal(retry.progress.experience,0);
   assert.equal(f.data.has('journal'),false);
 });
 test('concurrent submissions and a wallet change retain one day reward plus the independent credit',async()=>{
@@ -74,14 +72,25 @@ test('corrupt stored data cannot silently reset history or wallet',async()=>{
     await assert.rejects(save(f.open()));assert.deepEqual(f.data,before);
   }
 });
-test('new day retains earned badges and applies the existing level/streak thresholds',async()=>{
+test('new day retains earned badges and keeps legacy counters fixed while retaining record badges',async()=>{
   const f=fixture();
   f.data.set(k.progress,JSON.stringify({...defaults.progress,experience:199,streak:6,totalDays:6,lastRecordDate:input.yesterday}));
   f.data.set(k.badges,JSON.stringify([{id:'firstStep',unlockedAt:'2026-09-01T00:00:00Z'}]));
   f.data.set(k.checked,JSON.stringify({date:input.yesterday,items:[{checked:true}]}));
   const result=await save(f.open());
-  assert.equal(result.progress.experience,214);assert.equal(result.progress.level,2);assert.ok(Math.abs(result.progress.mentalMuscle-7)<1e-9);
+  assert.equal(result.progress.experience,199);assert.equal(result.progress.level,1);assert.equal(result.progress.mentalMuscle,0);
   assert.equal(result.progress.streak,7);assert.equal(result.progress.totalDays,7);
   assert.equal(result.badges[0].unlockedAt,'2026-09-01T00:00:00Z');
   assert.deepEqual(result.badges.map(b=>b.id),['firstStep','streak3','streak7']);
+});
+test('retired level rewards are preserved when owned and never newly granted',async()=>{
+  for(const owned of [false,true]){
+    const f=fixture(),badge={id:'levelUp5',unlockedAt:'2026-09-01T00:00:00Z'};
+    f.data.set(k.progress,JSON.stringify({...defaults.progress,level:15,experience:4000,mentalMuscle:40}));
+    f.data.set(k.badges,JSON.stringify(owned?[badge]:[]));
+    const result=await save(f.open());
+    assert.equal(result.progress.level,15);assert.equal(result.progress.experience,4000);assert.equal(result.progress.mentalMuscle,40);
+    assert.deepEqual(result.badges.find(b=>b.id==='levelUp5'),owned?badge:undefined);
+    assert.equal(result.feed.points,105);
+  }
 });

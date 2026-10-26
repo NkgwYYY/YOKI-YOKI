@@ -54,7 +54,7 @@ test('each visible gate can be reached by control movement and does not trigger 
       assert.equal(portals[hit]?.to,gate.to,`${map.id} -> ${gate.to}`);
     }
   }
-  assert.equal(maps.canVisitMap('tobacco',1),true);
+  assert.equal(maps.canVisitMap('tobacco',{version:1,unlocked:[]}),true);
 });
 test("steering supports eight directions, normalizes diagonals, and respects water/room boundaries", () => {
   for (const m of maps.WORLD_MAPS)
@@ -127,7 +127,7 @@ test("mouth and cheeks deform on the 3D surface and disappear on the back", () =
 });
 
 test("ramen is reachable at level one and residents use all four approved forms", () => {
-  assert.equal(maps.canVisitMap('ramen', 1), true);
+  assert.equal(maps.canVisitMap('ramen',{version:1,unlocked:[]}), true);
   assert.ok(VILLAGE_LINKS.market.includes('ramen'));
   assert.deepEqual([...new Set(VILLAGERS.map(v => v.stage))].sort(), ['egg','odango','stage3','stage4']);
   assert.ok(maps.isMapGround('ramen', maps.mapStart('ramen')));
@@ -150,7 +150,7 @@ test('the forest exit stays outside the home rug and resting area',()=>{
 
 test('iOS cannot reach the tobacco scene from its map, walking gates, or an old route', () => {
   assert.equal(maps.isMapAvailable('tobacco','ios'),false);
-  assert.equal(maps.canVisitMap('tobacco',999,true,'ios'),false);
+  assert.equal(maps.canVisitMap('tobacco',{version:1,unlocked:[]},true,'ios'),false);
   assert.equal(maps.initialReleasedMap('tobacco','ios'),'home');
   assert.equal(maps.initialReleasedMap('workshop','ios'),'workshop');
   for(const map of maps.WORLD_MAPS.filter(m=>maps.isMapAvailable(m.id,'ios'))){

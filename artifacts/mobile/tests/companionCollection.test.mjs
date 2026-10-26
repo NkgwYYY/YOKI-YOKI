@@ -19,7 +19,7 @@ test('retiring banking returns current principal once, without new interest or r
 });
 test('bank map is inaccessible including saved deep links on every platform',()=>{
  for(const platform of ['web','ios','android']){
-  assert.equal(isMapAvailable('bank',platform),false);assert.equal(canVisitMap('bank',999,true,platform),false);
+  assert.equal(isMapAvailable('bank',platform),false);assert.equal(canVisitMap('bank',{version:1,unlocked:[]},true,platform),false);
   assert.equal(initialReleasedMap('bank',platform),'home');
  }
 });

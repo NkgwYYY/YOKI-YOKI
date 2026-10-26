@@ -78,7 +78,7 @@ export function RhythmGameFlow({ onResult, onClose, onBackToList, rewardLabel, e
   const [result, setResult] = useState<PlayResult | null>(null);
   const { progress } = useApp();
   const router = useRouter();
-  const mascotStage = getMascotStage(progress.level, progress.visits);
+  const mascotStage = getMascotStage(progress);
   const preview = useSongClock();
   const previewIdRef = useRef<string | null>(null);
   const previewRequest = useRef(0);

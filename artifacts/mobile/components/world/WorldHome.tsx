@@ -1,3 +1,4 @@
+import {worldAccessFor,mapUnlockHint} from '@/utils/worldProgress';
 import {KeepsakeArt} from '@/components/collection/KeepsakeArt';
 import {RoomKeepsakes} from './RoomKeepsakes';
 import {GardenBeds,GardenSheet,GrandmotherResident,GARDEN_PLOTS,useGarden} from './VegetableGarden';
@@ -21,7 +22,7 @@ import {HouseDust} from './HouseDust';
 import {RobotCleaner} from './RobotCleaner';
 import {CleaningToolArt} from './CleaningToolArt';
 import {CLEANING_TOOLS,type CleaningTool} from '@/utils/housekeeping';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { cancelAnimation, runOnJS, useAnimatedReaction, useSharedValue, withTiming } from 'react-native-reanimated';
@@ -75,7 +76,7 @@ type Props = {
   happinessValue:number;
   music:{enabled:boolean;busy:boolean;toggle:()=>void;error:string};
   careInvitation:boolean;onSceneBusy:(busy:boolean)=>void;onShop:(tab?:'seeds')=>void;onJob:()=>void;onGarden:()=>void;initialMap?:WorldMapId;
-  level: number; customization: RoomCustomization; stage: MascotStage; growthSize: number; mascotName: string;
+  customization: RoomCustomization; stage: MascotStage; growthSize: number; mascotName: string;
   active: boolean; reduceMotion: boolean; resting: boolean; reaction: number; meal: number; rest: number;
   hints: boolean; companion: boolean; totalDays: number; period: WorldPeriod; daySeed: number; food: string | null;
   wear?: ResidentItem; effect?: ResidentItem; decor?: ResidentItem; background?: string;
@@ -86,6 +87,7 @@ type Props = {
 export function WorldHome(props: Props) {
   const {reduceMotion} = props;
   const {awardHappiness,feedState,bowlingState,progress}=useApp();
+  const access=useMemo(()=>worldAccessFor(progress,feedState.villageStories),[progress.worldAccess,progress.level,feedState.villageStories]);
   const keepsake=props.customization.displayedKeepsake;
   const grandmaUnlocked=gardenUnlocked(feedState);
   const garden=useGarden();
@@ -230,7 +232,7 @@ export function WorldHome(props: Props) {
       else setPlacesOpen(true);
     },reduceMotion?0:460);
   };
-  useEffect(()=>{if(stories.ready&&!canVisitMap(map,props.level,grandmaUnlocked,Platform.OS))setMap('home');},[map,props.level,grandmaUnlocked,stories.ready]);
+  useEffect(()=>{if(stories.ready&&!canVisitMap(map,access,grandmaUnlocked,Platform.OS))setMap('home');},[map,access,grandmaUnlocked,stories.ready]);
   useEffect(()=>{if(props.meal){setExperience(null);setNeighbor(null);if(map!=='ramen')setMap('home');}},[props.meal]);
   useEffect(()=>{if(props.rest){setExperience(null);setNeighbor(null);setMap('home');}},[props.rest]);
   useEffect(()=>{if(props.cleanRequest){setMap('home');setDestination(null);steering.value={x:0,y:0};setCleanOpen(true);props.onCleaningOpened?.();}},[props.cleanRequest]);
@@ -247,12 +249,12 @@ export function WorldHome(props: Props) {
         const target=map==='home'?'market':map==='market'?'home':'market';
         for(const next of [target] as WorldMapId[]){
           if(cancelled)return;
-          if(next!==map&&canVisitMap(next,props.level,grandmaUnlocked,Platform.OS))try { await prepareWorldArt(next,props.period==='night'); } catch {}
+          if(next!==map&&canVisitMap(next,access,grandmaUnlocked,Platform.OS))try { await prepareWorldArt(next,props.period==='night'); } catch {}
         }
       })();
     },2000);
     return()=>{cancelled=true;clearTimeout(timer);};
-  },[map,mapOpen,props.active,props.period,props.level,transition.busy]);
+  },[map,mapOpen,props.active,props.period,access,transition.busy]);
   useEffect(()=>{setGardenPlot(null);setGrandmaOpen(false);setBowlingOpen(false);setFortuneOpen(false);setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
   useAnimatedReaction(() => ({y: footY.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active, height, viewportHeight, frameTop}), state => {
     // Before onLayout, a zero-sized room used to produce a -136px offset.
@@ -270,7 +272,7 @@ export function WorldHome(props: Props) {
     if(!isMapAvailable(target,Platform.OS))return;
     if(!props.active||bowlingOpen||cleanTool||riding||neighbor||transition.busy||(!fromMap&&(mapOpen||placesOpen||viewOpen||fortuneOpen))||props.food||experience)return;
     portalTravel.value=false;steering.value={x:0,y:0};setDestination(null);
-    if(!canVisitMap(target,props.level,grandmaUnlocked,Platform.OS)){const place=WORLD_MAPS.find(p=>p.id===target)!;setMapMessage(`${place.name}はレベル${place.level}でひらきます。`);return;}
+    if(!canVisitMap(target,access,grandmaUnlocked,Platform.OS)){setMapMessage(mapUnlockHint(target,feedState.villageStories));return;}
     setMapOpen(false);setPlacesOpen(false);setViewOpen(false);
     if(target===map)return;
     pending.current=null;setDestination(null);steering.value={x:0,y:0};setMapMessage('');
@@ -382,7 +384,7 @@ export function WorldHome(props: Props) {
       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>}
       <VillageVisitors occupiedPoints={conversationTargets.map(t=>t.point)} map={map} daySeed={props.daySeed} width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food&&!experience&&!bowlingBusy} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>
       {nearbyTarget?.hint&&<EncounterHint key={nearbyTarget.key} target={nearbyTarget} targets={conversationTargets} width={width} height={height} viewportLeft={-frame.left} viewportWidth={bounds.width} clearTop={stageTop-frame.top} footX={footX} footY={footY}/>}
-      {mapPortals(map,grandmaUnlocked,Platform.OS).filter(gate=>gate.to!=='home').map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,props.level,grandmaUnlocked,Platform.OS)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
+      {mapPortals(map,grandmaUnlocked,Platform.OS).filter(gate=>gate.to!=='home').map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,access,grandmaUnlocked,Platform.OS)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
       <WorldResident {...props} keepsake={keepsake==='none'?undefined:keepsake} bondDays={progress.visits?.totalVisits??0} grandmaUnlocked={grandmaUnlocked} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {map==='home'&&props.carriedGift&&<CarriedGift kind={props.carriedGift} width={width} height={height} footX={footX} footY={footY}/>}
       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
@@ -446,7 +448,7 @@ export function WorldHome(props: Props) {
     {map==='market'&&!!plaza.error&&!plaza.open&&<Pressable accessibilityRole="button" accessibilityLabel="広場の出会いを再読み込み" onPress={plaza.retry} style={[s.experience,{bottom:dockBottom+4,left:132}]}><Text style={s.experienceText}>{plaza.error}　再試行</Text></Pressable>}
     {map==='market'&&plaza.open&&plaza.current&&<PlazaDialogue encounter={plaza.current} busy={plaza.busy} error={plaza.error} animating={plaza.animating} points={feedState.points} onChoose={choice=>{void plaza.choose(choice,reduceMotion);}} onClose={()=>{void plaza.close();}}/>}
     {fortuneOpen&&<FortuneHall onClose={()=>{setFortuneOpen(false);view.reset();}}/>}
-    {mapOpen&&<VillageMap current={map} night={night} level={props.level} disabled={!!experience||!!props.food||transition.busy} onSelect={id=>enterMap(id,true)} onClose={()=>setMapOpen(false)}/>}
+    {mapOpen&&<VillageMap current={map} night={night} disabled={!!experience||!!props.food||transition.busy} onSelect={id=>enterMap(id,true)} onClose={()=>setMapOpen(false)}/>}
     {map==='grandma'&&!!gardenNotice&&<Pressable accessibilityRole="button" accessibilityLabel="畑のお知らせを閉じる" onPress={()=>setGardenNotice('')} style={{position:'absolute',bottom:112,alignSelf:'center',paddingHorizontal:20,paddingVertical:12,borderRadius:24,backgroundColor:'#302B35EC'}}><Text accessibilityLiveRegion="polite" style={s.trailText}>{gardenNotice}</Text></Pressable>}
     {!!mapMessage&&!mapOpen&&<Pressable accessibilityRole="button" accessibilityLabel="道の案内を閉じる" onPress={()=>setMapMessage('')} style={[s.notice,{top:insets.top+166}]}><Text accessibilityLiveRegion="polite" style={s.trailText}>{mapMessage}　×</Text></Pressable>}
     {experience&&<View testID="village-experience" style={[s.experience,{bottom:dockBottom+4,left:132,right:16,padding:10,gap:5}]}>

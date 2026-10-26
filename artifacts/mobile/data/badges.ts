@@ -3,6 +3,7 @@ import type { IconName } from '@/components/ui/Icon';
 
 export interface BadgeDef {
   id: string;
+  retired?: boolean;
   name: string;
   description: string;
   /** 単色線画アイコン。絵文字は使わない。 */
@@ -55,8 +56,9 @@ export const BADGE_DEFINITIONS: BadgeDef[] = [
   },
   {
     id: 'levelUp5',
-    name: 'レベル5達成',
-    description: 'メンタルレベル5に到達した',
+    name: 'これまでの積み重ね',
+    description: '以前の成長の記録から引き継いだ、大切な思い出',
+    retired: true,
     icon: 'star',
     iconColor: activityPalette.selfCare,
   },

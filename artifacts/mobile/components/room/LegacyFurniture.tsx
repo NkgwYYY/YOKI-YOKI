@@ -8,7 +8,6 @@ import type { RoomFlower, RoomFurniture, RoomItemKind } from '@/contexts/AppCont
 interface Props {
   customization: RoomCustomization;
   children: React.ReactNode;
-  level?: number;
   streak?: number;
   totalDays?: number;
   mascotName?: string;
