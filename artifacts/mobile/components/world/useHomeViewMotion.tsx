@@ -14,6 +14,8 @@ type Move = {
   residentOffset:{x:number;y:number};width:number;height:number;closer:boolean;
 };
 const DURATION = 760;
+// Explicit dimensions override Image's intrinsic asset size on react-native-web.
+const artStyle=StyleSheet.create({fill:{position:'absolute',left:0,top:0,width:'100%',height:'100%'}}).fill;
 
 /** Move within HOME without the map-travel curtain or a second resident owner. */
 export function useHomeViewMotion(enabled:boolean, reduceMotion:boolean, onError:()=>void, layoutKey:string) {
@@ -75,14 +77,14 @@ export function HomeViewBackdrop({shot,cameraStyle,motion,onLoad,eyeLevel}: {
     ]};
   });
   const still=(image:HomeViewShot)=> <>
-    <Image source={image.source} resizeMode="cover" style={StyleSheet.absoluteFill} accessible={false}/>
+    <Image source={image.source} resizeMode="cover" style={artStyle} accessible={false}/>
     <Animated.View style={[{position:'absolute',...image.frame}, {transform:[{translateX:image.panX},{translateY:image.panY},{scale:image.zoom}]}]}>
-      <Image source={image.source} resizeMode="stretch" style={StyleSheet.absoluteFill} accessible={false}/>
+      <Image source={image.source} resizeMode="stretch" style={artStyle} accessible={false}/>
     </Animated.View>
   </>;
   return <>
     {/* Full-cover base prevents an exposed edge when the outgoing camera pulls back. */}
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={move?.from.source??shot.source} resizeMode="cover" style={StyleSheet.absoluteFill} accessible={false}/></View>
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={move?.from.source??shot.source} resizeMode="cover" style={artStyle} accessible={false}/></View>
     {move&&<Animated.View testID="home-camera-outgoing" pointerEvents="none" style={[StyleSheet.absoluteFill,outgoing]}>{still(move.from)}</Animated.View>}
     <HomeViewIncoming key={eyeLevel?'eye':'overview'} shot={shot} cameraStyle={cameraStyle} move={move} progress={progress} onLoad={onLoad}/>
   </>;
@@ -103,9 +105,9 @@ function HomeViewIncoming({shot,cameraStyle,move,progress,onLoad}: {
     ]};
   });
   return <Animated.View testID="home-camera-background" pointerEvents="none" style={[StyleSheet.absoluteFill,incoming]}>
-      <Image source={shot.source} resizeMode="cover" style={StyleSheet.absoluteFill} accessible={false}/>
+      <Image testID="home-camera-fill" source={shot.source} resizeMode="cover" style={artStyle} accessible={false}/>
       <Animated.View style={[{position:'absolute',...shot.frame},cameraStyle]}>
-        <Image source={shot.source} onLoad={onLoad} resizeMode="stretch" style={StyleSheet.absoluteFill} accessible={false}/>
+        <Image testID="home-camera-art" source={shot.source} onLoad={onLoad} resizeMode="stretch" style={artStyle} accessible={false}/>
       </Animated.View>
     </Animated.View>;
 }

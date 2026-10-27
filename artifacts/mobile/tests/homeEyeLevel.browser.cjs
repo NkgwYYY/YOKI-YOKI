@@ -48,7 +48,7 @@ let browser,activePage;
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
  browser=await chromium.launch({headless:true,executablePath:process.env.YOKI_QA_BROWSER,args:['--no-sandbox','--disable-dev-shm-usage']});
- for(const [width,height,stage,days,motion] of [[320,568,'odango',3,'reduce'],[390,844,'stage3',11,'no-preference'],[820,1180,'stage4',31,'reduce'],[844,390,'stage3',11,'no-preference']].filter(c=>!process.env.YOKI_QA_WIDTH||c[0]===Number(process.env.YOKI_QA_WIDTH))){
+ for(const [width,height,stage,days,motion] of [[320,568,'odango',3,'reduce'],[390,844,'stage3',11,'no-preference'],[820,1180,'stage4',31,'reduce'],[844,390,'stage3',11,'no-preference'],[1363,936,'stage3',11,'no-preference']].filter(c=>!process.env.YOKI_QA_WIDTH||c[0]===Number(process.env.YOKI_QA_WIDTH))){
   const context=await browser.newContext({viewport:{width,height},reducedMotion:motion,locale:'ja-JP',timezoneId:'Asia/Tokyo',serviceWorkers:'block',...(process.env.YOKI_QA_VIDEO?{recordVideo:{dir:out,size:{width,height}}}:{})});
   const page=await context.newPage();activePage=page;const errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(18000);
   await page.clock.setFixedTime(new Date('2026-10-21T03:00:00Z'));
@@ -95,6 +95,15 @@ let browser,activePage;
    assert.ok(sizes.every((n,i)=>i===0||Math.abs(n-sizes[i-1])<(end-start)*.3),'no single-frame size jump');
   }
 
+  const coverage=await page.evaluate(()=>{
+   const rect=el=>{const r=el.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};};
+   const art=document.querySelector('[data-testid="home-camera-art"]');
+   return {viewport:rect(document.querySelector('[data-testid="home-camera-background"]')),fill:rect(document.querySelector('[data-testid="home-camera-fill"]')),art:rect(art),frame:rect(art.parentElement)};
+  });
+  for(const key of ['x','y','width','height']){
+   assert.ok(Math.abs(coverage.fill[key]-coverage.viewport[key])<1,'backdrop fills viewport: '+key);
+   assert.ok(Math.abs(coverage.art[key]-coverage.frame[key])<1,'art follows fitted frame, not intrinsic pixels: '+key);
+  }
   await page.getByTestId('eye-feed').waitFor();assert.equal(await page.getByTestId('world-steering-frame').count(),0);
   const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points);
   await page.getByTestId('room-resident').press('Enter');
