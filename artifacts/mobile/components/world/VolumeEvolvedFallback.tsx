@@ -7,7 +7,7 @@ import {mealSample} from '@/utils/residentMeal';
 import type {MascotMood} from '@/utils/mascotUtils';
 import {ODANGO_COAT_URI} from '@/utils/odangoCoat';
 const APath=Animated.createAnimatedComponent(Path);
-export type VolumeEvolvedProps={size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean;stage:'odango'|'stage3'|'stage4'};
+export type VolumeEvolvedProps={size:number;displaySize?:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean;stage:'odango'|'stage3'|'stage4'};
 type Projection=ReturnType<typeof projectOdango>;
 function Feature({projection,part,fill,stroke,width,opacity=1}: {projection:SharedValue<Projection>;part:keyof Projection;fill:string;stroke?:string;width?:number;opacity?:number}) {
   const props=useAnimatedProps(()=>({d:projection.value[part]||'M 0 0',opacity:projection.value[part]?opacity:0}));

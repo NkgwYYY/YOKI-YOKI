@@ -35,7 +35,7 @@ async function fit(page,id){
  // Native-like pointer input must not auto-scroll the clipped game world.
  await page.waitForFunction(id=>{
   const e=document.querySelector(`[data-testid="${id}"]`),r=e?.getBoundingClientRect();
-  return r&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));
+  return r&&e.getAttribute('aria-disabled')!=='true'&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));
  },id);
  return element;
 }
@@ -48,14 +48,53 @@ let browser,activePage;
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
  browser=await chromium.launch({headless:true,executablePath:process.env.YOKI_QA_BROWSER,args:['--no-sandbox','--disable-dev-shm-usage']});
- for(const [width,height,stage,days,motion] of [[320,568,'odango',3,'reduce'],[390,844,'stage3',11,'no-preference'],[820,1180,'stage4',31,'reduce'],[844,390,'stage3',11,'reduce']].filter(c=>!process.env.YOKI_QA_WIDTH||c[0]===Number(process.env.YOKI_QA_WIDTH))){
-  const context=await browser.newContext({viewport:{width,height},reducedMotion:motion,locale:'ja-JP',timezoneId:'Asia/Tokyo',serviceWorkers:'block'});
+ for(const [width,height,stage,days,motion] of [[320,568,'odango',3,'reduce'],[390,844,'stage3',11,'no-preference'],[820,1180,'stage4',31,'reduce'],[844,390,'stage3',11,'no-preference']].filter(c=>!process.env.YOKI_QA_WIDTH||c[0]===Number(process.env.YOKI_QA_WIDTH))){
+  const context=await browser.newContext({viewport:{width,height},reducedMotion:motion,locale:'ja-JP',timezoneId:'Asia/Tokyo',serviceWorkers:'block',...(process.env.YOKI_QA_VIDEO?{recordVideo:{dir:out,size:{width,height}}}:{})});
   const page=await context.newPage();activePage=page;const errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(18000);
   await page.clock.setFixedTime(new Date('2026-10-21T03:00:00Z'));
   await page.addInitScript(seed,{visits:saved(days,stage,1)});
   await context.route('**/*',route=>{const url=new URL(route.request().url());if(url.pathname.endsWith('/community/config'))return route.fulfill({contentType:'application/json',body:'{"enabled":false,"ads":false}'});if(url.origin!==base||url.pathname.startsWith('/api/'))return route.fulfill({status:503,contentType:'application/json',body:'{}'});return route.continue();});
   await page.goto(base);await page.getByTestId('room-scene').waitFor();
-  await tap(page,'home-view-toggle');await page.getByTestId('home-eye-level').waitFor();await fit(page,'home-view-toggle');
+  await page.getByTestId('room-resident').waitFor();
+  if(width===320){
+   await page.route('**/*home-eye*.webp',route=>route.abort());
+   await tap(page,'home-view-toggle');
+   await page.getByText(/視点を切り替えられませんでした/).waitFor();
+   assert.equal(await page.getByTestId('home-eye-level').count(),0,'failed artwork leaves the overview visible');
+   assert.equal(await page.getByTestId('world-transition').count(),0);
+   await page.getByRole('button',{name:'道の案内を閉じる',exact:true}).click();
+   await page.unroute('**/*home-eye*.webp');
+  }
+  assert.match(await page.getByTestId('home-view-toggle').innerText(),/視点を変える/);
+  await page.evaluate(()=>{
+   const resident=document.querySelector('[data-testid="room-resident"]');
+   window.homeCameraProbe={frames:[],running:true};
+   const sample=()=>{
+    const node=document.querySelector('[data-testid="room-resident"]'),rect=node?.getBoundingClientRect();
+    window.homeCameraProbe.frames.push({width:rect?.width,x:rect?.x,y:rect?.y,same:node===resident,count:document.querySelectorAll('[data-testid="room-resident"]').length,curtain:!!document.querySelector('[data-testid="world-transition"]'),moving:!!document.querySelector('[data-testid="home-camera-outgoing"]'),background:Number(getComputedStyle(document.querySelector('[data-testid="home-camera-background"]')).opacity)});
+    if(window.homeCameraProbe.running)requestAnimationFrame(sample);
+   };sample();
+  });
+  await tap(page,'home-view-toggle');await page.getByTestId('home-eye-level').waitFor();
+  if(motion==='no-preference'){
+   const button=await page.getByTestId('home-view-toggle').boundingBox();
+   for(let i=0;i<3;i++)await page.mouse.click(button.x+button.width/2,button.y+button.height/2);
+  }
+  await fit(page,'home-view-toggle');
+  const cameraFrames=await page.evaluate(()=>{window.homeCameraProbe.running=false;return window.homeCameraProbe.frames;});
+  fs.writeFileSync(path.join(out,`camera-frames-${width}.json`),JSON.stringify(cameraFrames));
+  assert.ok(cameraFrames.every(f=>f.same&&f.count===1),'one resident persists throughout the camera move');
+  assert.ok(cameraFrames.every(f=>!f.curtain),'home camera never displays the map-travel blackout');
+  if(motion==='no-preference'){
+   const sizes=cameraFrames.map(f=>f.width),start=sizes[0],end=sizes.at(-1);
+   const moving=cameraFrames.filter(f=>f.moving);
+   assert.ok(moving.length>8&&moving[0].background<.15,'new background starts transparent, without a target-frame flash');
+   assert.ok(moving.every((f,i)=>i===0||f.background>=moving[i-1].background),'background blend only moves forward');
+   assert.ok(end>start*1.8,'camera approaches the resident');
+   assert.ok(new Set(sizes.map(n=>Math.round(n))).size>8,'continuous zoom has intermediate sizes');
+   assert.ok(sizes.every((n,i)=>i===0||Math.abs(n-sizes[i-1])<(end-start)*.3),'no single-frame size jump');
+  }
+
   await page.getByTestId('eye-feed').waitFor();assert.equal(await page.getByTestId('world-steering-frame').count(),0);
   const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points);
   await page.getByTestId('room-resident').press('Enter');
@@ -69,7 +108,9 @@ let browser,activePage;
   }
   await tap(page,'eye-rest');await page.waitForFunction(()=>document.querySelector('[data-testid="room-resident"]')?.getAttribute('aria-label')?.includes('ひと休みしています'));
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),width===390?before-5:before);
-  await tap(page,'home-view-toggle');await page.getByTestId('home-eye-level').waitFor({state:'hidden'});await page.getByTestId('world-steering-frame').waitFor();
+  await tap(page,'home-view-toggle');await page.getByTestId('home-eye-level').waitFor({state:'hidden'});await fit(page,'home-view-toggle');await page.getByTestId('world-steering-frame').waitFor();
+  assert.equal(await page.getByTestId('world-transition').count(),0);
+  assert.match(await page.getByTestId('home-view-toggle').innerText(),/視点を変える/);
   await tap(page,'home-view-toggle');await page.getByTestId('home-eye-level').waitFor();
   await tap(page,'world-map-open');
   for(const id of ['forest','village','bank'])assert.equal(await page.getByTestId('world-map-'+id).count(),0);
@@ -80,6 +121,6 @@ let browser,activePage;
   await tap(page,'world-gate-home');await page.getByTestId('home-eye-level').waitFor();
   await tap(page,'room-clean-open');await page.getByTestId('room-use-broom').click();await page.getByTestId('room-clean-finish').waitFor();assert.equal(await page.getByTestId('home-eye-level').count(),0);
   await page.getByTestId('room-clean-finish').click();assert.deepEqual(errors,[]);
-  console.log(`PASS ${width}x${height} ${stage}: perspective toggle, interaction, rest, retired maps, onsen conversations, return, cleaning`);await context.close();
+  console.log(`PASS ${width}x${height} ${stage}: continuous camera without blackout or duplicate resident, interaction, rest, retired maps, onsen conversations, return, cleaning`);await context.close();
  }
 })().catch(async error=>{if(activePage&&!activePage.isClosed()){await activePage.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(out,'failure.txt'),await activePage.locator('body').innerText());}console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

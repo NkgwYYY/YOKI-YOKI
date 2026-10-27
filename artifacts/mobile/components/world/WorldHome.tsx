@@ -33,7 +33,7 @@ import { StaticMascot } from '@/components/Mascot';
 import {getStageName, type MascotStage} from '@/utils/mascotUtils';
 import { type ResidentItem, type ResidentInteraction } from '@/components/room/RoomResident';
 import { RoomFurnitureArt, RoomFlowerArt } from '@/components/room/RoomFurnitureArt';
-import { fitWorld, fitEyeLevelHome, fitOutdoorWorld, outdoorCameraOffset, WORLD_PLACES, WORLD_TRAIL, WORLD_KEEPSAKE, worldCameraOffset, type WorldDestination } from '@/utils/worldGeometry';
+import { fitWorld, fitEyeLevelHome, fitOutdoorWorld, outdoorCameraOffset, WORLD_PLACES, WORLD_TRAIL, WORLD_KEEPSAKE, worldCameraOffset, worldResidentScale, type WorldDestination } from '@/utils/worldGeometry';
 import type { WorldPeriod } from '@/utils/worldTime';
 import { WorldAmbient } from './WorldAmbient';
 import {TobaccoHaze} from './TobaccoHaze';
@@ -52,6 +52,7 @@ import { WorldPill, worldUI } from './WorldPill';
 import { Icon } from '@/components/ui/Icon';
 import { RamenArt } from '@/components/village/RamenArt';
 import { useSceneTransition } from './useSceneTransition';
+import {HomeViewBackdrop,useHomeViewMotion} from './useHomeViewMotion';
 import {DiaryNotebookGlow} from './DiaryNotebookGlow';
 import {diaryAttention} from '@/utils/exchangeDiary';
 import {BowlingGame} from './BowlingGame';
@@ -107,6 +108,7 @@ export function WorldHome(props: Props) {
   const portalTravel=useSharedValue(false);
   const [map,setMap]=useState<WorldMapId>(()=>initialReleasedMap(props.initialMap,Platform.OS));
   const [homeEyeLevel,setHomeEyeLevel]=useState(false);
+  const [bounds, setBounds] = useState({width: 0, height: 0});
   const eyeLevel=map==='home'&&homeEyeLevel;
   const [diaryDay,setDiaryDay]=useState(getTodayDate);
   useEffect(()=>{
@@ -139,15 +141,15 @@ export function WorldHome(props: Props) {
   const pending=useRef<{id:number;action:VillageAction}|null>(null);
   const [mapMessage,setMapMessage]=useState('');
   const transition=useSceneTransition(reduceMotion,()=>setMapMessage('景色を読み込めませんでした。もう一度、行き先を選んでね。'));
-  const active=props.active&&!keepsakeOpen&&!garden.busy&&gardenPlot===null&&!grandmaOpen&&!storyOpen&&!plaza.open&&!bowlingOpen&&!cleanOpen&&!fortuneOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!neighborsOpen&&!transition.busy&&!zooming;
+  const homeMotion=useHomeViewMotion(props.active&&map==='home',reduceMotion,()=>setMapMessage('視点を切り替えられませんでした。もう一度お試しください。'),`${bounds.width}:${bounds.height}`);
+  const active=props.active&&!homeMotion.busy&&!keepsakeOpen&&!garden.busy&&gardenPlot===null&&!grandmaOpen&&!storyOpen&&!plaza.open&&!bowlingOpen&&!cleanOpen&&!fortuneOpen&&!mapOpen&&!placesOpen&&!viewOpen&&!neighbor&&!neighborsOpen&&!transition.busy&&!zooming;
   const housekeeping=useHousekeeping(props.active);
   useEffect(()=>{if(!housekeeping.house.robotPlaced)setRiding(false);},[housekeeping.house.robotPlaced]);
   const [bowlingBusy,setBowlingBusy]=useState(false);
   const footX=useSharedValue(.5);
   const steering=useSharedValue({x:0,y:0});
-  useEffect(()=>{props.onSceneBusy(keepsakeOpen||gardenPlot!==null||grandmaOpen||!!storyOpen||plaza.open||!!experience||bowlingOpen||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||neighborsOpen||transition.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[keepsakeOpen,gardenPlot,grandmaOpen,storyOpen,plaza.open,experience,bowlingOpen,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,neighborsOpen,transition.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
+  useEffect(()=>{props.onSceneBusy(keepsakeOpen||gardenPlot!==null||grandmaOpen||!!storyOpen||plaza.open||!!experience||bowlingOpen||fortuneOpen||mapOpen||placesOpen||viewOpen||!!neighbor||neighborsOpen||transition.busy||homeMotion.busy||zooming||cleanOpen||!!cleanTool||riding);return()=>props.onSceneBusy(false);},[keepsakeOpen,gardenPlot,grandmaOpen,storyOpen,plaza.open,experience,bowlingOpen,fortuneOpen,mapOpen,placesOpen,viewOpen,neighbor,neighborsOpen,transition.busy,homeMotion.busy,zooming,cleanOpen,cleanTool,riding,props.onSceneBusy]);
   const [loadedArt,setLoadedArt]=useState<ReturnType<typeof worldArt>|null>(null);
-  const [bounds, setBounds] = useState({width: 0, height: 0});
   const destinationId=useRef(0);
   const [destination, setDestination] = useState<WorldDestination | null>(null);
   const insets = useSafeAreaInsets();
@@ -162,7 +164,9 @@ export function WorldHome(props: Props) {
   const stageTop=insets.top+(tight?136:186);
   const clearBottom=bounds.height-dockBottom-116;
   const sceneHeight=bounds.height;
-  const frame = eyeLevel?fitEyeLevelHome(bounds.width,bounds.height):away?fitOutdoorWorld(bounds.width,bounds.height):fitWorld(bounds.width,bounds.height);
+  // Keep the resident's layout box stable while its camera transform changes.
+  const frame = away?fitOutdoorWorld(bounds.width,bounds.height):fitWorld(bounds.width,bounds.height);
+  const artFrame=eyeLevel?fitEyeLevelHome(bounds.width,bounds.height):frame;
   const {width, height} = frame;
   const viewportHeight = sceneHeight, frameTop = frame.top;
   const view = useWorldCamera({...frame,active:active&&!eyeLevel,reduceMotion});
@@ -273,7 +277,7 @@ export function WorldHome(props: Props) {
   };
   const enterMap=(target:WorldMapId,fromMap=false)=>{
     if(!isMapAvailable(target,Platform.OS))return;
-    if(!props.active||bowlingOpen||cleanTool||riding||neighbor||transition.busy||(!fromMap&&(mapOpen||placesOpen||viewOpen||fortuneOpen))||props.food||experience)return;
+    if(!props.active||bowlingOpen||cleanTool||riding||neighbor||transition.busy||homeMotion.busy||(!fromMap&&(mapOpen||placesOpen||viewOpen||fortuneOpen))||props.food||experience)return;
     portalTravel.value=false;steering.value={x:0,y:0};setDestination(null);
     if(!canVisitMap(target,access,grandmaUnlocked,Platform.OS)){setMapMessage(mapUnlockHint(target,feedState.villageStories));return;}
     setMapOpen(false);setPlacesOpen(false);setViewOpen(false);
@@ -325,11 +329,37 @@ export function WorldHome(props: Props) {
   const night = props.period === 'night'||map==='tobacco';
   const source = eyeLevel?homeEyeArt(night,bounds.width>bounds.height):worldArt(map,night);
   const toggleHomeView=()=>{
-    if(!props.active||props.food||cleanTool||riding||transition.busy)return;
-    setViewOpen(false);pending.current=null;setDestination(null);portalTravel.value=false;steering.value={x:0,y:0};view.reset();
-    void transition.run(eyeLevel?'お部屋を見わたす':'きみと、同じ目線で',()=>{setHomeEyeLevel(!eyeLevel);footX.value=.5;footY.value=.48;},()=>eyeLevel?prepareWorldArt('home',night):prepareHomeEyeArt(night,bounds.width>bounds.height));
+    if(map!=='home'||!props.active||props.food||cleanTool||riding||transition.busy||homeMotion.busy||holding.value||touching.value)return;
+    setViewOpen(false);pending.current=null;setDestination(null);portalTravel.value=false;steering.value={x:0,y:0};
+    void homeMotion.run(
+      ()=>eyeLevel?prepareWorldArt('home',night):prepareHomeEyeArt(night,bounds.width>bounds.height),
+      ()=>{
+        const closer=!eyeLevel;
+        const next=fitWorld(bounds.width,bounds.height);
+        const growth=Math.max(.9,Math.min(1.12,props.growthSize));
+        const fromZoom=eyeLevel?1:zoom.value;
+        const fromPanX=eyeLevel?0:view.panX.value,fromPanY=eyeLevel?0:camera.value+view.panY.value;
+        const fromResident={
+          x:eyeLevel?frame.left+closeUp!.centerX:frame.left+width/2+fromPanX+(footX.value*width-width/2)*fromZoom,
+          y:eyeLevel?frame.top+closeUp!.footY:frame.top+height/2+fromPanY+(footY.value*height-height/2)*fromZoom,
+          size:eyeLevel?closeUp!.size:width*.135*growth*worldResidentScale(footY.value)*fromZoom,
+        };
+        const nextFollow=closer?0:worldCameraOffset(footY.value,next.height,bounds.height,next.top);
+        const toResident=closer?{
+          x:bounds.width*(bounds.width>bounds.height?.30:.5),
+          y:bounds.width>bounds.height?bounds.height*.72:Math.min(bounds.height*.68,bounds.height-dockBottom-135),
+          size:Math.min(bounds.width*.52,bounds.height*.34,260),
+        }:{x:next.left+footX.value*next.width,y:next.top+nextFollow+footY.value*next.height,size:next.width*.135*growth*worldResidentScale(footY.value)};
+        [zoom,view.panX,view.panY,camera].forEach(cancelAnimation);
+        zoom.value=1;view.panX.value=0;view.panY.value=0;camera.value=nextFollow;
+        setHomeEyeLevel(closer);
+        return {from:{source,frame:artFrame,zoom:fromZoom,panX:fromPanX,panY:fromPanY},fromResident,toResident,
+          residentOffset:{x:next.left,y:next.top+nextFollow},width:bounds.width,height:bounds.height,closer};
+      },
+    );
   };
   const closeUp=eyeLevel?{size:Math.min(bounds.width*.52,bounds.height*.34,260),centerX:(bounds.width>bounds.height?bounds.width*.30:bounds.width*.5)-frame.left,footY:(bounds.width>bounds.height?bounds.height*.72:Math.min(bounds.height*.68,bounds.height-dockBottom-135))-frame.top}:undefined;
+  const flight=homeMotion.move?{progress:homeMotion.progress,from:{...homeMotion.move.fromResident,x:homeMotion.move.fromResident.x-homeMotion.move.residentOffset.x,y:homeMotion.move.fromResident.y-homeMotion.move.residentOffset.y},to:{...homeMotion.move.toResident,x:homeMotion.move.toResident.x-homeMotion.move.residentOffset.x,y:homeMotion.move.toResident.y-homeMotion.move.residentOffset.y}}:undefined;
   const hotspot = (id: string, label: string, x: number, y: number, onPress: () => void) => (
     <Pressable key={id} testID={`room-${id}`} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={id==='record'?diaryHint:undefined} onPress={onPress}
       style={({pressed}) => [s.hotspot, {left: x * width - 24, top: y * height - 24, opacity: pressed ? 0.6 : 1}]}>
@@ -348,9 +378,9 @@ export function WorldHome(props: Props) {
   </Pressable>;
   const speaker=VILLAGERS.find(n=>n.id===neighbor);
   return <View style={s.root} testID="room-scene" onLayout={e => setBounds(e.nativeEvent.layout)}>
-    {map==='home'&&<View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} resizeMode="cover" style={s.art}/></View>}
-    {width > 0 && <GestureDetector gesture={view.gesture}><View testID="world-viewport" style={StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, !eyeLevel&&view.style]}>
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} onLoad={()=>setLoadedArt(source)} resizeMode="stretch" style={s.art} accessible={false} /></View>
+    {map==='home'&&<HomeViewBackdrop eyeLevel={eyeLevel} shot={{source,frame:artFrame,zoom:1,panX:0,panY:0}} cameraStyle={!eyeLevel&&view.style} motion={homeMotion} onLoad={()=>setLoadedArt(source)}/>}
+    {width > 0 && <GestureDetector gesture={view.gesture}><View testID="world-viewport" style={StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, view.style]}>
+      {map!=='home'&&<View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} onLoad={()=>setLoadedArt(source)} resizeMode="stretch" style={s.art} accessible={false} /></View>}
       {!['home','homewares'].includes(map)&&night&&<View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#35234922'}]}/>}
       {props.period === 'dusk' && map!=='tobacco' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: '#B5646028'}]} />}
       <GestureDetector gesture={groundGesture}><View testID="world-ground" accessible={false} style={StyleSheet.absoluteFill}/></GestureDetector>
@@ -394,7 +424,7 @@ export function WorldHome(props: Props) {
       <VillageVisitors occupiedPoints={conversationTargets.map(t=>t.point)} map={map} daySeed={props.daySeed} width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food&&!experience&&!bowlingBusy} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>
       {nearbyTarget?.hint&&<EncounterHint key={nearbyTarget.key} target={nearbyTarget} targets={conversationTargets} width={width} height={height} viewportLeft={-frame.left} viewportWidth={bounds.width} clearTop={stageTop-frame.top} footX={footX} footY={footY}/>}
       {!eyeLevel&&mapPortals(map,grandmaUnlocked,Platform.OS).filter(gate=>gate.to!=='home').map(gate=>{const place=WORLD_MAPS.find(p=>p.id===gate.to)!;return <WorldGate key={gate.to} to={gate.to} label={place.name} x={gate.point.x} y={gate.point.y} width={width} height={height} open={canVisitMap(gate.to,access,grandmaUnlocked,Platform.OS)} disabled={!active||!!props.food||!!experience||bowlingBusy} onPress={()=>walkTo(gate.point,true)}/>;})}
-      <WorldResident {...props} closeUp={closeUp} keepsake={keepsake==='none'?undefined:keepsake} bondDays={progress.visits?.totalVisits??0} grandmaUnlocked={grandmaUnlocked} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
+      <WorldResident {...props} closeUp={closeUp} viewFlight={flight} keepsake={keepsake==='none'?undefined:keepsake} bondDays={progress.visits?.totalVisits??0} grandmaUnlocked={grandmaUnlocked} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!cleanTool} map={map} zoom={zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {map==='home'&&!eyeLevel&&props.carriedGift&&<CarriedGift kind={props.carriedGift} width={width} height={height} footX={footX} footY={footY}/>}
       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
       {map==='tobacco'&&<TobaccoHaze active={active} reduceMotion={reduceMotion}/>}
@@ -412,7 +442,7 @@ export function WorldHome(props: Props) {
       <View style={{flexDirection:'row',gap:8}}>{map==='home'&&<WorldPill compact testID="room-clean-open" label="部屋のお掃除" icon="wind" disabled={!active||!!props.food||!!experience||riding} onPress={()=>{setHomeEyeLevel(false);setCleanOpen(true);}}/>}<WorldPill testID="world-bgm-toggle" label="BGM" icon={props.music.enabled?'volume-2':'volume-x'} accessibilityLabel={props.music.enabled?'BGMを止める':'BGMを流す'} disabled={props.music.busy} onPress={props.music.toggle} style={{paddingHorizontal:11}}/>
       <WorldPill compact icon="sliders" label="景色の見かた" disabled={!active||bowlingBusy} onPress={()=>setViewOpen(true)} /></View>
     </View>
-    {map==='home'&&!cleanTool&&!riding&&<View pointerEvents="box-none" style={{position:'absolute',top:insets.top+169,left:20,right:20,alignItems:bounds.width>bounds.height?'flex-start':'center'}}><WorldPill testID="home-view-toggle" label={eyeLevel?'お部屋を見わたす':'きみと同じ目線へ'} icon={eyeLevel?'grid':'eye'} disabled={!active||!!props.food} onPress={toggleHomeView}/></View>}
+    {map==='home'&&!cleanTool&&!riding&&<View pointerEvents="box-none" style={{position:'absolute',top:insets.top+169,left:20,right:20,alignItems:bounds.width>bounds.height?'flex-start':'center'}}><WorldPill testID="home-view-toggle" label="視点を変える" icon={eyeLevel?'grid':'eye'} disabled={!active||!!props.food} onPress={toggleHomeView}/></View>}
     {eyeLevel&&closeUp&&<View testID="home-eye-level" pointerEvents="box-none" style={{position:'absolute',top:closeUp.footY+frame.top-(bounds.width>bounds.height?42:20),left:20,right:20,flexDirection:'row',gap:12,justifyContent:bounds.width>bounds.height?'flex-start':'space-between'}}><WorldPill compact testID="eye-feed" label="ごはんを選ぶ" icon="coffee" disabled={!active||!!props.food} onPress={()=>props.onFeed()}/><WorldPill compact testID="eye-rest" label="ひと休み" icon="moon" disabled={!active||!!props.food} onPress={props.onRest}/></View>}
     {map!=='home'&&<View pointerEvents="none" style={[s.sceneTitle,{top:insets.top+(tight?115:165)}]}><Text style={[s.sceneName,{fontSize:13}]}>{WORLD_MAPS.find(p=>p.id===map)?.name}</Text></View>}
     {!eyeLevel&&!experience&&(map==='home'||(map==='market'&&!plaza.current&&!plaza.error)||map==='workshop')&&<View style={{position:'absolute',right:20,bottom:away?dockBottom+30:(bounds.height<600?177:244)-homeControlOffset}}><WorldPill testID="world-go-work" label={map==='workshop'?'仕事を始める':'バイトする'} icon="briefcase" onPress={()=>map==='workshop'?openMerchant('job',{x:.5,y:.48}):enterMap('workshop')} disabled={!active||!!props.food||riding||!!cleanTool}/></View>}
@@ -445,10 +475,10 @@ export function WorldHome(props: Props) {
     </BottomSheet>}
     {riding&&<View style={{position:'absolute',right:20,bottom:(bounds.height<600?170:230)-homeControlOffset}}><WorldPill testID="room-robot-exit" label="掃除機からおりる" icon="log-out" onPress={()=>{steering.value={x:0,y:0};setRiding(false);}}/></View>}
     {viewOpen&&<BottomSheet visible title="景色の見かた" onClose={()=>setViewOpen(false)}>
-      {map==='home'&&<WorldPill testID="home-eye-level-switch" primary label={eyeLevel?'お部屋を見わたす':'きみと同じ目線へ'} icon={eyeLevel?'grid':'eye'} disabled={!!props.food||!!cleanTool||riding} onPress={toggleHomeView} style={{marginBottom:16}}/>}
+      {map==='home'&&<WorldPill testID="home-eye-level-switch" primary label="視点を変える" icon={eyeLevel?'grid':'eye'} disabled={!!props.food||!!cleanTool||riding} onPress={toggleHomeView} style={{marginBottom:16}}/>}
       {!eyeLevel&&<View style={{flexDirection:'row',gap:10}}><WorldPill testID="world-zoom-in" label="拡大する" icon="zoom-in" accessibilityLabel="景色を拡大" onPress={view.closer}/><WorldPill testID="world-zoom-reset" label="元の広さへ" icon="maximize" accessibilityLabel="景色の拡大を戻す" onPress={view.reset}/></View>}
       {!eyeLevel&&<Text style={s.mapCopy}>地面をタップ、または左の丸を動かしておさんぽ。2本指でも景色を拡大できます。</Text>}
-      {eyeLevel&&<Text style={s.mapCopy}>同じ目線で、なでたり抱っこしたり。お掃除は「お部屋を見わたす」から。</Text>}
+      {eyeLevel&&<Text style={s.mapCopy}>なでたり、抱っこしたりできます。お掃除するときは、部屋全体の表示に戻ります。</Text>}
       {map==='home'&&!eyeLevel&&Object.entries(WORLD_TRAIL).map(([id,place])=><WorldPill key={id} testID={'world-travel-'+id} label={place.label+'へ歩く'} icon="navigation" onPress={()=>{setViewOpen(false);setDestination({id:++destinationId.current,point:mapGroundPoint(map,place.point)});}}/>)}
     </BottomSheet>}
     {placesOpen&&<BottomSheet visible title="琥珀通りのタバコ屋" subtitle="店主・スモーク / 路地裏の小さな休憩所" onClose={()=>{setPlacesOpen(false);view.reset();}}>
