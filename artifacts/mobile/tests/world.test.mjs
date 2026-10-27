@@ -21,15 +21,15 @@ test('all furniture and resident destinations stay reachable across supported vi
   }
   assert.equal(fitWorld(0,0).width,0);
 });
-test('drops stay on clear floor; bed exit walks around the foot before a meal', () => {
+test('drops stay on clear floor; food arrives without a walk to a fixed place', () => {
   for(const p of [{x:-1,y:-1},{x:3,y:3},WORLD_PLACES.bed]) {
     const drop=safeWorldPoint(p);
     assert.ok(drop.x>=.34 && drop.x<=.72 && drop.y>=.43 && drop.y<=.71);
     if(drop.y<.51) assert.ok(drop.x>=.40 && drop.x<=.62);
   }
   const steps=worldResidentSteps('meal',WORLD_PLACES.bed,false);
-  assert.ok(steps[0].point.x<WORLD_PLACES.bed.x && steps[0].point.y>WORLD_PLACES.bed.y);
-  assert.deepEqual(steps.at(-2).point,WORLD_PLACES.meal);
+  assert.equal(steps.length,1);
+  assert.equal(steps[0].point,undefined);
   assert.equal(steps.at(-1).pose,'eating');
 });
 test('reduced motion retains meal/rest expressions without movement', () => {

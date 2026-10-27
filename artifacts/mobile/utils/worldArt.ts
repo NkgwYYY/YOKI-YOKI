@@ -15,7 +15,7 @@ export const MERCHANT_ART = {
   bowling: webArt(require('@/assets/images/world/bowling-attendant.webp'), require('@/assets/images/world/bowling-attendant.png')),
 };
 export const FORTUNE_CAT_ART = webArt(require('@/assets/images/world/fortune-cat.webp'), require('@/assets/images/world/fortune-cat.png'));
-export const HOME_ART = { day: webArt(require('@/assets/images/world/home-day.webp'), require('@/assets/images/world/home-day.jpg')), night: webArt(require('@/assets/images/world/home-night.webp'), require('@/assets/images/world/home-night.jpg')) };
+export const HOME_ART = { day: require('@/assets/images/world/home-day-open.webp'), night: require('@/assets/images/world/home-night-open.webp') };
 export const HOME_EYE_ART = {day:webArt(require('@/assets/images/world/home-eye-day.webp'),require('@/assets/images/world/home-eye-day.jpg')),night:webArt(require('@/assets/images/world/home-eye-night.webp'),require('@/assets/images/world/home-eye-night.jpg'))};
 export const HOME_EYE_WIDE_ART={day:webArt(require('@/assets/images/world/home-eye-wide-day.webp'),require('@/assets/images/world/home-eye-wide-day.jpg')),night:webArt(require('@/assets/images/world/home-eye-wide-night.webp'),require('@/assets/images/world/home-eye-wide-night.jpg'))};
 export function homeEyeArt(night=false,wide=false){return (wide?HOME_EYE_WIDE_ART:HOME_EYE_ART)[night?'night':'day'];}

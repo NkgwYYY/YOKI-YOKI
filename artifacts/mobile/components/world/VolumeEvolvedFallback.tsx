@@ -32,7 +32,7 @@ export function VolumeEvolvedFallback({stage,size,rx,ry,rz,blink,mood,night=fals
     </Defs>
     {/* One continuous coat. Its tiny embedded texture has no independent download or visible inner edge. */}
     <Feature projection={projection} part="furHalo" fill={`url(#${id}${stage==='stage4'?'rainbow':'fur'})`}/>
-    <Feature projection={projection} part="furHalo" fill={`url(#${id}texture)`} opacity={stage==='stage4'?.22:.48}/>
+    <Feature projection={projection} part="furHalo" fill={`url(#${id}texture)`} opacity={stage==='stage4'?.22:stage==='odango'?1:.48}/>
     <G clipPath={`url(#${id}coat)`}>
       <Feature projection={projection} part="furShade" fill="none" stroke={night?'#B7C0C5':'#C0C1B8'} width={.18} opacity={.12}/>
       <Feature projection={projection} part="furMid" fill="none" stroke="#E0E1D8" width={.22} opacity={.18}/>
@@ -42,7 +42,7 @@ export function VolumeEvolvedFallback({stage,size,rx,ry,rz,blink,mood,night=fals
     <Feature projection={projection} part="leftSocket" fill={`url(#${id}sclera)`}/><Feature projection={projection} part="rightSocket" fill={`url(#${id}sclera)`}/>
     <Feature projection={projection} part="leftEye" fill={`url(#${id}eye)`}/><Feature projection={projection} part="rightEye" fill={`url(#${id}eye)`}/>
     <Feature projection={projection} part="leftShine" fill="#FFFFFF"/><Feature projection={projection} part="rightShine" fill="#FFFFFF"/>
-    <Feature projection={projection} part="mouth" fill="none" stroke="#6B535C" width={1.15}/>
+    <Feature projection={projection} part="mouth" fill="none" stroke={stage==='odango'?'#292D28':'#6B535C'} width={stage==='odango'?1.45:1.15}/>
     <Feature projection={projection} part="openMouth" fill="#61433D" stroke="#332A24" width={.6}/>
     {stage!=='odango'&&<><Feature projection={projection} part="stem" fill="none" stroke="#8AB449" width={1.5}/><Feature projection={projection} part="leftLeaf" fill="#ABC986" stroke="#91B273" width={.5}/><Feature projection={projection} part="rightLeaf" fill="#BED69A" stroke="#91B273" width={.5}/></>}
     {smoking&&<CigaretteFeatures projection={projection} active={active} reduceMotion={reduceMotion}/>}

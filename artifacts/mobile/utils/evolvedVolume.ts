@@ -9,7 +9,7 @@ export type ResidentVolumeModel = {
 };
 export const ODANGO_MODEL: ResidentVolumeModel = {
   radius:{x:41,y:40,z:38},floor:38.8,
-  face:{eyeX:10.3,eyeY:-7,eyeWidth:3.6,eyeHeight:3.9,cheekX:20.5,cheekY:.2,mouthY:4.5},
+  face:{eyeX:10.3,eyeY:-4.5,eyeWidth:3.6,eyeHeight:3.9,cheekX:20.5,cheekY:2.7,mouthY:7.2},
 };
 export const HAPPA_MODEL: ResidentVolumeModel = {
   radius:{x:40,y:39,z:37.5},floor:38,
@@ -106,7 +106,7 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   const eyeHeight=Math.max(.5,f.eyeHeight*(1-shut));
   let mouth='';let connected=false;
   for(let i=0;i<=20;i++){
-    const x=-5.4+i*.54,y=f.mouthY+(happy?1:.48)*1.8*(1-(x/5.4)**2),p=surface(model,x,y);
+    const half=model===ODANGO_MODEL?6.8:5.4,curve=model===ODANGO_MODEL?(happy?-1.6:-2.2):(happy?1:.48)*1.8,x=-half+i*half/10,y=f.mouthY+curve*(1-(x/half)**2),p=surface(model,x,y);
     if(normal(p)>0){const q=rot(p);mouth+=`${connected?' L':' M'}${(50+q.x).toFixed(2)} ${(originY+q.y).toFixed(2)}`;connected=true;}else connected=false;
   }
   const fur=['','',''];

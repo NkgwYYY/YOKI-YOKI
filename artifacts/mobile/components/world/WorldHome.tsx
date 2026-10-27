@@ -33,7 +33,7 @@ import { StaticMascot } from '@/components/Mascot';
 import {getStageName, type MascotStage} from '@/utils/mascotUtils';
 import { type ResidentItem, type ResidentInteraction } from '@/components/room/RoomResident';
 import { RoomFurnitureArt, RoomFlowerArt } from '@/components/room/RoomFurnitureArt';
-import { fitWorld, fitEyeLevelHome, fitOutdoorWorld, outdoorCameraOffset, WORLD_PLACES, WORLD_TRAIL, WORLD_KEEPSAKE, worldCameraOffset, worldResidentScale, type WorldDestination } from '@/utils/worldGeometry';
+import { fitWorld, fitEyeLevelHome, fitOutdoorWorld, outdoorCameraOffset, WORLD_PLACES, WORLD_KEEPSAKE, worldCameraOffset, worldResidentScale, type WorldDestination } from '@/utils/worldGeometry';
 import type { WorldPeriod } from '@/utils/worldTime';
 import { WorldAmbient } from './WorldAmbient';
 import {TobaccoHaze} from './TobaccoHaze';
@@ -240,7 +240,7 @@ export function WorldHome(props: Props) {
     },reduceMotion?0:460);
   };
   useEffect(()=>{if(stories.ready&&!canVisitMap(map,access,grandmaUnlocked,Platform.OS))setMap('home');},[map,access,grandmaUnlocked,stories.ready]);
-  useEffect(()=>{if(props.meal){setExperience(null);setNeighbor(null);if(map!=='ramen')setMap('home');}},[props.meal]);
+  useEffect(()=>{if(props.meal){setExperience(null);setNeighbor(null);steering.value={x:0,y:0};portalTravel.value=false;pending.current=null;setDestination(null);if(map!=='ramen')setMap('home');}},[props.meal]);
   useEffect(()=>{if(props.rest){setExperience(null);setNeighbor(null);setMap('home');}},[props.rest]);
   useEffect(()=>{if(props.cleanRequest){setHomeEyeLevel(false);setMap('home');setDestination(null);steering.value={x:0,y:0};setCleanOpen(true);props.onCleaningOpened?.();}},[props.cleanRequest]);
   // Let the visible scene finish first; warm only the atlas and likely exit.
@@ -389,7 +389,6 @@ export function WorldHome(props: Props) {
       {hotspot('album', '思い出の本棚', 0.53, 0.275, props.onAlbum)}
       {hotspot('bed', 'ベッドでひと休み', 0.73, 0.376, props.onRest)}
       {hotspot('record', '交換日記', 0.268, 0.454, props.onRecord)}
-      {hotspot('meal', 'ごはん', 0.765, 0.602, () => props.onFeed())}
       {props.customization.flower !== 'none' && <View pointerEvents="none" style={{position: 'absolute', left: width * 0.15, top: height * 0.495, zIndex: 550}}>
         <RoomFlowerArt id={props.customization.flower} size={width * 0.15} accessible />
       </View>}
@@ -445,7 +444,7 @@ export function WorldHome(props: Props) {
     {map==='home'&&!cleanTool&&!riding&&<View pointerEvents="box-none" style={{position:'absolute',top:insets.top+169,left:20,right:20,alignItems:bounds.width>bounds.height?'flex-start':'center'}}><WorldPill testID="home-view-toggle" label="視点を変える" icon={eyeLevel?'grid':'eye'} disabled={!active||!!props.food} onPress={toggleHomeView}/></View>}
     {eyeLevel&&closeUp&&<View testID="home-eye-level" pointerEvents="box-none" style={{position:'absolute',top:closeUp.footY+frame.top-(bounds.width>bounds.height?42:20),left:20,right:20,flexDirection:'row',gap:12,justifyContent:bounds.width>bounds.height?'flex-start':'space-between'}}><WorldPill compact testID="eye-feed" label="ごはんを選ぶ" icon="coffee" disabled={!active||!!props.food} onPress={()=>props.onFeed()}/><WorldPill compact testID="eye-rest" label="ひと休み" icon="moon" disabled={!active||!!props.food} onPress={props.onRest}/></View>}
     {map!=='home'&&<View pointerEvents="none" style={[s.sceneTitle,{top:insets.top+(tight?115:165)}]}><Text style={[s.sceneName,{fontSize:13}]}>{WORLD_MAPS.find(p=>p.id===map)?.name}</Text></View>}
-    {!eyeLevel&&!experience&&(map==='home'||(map==='market'&&!plaza.current&&!plaza.error)||map==='workshop')&&<View style={{position:'absolute',right:20,bottom:away?dockBottom+30:(bounds.height<600?177:244)-homeControlOffset}}><WorldPill testID="world-go-work" label={map==='workshop'?'仕事を始める':'バイトする'} icon="briefcase" onPress={()=>map==='workshop'?openMerchant('job',{x:.5,y:.48}):enterMap('workshop')} disabled={!active||!!props.food||riding||!!cleanTool}/></View>}
+    {!eyeLevel&&!experience&&(map==='home'||(map==='market'&&!plaza.current&&!plaza.error)||map==='workshop')&&<View style={{position:'absolute',right:20,bottom:away?dockBottom+30:(bounds.height<600?177:244)-homeControlOffset}}><WorldPill testID={map==='home'?'room-meal':'world-go-work'} label={map==='home'?'ごはん':map==='workshop'?'仕事を始める':'バイトする'} icon={map==='home'?'coffee':'briefcase'} onPress={()=>map==='home'?props.onFeed():map==='workshop'?openMerchant('job',{x:.5,y:.48}):enterMap('workshop')} disabled={!active||!!props.food||riding||!!cleanTool}/></View>}
     {storyOpen&&<VillageStoryDialogue encounter={storyOpen} onGo={target=>{setStoryOpen(null);enterMap(target);}} onClose={()=>setStoryOpen(null)} onBowl={()=>{pendingBowlStory.current=storyOpen;setStoryOpen(null);serveMerchant('bowling',{x:.72,y:.57});}} service={storyOpen.merchant?{label:storyOpen.id==='supply'&&wholesaleUnlocked(feedState)?'野菜を卸す':({ramen:'ラーメンを注文する',shop:'買い物をする',job:'バイトを始める',bowling:'ボウリングをする',fortune:'占ってもらう'} satisfies Record<StoryMerchant,string>)[storyOpen.merchant],run:()=>{const kind=storyOpen.merchant!;if(kind==='bowling'&&!bowlingPlayedToday(bowlingState,getTodayDate())&&storyOpen.id==='bowling'&&storyOpen.index===4)pendingBowlStory.current=storyOpen;setStoryOpen(null);serveMerchant(kind,{x:.5,y:.55});}}:undefined}/>}
     {map==='grandma'&&grandmaUnlocked&&gardenPlot!==null&&<GardenSheet plotIndex={gardenPlot} onClose={()=>setGardenPlot(null)} onShop={()=>{setGardenPlot(null);props.onShop('seeds');}}/>}
     {grandmaOpen&&<BottomSheet visible title="もふもふのおばあさん" onClose={()=>setGrandmaOpen(false)}><View style={{alignItems:'center'}}><GrandmotherResident size={95} active={props.active} reduceMotion={reduceMotion}/></View><Text style={s.dialogue}>{harvested?'「あら、畑の土がいい匂い。育ったところを一緒に見られるの、うれしいよ。お茶もいれてあるからね」':'「よく来たねえ。畑、好きに使っておくれ。お茶もいれてあるよ」'}</Text><WorldPill label="畑を見てくるね" onPress={()=>setGrandmaOpen(false)}/></BottomSheet>}
@@ -475,11 +474,9 @@ export function WorldHome(props: Props) {
     </BottomSheet>}
     {riding&&<View style={{position:'absolute',right:20,bottom:(bounds.height<600?170:230)-homeControlOffset}}><WorldPill testID="room-robot-exit" label="掃除機からおりる" icon="log-out" onPress={()=>{steering.value={x:0,y:0};setRiding(false);}}/></View>}
     {viewOpen&&<BottomSheet visible title="景色の見かた" onClose={()=>setViewOpen(false)}>
-      {map==='home'&&<WorldPill testID="home-eye-level-switch" primary label="視点を変える" icon={eyeLevel?'grid':'eye'} disabled={!!props.food||!!cleanTool||riding} onPress={toggleHomeView} style={{marginBottom:16}}/>}
       {!eyeLevel&&<View style={{flexDirection:'row',gap:10}}><WorldPill testID="world-zoom-in" label="拡大する" icon="zoom-in" accessibilityLabel="景色を拡大" onPress={view.closer}/><WorldPill testID="world-zoom-reset" label="元の広さへ" icon="maximize" accessibilityLabel="景色の拡大を戻す" onPress={view.reset}/></View>}
       {!eyeLevel&&<Text style={s.mapCopy}>地面をタップ、または左の丸を動かしておさんぽ。2本指でも景色を拡大できます。</Text>}
       {eyeLevel&&<Text style={s.mapCopy}>なでたり、抱っこしたりできます。お掃除するときは、部屋全体の表示に戻ります。</Text>}
-      {map==='home'&&!eyeLevel&&Object.entries(WORLD_TRAIL).map(([id,place])=><WorldPill key={id} testID={'world-travel-'+id} label={place.label+'へ歩く'} icon="navigation" onPress={()=>{setViewOpen(false);setDestination({id:++destinationId.current,point:mapGroundPoint(map,place.point)});}}/>)}
     </BottomSheet>}
     {placesOpen&&<BottomSheet visible title="琥珀通りのタバコ屋" subtitle="店主・スモーク / 路地裏の小さな休憩所" onClose={()=>{setPlacesOpen(false);view.reset();}}>
       <View style={{alignItems:'center'}}><MerchantResident kind="tobacco" size={112} active={props.active} reduceMotion={reduceMotion}/></View><Text style={s.mapCopy}>5秒ごとに幸福 ＋1 / 清潔 −1。1回60秒まで。汚れはおふろのタオルで洗い流せるよ。</Text>

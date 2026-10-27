@@ -11,7 +11,7 @@ import {useAppActivity} from '@/components/room/useRoomActivity';
 /** Read-only fitting room: previewing a form never changes the user's stage. */
 export default function CharacterPreview(){
   const {width,height}=useWindowDimensions(),{active,reduceMotion}=useAppActivity();
-  const [stage,setStage]=useState<EvolvedForm>('odango'),[happy,setHappy]=useState(true),[night,setNight]=useState(false);
+  const [stage,setStage]=useState<EvolvedForm>('odango'),[happy,setHappy]=useState(false),[night,setNight]=useState(false);
   const rx=useSharedValue(0),ry=useSharedValue(0),rz=useSharedValue(0),blink=useSharedValue(0);
   const turn=(x:number,y:number)=>{rx.value=withTiming(x,{duration:reduceMotion?0:420});ry.value=withTiming(y,{duration:reduceMotion?0:420});};
   const size=Math.min(240,width*.51);
