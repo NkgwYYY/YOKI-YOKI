@@ -20,7 +20,7 @@ export function VolumeEvolvedFallback({stage,size,rx,ry,rz,blink,mood,night=fals
   return <Svg testID={`resident-volume-${stage}-fallback`} width={size} height={size} viewBox="0 0 100 100" accessible={false}>
     <Defs>
       <LinearGradient id={`${id}rainbow`} x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#FFD4DD"/><Stop offset=".28" stopColor="#FFF0AC"/><Stop offset=".52" stopColor="#CAE9C4"/><Stop offset=".75" stopColor="#BDCFE8"/><Stop offset="1" stopColor="#D6B4DC"/></LinearGradient>
-      <RadialGradient id={`${id}fur`} gradientUnits="userSpaceOnUse" cx="42" cy="38" rx="59" ry="57"><Stop offset="0" stopColor={night?'#F3F5F6':'#FFFFFC'}/><Stop offset=".58" stopColor={night?'#E3E8EB':'#F3F3EF'}/><Stop offset="1" stopColor={night?'#AAB6C2':'#C7C9C3'}/></RadialGradient>
+      <RadialGradient id={`${id}fur`} gradientUnits="userSpaceOnUse" cx="42" cy="38" rx="59" ry="57"><Stop offset="0" stopColor={night?'#F3F5F6':'#FFFFFC'}/><Stop offset=".58" stopColor={night?'#E3E8EB':'#F3F3EF'}/><Stop offset="1" stopColor={night?'#C1C6D4':'#E2D8E2'}/></RadialGradient>
       <RadialGradient id={`${id}cheek`}><Stop offset="0" stopColor="#E6BAB5" stopOpacity=".65"/><Stop offset="1" stopColor="#E6BAB5" stopOpacity="0"/></RadialGradient>
       <RadialGradient id={`${id}eye`}><Stop offset="0" stopColor="#282C27"/><Stop offset="1" stopColor="#0E120E"/></RadialGradient>
       <RadialGradient id={`${id}sclera`}><Stop offset="0" stopColor="#FFFFF7"/><Stop offset=".72" stopColor="#EEEFE6"/><Stop offset="1" stopColor="#B8C0B5"/></RadialGradient>
@@ -32,7 +32,7 @@ export function VolumeEvolvedFallback({stage,size,rx,ry,rz,blink,mood,night=fals
     </Defs>
     {/* One continuous coat. Its tiny embedded texture has no independent download or visible inner edge. */}
     <Feature projection={projection} part="furHalo" fill={`url(#${id}${stage==='stage4'?'rainbow':'fur'})`}/>
-    <Feature projection={projection} part="furHalo" fill={`url(#${id}texture)`} opacity={stage==='stage4'?.20:.72}/>
+    <Feature projection={projection} part="furHalo" fill={`url(#${id}texture)`} opacity={stage==='stage4'?.22:.48}/>
     <G clipPath={`url(#${id}coat)`}>
       <Feature projection={projection} part="furShade" fill="none" stroke={night?'#B7C0C5':'#C0C1B8'} width={.18} opacity={.12}/>
       <Feature projection={projection} part="furMid" fill="none" stroke="#E0E1D8" width={.22} opacity={.18}/>
@@ -42,9 +42,9 @@ export function VolumeEvolvedFallback({stage,size,rx,ry,rz,blink,mood,night=fals
     <Feature projection={projection} part="leftSocket" fill={`url(#${id}sclera)`}/><Feature projection={projection} part="rightSocket" fill={`url(#${id}sclera)`}/>
     <Feature projection={projection} part="leftEye" fill={`url(#${id}eye)`}/><Feature projection={projection} part="rightEye" fill={`url(#${id}eye)`}/>
     <Feature projection={projection} part="leftShine" fill="#FFFFFF"/><Feature projection={projection} part="rightShine" fill="#FFFFFF"/>
-    <Feature projection={projection} part="mouth" fill="none" stroke="#22271F" width={1.3}/>
+    <Feature projection={projection} part="mouth" fill="none" stroke="#6B535C" width={1.15}/>
     <Feature projection={projection} part="openMouth" fill="#61433D" stroke="#332A24" width={.6}/>
-    {stage!=='odango'&&<><Feature projection={projection} part="stem" fill="none" stroke="#8AB449" width={1.5}/><Feature projection={projection} part="leftLeaf" fill="#8BBC38" stroke="#6B9B2D" width={.5}/><Feature projection={projection} part="rightLeaf" fill="#A0C747" stroke="#6B9B2D" width={.5}/></>}
+    {stage!=='odango'&&<><Feature projection={projection} part="stem" fill="none" stroke="#8AB449" width={1.5}/><Feature projection={projection} part="leftLeaf" fill="#ABC986" stroke="#91B273" width={.5}/><Feature projection={projection} part="rightLeaf" fill="#BED69A" stroke="#91B273" width={.5}/></>}
     {smoking&&<CigaretteFeatures projection={projection} active={active} reduceMotion={reduceMotion}/>}
   </Svg>;
 }

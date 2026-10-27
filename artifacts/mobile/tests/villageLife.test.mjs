@@ -20,17 +20,17 @@ new Function(
 )(() => maps, mod, mod.exports);
 const { steerStep, mapPortals, nearbyPortalIndex, VILLAGE_LINKS, VILLAGERS, MAP_COORDS } = mod.exports;
 test("every destination connects back home and every gate is on walkable ground", () => {
-  for (const m of maps.WORLD_MAPS) {
+  for (const m of maps.WORLD_MAPS.filter(m=>maps.isMapAvailable(m.id,'web'))) {
     const seen = new Set(),
       queue = [m.id];
     while (queue.length) {
       const id = queue.shift();
       if (seen.has(id)) continue;
       seen.add(id);
-      queue.push(...VILLAGE_LINKS[id]);
+      queue.push(...VILLAGE_LINKS[id].filter(id=>maps.isMapAvailable(id,'web')));
     }
-    assert.equal(seen.size, maps.WORLD_MAPS.length);
-    for (const gate of mapPortals(m.id)) {
+    assert.equal(seen.size, maps.WORLD_MAPS.filter(m=>maps.isMapAvailable(m.id,'web')).length);
+    for (const gate of mapPortals(m.id,true)) {
       assert.ok(maps.isMapGround(m.id, gate.point));
       assert.ok(VILLAGE_LINKS[gate.to].includes(m.id));
     }
@@ -136,16 +136,16 @@ test("ramen is reachable at level one and residents use all four approved forms"
 
 test('walking away from a nearby gate does not retrigger travel',()=>{
   const gates=mapPortals('home');
-  const forest=gates.find(g=>g.to==='forest').point;
-  const near={x:forest.x-.01,y:forest.y};
+  const onsen=gates.find(g=>g.to==='onsen').point;
+  const near={x:onsen.x-.01,y:onsen.y};
   assert.equal(nearbyPortalIndex(near,gates,{x:-1,y:0}),-1);
   assert.notEqual(nearbyPortalIndex(near,gates,{x:1,y:0}),-1);
 });
 
-test('the forest exit stays outside the home rug and resting area',()=>{
- const forest=mapPortals('home').find(g=>g.to==='forest').point;
- assert.ok(forest.x>.62&&forest.y>.67);
- assert.ok(maps.isMapGround('home',forest));
+test('the direct onsen exit stays outside the home rug and resting area',()=>{
+ const onsen=mapPortals('home').find(g=>g.to==='onsen').point;
+ assert.ok(onsen.x>.62&&onsen.y>.67);
+ assert.ok(maps.isMapGround('home',onsen));
 });
 
 test('iOS cannot reach the tobacco scene from its map, walking gates, or an old route', () => {

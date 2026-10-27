@@ -16,7 +16,7 @@ import {readVillageStories,storyStatus,storyFinished,type VillageStoryState,type
 import {rememberedStories,type StoryEncounter} from '@/utils/storyEncounters';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {getTodayDate} from '@/utils/dateUtils';
-import {WORLD_MAPS,type WorldMapId} from '@/utils/worldMaps';
+import {WORLD_MAPS,isMapAvailable,type WorldMapId} from '@/utils/worldMaps';
 import {worldArt,FORTUNE_CAT_ART} from '@/utils/worldArt';
 
 const symbols:Record<StoryId,IconName>={grandma:'feather',supply:'shopping-bag',newcomer:'home',ramen:'coffee',bowling:'award',cat:'moon',festival:'sun'};
@@ -65,7 +65,7 @@ function StoryDialogue({encounter,onClose,onBowl,onGo,service}:DialogueProps){
   catch(e){if(alive.current)setError(e instanceof Error?e.message:'保存できませんでした。もう一度お試しください。');}
   finally{pending.current=false;if(alive.current)setBusy(false);}
  };
- const invitations=receipt?STORY_DESTINATIONS.filter(p=>p.story===encounter.id&&p.episodes===encounter.index+1):[];
+ const invitations=receipt?STORY_DESTINATIONS.filter(p=>isMapAvailable(p.id,'web')&&p.story===encounter.id&&p.episodes===encounter.index+1):[];
  const close=()=>{if(!pending.current)onClose();};
  const hasBowled=Object.values(bowlingState.plays).some(p=>p.date===today);
  return <Modal transparent visible animationType="fade" onRequestClose={close}>

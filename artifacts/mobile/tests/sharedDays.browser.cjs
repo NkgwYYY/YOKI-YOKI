@@ -49,19 +49,19 @@ let browser,activePage;
   for(const [width,height] of [[320,568],[390,844],[820,1180]]){
     const page=await open({width,height});
     assert.deepEqual((await progress(page)).worldAccess.unlocked,[]);
-    await map(page,'forest');
+    await map(page,'onsen');
     assert.match(await page.getByTestId('village-map-selection').innerText(),/荷物を抱えたもふもふ/);
     const b=await page.getByTestId('world-map-travel').boundingBox();assert.ok(b.x>=0&&b.y>=0&&b.x+b.width<=width&&b.y+b.height<=height);
     await settled(page);await page.screenshot({path:path.join(out,`story-map-${width}.png`)});
     await travel(page);await choose(page,'引っ越してきたもふもふ');
-    assert.match(await page.getByTestId('story-path-invitation').innerText(),/木もれびの森と森の温泉/);
+    assert.match(await page.getByTestId('story-path-invitation').innerText(),/森の温泉/);
     assert.deepEqual((await progress(page)).worldAccess.unlocked,['forest','onsen']);
     await settled(page);await page.screenshot({path:path.join(out,`story-invitation-${width}.png`)});
     await page.getByTestId('story-close').click();
-    await map(page,'village');assert.match(await page.getByTestId('world-map-story-guide').innerText(),/明日以降、暮らしのお店/);
+    await map(page,'lake');assert.match(await page.getByTestId('world-map-story-guide').innerText(),/明日以降、暮らしのお店/);
     await page.getByRole('button',{name:'地図を閉じる',exact:true}).click();
-    await map(page,'forest');await travel(page);
-    await map(page,'forest');assert.match(await page.getByTestId('world-map-forest').getAttribute('aria-label'),/いまここ/);
+    await map(page,'onsen');await travel(page);
+    await map(page,'onsen');assert.match(await page.getByTestId('world-map-onsen').getAttribute('aria-label'),/いまここ/);
     await page.reload();await page.getByTestId('room-scene').waitFor();
     assert.deepEqual((await progress(page)).worldAccess.unlocked,['forest','onsen']);
     await page.goto(origin+'/growth');await page.getByTestId('album-details-toggle').click();
@@ -84,7 +84,7 @@ let browser,activePage;
   await legacy.goto(origin+'/growth');await legacy.getByTestId('album-details-toggle').click();await legacy.getByText('これまでの積み重ね',{exact:true}).waitFor();
   console.log('PASS legacy form, available destinations, retired badge and reload are preserved');await legacy.context().close();
   const {VILLAGE_STORIES}=await import('../data/villageStories.ts');
-  for(const [id,arcs,destination] of [['newcomer',{newcomer:arc(5)},'village'],['cat',{newcomer:arc(6),cat:arc(5)},'lake']]){
+  for(const [id,arcs,destination] of [['cat',{newcomer:arc(6),cat:arc(5)},'lake']]){
     const page=await open({arcs}),episode=VILLAGE_STORIES.find(s=>s.id===id).episodes[5];
     await map(page,destination);await travel(page);
     if(id==='cat')await page.getByTestId('fortune-open').click();

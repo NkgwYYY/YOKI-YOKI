@@ -16,6 +16,10 @@ export const MERCHANT_ART = {
 };
 export const FORTUNE_CAT_ART = webArt(require('@/assets/images/world/fortune-cat.webp'), require('@/assets/images/world/fortune-cat.png'));
 export const HOME_ART = { day: webArt(require('@/assets/images/world/home-day.webp'), require('@/assets/images/world/home-day.jpg')), night: webArt(require('@/assets/images/world/home-night.webp'), require('@/assets/images/world/home-night.jpg')) };
+export const HOME_EYE_ART = {day:webArt(require('@/assets/images/world/home-eye-day.webp'),require('@/assets/images/world/home-eye-day.jpg')),night:webArt(require('@/assets/images/world/home-eye-night.webp'),require('@/assets/images/world/home-eye-night.jpg'))};
+export const HOME_EYE_WIDE_ART={day:webArt(require('@/assets/images/world/home-eye-wide-day.webp'),require('@/assets/images/world/home-eye-wide-day.jpg')),night:webArt(require('@/assets/images/world/home-eye-wide-night.webp'),require('@/assets/images/world/home-eye-wide-night.jpg'))};
+export function homeEyeArt(night=false,wide=false){return (wide?HOME_EYE_WIDE_ART:HOME_EYE_ART)[night?'night':'day'];}
+export function prepareHomeEyeArt(night=false,wide=false):Promise<void>{return prepareImage(homeEyeArt(night,wide));}
 export const OUTDOOR_ART = {
   grandma: webArt(require('@/assets/images/world/grandmother-garden.webp'), require('@/assets/images/world/grandmother-garden.jpg')),
   bank: webArt(require('@/assets/images/world/village-bank.webp'), require('@/assets/images/world/village-bank.jpg')),
