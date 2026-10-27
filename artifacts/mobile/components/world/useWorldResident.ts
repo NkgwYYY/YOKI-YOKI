@@ -89,7 +89,8 @@ export function useWorldResident(p: Props) {
         }, activity === 'meal' ? MEAL_DURATION : 12000);
       };
       // Existing reduced-motion meal/rest alternative: expression, no unsolicited travel.
-      if (closeUp || reduceMotion || ((map==='ramen')&&mealPending)) finish(); else walk(target, finish);
+      // A caretaker offers food where the resident is already standing.
+      if (mealPending || closeUp || reduceMotion) finish(); else walk(target, finish);
     };
     const requested = meal > handled.current.meal || rest > handled.current.rest || (destination && destination.id > handled.current.destination);
     later(run, requested ? 60 : 6500);

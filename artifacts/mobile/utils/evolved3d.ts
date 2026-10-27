@@ -1,11 +1,12 @@
 /** Small dependency-free 3D projection renderer. Curved fibres, facial features
  * and leaves share model coordinates; geometry is built once per form. */
 import {softContactHeight,softContactSpread} from './softContact';
+import {odangoCoatSurface,paintOdangoCoat} from './odangoCoatSurface';
 export type EvolvedForm = 'odango' | 'stage3' | 'stage4';
 type V = [number, number, number];
 export type EvolvedPose = {rx:number; ry:number; rz:number; blink:number; happy:boolean; sleepy:boolean; night:boolean; mouthOpen:number; chew:number; smoking:boolean};
 export const EVOLVED_SHAPES = {
-  odango:{radius:[41,40,38] as V, eyeY:-7, mouthY:4.5, sprout:false},
+  odango:{radius:[41,40,38] as V, eyeY:-4.5, mouthY:7.2, sprout:false},
   stage3:{radius:[40,39,37.5] as V, eyeY:-6.5, mouthY:5, sprout:true},
   stage4:{radius:[40,39,37.5] as V, eyeY:-6.5, mouthY:5, sprout:true},
 };
@@ -69,7 +70,7 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
   const shape=EVOLVED_SHAPES[form],r=shape.radius;
   const colors:V[]=[[255,237,191],[219,238,205],[199,229,235],[216,207,240],[237,207,230],[207,236,222],[255,215,224],[255,227,210]];
   const coat=(p:V):V=>{
-        let c:V=[252,248,246];
+        let c:V=form==='odango'?[251,252,248]:[252,248,246];
         if(form==='stage4'){
           // Broad pastel patches continue around the body without a seam.
           const angle=Math.atan2(p[0],-p[1])+p[2]*.004;
@@ -82,25 +83,27 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
       };
   // Short, overlapping fleece grows from small rounded tufts. A hard sphere
   // with long radial lines reads as bristles, especially at home-screen sizes.
-  const tuftCount=detail==='room'?680:1400;
+  const tuftCount=form==='odango'?0:detail==='room'?680:1400;
   const tufts=Array.from({length:tuftCount},(_,i)=>{
     const y=Math.max(-1,Math.min(1,1-2*(i+.5)/tuftCount+(random(i+117)-.5)*.026)),a=i*2.399963229728653+(random(i+314)-.5)*.16,s=Math.sqrt(1-y*y);
     const n:V=[s*Math.cos(a),y,s*Math.sin(a)],p:V=[r[0]*n[0],r[1]*n[1],r[2]*n[2]];
     return {p,n,radius:2.2+random(i+709)*1.8,color:coat(p),variation:random(i+101)};
   });
-  const fibreCount=detail==='room'?3600:14000;
+  const fibreCount=form==='odango'?(detail==='room'?5200:11000):detail==='room'?3600:14000;
   const hairs=Array.from({length:fibreCount},(_,i)=>{
     const y=1-2*(i+.5)/fibreCount,a=i*2.399963229728653+(random(i+108)-.5)*.18,s=Math.sqrt(1-y*y);
     const p:V=[r[0]*s*Math.cos(a),r[1]*y,r[2]*s*Math.sin(a)];
     const n=norm([p[0]/r[0]**2,p[1]/r[1]**2,p[2]/r[2]**2]);
-    const down:V=[p[0]*.018,.5+p[1]*.013,p[2]*.009],tangent=norm(add(down,n,-dot(down,n)));
-    const length=1.2+random(i)*2.4,bend=2.4+random(i+8)*3.8;
+    const down:V=form==='odango'?[p[0]*.032,.24+p[1]*.033,-.25]:[p[0]*.018,.5+p[1]*.013,p[2]*.009],tangent=norm(add(down,n,-dot(down,n)));
+    const length=form==='odango'?1.2+random(i)*2.5:1.2+random(i)*2.4,bend=form==='odango'?4.2+random(i+8)*4.8:2.4+random(i+8)*3.8;
     const mid=add(add(p,n,length*.55),tangent,bend*.2),tip=add(add(p,n,length),tangent,bend);
     return {p,n,mid,tip,color:coat(p),variation:random(i+49)};
   });
-  const leafMesh=createEvolvedLeafMesh(form);
-  let disposed=false;
+  const leafMesh=createEvolvedLeafMesh(form),coatMesh=form==='odango'?odangoCoatSurface(r):[];
+  let disposed=false,coatTexture:HTMLImageElement|undefined;
+  const mouthHalfWidth=form==='odango'?6.8:FACE.mouthHalfWidth;
   return {
+    setCoatTexture(texture:HTMLImageElement){if(!disposed)coatTexture=texture;},
     render(pose:EvolvedPose){
       if(disposed)return;
       const started=performance.now();
@@ -144,13 +147,19 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
       };
       drawLeaves(false);
       ellipse([0,0,0],r,true);
-      const bodyGradient=ctx.createRadialGradient(-14,-18,4,3,4,49);bodyGradient.addColorStop(0,color(form==='stage4'?[249,238,217]:[255,254,249]));bodyGradient.addColorStop(.6,color(form==='stage4'?[230,227,220]:[249,245,240]));bodyGradient.addColorStop(1,color(form==='stage4'?[209,203,218]:[226,216,226]));ctx.fillStyle=bodyGradient;ctx.fill();
+      const bodyGradient=ctx.createRadialGradient(-14,-18,4,3,4,49);bodyGradient.addColorStop(0,color(form==='stage4'?[249,238,217]:[255,254,249]));bodyGradient.addColorStop(.6,color(form==='stage4'?[230,227,220]:form==='odango'?[246,247,243]:[249,245,240]));bodyGradient.addColorStop(1,color(form==='stage4'?[209,203,218]:form==='odango'?[214,217,210]:[226,216,226]));ctx.fillStyle=bodyGradient;ctx.fill();
       ctx.save();ctx.clip();
       if(form==='stage4'){
         const patches=hairs.filter((_,i)=>i%Math.floor(fibreCount/20)===0).map(h=>({p:h.p,q:rot(h.p)})).filter(h=>h.q[2]>0).sort((a,b)=>a.q[2]-b.q[2]);
         for(const patch of patches){const c=coat(patch.p),g=ctx.createRadialGradient(patch.q[0],patch.q[1],0,patch.q[0],patch.q[1],25);g.addColorStop(0,color(c));g.addColorStop(1,`rgba(${c.join(',')},0)`);ctx.fillStyle=g;ctx.fillRect(-50,-50,100,100);}
       }
       ctx.restore();
+      if(coatTexture){
+        ctx.save();ellipse([0,0,0],r,true);ctx.clip();
+        paintOdangoCoat(ctx,coatTexture,coatMesh,rot);
+        if(pose.night){ctx.globalCompositeOperation='source-atop';ctx.fillStyle='rgba(77,99,143,.11)';ctx.fillRect(-50,-50,100,100);}
+        ctx.restore();
+      }
       // Back-to-front cotton clusters soften the entire silhouette. These are
       // model-space volumes, so the texture follows every turn without swimming.
       const clusters=tufts.map(t=>({...t,q:rot(t.p),facing:rotate(t.n)})).filter(t=>t.facing[2]>-.13).sort((a,b)=>a.q[2]-b.q[2]);
@@ -168,6 +177,8 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
       const groups=new Map<string,Path2D>();
       for(const hair of hairs){
         const n=rotate(hair.n);if(n[2]<-.06)continue;
+        // Original texture supplies the dense interior; fine fibres continue beyond it.
+        if(coatTexture&&n[2]>.26)continue;
         const p=rot(hair.p),mid=rot(hair.mid),tip=rot(hair.tip);
         const shade=(.91+.09*Math.max(0,dot(n,light))-.025*Math.max(0,hair.p[1]/r[1]))*(.96+.08*hair.variation);
         const c=hair.color.map(v=>Math.round(v*shade/4)*4) as V;
@@ -198,7 +209,7 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
         if(shut<.5){ctx.save();ctx.clip();ctx.fillStyle='rgba(255,255,255,.94)';ctx.beginPath();ctx.ellipse(q[0]+.82,q[1]-1.2,.73,.85,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,255,255,.36)';ctx.beginPath();ctx.arc(q[0]-.85,q[1]+1,.32,0,Math.PI*2);ctx.fill();ctx.restore();}
       }
       if(pose.mouthOpen>.08){const p=surface(0,shape.mouthY);if(visible(p)){p[2]+=2;ellipse(p,[3.3,3.8*pose.mouthOpen,.5]);ctx.fillStyle='#654442';ctx.fill();}}
-      else{ctx.beginPath();let connected=false;for(let i=0;i<=30;i++){const x=FACE.mouthHalfWidth*(i/15-1),y=shape.mouthY+(pose.happy?1:.48)*FACE.mouthCurve*(1-(x/FACE.mouthHalfWidth)**2),p=surface(x,y);if(!visible(p)){connected=false;continue;}p[2]+=2.1;const q=rot(p);if(connected)ctx.lineTo(q[0],q[1]);else ctx.moveTo(q[0],q[1]);connected=true;}ctx.lineWidth=1.15;ctx.strokeStyle='#6B535C';ctx.stroke();}
+      else{ctx.beginPath();let connected=false;for(let i=0;i<=30;i++){const x=mouthHalfWidth*(i/15-1),curve=form==='odango'?(pose.happy?-1.6:-2.2):(pose.happy?1:.48)*FACE.mouthCurve,y=shape.mouthY+curve*(1-(x/mouthHalfWidth)**2),p=surface(x,y);if(!visible(p)){connected=false;continue;}p[2]+=2.1;const q=rot(p);if(connected)ctx.lineTo(q[0],q[1]);else ctx.moveTo(q[0],q[1]);connected=true;}ctx.lineWidth=form==='odango'?1.45:1.15;ctx.strokeStyle=form==='odango'?'#292D28':'#6B535C';ctx.stroke();}
       drawLeaves(true);
       if(pose.smoking){const p=surface(FACE.mouthHalfWidth,shape.mouthY);if(visible(p)){p[2]+=3;const at=(x:number)=>rot([p[0]+x,p[1]-.04*x,p[2]+.22*x]);for(const [a,b,c] of [[0,5,'#c5a174'],[5,18,'#f3eee1'],[18,19,'#e99461']] as const){const q=at(a),end=at(b);ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(end[0],end[1]);ctx.lineWidth=1.65;ctx.strokeStyle=c;ctx.stroke();}const q=at(19);ctx.beginPath();ctx.moveTo(q[0],q[1]-2);ctx.bezierCurveTo(q[0]+6,q[1]-12,q[0]-4,q[1]-17,q[0]+1,q[1]-25);ctx.strokeStyle='rgba(231,233,225,.65)';ctx.lineWidth=.65;ctx.stroke();}}
       canvas.dataset.renderMs=(performance.now()-started).toFixed(1);

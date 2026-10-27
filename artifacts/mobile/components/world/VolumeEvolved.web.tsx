@@ -1,10 +1,11 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {View} from 'react-native';
+import {Asset} from 'expo-asset';
 import {createEvolvedRenderer,type EvolvedForm} from '@/utils/evolved3d';
 import {mealSample} from '@/utils/residentMeal';
 import {VolumeEvolvedFallback,type VolumeEvolvedProps} from './VolumeEvolvedFallback';
 
-/** One canvas for the resident. No network textures, per-frame mesh creation,
+/** One canvas for the resident. Bundled original coat, no per-frame mesh creation,
  * React state updates or background painting. SVG survives unavailable Canvas. */
 export function VolumeEvolved(props:VolumeEvolvedProps){
   const {size,displaySize=size,stage,active=true}=props;
@@ -13,7 +14,7 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
   useEffect(()=>{
     const canvas=ref.current;if(!canvas||failed)return;
     let renderer:ReturnType<typeof createEvolvedRenderer>|undefined;
-    let frame=0,previous='',visible=true,stopped=false;
+    let frame=0,previous='',visible=true,stopped=false,coat:HTMLImageElement|undefined;
     const cancel=()=>{cancelAnimationFrame(frame);frame=0;};
     const tick=(now:number)=>{
       frame=0;if(stopped||!active||document.hidden||!visible)return;
@@ -32,10 +33,15 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
       // Paint even when reduced motion or a static preview is selected.
       const p=latest.current;
       renderer.render({rx:p.rx.value,ry:p.ry.value,rz:p.rz.value,blink:p.blink.value,happy:p.mood==='happy'||p.mood==='excited',sleepy:p.mood==='sleepy',night:!!p.night,mouthOpen:0,chew:0,smoking:!!p.smoking});
+      if(stage==='odango'){
+        coat=new window.Image();
+        coat.onload=()=>{if(stopped||!coat)return;renderer?.setCoatTexture(coat);canvas.dataset.coat='original';previous='';const p=latest.current,meal=mealSample(p.mealProgress?.value??0);renderer?.render({rx:p.rx.value,ry:p.ry.value,rz:p.rz.value,blink:p.blink.value,happy:p.mood==='happy'||p.mood==='excited',sleepy:p.mood==='sleepy',night:!!p.night,mouthOpen:meal.open,chew:meal.chew,smoking:!!p.smoking});};
+        coat.src=Asset.fromModule(require('@/assets/images/characters/bone/odango/body.webp')).uri;
+      }
     }catch{renderer?.dispose();setFailed(true);return;}
     const observer=typeof IntersectionObserver!=='undefined'?new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??true;resume();}):null;
     observer?.observe(canvas);document.addEventListener('visibilitychange',resume);resume();
-    return()=>{stopped=true;cancel();observer?.disconnect();document.removeEventListener('visibilitychange',resume);renderer?.dispose();};
+    return()=>{stopped=true;if(coat)coat.onload=null;cancel();observer?.disconnect();document.removeEventListener('visibilitychange',resume);renderer?.dispose();};
   },[stage,size,displaySize,active,failed]);
   if(failed)return <VolumeEvolvedFallback {...props}/>;
   return <View testID={`resident-volume-${stage}`} style={{width:size,height:size}} pointerEvents="none">

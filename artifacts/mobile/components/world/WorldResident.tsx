@@ -411,7 +411,7 @@ export function WorldResident(p: Props) {
           </View>}
           {p.wear && <Image source={{uri: p.wear.uri}} resizeMode="contain" style={{position: 'absolute', ...roomWearableFrame(p.wear.id, getCharacter(p.stage).key, size, p.wear)}}/>}
         </Animated.View>
-        {food&&pose==='eating'&&<ResidentMeal food={food} size={size} progress={mealProgress} reduceMotion={reduceMotion}/>}
+        {food&&pose==='eating'&&<ResidentMeal food={food} size={size} progress={mealProgress} reduceMotion={reduceMotion} overview={!p.closeUp}/>}
       </Animated.View>
     </Animated.View>
   </GestureDetector>;

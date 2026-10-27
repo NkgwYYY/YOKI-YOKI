@@ -49,7 +49,7 @@ export function worldActivity(period: WorldPeriod, seed: number, turn: number): 
 export function worldResidentSteps(activity: ResidentActivity, from: RoomPoint, reduceMotion: boolean): ResidentStep[] {
   const pose = activity === 'meal' ? 'eating' : activity === 'bed' ? 'sleeping' : activity === 'window' ? 'watching' : 'idle';
   const final: ResidentStep = {pose, duration: activity === 'meal' ? 3400 : activity === 'bed' ? 14000 : 7000};
-  if (reduceMotion) return [final];
+  if (reduceMotion || activity === 'meal') return [final];
   const target = WORLD_PLACES[activity];
   if (Math.hypot(target.x - from.x, target.y - from.y) < 0.02) return [final];
   const steps: ResidentStep[] = [];
