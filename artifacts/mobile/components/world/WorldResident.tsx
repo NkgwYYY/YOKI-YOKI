@@ -21,8 +21,10 @@ import {VolumeResident,hasResidentVolume} from './VolumeResident';
 import {residentSoftScale,residentWalkYaw} from '@/utils/evolvedVolume';
 import { useWorldResident } from './useWorldResident';
 import {welcomeSample} from '@/utils/residentWelcome';
+import type {HomeViewFlight} from './useHomeViewMotion';
 
 type Props = {
+  viewFlight?:HomeViewFlight;
   closeUp?:{size:number;footY:number;centerX:number};
   grandmaUnlocked?:boolean;
   welcomeRequest?:number; onWelcomeStarted?:(id:number)=>void;
@@ -72,7 +74,7 @@ export function WorldResident(p: Props) {
   const taps = useRef({at: 0, count: 0});
   const reaction = useRef(p.reaction);
   const volumetric=hasResidentVolume(stage);
-  const size = p.closeUp?.size ?? width * 0.135 * Math.max(0.9, Math.min(1.12, p.growthSize));
+  const size = width * 0.135 * Math.max(0.9, Math.min(1.12, p.growthSize));
   useEffect(()=>{if(p.riding){rolling.value=0;idleTime.value=0;walking.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);setInteracting(false);}},[p.riding]);
   useEffect(()=>{const at=mapStart(map);cancelAnimation(x);cancelAnimation(y);rolling.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);x.value=at.x;y.value=at.y;holding.value=0;setInteracting(false);},[map]);
   useEffect(()=>{
@@ -336,13 +338,19 @@ export function WorldResident(p: Props) {
     runOnJS(setInteracting)(false);
   });
   const gesture = Gesture.Race(hold, stroke, tap);
-  const rootStyle = useAnimatedStyle(() => ({
-    opacity:experience?0:1,
-    zIndex: holding.value ? 999 : Math.round(y.value * 1000),
-    transform: [{translateX: (p.closeUp ? p.closeUp.centerX : x.value * width) - size / 2}, {translateY: (p.closeUp?.footY ?? y.value * height) - size * 0.92}],
-  }));
+  const rootStyle = useAnimatedStyle(() => {
+    if(p.viewFlight){
+      const {from,to,progress}=p.viewFlight,t=progress.value;
+      const center=from.x+(to.x-from.x)*t,foot=from.y+(to.y-from.y)*t;
+      const scale=(from.size+(to.size-from.size)*t)/size;
+      return {opacity:1,zIndex:999,transform:[{translateX:center-size/2},{translateY:foot-size*.92+(1-scale)*size*.42},{scale}]};
+    }
+    const scale=p.closeUp?p.closeUp.size/size:1;
+    return {opacity:experience?0:1,zIndex:holding.value?999:Math.round(y.value*1000),
+      transform:[{translateX:(p.closeUp?p.closeUp.centerX:x.value*width)-size/2},{translateY:(p.closeUp?.footY??y.value*height)-size*.92+(1-scale)*size*.42},{scale}]};
+  });
   const perspective = useAnimatedStyle(() => {
-    const scale = p.closeUp ? 1 : worldResidentScale(y.value);
+    const scale = p.closeUp || p.viewFlight ? 1 : worldResidentScale(y.value);
     return {transform: [{translateY: (1 - scale) * size * 0.42}, {scale}]};
   });
   const body = useAnimatedStyle(() => {
@@ -395,7 +403,7 @@ export function WorldResident(p: Props) {
       <Animated.View pointerEvents="none" style={perspective}>
         <Animated.View testID="resident-body" style={body}>
           {p.effect && <Image source={{uri: p.effect.uri}} resizeMode="contain" style={{position: 'absolute', width: size * p.effect.scale * 1.3, height: size * p.effect.scale * 1.3, left: -size * 0.15 + p.effect.x, top: -size * 0.15 + p.effect.y}}/>}
-          {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} smoking={p.smoking} active={active} reduceMotion={reduceMotion} mealProgress={pose==='eating'?mealProgress:undefined}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
+          {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} displaySize={p.viewFlight?Math.max(p.viewFlight.from.size,p.viewFlight.to.size):p.closeUp?.size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} smoking={p.smoking} active={active} reduceMotion={reduceMotion} mealProgress={pose==='eating'?mealProgress:undefined}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
           {p.smoking&&!volumetric&&<StaticSmokingAccessory size={size} active={active} reduceMotion={reduceMotion}/>}
           <ResidentDust value={p.cleanliness} size={size}/>
           {!volumetric&&<View style={[StyleSheet.absoluteFill, {opacity: p.period === 'night' ? 0.18 : 0.13}]} >
