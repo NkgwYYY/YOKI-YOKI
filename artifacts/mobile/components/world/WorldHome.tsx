@@ -380,7 +380,7 @@ export function WorldHome(props: Props) {
   return <View style={s.root} testID="room-scene" onLayout={e => setBounds(e.nativeEvent.layout)}>
     {map==='home'&&<HomeViewBackdrop eyeLevel={eyeLevel} shot={{source,frame:artFrame,zoom:1,panX:0,panY:0}} cameraStyle={!eyeLevel&&view.style} motion={homeMotion} onLoad={()=>setLoadedArt(source)}/>}
     {width > 0 && <GestureDetector gesture={view.gesture}><View testID="world-viewport" style={StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, view.style]}>
-      {map!=='home'&&<View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} onLoad={()=>setLoadedArt(source)} resizeMode="stretch" style={s.art} accessible={false} /></View>}
+      {away&&<View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} onLoad={()=>setLoadedArt(source)} resizeMode="stretch" style={s.art} accessible={false} /></View>}
       {!['home','homewares'].includes(map)&&night&&<View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#35234922'}]}/>}
       {props.period === 'dusk' && map!=='tobacco' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: '#B5646028'}]} />}
       <GestureDetector gesture={groundGesture}><View testID="world-ground" accessible={false} style={StyleSheet.absoluteFill}/></GestureDetector>
