@@ -40,4 +40,8 @@ Final assets under `artifacts/mobile/assets/images/world/`:
 
 Prompt set: a low, horizontal pet-eye camera inside the same cream-and-honey-oak room; arched window on the left, bookshelf at back, lavender bed and daisy pillow on the right, unobstructed lavender wool rug for the animated resident, soft matte organic materials, diffuse warm daylight; no characters, text or UI. The night edit preserves camera/layout and changes daylight to deep blue window light and warm existing lanterns. Wide variants extend the same room horizontally, with furniture in the upper 55%, rug in the lower 45%, and empty character space at x30%, y72%.
 
-Publication verification will be appended after the hosting provider completes the release.
+## Publication verification
+
+Published successfully on 2026-10-27 at https://yoki-yoki.replit.app/. Replit deployment `b7cba70d-e06f-42d8-9eca-5afefd65978b` built web, iOS and Android exports. The release branch cherry-picked source commit `cacab836b9792d37cc95868349a6f71c51436831` as `558e3ea`; all 26 changed files matched the source commit before publishing.
+
+Replit TypeScript passed and its test run finished with 720 passed, 0 failed and 1 existing skip. The public app was reloaded after publication: the eye-level home room and return-to-overview control rendered correctly, and the atlas no longer listed the retired forest, neighboring village or bank. The public screenshot was captured from the new release. Existing public ad installation remains subject to Google's pending site review.
