@@ -9,7 +9,7 @@ export const EVOLVED_SHAPES = {
   stage3:{radius:[40,39,37.5] as V, eyeY:-6.5, mouthY:5, sprout:true},
   stage4:{radius:[40,39,37.5] as V, eyeY:-6.5, mouthY:5, sprout:true},
 };
-const FACE={eyeX:10.3,cheekX:20.5,cheekOffsetY:7.2,mouthHalfWidth:7.1,mouthCurve:2.1};
+const FACE={eyeX:10.3,cheekX:20.5,cheekOffsetY:7.2,mouthHalfWidth:5.4,mouthCurve:1.8};
 const norm=(a:V):V=>{const n=Math.hypot(...a)||1;return a.map(v=>v/n) as V;};
 const add=(a:V,b:V,s=1):V=>a.map((v,i)=>v+b[i]*s) as V;
 const dot=(a:V,b:V)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -67,7 +67,7 @@ export function createEvolvedLeafMesh(form:EvolvedForm):Float32Array {
 export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,detail:'room'|'portrait'='portrait'){
   const ctx=canvas.getContext('2d',{alpha:true});if(!ctx)throw new Error('Canvas unavailable');
   const shape=EVOLVED_SHAPES[form],r=shape.radius;
-  const colors:V[]=[[255,229,155],[200,233,184],[175,220,228],[192,185,230],[221,183,219],[174,222,198],[251,193,201],[255,210,192]];
+  const colors:V[]=[[255,237,191],[219,238,205],[199,229,235],[216,207,240],[237,207,230],[207,236,222],[255,215,224],[255,227,210]];
   const coat=(p:V):V=>{
         let c:V=[252,248,246];
         if(form==='stage4'){
@@ -78,19 +78,23 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
           const center=Math.exp(-(p[0]**2+(p[1]+9)**2)/150)*.65;
           c=c.map((v,i)=>v*(1-center)+[255,230,155][i]*center) as V;
         }
-        if(p[2]>20){
-          const cheek=(Math.exp(-(((p[0]+FACE.cheekX)/6.2)**2)-((p[1]-shape.eyeY-FACE.cheekOffsetY)/3.9)**2)+Math.exp(-(((p[0]-FACE.cheekX)/6.2)**2)-((p[1]-shape.eyeY-FACE.cheekOffsetY)/3.9)**2))*.55*Math.min(1,(p[2]-20)/9);
-          c=c.map((v,i)=>v*(1-cheek)+[242,161,166][i]*cheek) as V;
-        }
         return c;
       };
-  const fibreCount=detail==='room'?2400:10000;
+  // Short, overlapping fleece grows from small rounded tufts. A hard sphere
+  // with long radial lines reads as bristles, especially at home-screen sizes.
+  const tuftCount=detail==='room'?680:1400;
+  const tufts=Array.from({length:tuftCount},(_,i)=>{
+    const y=Math.max(-1,Math.min(1,1-2*(i+.5)/tuftCount+(random(i+117)-.5)*.026)),a=i*2.399963229728653+(random(i+314)-.5)*.16,s=Math.sqrt(1-y*y);
+    const n:V=[s*Math.cos(a),y,s*Math.sin(a)],p:V=[r[0]*n[0],r[1]*n[1],r[2]*n[2]];
+    return {p,n,radius:2.2+random(i+709)*1.8,color:coat(p),variation:random(i+101)};
+  });
+  const fibreCount=detail==='room'?3600:14000;
   const hairs=Array.from({length:fibreCount},(_,i)=>{
     const y=1-2*(i+.5)/fibreCount,a=i*2.399963229728653+(random(i+108)-.5)*.18,s=Math.sqrt(1-y*y);
     const p:V=[r[0]*s*Math.cos(a),r[1]*y,r[2]*s*Math.sin(a)];
     const n=norm([p[0]/r[0]**2,p[1]/r[1]**2,p[2]/r[2]**2]);
     const down:V=[p[0]*.018,.5+p[1]*.013,p[2]*.009],tangent=norm(add(down,n,-dot(down,n)));
-    const length=1.7+random(i)*2.5,bend=1.2+random(i+8)*2.6;
+    const length=1.2+random(i)*2.4,bend=2.4+random(i+8)*3.8;
     const mid=add(add(p,n,length*.55),tangent,bend*.2),tip=add(add(p,n,length),tangent,bend);
     return {p,n,mid,tip,color:coat(p),variation:random(i+49)};
   });
@@ -136,26 +140,40 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
           triangles.push({p,n:rotate([leafMesh[i+3],leafMesh[i+4],leafMesh[i+5]]),z,material:leafMesh[i+11]});
         }
         triangles.sort((a,b)=>a.z-b.z);
-        for(const t of triangles){ctx.beginPath();ctx.moveTo(t.p[0][0],t.p[0][1]);ctx.lineTo(t.p[1][0],t.p[1][1]);ctx.lineTo(t.p[2][0],t.p[2][1]);ctx.closePath();ctx.fillStyle=color(t.material===8?[179,208,102]:[126,177,49],.77+.23*Math.abs(dot(t.n,light)));ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=.1;ctx.fill();ctx.stroke();}
+        for(const t of triangles){ctx.beginPath();ctx.moveTo(t.p[0][0],t.p[0][1]);ctx.lineTo(t.p[1][0],t.p[1][1]);ctx.lineTo(t.p[2][0],t.p[2][1]);ctx.closePath();ctx.fillStyle=color(t.material===8?[211,227,170]:[169,201,126],.92+.08*Math.abs(dot(t.n,light)));ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=.14;ctx.fill();ctx.stroke();}
       };
       drawLeaves(false);
       ellipse([0,0,0],r,true);
-      const bodyGradient=ctx.createRadialGradient(-14,-18,4,3,4,49);bodyGradient.addColorStop(0,color(form==='stage4'?[239,228,187]:[255,254,247]));bodyGradient.addColorStop(.6,color(form==='stage4'?[205,213,195]:[247,245,238]));bodyGradient.addColorStop(1,color(form==='stage4'?[167,169,178]:[211,207,220]));ctx.fillStyle=bodyGradient;ctx.fill();
+      const bodyGradient=ctx.createRadialGradient(-14,-18,4,3,4,49);bodyGradient.addColorStop(0,color(form==='stage4'?[249,238,217]:[255,254,249]));bodyGradient.addColorStop(.6,color(form==='stage4'?[230,227,220]:[249,245,240]));bodyGradient.addColorStop(1,color(form==='stage4'?[209,203,218]:[226,216,226]));ctx.fillStyle=bodyGradient;ctx.fill();
       ctx.save();ctx.clip();
       if(form==='stage4'){
         const patches=hairs.filter((_,i)=>i%Math.floor(fibreCount/20)===0).map(h=>({p:h.p,q:rot(h.p)})).filter(h=>h.q[2]>0).sort((a,b)=>a.q[2]-b.q[2]);
         for(const patch of patches){const c=coat(patch.p),g=ctx.createRadialGradient(patch.q[0],patch.q[1],0,patch.q[0],patch.q[1],25);g.addColorStop(0,color(c));g.addColorStop(1,`rgba(${c.join(',')},0)`);ctx.fillStyle=g;ctx.fillRect(-50,-50,100,100);}
       }
       ctx.restore();
+      // Back-to-front cotton clusters soften the entire silhouette. These are
+      // model-space volumes, so the texture follows every turn without swimming.
+      const clusters=tufts.map(t=>({...t,q:rot(t.p),facing:rotate(t.n)})).filter(t=>t.facing[2]>-.13).sort((a,b)=>a.q[2]-b.q[2]);
+      for(const t of clusters){
+        const shade=.88+.12*Math.max(0,dot(t.facing,light))-.02*Math.max(0,t.facing[1]);
+        const base=t.color.map(v=>Math.min(255,v*shade)) as V;
+        const radius=t.radius*(detail==='room'?1.16:1),x=t.q[0],y=t.q[1];
+        const g=ctx.createRadialGradient(x-radius*.28,y-radius*.35,0,x,y,radius);
+        g.addColorStop(0,color(base.map(v=>Math.min(255,v+7)) as V));
+        g.addColorStop(.28,color(base));
+        const edge=base.map(v=>Math.round(v*.985));
+        g.addColorStop(1,`rgba(${edge.join(',')},0)`);
+        ctx.globalAlpha=.64;ctx.fillStyle=g;ctx.fillRect(x-radius,y-radius,radius*2,radius*2);ctx.globalAlpha=1;
+      }
       const groups=new Map<string,Path2D>();
       for(const hair of hairs){
         const n=rotate(hair.n);if(n[2]<-.06)continue;
         const p=rot(hair.p),mid=rot(hair.mid),tip=rot(hair.tip);
-        const shade=(.87+.13*Math.max(0,dot(n,light))-.04*Math.max(0,hair.p[1]/r[1]))*(.97+.06*hair.variation);
+        const shade=(.91+.09*Math.max(0,dot(n,light))-.025*Math.max(0,hair.p[1]/r[1]))*(.96+.08*hair.variation);
         const c=hair.color.map(v=>Math.round(v*shade/4)*4) as V;
         const key=color(c);let path=groups.get(key);if(!path){path=new Path2D();groups.set(key,path);}path.moveTo(p[0],p[1]);path.quadraticCurveTo(mid[0],mid[1],tip[0],tip[1]);
       }
-      ctx.lineCap='round';ctx.lineWidth=detail==='room'?.20:.105;ctx.globalAlpha=detail==='room'?.72:.78;
+      ctx.lineCap='round';ctx.lineWidth=detail==='room'?.20:.12;ctx.globalAlpha=detail==='room'?.65:.80;
       for(const [c,path] of groups){ctx.strokeStyle=c;ctx.stroke(path);}
       ctx.globalAlpha=1;
       const visible=(p:V)=>rotate(normalAt(p))[2]>.04;
@@ -170,7 +188,7 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
         const shut=pose.sleepy?1:pose.blink,ey=3.9*Math.max(.11,1-shut);
         // A little real sclera peeks outside/below each pupil, as in the reference.
         // Its asymmetric crescent is separate from the specular white highlight.
-        ellipse(p,[4.42,ey+.72*(1-shut),1.85]);ctx.fillStyle='rgba(99,110,99,.30)';ctx.fill();
+        ellipse(p,[4.42,ey+.72*(1-shut),1.85]);ctx.fillStyle='rgba(148,120,132,.16)';ctx.fill();
         const whiteCenter=ellipse(p,[4.25,ey+.55*(1-shut),1.8]);
         const sclera=ctx.createRadialGradient(whiteCenter[0]-.7,whiteCenter[1]-1,0,whiteCenter[0],whiteCenter[1],5);
         sclera.addColorStop(0,'#fffef7');sclera.addColorStop(.72,'#eeefe6');sclera.addColorStop(1,'#b8c0b5');ctx.fillStyle=sclera;ctx.fill();
@@ -180,7 +198,7 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
         if(shut<.5){ctx.save();ctx.clip();ctx.fillStyle='rgba(255,255,255,.94)';ctx.beginPath();ctx.ellipse(q[0]+.82,q[1]-1.2,.73,.85,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='rgba(255,255,255,.36)';ctx.beginPath();ctx.arc(q[0]-.85,q[1]+1,.32,0,Math.PI*2);ctx.fill();ctx.restore();}
       }
       if(pose.mouthOpen>.08){const p=surface(0,shape.mouthY);if(visible(p)){p[2]+=2;ellipse(p,[3.3,3.8*pose.mouthOpen,.5]);ctx.fillStyle='#654442';ctx.fill();}}
-      else{ctx.beginPath();let connected=false;for(let i=0;i<=30;i++){const x=FACE.mouthHalfWidth*(i/15-1),y=shape.mouthY+(pose.happy?1:-1)*FACE.mouthCurve*(1-(x/FACE.mouthHalfWidth)**2),p=surface(x,y);if(!visible(p)){connected=false;continue;}p[2]+=2.1;const q=rot(p);if(connected)ctx.lineTo(q[0],q[1]);else ctx.moveTo(q[0],q[1]);connected=true;}ctx.lineWidth=1.3;ctx.strokeStyle='#252d21';ctx.stroke();}
+      else{ctx.beginPath();let connected=false;for(let i=0;i<=30;i++){const x=FACE.mouthHalfWidth*(i/15-1),y=shape.mouthY+(pose.happy?1:.48)*FACE.mouthCurve*(1-(x/FACE.mouthHalfWidth)**2),p=surface(x,y);if(!visible(p)){connected=false;continue;}p[2]+=2.1;const q=rot(p);if(connected)ctx.lineTo(q[0],q[1]);else ctx.moveTo(q[0],q[1]);connected=true;}ctx.lineWidth=1.15;ctx.strokeStyle='#6B535C';ctx.stroke();}
       drawLeaves(true);
       if(pose.smoking){const p=surface(FACE.mouthHalfWidth,shape.mouthY);if(visible(p)){p[2]+=3;const at=(x:number)=>rot([p[0]+x,p[1]-.04*x,p[2]+.22*x]);for(const [a,b,c] of [[0,5,'#c5a174'],[5,18,'#f3eee1'],[18,19,'#e99461']] as const){const q=at(a),end=at(b);ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(end[0],end[1]);ctx.lineWidth=1.65;ctx.strokeStyle=c;ctx.stroke();}const q=at(19);ctx.beginPath();ctx.moveTo(q[0],q[1]-2);ctx.bezierCurveTo(q[0]+6,q[1]-12,q[0]-4,q[1]-17,q[0]+1,q[1]-25);ctx.strokeStyle='rgba(231,233,225,.65)';ctx.lineWidth=.65;ctx.stroke();}}
       canvas.dataset.renderMs=(performance.now()-started).toFixed(1);

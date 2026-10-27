@@ -17,6 +17,13 @@ export function fitWorld(width: number, height: number) {
   const sceneHeight = sceneWidth * 1.5;
   return {width: sceneWidth, height: sceneHeight, left: ((wide ? width * 0.62 : width) - sceneWidth) / 2, top: Math.min(0, (height - sceneHeight) * 0.38)};
 }
+/** Eye-level art keeps the rug under the resident, including wide screens. */
+export function fitEyeLevelHome(width:number,height:number){
+  if(width<=0||height<=0)return {width:0,height:0,left:0,top:0};
+  const aspect=width>height?32/15:2/3;
+  const sceneWidth=Math.max(width,height*aspect),sceneHeight=sceneWidth/aspect;
+  return {width:sceneWidth,height:sceneHeight,left:(width-sceneWidth)/2,top:(height-sceneHeight)/2};
+}
 /** One continuous, aspect-preserving scene covers the entire outdoor viewport. */
 export function fitOutdoorWorld(width: number, height: number) {
   if (width <= 0 || height <= 0) return {width:0,height:0,left:0,top:0};

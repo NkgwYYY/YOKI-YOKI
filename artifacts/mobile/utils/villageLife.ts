@@ -3,8 +3,8 @@ export type Point = { x: number; y: number };
 export type VillageExperience = "bath" | "wheel" | "smoke";
 export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
   grandma: ["market"],
-  home: ["market", "forest"],
-  market: ["home", "village", "lake", "ramen", "bowling", "tobacco", "homewares", "workshop", "fortune", "bank", "grandma"],
+  home: ["market", "onsen"],
+  market: ["home", "onsen", "lake", "ramen", "bowling", "tobacco", "homewares", "workshop", "fortune", "bank", "grandma"],
   bank: ["market"],
   fortune: ["market"],
   tobacco: ["market"],
@@ -12,9 +12,9 @@ export const VILLAGE_LINKS: Record<WorldMapId, WorldMapId[]> = {
   workshop: ["market"],
   bowling: ["market"],
   ramen: ["market"],
-  forest: ["home", "onsen"],
-  onsen: ["forest", "village"],
-  village: ["market", "onsen"],
+  forest: [],
+  onsen: ["home", "market"],
+  village: [],
   lake: ["market"],
 };
 // A gate is both the visible sign and the actual walking trigger.

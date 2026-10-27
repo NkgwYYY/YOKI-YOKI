@@ -33,8 +33,8 @@ function outline(model:ResidentVolumeModel) {
 // on animation frames. The three paths batch fur rather than mount hundreds of nodes.
 function fibres(model:ResidentVolumeModel) {
   const points:Point3[]=[];
-  for(let i=0;i<600;i++){
-    const y=1-2*(i+.5)/600,a=i*2.399963229728653,r=model.radius;
+  for(let i=0;i<1000;i++){
+    const y=1-2*(i+.5)/1000,a=i*2.399963229728653,r=model.radius;
     points.push({x:r.x*Math.sqrt(1-y*y)*Math.cos(a),y:r.y*y,z:r.z*Math.sqrt(1-y*y)*Math.sin(a)});
   }
   return points;
@@ -77,10 +77,10 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   let furHalo='';
   for(let i=0;i<silhouette.length;i++){
     const a=silhouette[i],b=silhouette[(i+1)%silhouette.length];
-    const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy),steps=Math.max(1,Math.ceil(length/1.3));
+    const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy),steps=Math.max(1,Math.ceil(length/2.2));
     for(let j=0;j<steps;j++){
       const t=j/steps,x=50+a.x+dx*t,y=originY+a.y+dy*t;
-      const fluff=.5+((i*7+j*3)%11)*.09;
+      const fluff=.8+((i*7+j*3)%11)*.13;
       furHalo+=(furHalo?' L':'M')+x.toFixed(2)+' '+Math.min(91,y).toFixed(2);
       furHalo+=' Q'+(x+dx/steps*.5+dy/Math.max(1,length)*fluff).toFixed(2)+' '+Math.min(91,y+dy/steps*.5-dx/Math.max(1,length)*fluff).toFixed(2);
       furHalo+=' '+(x+dx/steps).toFixed(2)+' '+Math.min(91,y+dy/steps).toFixed(2);
@@ -106,7 +106,7 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   const eyeHeight=Math.max(.5,f.eyeHeight*(1-shut));
   let mouth='';let connected=false;
   for(let i=0;i<=20;i++){
-    const x=-7.1+i*.71,y=f.mouthY+(happy?1:-1)*2.1*(1-(x/7.1)**2),p=surface(model,x,y);
+    const x=-5.4+i*.54,y=f.mouthY+(happy?1:.48)*1.8*(1-(x/5.4)**2),p=surface(model,x,y);
     if(normal(p)>0){const q=rot(p);mouth+=`${connected?' L':' M'}${(50+q.x).toFixed(2)} ${(originY+q.y).toFixed(2)}`;connected=true;}else connected=false;
   }
   const fur=['','',''];
@@ -119,10 +119,15 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
     const tip=rot({x:p.x*(1+length/r.x)-p.y*bend*.5,y:p.y*(1+length/r.y)+p.x*bend*.5,z:p.z*(1+length/r.z)});
     fur[i%3]+=`M${(50+q.x).toFixed(2)} ${(originY+q.y).toFixed(2)} Q${(50+mid.x).toFixed(2)} ${(originY+mid.y).toFixed(2)} ${(50+tip.x).toFixed(2)} ${(originY+tip.y).toFixed(2)} `;
   }
+  const leaf=(side:number)=>{
+    'worklet';
+    const points=[[0,-r.y-5,0],[side*3,-r.y-14,3],[side*11,-r.y-15,1],[side*14,-r.y-13,side*1.8],[side*12,-r.y-5,3],[side*4,-r.y-3,2],[0,-r.y-5,0]].map(([x,y,z])=>rot({x,y,z}));
+    const q=(i:number)=>`${(50+points[i].x).toFixed(2)} ${(originY+points[i].y).toFixed(2)}`;
+    return `M${q(0)} C${q(1)} ${q(2)} ${q(3)} C${q(4)} ${q(5)} ${q(6)} Z`;
+  };
   return {
     body:d(silhouette,true,originY),furHalo,
-    leftLeaf:d([[-.2,-r.y-5,0],[-9,-r.y-13,-3],[-14,-r.y-13,0],[-12,-r.y-6,4]].map(([x,y,z])=>rot({x,y,z})),true,originY),
-    rightLeaf:d([[.2,-r.y-5,0],[9,-r.y-12,4],[14,-r.y-12,1],[11,-r.y-5,-2]].map(([x,y,z])=>rot({x,y,z})),true,originY),
+    leftLeaf:leaf(-1),rightLeaf:leaf(1),
     stem:d([{x:0,y:-r.y+1,z:0},{x:.5,y:-r.y-8,z:0}].map(rot),false,originY),
     furLight:fur[0],furMid:fur[1],furShade:fur[2],
     leftCheek:patch(-f.cheekX,f.cheekY,6.7+chew*.8,4+chew*.4),rightCheek:patch(f.cheekX,f.cheekY,6.7+chew*.8,4+chew*.4),

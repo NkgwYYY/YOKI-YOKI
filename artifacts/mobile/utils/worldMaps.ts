@@ -16,9 +16,10 @@ export const WORLD_MAPS = [
   {id:'village',name:'となりの村',description:'たまご・もふもふ・はっぱたちの、小さな村。'},
   {id:'lake',name:'星あかりの湖',description:'観覧車に乗って、いつもの世界を空から。'},
 ] as const;
+// Keep retired IDs readable in historical saves; no map, gate or deep link can enter them.
 // Permanent iOS product restriction; identical for reviewers and all end users.
 // Tobacco consumption/rewards are not part of the iOS app (App Review 1.4.3).
-export function isMapAvailable(id: WorldMapId, platform: string) { return id !== 'bank' && (platform !== 'ios' || id !== 'tobacco'); }
+export function isMapAvailable(id: WorldMapId, platform: string) { return !['bank','forest','village'].includes(id) && (platform !== 'ios' || id !== 'tobacco'); }
 export function initialReleasedMap(id: WorldMapId | undefined, platform: string): WorldMapId {
   return id && isMapAvailable(id, platform) ? id : 'home';
 }

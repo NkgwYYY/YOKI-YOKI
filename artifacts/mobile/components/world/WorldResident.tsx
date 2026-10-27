@@ -23,6 +23,7 @@ import { useWorldResident } from './useWorldResident';
 import {welcomeSample} from '@/utils/residentWelcome';
 
 type Props = {
+  closeUp?:{size:number;footY:number;centerX:number};
   grandmaUnlocked?:boolean;
   welcomeRequest?:number; onWelcomeStarted?:(id:number)=>void;
   riding:boolean;cleanliness:number;smoking?:boolean;
@@ -71,7 +72,7 @@ export function WorldResident(p: Props) {
   const taps = useRef({at: 0, count: 0});
   const reaction = useRef(p.reaction);
   const volumetric=hasResidentVolume(stage);
-  const size = width * 0.135 * Math.max(0.9, Math.min(1.12, p.growthSize));
+  const size = p.closeUp?.size ?? width * 0.135 * Math.max(0.9, Math.min(1.12, p.growthSize));
   useEffect(()=>{if(p.riding){rolling.value=0;idleTime.value=0;walking.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);setInteracting(false);}},[p.riding]);
   useEffect(()=>{const at=mapStart(map);cancelAnimation(x);cancelAnimation(y);rolling.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);x.value=at.x;y.value=at.y;holding.value=0;setInteracting(false);},[map]);
   useEffect(()=>{
@@ -79,7 +80,7 @@ export function WorldResident(p: Props) {
     rolling.value=0;idleTime.value=0;setRollingLabel(false);setInteracting(false);
     cancelAnimation(x);cancelAnimation(y);
   },[p.destination?.id]);
-  const {pose,atKeepsake} = useWorldResident({...p, x, y, walking, manualOnly:!!p.smoking, interacting:welcoming||interacting||manual||p.riding||!!experience||p.bowlingBusy});
+  const {pose,atKeepsake} = useWorldResident({...p, closeUp:!!p.closeUp, x, y, walking, manualOnly:!!p.smoking, interacting:welcoming||interacting||manual||p.riding||!!experience||p.bowlingBusy});
   const stopWelcome=()=>{
     'worklet';
     if(!welcomeRunning.value)return;
@@ -169,7 +170,7 @@ export function WorldResident(p: Props) {
   },[active,pose,reduceMotion,rx,ry,rz]);
   const launchRoll=(speedX:number,speedY:number,automatic=false)=>{
     'worklet';
-    if(p.riding||!available.value||reduceMotion||cameraTouch.value||experience||p.smoking||food||p.bowlingBusy)return;
+    if(p.closeUp||p.riding||!available.value||reduceMotion||cameraTouch.value||experience||p.smoking||food||p.bowlingBusy)return;
     stopWelcome();
     cancelAnimation(x);cancelAnimation(y);cancelAnimation(rx);cancelAnimation(ry);cancelAnimation(rz);
     const point=mapGroundPoint(map,{x:x.value,y:y.value});x.value=point.x;y.value=point.y;
@@ -315,7 +316,7 @@ export function WorldResident(p: Props) {
       if (touchMode.value !== 3) return;
       const fresh=Date.now()-strokeAt.value<140;
       const speedX=fresh?strokeVX.value:0,speedY=fresh?strokeVY.value:0;
-      if(success&&!reduceMotion&&Math.hypot(speedX,speedY)>450){
+      if(success&&!p.closeUp&&!reduceMotion&&Math.hypot(speedX,speedY)>450){
         jelly.value=withSpring(0,SOFT);lean.value=withSpring(0,SOFT);
         launchRoll(speedX/(width*zoom.value)*.65,speedY/(width*zoom.value)*.65);return;
       }
@@ -338,10 +339,10 @@ export function WorldResident(p: Props) {
   const rootStyle = useAnimatedStyle(() => ({
     opacity:experience?0:1,
     zIndex: holding.value ? 999 : Math.round(y.value * 1000),
-    transform: [{translateX: x.value * width - size / 2}, {translateY: y.value * height - size * 0.92}],
+    transform: [{translateX: (p.closeUp ? p.closeUp.centerX : x.value * width) - size / 2}, {translateY: (p.closeUp?.footY ?? y.value * height) - size * 0.92}],
   }));
   const perspective = useAnimatedStyle(() => {
-    const scale = worldResidentScale(y.value);
+    const scale = p.closeUp ? 1 : worldResidentScale(y.value);
     return {transform: [{translateY: (1 - scale) * size * 0.42}, {scale}]};
   });
   const body = useAnimatedStyle(() => {
@@ -365,7 +366,7 @@ export function WorldResident(p: Props) {
   const mood: MascotMood = welcoming?'happy':touchMood ?? (interacting || pose === 'eating' ? 'happy' : p.resting || pose === 'sleeping' ? 'sleepy' : p.happinessValue>=75?'happy':p.happinessValue<=30?'tired':'normal');
   useEffect(() => {
     blink.value = 0;
-    if (!active || reduceMotion || mood !== 'normal') return;
+    if (!active || reduceMotion || mood === 'sleepy') return;
     blink.value = withRepeat(withDelay(4100, withSequence(withTiming(1, {duration: 80}), withTiming(0, {duration: 130}))), -1);
     return () => cancelAnimation(blink);
   }, [active, reduceMotion, mood, blink]);
@@ -379,8 +380,8 @@ export function WorldResident(p: Props) {
     <Animated.View testID="room-resident" style={[s.root, {width: size, height: size}, rootStyle]} accessible={!experience} accessibilityRole="button"
       accessibilityElementsHidden={!!experience} importantForAccessibility={experience ? 'no-hide-descendants' : 'auto'} aria-hidden={!!experience}
       accessibilityState={{disabled: !active || !!experience || !!food || p.bowlingBusy}}
-      accessibilityLabel={`${p.mascotName}にふれる。${activity}`} accessibilityHint="タップでごあいさつ。なでると喜びます。すばやく払うと、ころころ。長押しで抱っこ。2本指で景色を拡大"
-      accessibilityActions={[{name: 'activate', label: 'ごあいさつ'}, {name: 'pet', label: 'なでる'}, {name: 'talk', label: 'お話しする'}, {name:'roll',label:'ころがす'}]}
+      accessibilityLabel={`${p.mascotName}にふれる。${activity}`} accessibilityHint={p.closeUp?'タップでごあいさつ。なでると喜びます。長押しで抱っこ。':'タップでごあいさつ。なでると喜びます。すばやく払うと、ころころ。長押しで抱っこ。2本指で景色を拡大'}
+      accessibilityActions={[{name: 'activate', label: 'ごあいさつ'}, {name: 'pet', label: 'なでる'}, {name: 'talk', label: 'お話しする'}, ...(!p.closeUp?[{name:'roll',label:'ころがす'}]:[])]}
       onAccessibilityAction={e => {if(!active || experience || food||p.bowlingBusy)return; e.nativeEvent.actionName === 'roll' ? launchRoll(.6,.3) : e.nativeEvent.actionName === 'talk' ? p.onChat() : acknowledge(e.nativeEvent.actionName === 'pet' ? 'pet' : 'greet');}}
       onAccessibilityTap={() => acknowledge('greet')} tabIndex={active && !experience && !food ? 0 : -1}
       {...(Platform.OS === 'web' ? {onKeyDown: (e: React.KeyboardEvent) => {if(e.key==='ArrowRight'&&!reduceMotion){e.preventDefault();launchRoll(.6,.3);}else if (e.key === 'Enter' || e.key === ' ') {e.preventDefault(); acknowledge('greet');}}} : {})}>

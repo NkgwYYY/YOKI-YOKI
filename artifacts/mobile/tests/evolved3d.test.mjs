@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 import * as contact from '../utils/softContact.ts';
-const code=ts.transpileModule(fs.readFileSync(new URL('../utils/evolved3d.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS}}).outputText;
+const code=ts.transpileModule(fs.readFileSync(new URL('../utils/evolved3d.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText;
 const model={exports:{}};new Function('require','module','exports',code)(name=>{assert.equal(name,'./softContact');return contact;},model,model.exports);
 const {createEvolvedRenderer,createEvolvedLeafMesh,evolvedRotation,evolvedGroundOffset,evolvedBodySupport,EVOLVED_SHAPES,EVOLVED_CAMERA_SCALE}=model.exports;
 const forms=['odango','stage3','stage4'];
