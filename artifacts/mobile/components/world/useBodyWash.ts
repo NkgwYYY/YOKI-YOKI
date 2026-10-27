@@ -14,20 +14,22 @@ export function useBodyWash(active:boolean,completedToday:boolean){
  const [coverage,setCoverage]=useState(()=>BODY_WASH_SPOTS.map(()=>0));
  const [towel,setTowel]=useState<Point|null>(null),[saving,setSaving]=useState(false),[saved,setSaved]=useState(false),[error,setError]=useState('');
  const current=useRef(coverage),previous=useRef<Point|null>(null),pending=useRef(false),done=useRef(false),alive=useRef(true);
- const id=useRef('');
+ const id=useRef(''),towelRelease=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const clearTowelRelease=()=>{if(towelRelease.current){clearTimeout(towelRelease.current);towelRelease.current=null;}};
  const reset=()=>{
+  clearTowelRelease();
   const empty=BODY_WASH_SPOTS.map(()=>0);current.current=empty;setCoverage(empty);
   id.current=`wash-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   previous.current=null;setTowel(null);pending.current=false;done.current=false;
   setSaving(false);setSaved(false);setError('');
  };
  useEffect(()=>{reset();},[scope]);
- useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+ useEffect(()=>{alive.current=true;return()=>{alive.current=false;clearTowelRelease();};},[]);
  useEffect(()=>{
-  if(!active){previous.current=null;setTowel(null);}
+  if(!active){clearTowelRelease();previous.current=null;setTowel(null);}
   else if(done.current&&!completedToday)reset();
  },[active,completedToday]);
- const start=(point:Point)=>{if(!active||completedToday||isLoading||pending.current||done.current)return;previous.current=point;setTowel(point);};
+ const start=(point:Point)=>{if(!active||completedToday||isLoading||pending.current||done.current)return;clearTowelRelease();previous.current=point;setTowel(point);};
  const move=(point:Point)=>{
   if(!active||completedToday||isLoading||pending.current||done.current||!previous.current)return;
   const next=rubBody(current.current,previous.current,point);
@@ -42,6 +44,8 @@ export function useBodyWash(active:boolean,completedToday:boolean){
   }catch{if(alive.current&&owner.current===scope)setError('洗った状態を保存できませんでした。もう一度試してね。');}
   finally{if(alive.current&&owner.current===scope){pending.current=false;setSaving(false);}}
  };
- const finish=()=>{previous.current=null;setTowel(null);void save();};
+ // Keep even a synchronous accessibility/keyboard stroke visible briefly.
+ // This is presentation only: coverage still changes exclusively in move().
+ const finish=()=>{previous.current=null;clearTowelRelease();towelRelease.current=setTimeout(()=>{towelRelease.current=null;if(alive.current)setTowel(null);},150);void save();};
  return {coverage,towel,saving,saved,error,start,move,finish,retry:()=>void save(),percent:bodyWashPercent(coverage)};
 }

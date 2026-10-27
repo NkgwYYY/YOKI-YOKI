@@ -3,7 +3,7 @@ import {ResidentDust} from './ResidentDust';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedReaction, useAnimatedStyle, useFrameCallback, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, ReduceMotion, runOnJS, useAnimatedReaction, useAnimatedStyle, useFrameCallback, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { StaticMascot } from '@/components/Mascot';
 import type { ResidentInteraction, ResidentItem } from '@/components/room/RoomResident';
@@ -114,7 +114,7 @@ export function WorldResident(p: Props) {
   const portals=mapPortals(map,p.grandmaUnlocked,Platform.OS);
   const onPortal=p.onPortal;
   useAnimatedReaction(()=>{if(!available.value||!p.portalTravel.value||experience||food||p.bowlingBusy)return -1;const dir=Math.hypot(steering.value.x,steering.value.y)>.05?steering.value:p.destination?{x:p.destination.point.x-x.value,y:p.destination.point.y-y.value}:null;return dir?nearbyPortalIndex({x:x.value,y:y.value},portals,dir):-1;},(index,previous)=>{if(index>=0&&index!==previous){p.portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(x);cancelAnimation(y);walking.value=0;runOnJS(onPortal)(portals[index].to);}},[map,onPortal,experience,food,p.bowlingBusy,p.destination]);
-  useEffect(()=>{if(pose==='eating'&&active){mealProgress.value=0;mealProgress.value=withTiming(1,{duration:MEAL_DURATION,easing:Easing.linear});}else mealProgress.value=0;return()=>cancelAnimation(mealProgress);},[pose,active,mealProgress]);
+  useEffect(()=>{if(pose==='eating'&&active){mealProgress.value=0;mealProgress.value=withTiming(1,{duration:MEAL_DURATION,easing:Easing.linear,reduceMotion:ReduceMotion.Never});}else mealProgress.value=0;return()=>cancelAnimation(mealProgress);},[pose,active,mealProgress]);
   useEffect(() => () => {
     available.value = false;
     [x, y, lift, jelly, lean, breath, gait, blink,rx,ry,rz].forEach(value => cancelAnimation(value));
@@ -411,7 +411,7 @@ export function WorldResident(p: Props) {
           </View>}
           {p.wear && <Image source={{uri: p.wear.uri}} resizeMode="contain" style={{position: 'absolute', ...roomWearableFrame(p.wear.id, getCharacter(p.stage).key, size, p.wear)}}/>}
         </Animated.View>
-        {food&&pose==='eating'&&<ResidentMeal food={food} size={size} progress={mealProgress}/>}
+        {food&&pose==='eating'&&<ResidentMeal food={food} size={size} progress={mealProgress} reduceMotion={reduceMotion}/>}
       </Animated.View>
     </Animated.View>
   </GestureDetector>;

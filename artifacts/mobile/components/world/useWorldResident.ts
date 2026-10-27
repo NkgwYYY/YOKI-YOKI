@@ -82,7 +82,7 @@ export function useWorldResident(p: Props) {
         setAtKeepsake(visitingKeepsake);
         setPose(visitingKeepsake?(keepsake==='cushion'||keepsake==='quilt'?'sleeping':'watching'):(map==='ramen')&&mealPending?'eating':map!=='home'?'watching':stroll ? 'watching' : activity === 'meal' ? 'eating' : activity === 'bed' ? 'sleeping' : activity === 'window' ? 'watching' : 'idle');
         later(() => {
-          if (activity === 'meal' && !stroll) {handled.current.meal = meal; complete.current?.();}
+          if (activity === 'meal' && !stroll) {handled.current.meal = meal; setPose('idle'); complete.current?.();}
           if (activity === 'bed' && !stroll) handled.current.rest = rest;
           turn.current++;
           later(run, 10000);
