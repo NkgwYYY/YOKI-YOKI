@@ -1,5 +1,11 @@
 name: Submit validated iOS build 25
 
+# Use the same Node/pnpm versions as the passing native review workflow.
+defaults:
+  tools:
+    node: '22.16.0'
+    pnpm: '10.11.0'
+
 # Manual only. Run after both native review journeys pass.
 # This uploads the existing archive; it does not rebuild or submit App Review.
 jobs:
