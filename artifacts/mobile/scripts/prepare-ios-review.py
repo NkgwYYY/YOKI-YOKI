@@ -68,6 +68,13 @@ boot_runtimes = runtimes[:2] if len(runtimes) > 1 else runtimes * 2
 evidence = Path('review-results') / family
 evidence.mkdir(exist_ok=True, parents=True)
 (evidence / 'available-runtimes.json').write_text(json.dumps(runtimes, indent=2))
+# Use the onscreen keyboard in this disposable runner. A fresh simulator has
+# no per-device preference yet; set the default before Simulator is opened.
+# Keep the setting in evidence so a focus failure remains diagnosable.
+run('defaults', 'write', 'com.apple.iphonesimulator', 'ConnectHardwareKeyboard', '-bool', 'false')
+hardware_keyboard = run('defaults', 'read', 'com.apple.iphonesimulator', 'ConnectHardwareKeyboard')
+if hardware_keyboard != '0':
+    raise SystemExit('Could not disable the simulator hardware keyboard')
 attempts = []
 for attempt, runtime in enumerate(boot_runtimes, start=1):
     compatible_devices = [d for r, d in choices if r == runtime]
@@ -108,6 +115,7 @@ for attempt, runtime in enumerate(boot_runtimes, start=1):
         'development_region': info.get('CFBundleDevelopmentRegion'),
         'localizations': info.get('CFBundleLocalizations', []),
         'boot_attempts': attempts,
+        'connect_hardware_keyboard': False,
         'note': 'Simulator validation; not a physical-device or signed-IPA installation test.',
     }, indent=2))
     if ready:

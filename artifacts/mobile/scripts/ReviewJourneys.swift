@@ -180,10 +180,20 @@ final class ReviewJourneys: XCTestCase {
         openDiary()
         capture("02-diary")
         if element("diary-tab-user").exists { tap(element("diary-tab-user")) }
-        tap(element("diary-input"))
-        element("diary-input").typeText(diary)
+        let diaryInput = app.textViews["diary-input"]
+        visible(diaryInput)
+        reveal(diaryInput)
+        XCTAssertTrue(diaryInput.isEnabled)
+        // Tap the first writing line of the native UITextView, then require
+        // actual onFocus feedback and the software keyboard before typing.
+        // Do not retry a failed tap or programmatically force app focus.
+        diaryInput.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.08)).tap()
+        visible(app.buttons["diary-keyboard-done"], timeout: 10)
+        visible(app.keyboards.firstMatch, timeout: 10)
+        capture("02-diary-focused")
+        diaryInput.typeText(diary)
         tap(element("diary-keyboard-done"))
-        XCTAssertEqual(element("diary-input").value as? String, diary)
+        XCTAssertEqual(diaryInput.value as? String, diary)
         reveal(element("diary-mood-3"))
         tap(element("diary-mood-3"))
         XCTAssertTrue(element("diary-mood-3").isSelected)
@@ -282,7 +292,19 @@ final class ReviewJourneys: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [gameProgress], timeout: 15), .completed)
         if !element("egg-job-result").exists { scoopButton.tap() }
         visible(element("egg-job-result"))
-        XCTAssertTrue(scoopButton.isEnabled)
+        // One failed egg ends today's shift. A completed result must expose
+        // either that saved end state or an enabled next order after success.
+        if element("egg-job-day-ended").exists {
+            visible(text("今日はここまで"))
+            visible(text("記録を保存しました。また明日。"))
+            XCTAssertTrue(text("TOO EARLY").exists || text("TOO LATE").exists)
+            XCTAssertEqual(scoopButton.label, "また明日")
+            XCTAssertFalse(scoopButton.isEnabled)
+        } else {
+            XCTAssertTrue(text("GOOD").exists || text("PERFECT").exists)
+            XCTAssertEqual(scoopButton.label, "次の注文を受ける")
+            XCTAssertTrue(scoopButton.isEnabled)
+        }
         capture("09-game-result")
         tap(element("egg-job-back"))
         visible(element("home-daily-record"))
