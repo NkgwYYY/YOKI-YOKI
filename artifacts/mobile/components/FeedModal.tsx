@@ -1,18 +1,28 @@
-import React, { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import {ProduceTrade} from '@/components/world/VegetableGarden';
+import {storyFinished} from '@/utils/villageStories';
+import React, { useEffect, useRef, useState } from 'react';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import {FeltPressable as Pressable} from '@/components/ui/FeltPressable';
 import { border, colors, control, radius, space, typography } from '@/constants/theme';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import {DailyAdRewardButton} from '@/components/ads/DailyAdPlacements';
+import {useAdEnvironment} from '@/components/ads/useAdEnvironment';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
+import { useAppActivity } from '@/components/room/useRoomActivity';
 import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
-import { FOOD_ITEMS, FoodItem, RARITY_COLORS, FoodRarity } from '@/data/foodItems';
+import { foodsForVenue, FoodItem, RARITY_COLORS, FoodRarity } from '@/data/foodItems';
+import { RamenArt } from '@/components/village/RamenArt';
+import { RamenServing } from '@/components/village/RamenServing';
+import { WorldPill } from '@/components/world/WorldPill';
 import { BerryIcon, AppleIcon, CandyIcon, CakeFoodIcon, RamenIcon, SpecialFoodIcon } from '@/components/ui/Illustrations';
 
 interface FeedModalProps {
   visible: boolean;
+  venue?: 'ramen';
   onClose: () => void;
+  onFed?: (foodId: string) => void;
 }
 
 function getFoodIllustration(id: string) {
@@ -27,25 +37,24 @@ function getFoodIllustration(id: string) {
   }
 }
 
-function FoodCard({ food, canAfford, onFeed }: { food: FoodItem; canAfford: boolean; onFeed: (id: string) => void; }) {
+function FoodCard({ food, canAfford, saving, reduceMotion, onFeed }: { food: FoodItem; canAfford: boolean; saving: boolean; reduceMotion: boolean; onFeed: (id: string) => void; }) {
   const rarityColor = RARITY_COLORS[food.rarity as FoodRarity];
-
-  const handlePress = () => {
-    if (!canAfford) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      return;
-    }
-    onFeed(food.id);
-  };
+  const disabled = !canAfford || saving;
+  const handlePress = () => { if (!disabled) onFeed(food.id); };
 
   return (
     <View>
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${food.name}、${food.cost}ポイント、満腹度プラス${food.satietyGain}`}
+        accessibilityHint={!canAfford ? 'ポイントが足りません' : 'このごはんをあげる'}
+        accessibilityState={{ disabled, busy: saving }}
+        disabled={disabled}
         style={({ pressed }) => [
           cardStyles.card,
           { borderColor: rarityColor.border },
           !canAfford && cardStyles.cardLocked,
-          pressed && cardStyles.cardPressed,
+          pressed && !reduceMotion && cardStyles.cardPressed,
         ]}
         onPress={handlePress}
       >
@@ -104,7 +113,7 @@ function FeedToast({ message, visible }: { message: string; visible: boolean }) 
   if (!visible) return null;
   return (
     <View style={toastStyles.toast}>
-      <Text style={toastStyles.text}>{message}</Text>
+      <Text accessibilityLiveRegion="polite" style={toastStyles.text}>{message}</Text>
     </View>
   );
 }
@@ -114,40 +123,61 @@ const toastStyles = StyleSheet.create({
   text: { ...typography.calloutStrong, color: colors.primaryForeground },
 });
 
-export function FeedModal({ visible, onClose }: FeedModalProps) {
+export function FeedModal({ visible, onClose, onFed, venue }: FeedModalProps) {
   const { feedState, currentSatiety, feedMascot, progress, getTodayRecord, getCompletedCount, getTotalCheckCount } = useApp();
 
+  const { active, reduceMotion } = useAppActivity();
+  const [saving, setSaving] = useState(false);
+  const [serving, setServing] = useState<'preview' | 'served' | null>(null);
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
   const totalCount = getTotalCheckCount();
-  const mascotStage = getMascotStage(progress.level);
+  const mascotStage = getMascotStage(progress);
   const mascotMood = getMascotMood(progress, todayRecord, completedCount, totalCount);
 
   const [isEating, setIsEating] = useState(false);
+  const adEnvironment = useAdEnvironment(!visible || !!serving, saving || isEating);
   const [toast, setToast] = useState({ visible: false, message: '' });
 
+  const feeding = useRef(false);
+  const mounted = useRef(true);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; timers.current.forEach(clearTimeout); };
+  }, []);
   const handleFeed = async (foodId: string) => {
-    const result = await feedMascot(foodId);
-    if (result.success) {
-      setIsEating(true);
-      setTimeout(() => setIsEating(false), 800);
-    }
-    setToast({ visible: true, message: result.message });
-    setTimeout(() => setToast({ visible: false, message: '' }), 2200);
+    if (feeding.current) return;
+    feeding.current = true;
+    setSaving(true);
+    try {
+      const result = await feedMascot(foodId, venue === 'ramen' ? 'ramen' : 'home');
+      if (!mounted.current) return;
+      if (result.success) {
+        if (venue === 'ramen' && (foodId === 'ramen'||foodId === 'komorebi-ramen')) { setServing('served'); return; }
+        if (onFed) { onFed(foodId); return; }
+        setIsEating(true);
+        timers.current.push(setTimeout(() => setIsEating(false), 800));
+      }
+      setToast({ visible: true, message: result.message });
+      timers.current.push(setTimeout(() => setToast({ visible: false, message: '' }), 2200));
+    } catch {
+      if (mounted.current) setToast({ visible: true, message: 'ごはんを保存できませんでした。もう一度お試しください。' });
+    } finally { feeding.current = false; if (mounted.current) setSaving(false); }
   };
 
-  const satietyColor = currentSatiety >= 70 ? colors.success : currentSatiety >= 40 ? colors.warning : colors.danger;
-  const hungerLabel = currentSatiety >= 80 ? 'お腹いっぱい' : currentSatiety >= 60 ? 'まあまあかな' : currentSatiety >= 40 ? 'すこし空腹だよ' : currentSatiety >= 20 ? 'お腹すいた〜！' : 'ぺこぺこだよ';
+  const satietyColor = colors.primary;
+  const hungerLabel = currentSatiety >= 80 ? 'ごちそうさま' : 'おやつでひと休みしよう';
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="ごはんをあげる" subtitle="YOKIポイントで元気回復" maxHeightRatio={0.88} contentStyle={modalStyles.content}>
+    <><BottomSheet visible={visible && !serving} onClose={onClose} title={venue === 'ramen' ? 'もふもふラーメン' : 'ごはんをあげる'} subtitle={venue === 'ramen' ? 'もふもふ店長の、あったかい一杯。お店で食べていこう。' : '一緒に、ほっとする時間'} maxHeightRatio={0.88} contentStyle={modalStyles.content}>
       <View style={modalStyles.pointsBadge}>
         <Icon name="star" size={iconSize.sm} color={colors.primary} />
         <Text style={modalStyles.pointsText}>{feedState.points} pt</Text>
       </View>
 
-      <View style={modalStyles.mascotRow}>
-        {Platform.OS === 'ios' ? (
+      {venue !== 'ramen' && <View style={modalStyles.mascotRow}>
+        {Platform.OS === 'ios' || reduceMotion || !active ? (
           <StaticMascot stage={mascotStage} mood={isEating ? 'excited' : mascotMood} size={80} />
         ) : (
           <Mascot stage={mascotStage} mood={isEating ? 'excited' : mascotMood} size={80} isEating={isEating} />
@@ -164,26 +194,40 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
         </View>
       </View>
 
-      <View style={modalStyles.grid}>
-        {FOOD_ITEMS.map((food) => (
-          <View key={food.id} style={modalStyles.gridItem}>
-            <FoodCard food={food} canAfford={feedState.points >= food.cost} onFeed={handleFeed} />
-          </View>
-        ))}
-      </View>
+      }
+      {saving && <Text accessibilityLiveRegion="polite">ごはんを保存しています…</Text>}
+      {venue === 'ramen' ? <View style={{alignItems:'center',gap:12}}>
+        <RamenArt size={250} />
+        <Text style={{fontSize:21,fontWeight:'700',color:colors.foreground}}>店長の特製ラーメン</Text>
+        <Text style={{fontSize:13,lineHeight:22,textAlign:'center',color:colors.mutedForeground}}>とろけるチャーシュー、半熟たまご。{ '\n' }お店だけの、とっておきのごちそう。</Text>
+        <WorldPill testID="ramen-order" primary icon="coffee" label={saving?'ご用意しています…':'注文する  ·  60 pt'} disabled={saving||feedState.points<60} onPress={()=>handleFeed('ramen')} style={{width:'100%'}} />
+        {feedState.points<60&&<Text style={{fontSize:12,color:colors.warning}}>あと{60-feedState.points}ポイントで注文できます</Text>}
+        {storyFinished(feedState.villageStories,'ramen')&&<View testID="story-recipe-menu" style={{width:'100%',paddingTop:16,gap:9,borderTopWidth:1,borderColor:'#A690AD66'}}><Text style={{color:colors.primary,fontSize:17,fontWeight:'600'}}>こもれびラーメン</Text><Text style={{color:colors.mutedForeground,fontSize:13,lineHeight:22}}>あなたと店長で作った一杯。やさしいスープと、工房の半熟たまご。</Text><WorldPill testID="ramen-story-order" primary icon="coffee" label="注文する · 55 pt" disabled={saving||feedState.points<55} onPress={()=>handleFeed('komorebi-ramen')}/></View>}
+        <View style={{width:'100%'}}><ProduceTrade venue="ramen"/></View>
+        <Pressable testID="ramen-preview" accessibilityRole="button" accessibilityLabel="できたてのラーメンを見る" onPress={()=>setServing('preview')} style={{minHeight:44,justifyContent:'center'}}><Text style={{color:colors.primary,fontSize:13}}>できたてを見る</Text></Pressable>
+      </View> : <View style={modalStyles.grid}>
+        {foodsForVenue().map((food) => <View key={food.id} style={modalStyles.gridItem}>
+          <FoodCard food={food} canAfford={feedState.points >= food.cost} saving={saving} reduceMotion={reduceMotion} onFeed={handleFeed} />
+        </View>)}
+      </View>}
 
+      <DailyAdRewardButton placement="meal" environment={adEnvironment}/>
       <View style={modalStyles.hint}>
         <Icon name="info" size={iconSize.xs} color={colors.subtleForeground} />
-        <Text style={modalStyles.hintText}>YOKIポイントは記録やミニゲームで貯まるよ</Text>
+        <Text style={modalStyles.hintText}>バイトや今日の記録で集めたポイントを使えます</Text>
       </View>
 
       <FeedToast message={toast.message} visible={toast.visible} />
     </BottomSheet>
+    {serving && <RamenServing active={active} reduceMotion={reduceMotion} preview={serving==='preview'} onComplete={()=>{
+      const mode=serving;setServing(null);
+      if(mode==='served'){if(onFed)onFed('ramen');else onClose();}
+    }}/>}</>
   );
 }
 
 const modalStyles = StyleSheet.create({
-  content: { gap: space.xl },
+  content: { gap: space.md },
   pointsBadge: { flexDirection: 'row', alignItems: 'center', gap: space.xs, alignSelf: 'flex-start', paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.pill, backgroundColor: colors.primarySoft, ...border.hairline, borderColor: colors.primary },
   pointsText: { ...typography.bodyStrong, color: colors.primary },
   mascotRow: { flexDirection: 'row', alignItems: 'center', gap: space.lg },

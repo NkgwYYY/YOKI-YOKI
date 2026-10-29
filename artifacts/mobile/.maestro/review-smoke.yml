@@ -1,0 +1,174 @@
+appId: app.replit.yokiyoki--
+name: Fresh guest review journeys
+---
+# Run only in a disposable simulator. No sign-in, purchases, or real user data.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible:
+      id: profile-nickname
+    timeout: 30000
+- tapOn:
+    id: profile-nickname
+- inputText: 'Yoki QA'
+# Do not request live advertising during automated tests. Unknown age is ineligible.
+- scrollUntilVisible:
+    element:
+      id: profile-age-unknown
+    direction: DOWN
+- tapOn:
+    id: profile-age-unknown
+- scrollUntilVisible:
+    element:
+      id: profile-gender-unknown
+    direction: DOWN
+- tapOn:
+    id: profile-gender-unknown
+- scrollUntilVisible:
+    element:
+      text: 'いっしょにはじめる'
+    direction: DOWN
+- tapOn: 'いっしょにはじめる'
+- tapOn:
+    text: 'よろしくね！'
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: home-daily-record
+    timeout: 30000
+- takeScreenshot: 01-home
+
+# HOME controls must really open the destination, not merely exist.
+- tapOn:
+    id: home-daily-record
+- assertVisible: 'ふたりの交換日記'
+- extendedWaitUntil:
+    visible:
+      id: diary-character-story
+    timeout: 15000
+- takeScreenshot: 02-diary
+- tapOn:
+    id: diary-tab-user
+- tapOn:
+    id: diary-input
+- inputText: 'Release QA: a quiet day.'
+- tapOn:
+    id: diary-keyboard-done
+- assertVisible: 'Release QA: a quiet day.'
+- scrollUntilVisible:
+    element:
+      id: diary-mood-3
+    direction: DOWN
+- tapOn:
+    id: diary-mood-3
+- assertVisible:
+    id: diary-mood-3
+    selected: true
+- scrollUntilVisible:
+    element:
+      id: diary-send
+    direction: DOWN
+- tapOn:
+    id: diary-send
+- extendedWaitUntil:
+    visible:
+      id: diary-user-page
+    timeout: 15000
+- assertVisible: 'Release QA: a quiet day.'
+- takeScreenshot: 03-saved-diary
+- tapOn:
+    id: diary-home
+- tapOn:
+    id: room-meal
+- assertVisible: 'ごはんをあげる'
+- takeScreenshot: 04-food
+- tapOn: 'きのみ、5ポイント、満腹度プラス.*'
+- extendedWaitUntil:
+    visible:
+      id: home-chat
+    timeout: 15000
+- extendedWaitUntil:
+    visible: 'ごちそうさま。また一緒に食べようね。'
+    timeout: 30000
+
+# Refusing AI must return to chat and preserve the unsent draft.
+- tapOn:
+    id: home-chat
+- tapOn: '少し、お話しする'
+- tapOn:
+    id: chat-input
+- inputText: 'Release QA draft'
+- tapOn: '送信'
+- assertVisible: 'AIへの情報送信'
+- takeScreenshot: 05-ai-disclosure
+- scrollUntilVisible:
+    element:
+      text: 'AIを使わずに戻る'
+    direction: DOWN
+- tapOn: 'AIを使わずに戻る'
+- assertVisible: 'Release QA draft'
+- takeScreenshot: 06-chat-draft
+- tapOn: '部屋へ戻る'
+
+# Map travel and the interactive minigame must accept native taps.
+- tapOn:
+    id: world-map-open
+- assertVisible: '村をめぐる'
+- assertNotVisible:
+    id: world-map-tobacco
+- takeScreenshot: 07-map
+- tapOn:
+    id: world-map-workshop
+- tapOn:
+    id: world-map-travel
+- tapOn:
+    id: world-go-work
+- extendedWaitUntil:
+    visible:
+      id: egg-job-action
+    timeout: 15000
+- takeScreenshot: 08-game
+- tapOn:
+    id: egg-job-action
+- extendedWaitUntil:
+    visible:
+      id: egg-job-action
+      text: 'お玉ですくい上げる'
+      enabled: true
+    timeout: 10000
+- tapOn:
+    id: egg-job-action
+- extendedWaitUntil:
+    visible:
+      id: egg-job-result
+    timeout: 15000
+- takeScreenshot: 09-game-result
+- tapOn:
+    id: egg-job-back
+- tapOn:
+    id: world-gate-home
+
+# Restart without clearing data: onboarding must not repeat; diary persists.
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: home-daily-record
+    timeout: 30000
+- tapOn:
+    id: home-daily-record
+- tapOn:
+    id: diary-tab-user
+- assertVisible: 'Release QA: a quiet day.'
+- takeScreenshot: 10-persisted-diary
+- tapOn:
+    id: diary-home
+- tapOn: '思い出'
+- tapOn:
+    id: album-details-toggle
+- scrollUntilVisible:
+    element:
+      id: guest-insights
+    direction: DOWN
+- assertVisible: '端末の記録から振り返ります。AIには送信しません。'
+- takeScreenshot: 11-guest-insights

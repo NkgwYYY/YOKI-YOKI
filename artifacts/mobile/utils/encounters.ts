@@ -1,10 +1,11 @@
+import {VISIT_STAGES} from './visitGrowth';
 /**
  * 出会い記録(キャラクター図鑑のデータ層)
  *
  * 図鑑は「あなたがこれまでに出会ったキャラクターの記録」。
  * 未登場キャラは一切保存も表示もしない(「？？？」シルエット方式は禁止)。
  */
-import { CharacterKey, MascotStage, STAGE_LEVEL_MAP, getCharacter } from '@/utils/mascotUtils';
+import { CharacterKey, MascotStage, getCharacter } from '@/utils/mascotUtils';
 
 export interface EncounterRecord {
   /** キャラクターのキー */
@@ -41,15 +42,13 @@ export function resolveEncountersState(raw: unknown): EncountersState {
   return { list };
 }
 
-/** レベルからこれまでに出会っているはずのキャラ一覧(進化順) */
-export function charsMetByLevel(level: number): CharacterKey[] {
-  return STAGE_LEVEL_MAP
-    .filter((s) => level >= s.minLevel)
-    .map((s) => getCharacter(s.stage).key);
+/** Forms already met, in the same order as the visit calendar. */
+export function charsMetThroughStage(stage: MascotStage): CharacterKey[] {
+  return VISIT_STAGES.slice(0,VISIT_STAGES.findIndex(s=>s.stage===stage)+1).map(s=>getCharacter(s.stage).key);
 }
 
 /**
- * 現在のレベルに応じて出会い記録を最新化する。
+ * これまでに到達した姿に応じて出会い記録を最新化する。
  * 戻り値: { next, newlyMet } — newlyMet は今回新しく出会ったキャラ(演出用)。
  *
  * 演出ルール:
@@ -60,12 +59,12 @@ export function charsMetByLevel(level: number): CharacterKey[] {
  */
 export function syncEncounters(
   state: EncountersState,
-  level: number,
+  highestStage: MascotStage,
   today: string,
   hasHistory: boolean,
 ): { next: EncountersState; newlyMet: CharacterKey[] } {
   const met = new Set(state.list.map((e) => e.charKey));
-  const should = charsMetByLevel(level);
+  const should = charsMetThroughStage(highestStage);
   const missing = should.filter((k) => !met.has(k));
   if (missing.length === 0) return { next: state, newlyMet: [] };
 
@@ -78,6 +77,6 @@ export function syncEncounters(
 
 /** キャラのステージ(表示ラベル用) */
 export function stageForChar(charKey: CharacterKey): MascotStage {
-  const entry = STAGE_LEVEL_MAP.find((s) => getCharacter(s.stage).key === charKey);
+  const entry = VISIT_STAGES.find((s) => getCharacter(s.stage).key === charKey);
   return entry?.stage ?? 'egg';
 }

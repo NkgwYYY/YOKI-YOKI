@@ -36,7 +36,7 @@ export const RhythmMascot = forwardRef<RhythmMascotHandle, Props>(function Rhyth
   { song, size = 76 }, ref,
 ) {
   const { progress } = useApp();
-  const stage = getMascotStage(progress.level);
+  const stage = getMascotStage(progress);
 
   /* 曲の雰囲気 → リアクションの性格
      明るく速い曲 → 大きめ・キビキビ / 落ち着いた曲 → 小さめ・ゆっくり */

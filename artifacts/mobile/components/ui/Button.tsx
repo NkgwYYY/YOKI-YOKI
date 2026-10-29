@@ -1,3 +1,4 @@
+import {FeltDecoration} from './Felt';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -19,7 +20,7 @@ export type ButtonVariant =
   | 'ghost';
 
 const FILL: Record<ButtonVariant, ViewStyle> = {
-  primary: { backgroundColor: colors.primary, ...border.inner, borderColor: 'rgba(255,255,255,0.4)' },
+  primary: { backgroundColor: colors.primary, ...border.inner, borderColor: '#C5B08F' },
   secondary: { backgroundColor: colors.secondary, ...border.hairline },
   outline: { backgroundColor: colors.card, ...border.hairlineStrong, borderColor: colors.borderStrong },
   ghost: { backgroundColor: 'transparent', borderWidth: border.width, borderColor: 'transparent' },
@@ -67,6 +68,7 @@ export function Button({
       onPress={onPress}
       disabled={inert}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled: !!inert }}
       style={[
         styles.base,
@@ -77,6 +79,7 @@ export function Button({
         style,
       ]}
     >
+      {variant!=='ghost'&&<FeltDecoration radius={radius.sm} dark={variant==='primary'}/>}
       {loading ? (
         <ActivityIndicator size="small" color={tint} />
       ) : icon ? (
@@ -99,7 +102,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.sm,
-    borderRadius: radius.pill, // Buttons use pill radius for softer feel
+    borderRadius: radius.sm,
+    shadowColor: '#957653', shadowOpacity: .12, shadowRadius: 4, shadowOffset: {width: 0, height: 3},
   },
   sizeMd: {
     paddingVertical: control.padV,
@@ -113,7 +117,7 @@ const styles = StyleSheet.create({
   },
   fullWidth: { alignSelf: 'stretch' },
   disabled: { backgroundColor: colors.mutedStrong, borderColor: colors.border },
-  label: { ...typography.bodyStrong },
+  label: { ...typography.bodyStrong, flexShrink: 1, textAlign: 'center' },
   labelSm: { ...typography.calloutStrong },
   row: { flexDirection: 'row', gap: space.sm },
 });

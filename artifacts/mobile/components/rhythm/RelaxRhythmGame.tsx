@@ -3,12 +3,14 @@
  * スコアは控えめ、呼吸をするような体験。判定窓もいちばん優しい。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, } from 'react-native';
+import {FeltPressable as Pressable} from '@/components/ui/FeltPressable';
 import * as Haptics from 'expo-haptics';
 import {
   Song, Chart, Note, PlayResult, Judgment, SCORE_PER,
 } from '@/utils/rhythm/types';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
+import { withinTimingWindow, noteHasExpired } from '@/utils/rhythm/judgment';
 import { RhythmMascot, RhythmMascotHandle } from './RhythmMascot';
 import { colors, gameSurface, judgePalette } from '@/constants/theme';
 import { clamp, measuredOr, useMeasuredSize } from '@/utils/rhythm/geometry';
@@ -125,7 +127,7 @@ export function RelaxRhythmGame({ song, chart, onFinish, onQuit }: Props) {
       const t = clock.getTime();
       setNow(t);
       for (const n of notesRef.current) {
-        if (!n.judged && t - n.time > RELAX_GOOD_MS / 1000) applyJudgment(n, 'miss');
+        if (!n.judged && noteHasExpired(n.time, t, RELAX_GOOD_MS)) applyJudgment(n, 'miss');
       }
       const allDone = notesRef.current.length > 0 && notesRef.current.every(n => n.judged);
       if (allDone || t >= song.duration - 0.2) { finish(); return; }
@@ -169,11 +171,11 @@ export function RelaxRhythmGame({ song, chart, onFinish, onQuit }: Props) {
     for (const n of notesRef.current) {
       if (n.judged) continue;
       const diff = Math.abs(n.time - t) * 1000;
-      if (diff <= RELAX_GOOD_MS && diff < bestDiff) { best = n; bestDiff = diff; }
+      if (withinTimingWindow(diff, RELAX_GOOD_MS) && diff < bestDiff) { best = n; bestDiff = diff; }
     }
     if (!best) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); return; } // 空振りノーカウント
-    if (bestDiff <= RELAX_PERFECT_MS) applyJudgment(best, 'perfect');
-    else if (bestDiff <= RELAX_GREAT_MS) applyJudgment(best, 'great');
+    if (withinTimingWindow(bestDiff, RELAX_PERFECT_MS)) applyJudgment(best, 'perfect');
+    else if (withinTimingWindow(bestDiff, RELAX_GREAT_MS)) applyJudgment(best, 'great');
     else applyJudgment(best, 'good');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); // 常にそっと
   }, [started, clock]);

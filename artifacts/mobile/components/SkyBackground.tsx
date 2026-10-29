@@ -1,3 +1,4 @@
+import {FeltBackground} from '@/components/ui/Felt';
 import React from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
@@ -7,7 +8,7 @@ import { colors, homePalette } from '@/constants/theme';
  * アプリ全体の背景。模様やグラデーションを重ねず、落ち着いた無地にする。
  */
 export function SkyBackground() {
-  return <View style={styles.background} pointerEvents="none" />;
+  return <FeltBackground/>;
 }
 
 function DreamCloud({

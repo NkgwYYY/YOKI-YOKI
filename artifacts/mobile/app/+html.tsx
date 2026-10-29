@@ -1,6 +1,8 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import type { PropsWithChildren } from 'react';
 
+const boot = require('../scripts/boot-markup.cjs');
+
 const GA_ID = process.env.EXPO_PUBLIC_GA_MEASUREMENT_ID;
 const ADSENSE_CLIENT_ID = 'ca-pub-7462386033661667';
 
@@ -17,17 +19,14 @@ export default function Root({ children }: PropsWithChildren) {
         <meta property="og:site_name" content="YOKI YOKI" />
         <meta property="og:type" content="website" />
         <meta property="og:description" content="こころを育てるメンタルケアアプリ" />
-        <meta property="og:url" content="https://mental-muscle-trainer.replit.app/" />
+        <meta property="og:url" content="https://yoki-yoki.replit.app/" />
         <meta name="description" content="こころを育てるメンタルケアアプリ" />
 
         <ScrollViewStyleReset />
+        <style id="yoki-boot-style" dangerouslySetInnerHTML={{__html:boot.css}} />
 
-        {/* Google AdSense automatic ads */}
-        <script
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
-          crossOrigin="anonymous"
-        />
+        {/* Ownership verification only. Advertising runs on public landing pages. */}
+        <meta name="google-adsense-account" content={ADSENSE_CLIENT_ID} />
 
         {/* Google Analytics 4 */}
         {GA_ID && (
@@ -46,7 +45,7 @@ export default function Root({ children }: PropsWithChildren) {
           </>
         )}
       </head>
-      <body>{children}</body>
+      <body>{children}<div id="yoki-boot" role="status" dangerouslySetInnerHTML={{__html:boot.contents}} /></body>
     </html>
   );
 }

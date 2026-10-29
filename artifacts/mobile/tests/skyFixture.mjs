@@ -1,0 +1,1 @@
+export const sky=(date='2026-10-09')=>({date,phase:'Waning Crescent',illumination:3,moonrise:'04:37',moonset:'16:13',source:'USNO',sourceUrl:`https://aa.usno.navy.mil/api/rstt/oneday?date=${date}&coords=35.6762,139.6503&tz=9`,fetchedAt:date+'T03:00:00Z',reference:'Tokyo/JST/noon'});

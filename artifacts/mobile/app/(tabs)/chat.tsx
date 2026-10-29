@@ -1,15 +1,21 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
-  FlatList, KeyboardAvoidingView, Platform, Linking,
+  FlatList, Keyboard, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { getTabBarHeight } from '@/utils/tabLayout';
+import { localDateKey, normalizeStoredMessage, type Message, type Citation } from '@/utils/chatHistory';
+import { chatErrorMessage } from '@/utils/chatErrors';
 import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { SkyBackground } from '@/components/SkyBackground';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasAiConsent, postAiJson } from '@/utils/aiConsent';
 import { profileToContext } from '@/utils/profileContext';
 import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
@@ -19,74 +25,6 @@ import { PressScale } from '@/components/ui/PressScale';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
-const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 64 : Platform.OS === 'ios' ? 50 : 58;
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
-  dateKey: string;
-  citations?: Citation[];
-}
-
-interface Citation {
-  title: string;
-  url: string;
-}
-
-const OFFICIAL_SOURCES: Citation[] = [
-  {
-    title: 'こころと体のセルフケア',
-    url: 'https://www.mhlw.go.jp/kokoro/youth/stress/self/index.html',
-  },
-  {
-    title: 'まもろうよ こころ',
-    url: 'https://www.mhlw.go.jp/mamorouyokokoro/',
-  },
-];
-
-function localDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-function messageDateFromId(id: unknown): Date | null {
-  if (typeof id !== 'string') return null;
-  const match = id.match(/_(\d{10,})$/);
-  if (!match) return null;
-  const date = new Date(Number(match[1]));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function normalizeStoredMessage(raw: unknown): Message | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const message = raw as Partial<Message>;
-  if (
-    typeof message.id !== 'string'
-    || (message.role !== 'user' && message.role !== 'assistant')
-    || typeof message.content !== 'string'
-  ) return null;
-  const idDate = messageDateFromId(message.id);
-  const timestampDate = message.timestamp ? new Date(message.timestamp) : idDate;
-  const validDate = timestampDate && !Number.isNaN(timestampDate.getTime()) ? timestampDate : new Date();
-  return {
-    id: message.id,
-    role: message.role,
-    content: message.content,
-    timestamp: message.timestamp && !Number.isNaN(new Date(message.timestamp).getTime())
-      ? message.timestamp
-      : validDate.toISOString(),
-    dateKey: typeof message.dateKey === 'string' ? message.dateKey : localDateKey(validDate),
-    citations: Array.isArray(message.citations)
-      ? message.citations.filter((citation): citation is Citation =>
-          !!citation
-          && typeof citation.title === 'string'
-          && typeof citation.url === 'string'
-          && citation.url.startsWith('https://www.mhlw.go.jp/'))
-      : undefined,
-  };
-}
-
 function newMessage(
   id: string,
   role: Message['role'],
@@ -94,7 +32,7 @@ function newMessage(
   citations?: Citation[],
 ): Message {
   const now = new Date();
-  return { id, role, content, timestamp: now.toISOString(), dateKey: localDateKey(now), citations };
+  return { id, role, content, timestamp: now.toISOString(), dateKey: localDateKey(now), citations, sourcePolicyVersion: 2 };
 }
 
 function messageDateLabel(dateKey: string): string {
@@ -143,10 +81,10 @@ function MessageBubble({ msg, mascotStage, mascotMood }: {
         )}
       </View>
       <View style={bubbleStyles.bubbleMascot}>
-        <Text style={bubbleStyles.mascotText}>{msg.content}</Text>
-        {!!msg.citations?.length && (
+        <Text testID={msg.id === 'welcome' ? 'chat-welcome' : 'chat-assistant-message'} style={bubbleStyles.mascotText}>{msg.content}</Text>
+        {msg.sourcePolicyVersion===2 && !!msg.citations?.length && (
           <View style={bubbleStyles.citations}>
-            <Text style={bubbleStyles.citationsTitle}>参考資料（厚生労働省）</Text>
+            <Text style={bubbleStyles.citationsTitle}>健康・相談についての参考情報</Text>
             {msg.citations.map(citation => (
               <PressScale
                 key={citation.url}
@@ -248,16 +186,26 @@ const chipStyles = StyleSheet.create({
 const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
 const MAX_STORED = 60;
 const MAX_CONTEXT = 20;
+// Keep reads, writes and deletion ordered, including across screen remounts.
+let historyQueue: Promise<unknown> = Promise.resolve();
+function queueHistory<T>(operation: () => Promise<T>): Promise<T> {
+  const result = historyQueue.then(operation, operation);
+  historyQueue = result.catch(() => {});
+  return result;
+}
 
 export default function ChatScreen() {
+  const router = useRouter();
+  const aiOwner = useAuth().user?.id ?? 'guest';
   const insets = useSafeAreaInsets();
+  const tabBarHeight = getTabBarHeight(Platform.OS, insets.bottom);
   const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
           currentSatiety, inactivityHours, profile } = useApp();
 
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
   const totalCount = getTotalCheckCount();
-  const mascotStage = getMascotStage(progress.level);
+  const mascotStage = getMascotStage(progress);
   const mascotMood = getMascotMood(progress, todayRecord, completedCount, totalCount, {
     inactivityHours, satiety: currentSatiety,
   });
@@ -269,48 +217,121 @@ export default function ChatScreen() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showRestEvent, setShowRestEvent] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const clearBusy = useRef(false);
+  const loadBusy = useRef(false);
+  const saveVersion = useRef(0);
+  const lastScheduled = useRef('[]');
+  const request = useRef<AbortController | null>(null);
+  const sendEpoch = useRef(0);
+  const currentOwner = useRef(aiOwner);
+  currentOwner.current = aiOwner;
+  const restTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restInteraction = useRef(0);
   const listRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    (async () => {
+  useFocusEffect(useCallback(() => () => {
+    sendEpoch.current += 1;
+    if (request.current) {
+      request.current.abort();
+      request.current = null;
+      setIsLoading(false);
+      setSendError(chatErrorMessage());
+    }
+    if (restTimer.current) clearTimeout(restTimer.current);
+    restInteraction.current += 1;
+    setShowRestEvent(false);
+  }, [aiOwner]));
+
+  const loadHistory = async () => {
+      if (loadBusy.current) return;
+      loadBusy.current = true;
+      setLoadError(false);
       try {
-        const raw = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
+        const raw = await queueHistory(() => AsyncStorage.getItem(CHAT_HISTORY_KEY));
         if (raw) {
-          const stored = (JSON.parse(raw) as unknown[])
+          const parsed: unknown = JSON.parse(raw);
+          if (!Array.isArray(parsed)) throw new Error('Invalid history');
+          const stored = parsed
             .map(normalizeStoredMessage)
             .filter((message): message is Message => message !== null)
-            .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+            .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+            .slice(-MAX_STORED);
           if (stored.length > 0) {
+            lastScheduled.current = JSON.stringify(stored.slice(-MAX_STORED));
             setMessages([welcomeMsg, ...stored]);
           }
         }
-      } catch { /* use default */ }
-      setHistoryLoaded(true);
-    })();
+        setHistoryLoaded(true);
+      } catch { setLoadError(true); }
+      finally { loadBusy.current = false; }
+  };
+
+  useEffect(() => {
+    void loadHistory();
+  }, []);
+
+  const persistHistory = useCallback((serialized: string) => {
+    const version = ++saveVersion.current;
+    lastScheduled.current = serialized;
+    return queueHistory(() => AsyncStorage.setItem(CHAT_HISTORY_KEY, serialized))
+      .then(() => { if (saveVersion.current === version) setSaveError(false); })
+      .catch(() => { if (saveVersion.current === version) setSaveError(true); });
   }, []);
 
   useEffect(() => {
     if (!historyLoaded) return;
     const toSave = messages.filter(m => m.id !== 'welcome').slice(-MAX_STORED);
-    AsyncStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(toSave)).catch(() => {});
-  }, [messages, historyLoaded]);
+    const serialized = JSON.stringify(toSave);
+    if (serialized !== lastScheduled.current) void persistHistory(serialized);
+  }, [messages, historyLoaded, persistHistory]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
 
   const clearHistory = useCallback(async () => {
-    await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
-    setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ` }]);
-  }, [displayName]);
+    if (request.current || clearBusy.current || !historyLoaded) return;
+    clearBusy.current = true;
+    setClearing(true);
+    try {
+      await queueHistory(() => AsyncStorage.removeItem(CHAT_HISTORY_KEY));
+      ++saveVersion.current;
+      lastScheduled.current = '[]';
+      setSaveError(false);
+      setMessages([{ ...welcomeMsg, content: `また話しかけてね！${displayName}はいつでもここにいるよ` }]);
+      setSendError(null);
+      setHistoryError(false);
+    } catch { setHistoryError(true); }
+    finally { clearBusy.current = false; setClearing(false); }
+  }, [displayName, historyLoaded]);
 
-  const sendMessage = useCallback(async (text?: string) => {
+  const sendMessage = useCallback(async (text?: string, retry = false) => {
     const msg = (text ?? input).trim();
-    if (!msg || isLoading) return;
-    setInput('');
+    if ((!retry && !msg) || request.current || clearBusy.current || !historyLoaded) return;
+    const epoch = sendEpoch.current;
+    const restEpoch = restInteraction.current;
+    const allowed = await hasAiConsent(aiOwner);
+    if (epoch !== sendEpoch.current || aiOwner !== currentOwner.current) return;
+    if (!allowed) {
+      if (!retry) setInput(msg);
+      router.push('/ai-privacy');
+      return;
+    }
+    if (request.current || clearBusy.current) return;
+    const controller = new AbortController();
+    request.current = controller;
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    if (!retry) setInput('');
+    setSendError(null);
+    let failureMessage = chatErrorMessage();
 
     const userMsg = newMessage(`u_${Date.now()}`, 'user', msg);
-    const next = [...messages, userMsg];
+    const next = retry ? messages : [...messages, userMsg];
     setMessages(next);
     scrollToBottom();
     setIsLoading(true);
@@ -329,11 +350,11 @@ export default function ChatScreen() {
       const profileLine = profileToContext(profile);
       if (profileLine) ctxParts.push(`ユーザーのプロフィール: ${profileLine}`);
       if (recent.length) {
-        ctxParts.push(`直近${recent.length}日: 平均気分${avgOf(recent.map(r => r.mood))}/5, 平均睡眠${avgOf(recent.map(r => r.sleep))}h`);
+        ctxParts.push(`直近${recent.length}日: 平均気分${avgOf(recent.map(r => r.mood))}/5, 平均睡眠${avgOf(recent.filter(r => r.sleepRecorded !== false).map(r => r.sleep)) ?? '未入力'}h`);
       }
       if (todayRec) {
         ctxParts.push(
-          `今日の記録: 気分${todayRec.mood}/5, 睡眠${todayRec.sleep}h` +
+          `今日の記録: 気分${todayRec.mood}/5, 睡眠${todayRec.sleepRecorded === false ? '未入力' : `${todayRec.sleep}h`}` +
           (todayRec.behaviors.length ? `, したこと[${todayRec.behaviors.join(',')}]` : '') +
           (todayRec.win ? `, 小さな成功「${todayRec.win}」` : '')
         );
@@ -342,21 +363,23 @@ export default function ChatScreen() {
       if (recentWins.length) ctxParts.push(`最近の小さな成功: ${recentWins.join(' / ')}`);
       if (progress?.streak) ctxParts.push(`連続記録${progress.streak}日目`);
 
-      const res = await fetch(`${API_BASE}/chat/message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const res = await postAiJson(aiOwner, `${API_BASE}/chat/message`, {
           messages: history,
           mascotName: displayName,
           mascotStage,
           todayDate: getTodayDate(),
           context: ctxParts.join('\n') || undefined,
-        }),
-      });
-      const data = await res.json();
-      const citations = Array.isArray(data.citations) && data.citations.length
-        ? data.citations
-        : OFFICIAL_SOURCES;
+      }, { signal: controller.signal });
+      if (!res.ok) {
+        failureMessage = chatErrorMessage(res.data?.code);
+        throw new Error('Chat request failed');
+      }
+      const data = res.data;
+      if (typeof data?.content !== 'string' || !data.content.trim()) throw new Error('Invalid chat response');
+      if (request.current !== controller) return;
+      const validCitations = Array.isArray(data.citations) ? data.citations.filter((item: any) =>
+        typeof item?.title === 'string' && typeof item?.url === 'string' && item.url.startsWith('https://www.mhlw.go.jp/')) : [];
+      const citations = data.sourcePolicyVersion===2 ? validCitations : [];
       const assistantMsg = newMessage(
         `a_${Date.now()}`,
         'assistant',
@@ -365,24 +388,26 @@ export default function ChatScreen() {
       );
       setMessages(prev => [...prev, assistantMsg]);
       Analytics.chatMessageSent();
-      if (data.restEvent) {
-        setTimeout(() => setShowRestEvent(true), 1200);
+      if (data.restEvent && restEpoch === restInteraction.current) {
+        restTimer.current = setTimeout(() => setShowRestEvent(true), 1200);
       }
     } catch {
-      setMessages(prev => [...prev, newMessage(
-        `err_${Date.now()}`,
-        'assistant',
-        'ごめん、うまく繋がらなかった…もう一度話しかけてね',
-      )]);
+      if (request.current === controller) {
+        setSendError(controller.signal.aborted ? chatErrorMessage('CHAT_TIMEOUT') : failureMessage);
+      }
     } finally {
-      setIsLoading(false);
-      scrollToBottom();
+      clearTimeout(timeout);
+      if (request.current === controller) {
+        request.current = null;
+        setIsLoading(false);
+        scrollToBottom();
+      }
     }
-  }, [input, isLoading, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom]);
+  }, [input, historyLoaded, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom, aiOwner, router]);
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
 
-  const canSend = !!input.trim() && !isLoading;
+  const canSend = !!input.trim() && !isLoading && historyLoaded && !clearing;
   const showChips = messages.length <= 1;
   const CHIPS = ['今日あったこと話したい', '少し落ち込んでる', 'がんばった！聞いて', '雑談しよう'];
 
@@ -395,25 +420,35 @@ export default function ChatScreen() {
       <SkyBackground />
 
       <View style={[styles.header, { paddingTop: topPad + space.md }]}>
+        <PressScale accessibilityLabel="部屋へ戻る" style={styles.clearBtn}
+          onPress={() => router.navigate('/(tabs)')}>
+          <Icon name="chevron-left" size={iconSize.md} color={colors.foreground} />
+        </PressScale>
         {Platform.OS === 'ios' ? (
           <StaticMascot stage={mascotStage} mood={mascotMood} size={40} />
         ) : (
           <Mascot stage={mascotStage} mood={mascotMood} size={40} />
         )}
         <View style={styles.headerCopy}>
-          <Text style={styles.headerName}>{displayName}</Text>
-          <View style={styles.onlineRow}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.onlineText}>
-              {messages.filter(m => m.id !== 'welcome').length > 0
-                ? `${messages.filter(m => m.id !== 'welcome').length}件の会話`
-                : 'いつでもそばにいるよ'}
-            </Text>
+          <View style={styles.headerTitle}>
+            <Text numberOfLines={1} style={[styles.headerName,{flexShrink:1}]}>{displayName}</Text>
+            {messages.length > 1 && <Text numberOfLines={1} style={styles.onlineText}>{messages.filter(m=>m.id!=='welcome').length}件の会話</Text>}
           </View>
+          <PressScale testID="chat-rest-open" accessibilityLabel="一緒に休む" style={styles.restButton}
+          onPress={() => {
+            if (restTimer.current) clearTimeout(restTimer.current);
+            restInteraction.current += 1;
+            Keyboard.dismiss();
+            setShowRestEvent(true);
+          }}>
+          <Icon name="moon" size={15} color={colors.foreground} />
+          <Text style={styles.restButtonText}>一緒に休む</Text>
+          </PressScale>
         </View>
         {messages.length > 1 && (
           <PressScale
             onPress={clearHistory}
+            disabled={isLoading || clearing}
             style={styles.clearBtn}
             accessibilityLabel="会話履歴を消す"
           >
@@ -458,26 +493,40 @@ export default function ChatScreen() {
               <TypingDots />
             </View>
           </View>
+        ) : showChips ? (
+          <View style={[styles.chips, { paddingHorizontal: screenPadding }]}>
+            {CHIPS.map(c => <Chip key={c} label={c} onPress={() => sendMessage(c)} />)}
+          </View>
         ) : null}
       />
 
       <View
         style={[
           styles.inputArea,
-          { paddingBottom: TAB_BAR_HEIGHT + (Platform.OS === 'ios' ? insets.bottom : space.sm) },
+          { paddingBottom: tabBarHeight + space.sm },
         ]}
       >
-        {showChips && (
-          <View style={styles.chips}>
-            {CHIPS.map(c => (
-              <Chip key={c} label={c} onPress={() => sendMessage(c)} />
-            ))}
-          </View>
-        )}
+        {historyError && <Text accessibilityRole="alert">履歴を消せませんでした。もう一度お試しください。</Text>}
+        {loadError && <View>
+          <Text accessibilityRole="alert">会話履歴を読み込めませんでした。保存済みの履歴を守るため、読み込み直してください。</Text>
+          <PressScale style={chipStyles.chip} accessibilityLabel="会話履歴を読み込み直す" onPress={loadHistory}><Text>読み込み直す</Text></PressScale>
+        </View>}
+        {saveError && <View>
+          <Text accessibilityRole="alert">会話履歴を保存できませんでした。画面を閉じる前に保存をお試しください。</Text>
+          <PressScale style={chipStyles.chip} accessibilityLabel="会話履歴を保存し直す" disabled={clearing} onPress={() => { void persistHistory(JSON.stringify(messages.filter(m => m.id !== 'welcome').slice(-MAX_STORED))); }}><Text>保存をもう一度試す</Text></PressScale>
+        </View>}
+        {sendError && <View>
+          <Text testID="chat-send-error" accessibilityRole="alert">{sendError}</Text>
+          <PressScale style={chipStyles.chip} accessibilityLabel="返事をもう一度受け取る" onPress={() => sendMessage(undefined, true)} disabled={isLoading}>
+            <Text style={chipStyles.text}>もう一度試す</Text>
+          </PressScale>
+        </View>}
         <View style={styles.inputRow}>
           <TextInput
+            testID="chat-input"
             style={styles.input}
             placeholder={`${displayName}に話しかける…`}
+            accessibilityLabel="話しかける内容"
             placeholderTextColor={colors.subtleForeground}
             value={input}
             onChangeText={setInput}
@@ -506,9 +555,12 @@ export default function ChatScreen() {
       {showRestEvent ? (
         <RestEventModal
           visible
-          level={progress.level}
           mascotName={displayName}
-          onClose={() => setShowRestEvent(false)}
+          onClose={() => {
+            if (restTimer.current) clearTimeout(restTimer.current);
+            restInteraction.current += 1;
+            setShowRestEvent(false);
+          }}
         />
       ) : null}
     </KeyboardAvoidingView>
@@ -521,18 +573,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
+    gap: space.sm,
     paddingHorizontal: screenPadding,
     paddingBottom: space.md,
     borderBottomWidth: border.width,
     borderBottomColor: colors.border,
     backgroundColor: colors.card,
   },
-  headerCopy: { flex: 1 },
+  headerCopy: { flex: 1, minWidth: 0, gap: 3 },
+  headerTitle: {flexDirection:'row',alignItems:'center',gap:8},
+  restButton: { minHeight: 44, alignSelf:'flex-start', paddingHorizontal: 12, borderRadius: 22, backgroundColor: colors.muted, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  restButtonText: { fontSize: 11, color: colors.foreground },
   headerName: { ...typography.subhead, color: colors.foreground },
   onlineRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   onlineDot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.success },
-  onlineText: { ...typography.micro, color: colors.mutedForeground },
+  onlineText: { ...typography.micro, color: colors.mutedForeground, flexShrink: 1 },
   clearBtn: {
     width: control.icon,
     height: control.icon,
@@ -556,10 +611,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  list: { flex: 1 },
+  list: { flex: 1, minHeight: 0 },
   listContent: { paddingVertical: space.lg, gap: space.md },
 
   inputArea: {
+    flexShrink: 0,
     borderTopWidth: border.width,
     borderTopColor: colors.border,
     backgroundColor: colors.card,

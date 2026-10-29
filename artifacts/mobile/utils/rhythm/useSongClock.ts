@@ -13,6 +13,8 @@ export function useSongClock() {
   const playingRef = useRef(false);
   const finishedRef = useRef(false);
   const onFinishRef = useRef<(() => void) | null>(null);
+  const generationRef = useRef(0);
+  const playRequestRef = useRef(0);
 
   const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
@@ -23,18 +25,27 @@ export function useSongClock() {
   }, []);
 
   const load = useCallback(async (asset: number, opts?: { volume?: number; positionMillis?: number }) => {
-    await unload();
+    const release = unload();
+    const generation = generationRef.current;
+    await release;
+    if (generation !== generationRef.current) return;
     try { await Audio.setAudioModeAsync({ playsInSilentModeIOS: true }); } catch (_) {}
+    if (generation !== generationRef.current) return;
     const { sound } = await Audio.Sound.createAsync(asset, {
       volume: opts?.volume ?? 1.0,
       positionMillis: opts?.positionMillis ?? 0,
       progressUpdateIntervalMillis: 50,
     });
+    // A closed game or newer selection may have overtaken this async load.
+    if (generation !== generationRef.current) {
+      await sound.unloadAsync().catch(() => {});
+      return;
+    }
     finishedRef.current = false;
     lastPosRef.current = opts?.positionMillis ?? 0;
     lastAtRef.current = nowMs();
     sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
-      if (!status.isLoaded) return;
+      if (generation !== generationRef.current || !status.isLoaded) return;
       lastPosRef.current = status.positionMillis ?? lastPosRef.current;
       lastAtRef.current = nowMs();
       playingRef.current = !!status.isPlaying;
@@ -49,9 +60,13 @@ export function useSongClock() {
   }, []);
 
   const play = useCallback(async () => {
-    if (!soundRef.current) return false;
+    const sound = soundRef.current;
+    const generation = generationRef.current;
+    const request = ++playRequestRef.current;
+    if (!sound) return false;
     try {
-      await soundRef.current.playAsync();
+      await sound.playAsync();
+      if (generation !== generationRef.current || request !== playRequestRef.current) return false;
       playingRef.current = true;
       lastAtRef.current = nowMs();
       return true;
@@ -61,14 +76,18 @@ export function useSongClock() {
   }, []);
 
   const stop = useCallback(async () => {
+    playRequestRef.current++;
     playingRef.current = false;
     try { await soundRef.current?.stopAsync(); } catch (_) {}
   }, []);
 
   const unload = useCallback(async () => {
+    generationRef.current++;
+    playRequestRef.current++;
     const snd = soundRef.current;
     soundRef.current = null;
     playingRef.current = false;
+    onFinishRef.current = null;
     if (snd) { try { await snd.unloadAsync(); } catch (_) {} }
   }, []);
 

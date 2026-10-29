@@ -3,12 +3,14 @@ import {
   View,
   Text,
   TextInput,
+  Keyboard,
   StyleSheet,
 } from 'react-native';
 import { border, colors, control, radius, space, typography } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
 import { UserProfile } from '@/contexts/AppContext';
 import { PressScale } from '@/components/ui/PressScale';
+import { formatMbti } from '@/utils/mbti';
 
 const AGE_RANGES = ['10代', '20代', '30代', '40代', '50代', '60代', '70代以上', '回答しない'];
 const GENDERS = ['男性', '女性', 'その他', '回答しない'];
@@ -70,10 +72,13 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
     label,
     selected,
     onPress,
-  }: { label: string; selected: boolean; onPress: () => void }) => (
+    testID,
+  }: { label: string; selected: boolean; onPress: () => void; testID?: string }) => (
     <PressScale
-      onPress={onPress}
-      accessibilityState={{ selected }}
+      testID={testID}
+      onPress={() => { Keyboard.dismiss(); onPress(); }}
+      disabled={submitting}
+      accessibilityState={{ selected, disabled: !!submitting }}
       style={[styles.chip, selected && styles.chipSelected]}
     >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
@@ -88,6 +93,11 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
 
         <Text style={styles.label}>ニックネーム *</Text>
         <TextInput
+          testID="profile-nickname"
+          accessibilityLabel="ニックネーム（必須）"
+          returnKeyType="done"
+          onSubmitEditing={Keyboard.dismiss}
+          editable={!submitting}
           value={nickname}
           onChangeText={setNickname}
           maxLength={20}
@@ -99,14 +109,14 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
         <Text style={styles.label}>年代 *</Text>
         <View style={styles.chipRow}>
           {AGE_RANGES.map((a) => (
-            <Chip key={a} label={a} selected={ageRange === a} onPress={() => setAgeRange(a)} />
+            <Chip key={a} testID={a === '回答しない' ? 'profile-age-unknown' : undefined} label={a} selected={ageRange === a} onPress={() => setAgeRange(a)} />
           ))}
         </View>
 
         <Text style={styles.label}>性別 *</Text>
         <View style={styles.chipRow}>
           {GENDERS.map((g) => (
-            <Chip key={g} label={g} selected={gender === g} onPress={() => setGender(g)} />
+            <Chip key={g} testID={g === '回答しない' ? 'profile-gender-unknown' : undefined} label={g} selected={gender === g} onPress={() => setGender(g)} />
           ))}
         </View>
       </View>
@@ -134,7 +144,7 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
         <Text style={styles.label}>MBTI</Text>
         <View style={styles.chipRow}>
           {MBTI_TYPES.map((m) => (
-            <Chip key={m} label={m} selected={mbti === m} onPress={() => setMbti(mbti === m ? '' : m)} />
+            <Chip key={m} label={formatMbti(m)} selected={mbti === m} onPress={() => setMbti(mbti === m ? '' : m)} />
           ))}
         </View>
 
@@ -147,6 +157,8 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
 
         <Text style={styles.label}>職業</Text>
         <TextInput
+          accessibilityLabel="職業（任意）"
+          editable={!submitting}
           value={occupation}
           onChangeText={setOccupation}
           maxLength={30}

@@ -150,3 +150,7 @@ overrides:
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.27.3"
+  # Express 5.2.1 still permits the vulnerable version; require the patched release.
+  proxy-addr: "2.0.8"
+  # Preserve the Expo-compatible RN version while patching its devtools dependency.
+  shell-quote: "1.11.0"

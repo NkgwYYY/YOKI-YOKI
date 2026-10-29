@@ -4,13 +4,15 @@
  * MISSしても落ち込み演出はなし (優しい世界)。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, } from 'react-native';
+import {FeltPressable as Pressable} from '@/components/ui/FeltPressable';
 import * as Haptics from 'expo-haptics';
 import {
   Song, Chart, Note, PlayResult, Judgment,
   JUDGE_PERFECT_MS, JUDGE_GREAT_MS, JUDGE_GOOD_MS, SCORE_PER,
 } from '@/utils/rhythm/types';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
+import { withinTimingWindow, noteHasExpired } from '@/utils/rhythm/judgment';
 import { RhythmMascot, RhythmMascotHandle } from './RhythmMascot';
 import { border, colors, gameSurface, judgePalette } from '@/constants/theme';
 import { clamp, measuredOr, useMeasuredSize } from '@/utils/rhythm/geometry';
@@ -110,7 +112,7 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
         setNow(t);
       }
       for (const n of notesRef.current) {
-        if (!n.judged && t - n.time > JUDGE_GOOD_MS / 1000) applyJudgment(n, 'miss');
+        if (!n.judged && noteHasExpired(n.time, t, JUDGE_GOOD_MS)) applyJudgment(n, 'miss');
       }
       const allDone = notesRef.current.length > 0 && notesRef.current.every(n => n.judged);
       if (allDone || t >= song.duration - 0.2) { finish(); return; }
@@ -154,13 +156,13 @@ export function RhythmJumpGame({ song, chart, onFinish, onQuit }: Props) {
     for (const n of notesRef.current) {
       if (n.judged) continue;
       const diff = Math.abs(n.time - t) * 1000;
-      if (diff <= JUDGE_GOOD_MS && diff < bestDiff) { best = n; bestDiff = diff; }
+      if (withinTimingWindow(diff, JUDGE_GOOD_MS) && diff < bestDiff) { best = n; bestDiff = diff; }
     }
     if (!best) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); return; } // 空振りノーカウント
-    if (bestDiff <= JUDGE_PERFECT_MS) {
+    if (withinTimingWindow(bestDiff, JUDGE_PERFECT_MS)) {
       applyJudgment(best, 'perfect');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else if (bestDiff <= JUDGE_GREAT_MS) {
+    } else if (withinTimingWindow(bestDiff, JUDGE_GREAT_MS)) {
       applyJudgment(best, 'great');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } else {

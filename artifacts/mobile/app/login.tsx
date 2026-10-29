@@ -1,3 +1,5 @@
+import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
+import { Redirect } from 'expo-router';
 import React, { useState, useCallback, useEffect } from 'react';
 import { Analytics } from '@/utils/analytics';
 import {
@@ -206,6 +208,10 @@ function ForgotPasswordModal({
 }
 
 export default function LoginScreen() {
+  return ACCOUNT_ENABLED ? <AccountLoginScreen /> : <Redirect href="/(tabs)" />;
+}
+
+function AccountLoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { signIn } = useSignIn();

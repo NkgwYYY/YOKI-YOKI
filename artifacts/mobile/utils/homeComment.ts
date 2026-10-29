@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hasAiConsent, postAiJson } from './aiConsent';
 import type { DailyRecord } from '@/contexts/AppContext';
 import {
   buildHomeCommentCacheSource,
@@ -95,7 +96,7 @@ function buildRecordContext(record: DailyRecord | undefined, completed: number, 
   const lines: string[] = [];
   if (record) {
     lines.push(`今日の気分: ${moodLabel(record.mood)}`);
-    lines.push(`睡眠: ${record.sleep}時間`);
+    if (record.sleepRecorded !== false) lines.push(`睡眠: ${record.sleep}時間`);
     if (record.behaviors.length) lines.push(`今日したこと: ${record.behaviors.slice(0, 4).join('、')}`);
     if (record.win?.trim()) lines.push(`今日の小さな成功: ${record.win.trim().slice(0, 80)}`);
   }
@@ -142,7 +143,7 @@ function fallbackComment(
       ? 'きょうもおつかれさま。今夜はのんびりしよ'
       : '今日はゆっくりペースでいこ';
   }
-  if (record && record.sleep < 6) {
+  if (record && record.sleepRecorded !== false && record.sleep < 6) {
     return timeOfDay === 'night'
       ? '眠い日は早めにひと休みしよ'
       : '眠い日は、ひと息つきながらいこ';
@@ -154,6 +155,7 @@ function fallbackComment(
 }
 
 export async function getHomeComment(params: {
+  owner: string;
   date: string;
   mascotName: string;
   record?: DailyRecord;
@@ -169,6 +171,9 @@ export async function getHomeComment(params: {
     if (!Number.isFinite(dayNumber) || dayNumber % 3 !== 0) return '';
   }
 
+  if (!await hasAiConsent(params.owner)) {
+    return fallbackComment(params.record, params.completed, getHomeCommentTimeOfDay());
+  }
   const context = buildRecordContext(params.record, params.completed, params.total);
   const recentChat = preferences.includeRecentChat ? await loadRecentChat() : '';
   const timeOfDay = getHomeCommentTimeOfDay();
@@ -199,19 +204,15 @@ export async function getHomeComment(params: {
 
   let comment = '';
   try {
-    const response = await fetch(`${API_BASE}/home-comment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const response = await postAiJson(params.owner, `${API_BASE}/home-comment`, {
         mascotName: params.mascotName || 'こころん',
         context: context || undefined,
         recentChat: recentChat || undefined,
         timeOfDay,
-      }),
     });
     if (response.ok) {
-      const data = await response.json();
-      if (typeof data.comment === 'string') comment = data.comment.trim().slice(0, 120);
+      const data = response.data;
+      if (typeof data?.comment === 'string') comment = data.comment.trim().slice(0, 120);
     }
   } catch {
     // The local fallback below keeps the character conversational offline.

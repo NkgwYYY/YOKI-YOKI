@@ -1,3 +1,4 @@
+import {FeltDecoration} from './Felt';
 import React from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { border, colors, radius, space, typography, elevation } from '@/constants/theme';
@@ -14,7 +15,7 @@ export function Card({
   style?: StyleProp<ViewStyle>;
   padding?: number;
 }) {
-  return <View style={[styles.card, { padding }, style]}>{children}</View>;
+  return <View style={[styles.card, { padding }, style]}><FeltDecoration radius={radius.lg}/>{children}</View>;
 }
 
 export function CardHeader({

@@ -3,7 +3,7 @@
  *
  * Serves the output of build.js (static-build/) with two special routes:
  * - GET / or /manifest with expo-platform header → platform manifest JSON
- * - GET / without expo-platform → landing page HTML
+ * - GET / without expo-platform → web app HTML when the web build is present
  * Everything else falls through to static file serving from ./static-build/.
  *
  * Zero external dependencies — uses only Node.js built-ins (http, fs, path).
@@ -13,6 +13,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const { browserEntry } = require('./browserEntry.cjs');
 
 // Text-based types worth compressing (images/fonts like woff2 are already compressed)
 const COMPRESSIBLE_EXTS = new Set(['.html', '.js', '.json', '.css', '.svg', '.map', '.ttf', '.otf']);
@@ -142,7 +143,7 @@ function warmCompressedCache(root) {
   }
 }
 
-const STATIC_ROOT = path.resolve(__dirname, '..', 'static-build');
+const STATIC_ROOT = path.resolve(__dirname, '..', process.env.STATIC_BUILD_DIR || 'static-build');
 const TEMPLATE_PATH = path.resolve(__dirname, 'templates', 'landing-page.html');
 const basePath = (process.env.BASE_PATH || '/').replace(/\/+$/, '');
 
@@ -151,9 +152,12 @@ const MIME_TYPES = {
   '.js': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.gif': 'image/gif',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
@@ -162,7 +166,16 @@ const MIME_TYPES = {
   '.ttf': 'font/ttf',
   '.otf': 'font/otf',
   '.map': 'application/json',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.mp4': 'video/mp4',
+  '.wav': 'audio/wav',
 };
+
+function isWithin(root, file) {
+  const relative = path.relative(root, file);
+  return relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
 
 function getAppName() {
   try {
@@ -218,7 +231,7 @@ function serveStaticFile(req, urlPath, res) {
   const safePath = path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, '');
   const filePath = path.join(STATIC_ROOT, safePath);
 
-  if (!filePath.startsWith(STATIC_ROOT)) {
+  if (!isWithin(STATIC_ROOT, filePath)) {
     res.writeHead(403);
     res.end('Forbidden');
     return true;
@@ -245,7 +258,7 @@ function serveWebApp(req, pathname, res) {
   if (pathname !== '/') {
     const filePath = path.join(WEB_ROOT, pathname);
     const normalizedFilePath = path.normalize(filePath);
-    if (!normalizedFilePath.startsWith(WEB_ROOT)) {
+    if (!isWithin(WEB_ROOT, normalizedFilePath)) {
       res.writeHead(403);
       res.end('Forbidden');
       return;
@@ -253,8 +266,10 @@ function serveWebApp(req, pathname, res) {
     if (fs.existsSync(normalizedFilePath) && !fs.statSync(normalizedFilePath).isDirectory()) {
       const ext = path.extname(normalizedFilePath).toLowerCase();
       const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-      // Hashed bundles under _expo/static can be cached forever; everything else must revalidate
-      const cacheControl = pathname.includes('/_expo/static/')
+      // Expo changes the content hash when an image/font changes. Keep those
+      // immutable assets on-device across visits; HTML and named files stay fresh.
+      const hashedAsset = /\/assets\/.*\.[a-f0-9]{32}\.[a-z0-9]+$/i.test(pathname);
+      const cacheControl = pathname.includes('/_expo/static/') || hashedAsset
         ? 'public, max-age=31536000, immutable'
         : 'no-cache';
       sendFile(req, res, normalizedFilePath, contentType, cacheControl);
@@ -262,16 +277,36 @@ function serveWebApp(req, pathname, res) {
     }
   }
 
-  // SPA fallback — all routes serve index.html (never cache it)
+  // Missing assets must not become a successful HTML response. Native image /
+  // bundle loaders cannot distinguish that fallback from a corrupted download.
+  if (path.extname(pathname) || pathname.startsWith('/assets/') || pathname.includes('/_expo/') || /^\/\d+-\d+\//.test(pathname)) {
+    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+    res.end('Not Found');
+    return;
+  }
+
+  // SPA fallback for application routes only (never cache it).
   const indexPath = path.join(WEB_ROOT, 'index.html');
   sendFile(req, res, indexPath, 'text/html; charset=utf-8', 'no-store, no-cache, must-revalidate');
 }
 
 const server = http.createServer((req, res) => {
-  const url = new URL(req.url || '/', `http://${req.headers.host}`);
-  let pathname = url.pathname;
+  let pathname;
+  try {
+    pathname = decodeURIComponent(new URL(req.url || '/', 'http://localhost').pathname);
+    if (/[\\\0]/.test(pathname)) throw new Error('Invalid path');
+  } catch {
+    res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
+    res.end('Bad Request');
+    return;
+  }
 
-  if (basePath && pathname.startsWith(basePath)) {
+  if (basePath) {
+    if (pathname !== basePath && !pathname.startsWith(`${basePath}/`)) {
+      res.writeHead(404);
+      res.end('Not Found');
+      return;
+    }
     pathname = pathname.slice(basePath.length) || '/';
   }
 
@@ -282,6 +317,14 @@ const server = http.createServer((req, res) => {
     if (pathname === '/' || pathname === '/manifest') {
       return serveManifest(platform, res);
     }
+  }
+
+  // The app opens directly on first visits too. Normalize only legacy ?app=1 links.
+  const entry = !basePath && hasWebBuild() ? browserEntry(req, pathname) : null;
+  if (entry) {
+    res.writeHead(302, { location: entry.location, 'cache-control': 'no-store' });
+    res.end();
+    return;
   }
 
   // Google Search Console HTML verification files
@@ -325,6 +368,6 @@ const server = http.createServer((req, res) => {
 
 const port = parseInt(process.env.PORT || '3000', 10);
 server.listen(port, '0.0.0.0', () => {
-  console.log(`Serving static Expo build on port ${port}`);
+  console.log(`Serving static Expo build on port ${server.address().port}`);
   warmCompressedCache(STATIC_ROOT);
 });

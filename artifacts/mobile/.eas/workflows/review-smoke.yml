@@ -1,0 +1,25 @@
+name: iOS review smoke test
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        type: string
+        required: true
+        description: Existing iOS simulator build to test (does not create a build)
+      device:
+        type: string
+        default: iPhone 16 Plus
+        description: Simulator name available on the sdk-54 runner
+jobs:
+  review_smoke:
+    name: Test review journeys and capture native screens
+    type: maestro
+    image: sdk-54
+    environment: production
+    params:
+      build_id: ${{ inputs.build_id }}
+      flow_path: .maestro/review-smoke.yml
+      device_identifier: ${{ inputs.device }}
+      shards: 1
+      retries: 0
+      record_screen: true

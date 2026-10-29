@@ -1,4 +1,5 @@
 import React from 'react';
+import { RamenArt } from '@/components/village/RamenArt';
 import { View, StyleSheet } from 'react-native';
 import { colors, homePalette } from '@/constants/theme';
 import { Icon } from '@/components/ui/Icon';
@@ -178,21 +179,7 @@ export function CakeFoodIcon({ size = 40 }: { size?: number }) {
   );
 }
 
-export function RamenIcon({ size = 40 }: { size?: number }) {
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Bowl */}
-      <View style={{ width: size * 0.7, height: size * 0.35, backgroundColor: colors.danger, borderBottomLeftRadius: size * 0.35, borderBottomRightRadius: size * 0.35, borderWidth: 1.5, borderColor: '#FFF', marginTop: 8 }} />
-      {/* Noodles & Toppings */}
-      <View style={{ position: 'absolute', top: size * 0.3, width: size * 0.6, height: 4, backgroundColor: '#F4D06F', borderRadius: 2 }} />
-      <View style={{ position: 'absolute', top: size * 0.25, left: size * 0.25, width: 12, height: 6, backgroundColor: '#FFFFFF', borderRadius: 3 }} />
-      <View style={{ position: 'absolute', top: size * 0.2, right: size * 0.3, width: 8, height: 8, backgroundColor: '#8B5A2B', borderRadius: 4 }} />
-      {/* Chopsticks */}
-      <View style={{ position: 'absolute', top: size * 0.1, right: size * 0.15, width: 2, height: size * 0.4, backgroundColor: '#D2B48C', transform: [{ rotate: '30deg' }] }} />
-      <View style={{ position: 'absolute', top: size * 0.1, right: size * 0.2, width: 2, height: size * 0.4, backgroundColor: '#D2B48C', transform: [{ rotate: '30deg' }] }} />
-    </View>
-  );
-}
+export function RamenIcon({ size = 40 }: { size?: number }) { return <RamenArt size={size}/>; }
 
 export function SpecialFoodIcon({ size = 40 }: { size?: number }) {
   return (

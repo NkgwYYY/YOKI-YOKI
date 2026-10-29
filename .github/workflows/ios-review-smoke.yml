@@ -1,0 +1,123 @@
+name: iOS review smoke
+on:
+  push:
+    branches: [codex/ios-placement-review-20261029]
+    paths:
+      - .github/workflows/ios-review-smoke.yml
+      - artifacts/mobile/**
+      - pnpm-lock.yaml
+      - docs/qa/ios-review-simulator.json
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-review-${{ github.ref }}
+  # Preserve the first device failure evidence while a follow-up candidate queues.
+  cancel-in-progress: false
+jobs:
+  native_review:
+    # Standard arm64 runner: free for this public repository. No larger runner.
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Install frozen workspace dependencies
+        working-directory: .
+        run: |
+          npm install --global pnpm@10.11.0
+          pnpm install --frozen-lockfile
+      - name: Verify iOS JavaScript bundle before native compilation
+        run: pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/yoki-ios-export" --max-workers 2
+      - name: Generate native project from the reviewed public source
+        run: |
+          pnpm exec expo prebuild --platform ios --no-install
+          cd ios
+          pod install
+      - name: Compile a Release simulator app without Apple credentials
+        run: |
+          mkdir -p review-results
+          xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/yoki-derived" -jobs 2 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build > review-results/xcodebuild.log 2>&1 || { tail -100 review-results/xcodebuild.log; exit 1; }
+          echo "YOKI_LOCAL_SIM_APP=$RUNNER_TEMP/yoki-derived/Build/Products/Release-iphonesimulator/YOKIYOKI.app" >> "$GITHUB_ENV"
+      - name: Prepare the native UI test runner
+        run: |
+          gem install xcodeproj --version 1.27.0 --no-document
+          ruby scripts/create-review-xctest.rb "$RUNNER_TEMP/yoki-review-xctest"
+      - name: Test iPhone review journeys
+        id: iphone
+        continue-on-error: true
+        env:
+          DEVICE_FAMILY: iPhone
+        run: |
+          python3 scripts/prepare-ios-review.py
+          YOKI_TEST_UDID=$(cat review-results/iPhone/device-id.txt)
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test > review-results/iPhone/xctest.log 2>&1 || { tail -100 review-results/iPhone/xctest.log; exit 1; }
+      - name: Preserve iPhone screen and stop simulator
+        if: always() && steps.iphone.outcome != 'skipped'
+        run: |
+          if [ -f review-results/iPhone/device-id.txt ]; then
+            python3 scripts/finish-ios-review.py iPhone
+            if [ -d review-results/iPhone/native.xcresult ]; then
+              xcrun xcresulttool export attachments --path review-results/iPhone/native.xcresult --output-path review-results/iPhone/attachments || true
+              xcrun xcresulttool get test-results summary --path review-results/iPhone/native.xcresult > review-results/iPhone/summary.json || true
+            fi
+            for shot in ./*.png .maestro/*.png; do
+              [ ! -f "$shot" ] || mv "$shot" review-results/iPhone/
+            done
+          fi
+      - name: Test iPad compatibility review journeys
+        if: always() && steps.iphone.outcome != 'skipped'
+        id: ipad
+        continue-on-error: true
+        env:
+          DEVICE_FAMILY: iPad
+        run: |
+          python3 scripts/prepare-ios-review.py
+          YOKI_TEST_UDID=$(cat review-results/iPad/device-id.txt)
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPad/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test > review-results/iPad/xctest.log 2>&1 || { tail -100 review-results/iPad/xctest.log; exit 1; }
+      - name: Preserve iPad screen
+        if: always() && steps.ipad.outcome != 'skipped'
+        run: |
+          if [ -f review-results/iPad/device-id.txt ]; then
+            python3 scripts/finish-ios-review.py iPad
+            if [ -d review-results/iPad/native.xcresult ]; then
+              xcrun xcresulttool export attachments --path review-results/iPad/native.xcresult --output-path review-results/iPad/attachments || true
+              xcrun xcresulttool get test-results summary --path review-results/iPad/native.xcresult > review-results/iPad/summary.json || true
+            fi
+            for shot in ./*.png .maestro/*.png; do
+              [ ! -f "$shot" ] || mv "$shot" review-results/iPad/
+            done
+          fi
+      - name: Upload synthetic test evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ios-review-native
+          retention-days: 7
+          path: |
+            artifacts/mobile/review-results/
+            artifacts/mobile/*.png
+            artifacts/mobile/.maestro/*.png
+            !artifacts/mobile/review-results/**/native.xcresult/**
+            !artifacts/mobile/review-results/**/*.mp4
+            !artifacts/mobile/review-results/**/*.mov
+      - name: Require both native journeys to pass
+        if: always()
+        env:
+          IPHONE_RESULT: ${{ steps.iphone.outcome }}
+          IPAD_RESULT: ${{ steps.ipad.outcome }}
+        run: |
+          printf 'Actual test outcomes: iPhone=%s iPad=%s\n' "$IPHONE_RESULT" "$IPAD_RESULT"
+          test "$IPHONE_RESULT" = success && test "$IPAD_RESULT" = success
+

@@ -1,3 +1,5 @@
+import {PlushLoading} from '@/components/PlushLoading';
+import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -17,8 +19,13 @@ import { ClerkLoaded, ClerkLoading, ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { AuthProvider, GuestAuthProvider, useAuth } from '@/contexts/AuthContext';
+import { RecordPromptProvider } from '@/contexts/RecordPromptContext';
 import { ItemProvider } from '@/contexts/ItemContext';
 import { initAnalytics } from '@/utils/analytics';
+import { SceneTransitionProvider } from '@/components/world/useSceneTransition';
+import { VillageMusicProvider } from '@/contexts/VillageMusicContext';
+import { CommunityProvider } from '@/contexts/CommunityContext';
+import { ConnectedDailyAds } from '@/contexts/DailyAdsContext';
 import { StartupLoadingOverlay } from '@/components/StartupLoadingOverlay';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -35,13 +42,17 @@ const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 function AuthGate() {
   const { isSignedIn, isLoading } = useAuth();
-  const { profile, cloudSynced, isLoading: appLoading } = useApp();
+  const { profile, cloudSynced, storageError, isLoading: appLoading } = useApp();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
     if (isLoading || appLoading) return;
-    if (Platform.OS === 'ios' && segments[0] === 'login') {
+    if (storageError) {
+      if (segments[0] !== '(tabs)') router.replace('/(tabs)');
+      return;
+    }
+    if (!ACCOUNT_ENABLED && segments[0] === 'login') {
       router.replace(profile ? '/(tabs)' : '/onboarding');
       return;
     }
@@ -59,7 +70,7 @@ function AuthGate() {
     } else if (isSignedIn && profile && segments[0] === 'onboarding') {
       router.replace('/(tabs)');
     }
-  }, [isSignedIn, isLoading, appLoading, cloudSynced, profile, router, segments]);
+  }, [isSignedIn, isLoading, appLoading, cloudSynced, storageError, profile, router, segments]);
 
   return null;
 }
@@ -73,8 +84,11 @@ function RootLayoutNav() {
         <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
+        <Stack.Screen name="ai-privacy" options={{ headerShown: false }} />
         <Stack.Screen name="guide" options={{ headerShown: false }} />
-        <Stack.Screen name="shop" options={{ headerShown: false }} />
+        <Stack.Screen name="shop" options={{ headerShown: false, animation: 'none' }} />
+        <Stack.Screen name="bowling" options={{ headerShown: false, animation: 'none' }} />
+        <Stack.Screen name="bank" options={{ headerShown: false, animation: 'none' }} />
         <Stack.Screen name="monthly-report" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </>
@@ -84,12 +98,12 @@ function RootLayoutNav() {
 function AppContent() {
   return (
     <AppProvider>
-      <ItemProvider>
+      <RecordPromptProvider><ItemProvider>
         <GestureHandlerRootView style={styles.root}>
-          <RootLayoutNav />
-          <StartupLoadingOverlay />
+          <SceneTransitionProvider><VillageMusicProvider><CommunityProvider><ConnectedDailyAds><RootLayoutNav />
+          <StartupLoadingOverlay /></ConnectedDailyAds></CommunityProvider></VillageMusicProvider></SceneTransitionProvider>
         </GestureHandlerRootView>
-      </ItemProvider>
+      </ItemProvider></RecordPromptProvider>
     </AppProvider>
   );
 }
@@ -149,7 +163,7 @@ export default function RootLayout() {
           console.error('Root application error:', error, stackTrace);
         }}
       >
-        {Platform.OS === 'ios' ? (
+        {!ACCOUNT_ENABLED ? (
           <AppProviders guestOnly />
         ) : (
           <ClerkProvider
@@ -159,8 +173,7 @@ export default function RootLayout() {
           >
             <ClerkLoading>
               <View style={styles.authLoading}>
-                <ActivityIndicator color="#F0528B" size="large" />
-                <Text style={styles.authLoadingText}>YOKI YOKIを準備しています</Text>
+                <PlushLoading message="読み込み中…"/>
               </View>
             </ClerkLoading>
             <ClerkLoaded>
@@ -180,7 +193,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
-    backgroundColor: '#F7F1FB',
+    backgroundColor: '#211137',
   },
   authLoadingText: {
     color: '#3B2157',

@@ -40,10 +40,10 @@ export const Analytics = {
 
   restEventShown:     ()                            => track('rest_event_shown'),
   restEventScene:     (scene: string)               => track('rest_event_scene',     { scene }),
-  restEventCompleted: (felt_better: boolean)        => track('rest_event_completed', { felt_better }),
+  restEventCompleted: (_felt_better: boolean)       => {},
 
   checklistItemToggled: (completed: boolean)        => track('checklist_toggled',    { completed }),
-  moodRecorded:         (mood: number)              => track('mood_recorded',         { mood }),
+  moodRecorded:         (_mood: number)             => {},
   mascotFed:            (foodId: string, cost: number) => track('mascot_fed',        { food_id: foodId, cost }),
   chatMessageSent:      ()                          => track('chat_message_sent'),
   mascotNamed:          ()                          => track('mascot_named'),

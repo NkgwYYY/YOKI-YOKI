@@ -1,6 +1,6 @@
 /**
  * MascotRoomBg — マスコットカード背景の風景シーン
- * 時間帯・季節・記録日数/連続/レベルで空・自然・要素が変化する
+ * 時間帯・季節・一緒に過ごした日数で空・自然・要素が変化する
  */
 import React from 'react';
 import { View, StyleSheet, useColorScheme } from 'react-native';
@@ -10,8 +10,7 @@ import Svg, {
 } from 'react-native-svg';
 
 interface Props {
-  level: number;
-  streak: number;
+  visitDays: number;
   totalDays: number;
 }
 
@@ -248,7 +247,7 @@ function Flower({ x, y, color }: { x: number; y: number; color: string }) {
 }
 
 /* ── main component ──────────────────────────────────────── */
-export function MascotRoomBg({ level, streak, totalDays }: Props) {
+export function MascotRoomBg({ visitDays, totalDays }: Props) {
   const isDark = useColorScheme() === 'dark';
   const now   = new Date();
   const hour  = now.getHours();
@@ -262,10 +261,10 @@ export function MascotRoomBg({ level, streak, totalDays }: Props) {
   const showTree2   = totalDays >= 14;
   const showCat     = totalDays >= 21;
   const showHouse   = totalDays >= 30;
-  const showBirds   = streak   >= 3;
-  const showRainbow = streak   >= 7;
-  const showButterfly = level  >= 2;
-  const showSparkles  = level  >= 4;
+  const showBirds   = visitDays >=  3;
+  const showRainbow = visitDays >=  7;
+  const showButterfly = visitDays >= 3;
+  const showSparkles  = visitDays >= 10;
 
   const [skyTop, skyMid, skyBot] = SKY[phase];
 
@@ -329,7 +328,7 @@ export function MascotRoomBg({ level, streak, totalDays }: Props) {
           : <Sun x={phase === 'dawn' ? 60 : phase === 'sunset' ? 300 : 310} y={phase === 'day' ? 32 : 55} phase={phase} />
         }
 
-        {/* ── Rainbow (streak≥7, daytime) ── */}
+        {/* ── Rainbow (visitDays≥7, daytime) ── */}
         {showRainbow && phase === 'day' && <Rainbow x={180} y={130} />}
 
         {/* ── Clouds ── */}
@@ -344,7 +343,7 @@ export function MascotRoomBg({ level, streak, totalDays }: Props) {
         {/* ── Particles (petals / leaves / snow) ── */}
         <Particles season={season} phase={phase} />
 
-        {/* ── Birds (streak≥3, daytime) ── */}
+        {/* ── Birds (visitDays≥3, daytime) ── */}
         {showBirds && phase !== 'night' && <Birds x={100} y={80} />}
 
         {/* ── Far hill ── */}
@@ -405,7 +404,7 @@ export function MascotRoomBg({ level, streak, totalDays }: Props) {
         {/* ── Cat (day21) ── */}
         {showCat && <Cat x={160} y={groundY - 6} />}
 
-        {/* ── Butterfly (level≥2) ── */}
+        {/* ── Butterfly (visitDays≥3) ── */}
         {showButterfly && phase !== 'night' && (
           <G transform={`translate(220,${nearHillY - 30})`} opacity={0.8}>
             <Path d="M0,0 Q-12,-14 -20,-6 Q-12,4 0,0 Z" fill="#CE93D8" />
@@ -416,7 +415,7 @@ export function MascotRoomBg({ level, streak, totalDays }: Props) {
           </G>
         )}
 
-        {/* ── Sparkles (level≥4) ── */}
+        {/* ── Sparkles (visitDays≥10) ── */}
         {showSparkles && phase !== 'night' && (
           <G opacity={0.7}>
             {[[60,110],[200,95],[320,130]].map(([sx, sy], i) => (

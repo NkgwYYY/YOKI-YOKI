@@ -1,58 +1,76 @@
+import {PlushLoading} from './PlushLoading';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
 } from 'react-native';
+import {FeltPressable as Pressable} from '@/components/ui/FeltPressable';
 import { colors, homePalette, radius, space, typography } from '@/constants/theme';
 import { preloadStartupImages } from '@/utils/startupAssets';
-
-const MINIMUM_LOADING_TIME_MS = 2200;
 
 export function StartupLoadingOverlay() {
   const opacity = useRef(new Animated.Value(1)).current;
   const attempt = useRef(0);
-  const minimumTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const continueTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visible, setVisible] = useState(true);
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
+  const [canContinue, setCanContinue] = useState(false);
+
+  const continueWithoutImage = useCallback(() => {
+    // A decorative image must never prevent access to local care and records.
+    attempt.current += 1;
+    if (continueTimer.current) clearTimeout(continueTimer.current);
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    continueTimer.current = null;
+    dismissTimer.current = null;
+    opacity.stopAnimation();
+    setVisible(false);
+  }, [opacity]);
 
   const load = useCallback(() => {
     const currentAttempt = ++attempt.current;
-    if (minimumTimer.current) clearTimeout(minimumTimer.current);
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    if (continueTimer.current) clearTimeout(continueTimer.current);
+    dismissTimer.current = null;
+    setReady(false);
     setError(false);
+    setCanContinue(false);
     opacity.setValue(1);
+    continueTimer.current = setTimeout(() => {
+      continueTimer.current = null;
+      if (attempt.current === currentAttempt) setCanContinue(true);
+    }, 2500);
 
-    const minimumWait = new Promise<void>((resolve) => {
-      minimumTimer.current = setTimeout(() => {
-        minimumTimer.current = null;
-        resolve();
-      }, MINIMUM_LOADING_TIME_MS);
-    });
-
-    Promise.all([
-      preloadStartupImages(),
-      minimumWait,
-    ])
+    preloadStartupImages()
       .then(() => {
         if (attempt.current !== currentAttempt) return;
+        if (continueTimer.current) clearTimeout(continueTimer.current);
+        continueTimer.current = null;
+        // Animation completion is cosmetic, not a prerequisite for using HOME.
+        setReady(true);
+        const dismiss = () => {
+          if (attempt.current !== currentAttempt) return;
+          if (dismissTimer.current) clearTimeout(dismissTimer.current);
+          dismissTimer.current = null;
+          setVisible(false);
+        };
+        dismissTimer.current = setTimeout(dismiss, 500);
         Animated.timing(opacity, {
           toValue: 0,
-          duration: 320,
+          duration: 180,
           useNativeDriver: Platform.OS !== 'web',
-        }).start(({ finished }) => {
-          if (finished && attempt.current === currentAttempt) {
-            setVisible(false);
-          }
-        });
+        }).start(dismiss);
       })
       .catch(() => {
         if (attempt.current === currentAttempt) {
-          if (minimumTimer.current) clearTimeout(minimumTimer.current);
-          minimumTimer.current = null;
+          if (continueTimer.current) clearTimeout(continueTimer.current);
+          continueTimer.current = null;
           setError(true);
+          setCanContinue(true);
         }
       });
   }, [opacity]);
@@ -61,8 +79,10 @@ export function StartupLoadingOverlay() {
     load();
     return () => {
       attempt.current += 1;
-      if (minimumTimer.current) clearTimeout(minimumTimer.current);
-      minimumTimer.current = null;
+      if (dismissTimer.current) clearTimeout(dismissTimer.current);
+      if (continueTimer.current) clearTimeout(continueTimer.current);
+      dismissTimer.current = null;
+      continueTimer.current = null;
       opacity.stopAnimation();
     };
   }, [load, opacity]);
@@ -71,10 +91,13 @@ export function StartupLoadingOverlay() {
 
   return (
     <Animated.View
+      pointerEvents={ready ? 'none' : 'auto'}
+      accessibilityElementsHidden={ready}
+      importantForAccessibility={ready ? 'no-hide-descendants' : 'auto'}
       accessibilityLiveRegion="polite"
       style={[styles.overlay, { opacity }]}
     >
-      <Text style={styles.logo}>YOKI YOKI</Text>
+      <PlushLoading message={error?'読み込みを再試行できます':canContinue?'読み込みに時間がかかっています':undefined}/>
       {error ? (
         <>
           <Text style={styles.message}>画像の準備に失敗しました</Text>
@@ -89,9 +112,19 @@ export function StartupLoadingOverlay() {
         </>
       ) : (
         <>
-          <ActivityIndicator size="small" color={homePalette.navActive} />
-          <Text style={styles.message}>Loading...</Text>
+
+          <Text style={styles.message}>{canContinue ? '画像を待たずに始めることもできます' : ''}</Text>
         </>
+      )}
+      {canContinue && !ready && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="画像を待たずにはじめる"
+          onPress={continueWithoutImage}
+          style={styles.retryButton}
+        >
+          <Text style={styles.retryText}>そのままはじめる</Text>
+        </Pressable>
       )}
     </Animated.View>
   );
@@ -105,7 +138,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.md,
-    backgroundColor: homePalette.backgroundTop,
+    backgroundColor: '#211137',
   },
   logo: {
     ...typography.title,
@@ -115,14 +148,14 @@ const styles = StyleSheet.create({
   },
   message: {
     ...typography.caption,
-    color: homePalette.dateText,
+    color: '#C2ACD6',
   },
   retryButton: {
     marginTop: space.sm,
     paddingHorizontal: space.xl,
     paddingVertical: space.sm,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
+    backgroundColor: '#654283',
   },
   retryText: {
     ...typography.label,

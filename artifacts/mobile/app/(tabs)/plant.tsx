@@ -1,478 +1,115 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, ImageBackground } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  type SharedValue,
-  useSharedValue, useAnimatedStyle, withRepeat, withSequence,
-  withTiming, withSpring, withDelay, FadeInUp, FadeOut, Easing,
-} from 'react-native-reanimated';
-import Svg, { Path, Defs, G, LinearGradient as SvgLinearGradient, Stop, Circle, Rect } from 'react-native-svg';
-import { border, colors, control, radius, screenPadding, space, typography, elevation } from '@/constants/theme';
-import { Button } from '@/components/ui/Button';
-import { Icon, iconSize } from '@/components/ui/Icon';
-import { PressScale } from '@/components/ui/PressScale';
-import { CosmicBackground } from '@/components/CosmicBackground';
-import { useApp } from '@/contexts/AppContext';
-import { Mascot } from '@/components/Mascot';
-import { getMascotStage } from '@/utils/mascotUtils';
-import { getChargeGlowStrength } from '@/utils/lightEnergy';
+import React,{useCallback,useEffect,useRef,useState} from 'react';
+import {useRouter} from 'expo-router';
+import {Image,Platform,StyleSheet,Text,View,useWindowDimensions} from 'react-native';
+import {LinearGradient} from 'expo-linear-gradient';
+import Animated,{cancelAnimation,runOnJS,useAnimatedStyle,useSharedValue,withTiming,withRepeat,withSequence,withDelay,Easing} from 'react-native-reanimated';
+import {Gesture,GestureDetector} from 'react-native-gesture-handler';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useApp} from '@/contexts/AppContext';
+import {useRoomActivity} from '@/components/room/useRoomActivity';
+import {VillageResident} from '@/components/village/VillageActors';
+import {WorldPill} from '@/components/world/WorldPill';
+import {useVillageMusic} from '@/contexts/VillageMusicContext';
+import {getMascotStage} from '@/utils/mascotUtils';
+import {fitWorld} from '@/utils/worldGeometry';
+import {BATH_REST,BATH_WATER,BATH_WIDE_WATER,bathDrop} from '@/utils/bathInteraction';
+import {BodyWashArt} from '@/components/world/BodyWashArt';
+import {BathCareHand} from '@/components/world/BathCareHand';
+import {useBodyWash} from '@/components/world/useBodyWash';
+import {useDailyBath} from '@/components/world/useDailyBath';
+import {hygieneValue,cleanlinessValue} from '@/utils/hygiene';
+import {readHousekeeping,roomDirt} from '@/utils/housekeeping';
+import {FeltDecoration} from '@/components/ui/Felt';
+import {getTabBarHeight} from '@/utils/tabLayout';
 
-const easeInOutSine = Easing.inOut(Easing.sin);
-const SCENE_BG = require('@/assets/images/plant/energy-garden-night.png');
-const ENERGY_NEON = '#39FF14';
-const ENERGY_NEON_LIGHT = '#C8FF70';
-const ENERGY_NEON_DEEP = '#00B84A';
-const ENERGY_GLOW = 'rgba(57,255,20,0.34)';
+export default function HomeBathScreen(){
+ const insets=useSafeAreaInsets(),window=useWindowDimensions(),{active,reduceMotion}=useRoomActivity();
+ const {progress,awardHappiness,feedState,mascotName}=useApp(),music=useVillageMusic();
+ const [bathing,setBathing]=useState(false),[holding,setHolding]=useState(false),[message,setMessage]=useState(''),[failed,setFailed]=useState(false),[attempt,setAttempt]=useState(0);
+ const [tool,setTool]=useState<'lift'|'towel'>('towel');
+ const [rinsed,setRinsed]=useState(false),[bathGain,setBathGain]=useState<number|null>(null);
+ const bodyCleanliness=100;
+ const completedToday=false,router=useRouter();
+ const wash=useBodyWash(active,false);
+ const [exiting,setExiting]=useState(false);
+ const exitStarted=useRef(false),returned=useRef(false);
+ const fade=useSharedValue(0),step=useSharedValue(0);
+ const keyboardPoint=useRef({x:.5,y:.49}),accessibleRow=useRef(0);
+ const wide=window.width>window.height,compact=window.height<700&&window.width<=window.height,water=wide?BATH_WIDE_WATER:BATH_WATER;
+ const scale=Math.max(window.width/3,window.height/2);
+ const frame=wide?{width:3*scale,height:2*scale,left:(window.width-3*scale)/2,top:(window.height-2*scale)*.38}:fitWorld(window.width,window.height);
+ const size=wide?Math.min(frame.width*.285,window.height*.29):frame.width*.36;
+ const restPoint={...BATH_REST,y:BATH_REST.y-(compact?36/frame.height:0)};
+ const x=useSharedValue(restPoint.x),y=useSharedValue(restPoint.y),start=useSharedValue(restPoint),lift=useSharedValue(0),wave=useSharedValue(0),soak=useSharedValue(0);
+ const drop=(px:number,py:number)=>{if(exiting||completedToday)return;const next=bathDrop({x:px,y:py},water);if(!next.bathing)next.point.y=restPoint.y;setHolding(false);setBathing(next.bathing);x.value=withTiming(next.point.x,{duration:reduceMotion?0:350});y.value=withTiming(next.point.y,{duration:reduceMotion?0:480});lift.value=withTiming(0,{duration:220});soak.value=withTiming(next.bathing?1:0,{duration:400});if(!next.bathing)setMessage('');};
+ const pickup=()=>{setHolding(true);setBathing(false);};
+ const washing=tool==='towel'&&!bathing&&!rinsed;
+ const washStart=(px:number,py:number)=>wash.start({x:px/size,y:py/size});
+ const washMove=(px:number,py:number)=>wash.move({x:px/size,y:py/size});
+ const gesture=Gesture.Pan().enabled(active&&!wash.saving&&!exiting&&!completedToday).minDistance(1).onBegin(e=>{
+  if(washing){runOnJS(washStart)(e.x,e.y);return;}
+  start.value={x:x.value,y:y.value};cancelAnimation(x);cancelAnimation(y);lift.value=withTiming(1,{duration:140});soak.value=0;runOnJS(pickup)();
+ }).onUpdate(e=>{
+  if(washing){runOnJS(washMove)(e.x,e.y);return;}
+  x.value=Math.max(.14,Math.min(.86,start.value.x+e.translationX/frame.width));y.value=Math.max(.19,Math.min(.78,start.value.y+e.translationY/frame.height));
+ }).onEnd(()=>{if(!washing)runOnJS(drop)(x.value,y.value);}).onFinalize((_e,success)=>{if(washing)runOnJS(wash.finish)();else if(!success)runOnJS(drop)(start.value.x,start.value.y);});
+ const accessibleScrub=()=>{
+  const row=[.28,.49,.72][accessibleRow.current++%3];
+  wash.start({x:.26,y:row});wash.move({x:.74,y:row});wash.finish();
+ };
+ const keyAction=(e:React.KeyboardEvent)=>{
+  if(exiting||completedToday||wash.saving)return;
+  if(!e.key.startsWith('Arrow'))return;
+  e.preventDefault();
+  if(washing){
+   const from=keyboardPoint.current,to={x:Math.max(.24,Math.min(.76,from.x+(e.key==='ArrowLeft'?-.24:e.key==='ArrowRight'?.24:0))),y:Math.max(.28,Math.min(.72,from.y+(e.key==='ArrowUp'?-.22:e.key==='ArrowDown'?.22:0)))};
+   wash.start(from);wash.move(to);wash.finish();keyboardPoint.current=to;
+  }else if(e.key==='ArrowUp')drop(water.x,water.y);else if(e.key==='ArrowDown')drop(restPoint.x,restPoint.y);
+ };
 
-function LightMotes({ chargeGlow, targetGlow }: { chargeGlow: SharedValue<number>; targetGlow: number }) {
-  const count = 3 + Math.round(targetGlow * 5);
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {Array.from({ length: count }).map((_, i) => <Mote key={i} index={i} chargeGlow={chargeGlow} />)}
-    </View>
-  );
+ const body=useAnimatedStyle(()=>({left:x.value*frame.width-size/2,top:y.value*frame.height-size*.70-(compact&&rinsed?32:0),transform:[{translateY:-lift.value*12-step.value*4},{scale:1+lift.value*.06}]}));
+ const blackout=useAnimatedStyle(()=>({opacity:fade.value}));
+ const goHome=useCallback(()=>{returned.current=true;router.replace({pathname:'/(tabs)',params:{place:'home',bathReturn:String(Date.now())}});},[router]);
+ useEffect(()=>()=>{cancelAnimation(fade);cancelAnimation(step);},[fade,step]);
+ useEffect(()=>{if(!holding){cancelAnimation(y);y.value=bathing?water.y:restPoint.y;}},[wide,compact,frame.height]);
+ const crop=useAnimatedStyle(()=>({height:size*(1-soak.value*.29)}));
+ const ripple=useAnimatedStyle(()=>({opacity:soak.value*(.38-wave.value*.25),transform:[{scaleX:1+wave.value*.9},{scaleY:1+wave.value*.35}]}));
+ useEffect(()=>{if(active&&!reduceMotion)wave.value=withRepeat(withSequence(withTiming(1,{duration:2400}),withTiming(0,{duration:0})),-1);return()=>cancelAnimation(wave);},[active,reduceMotion]);
+ useEffect(()=>{
+  if(!active){setHolding(false);lift.value=0;}if(!bathing||!active||exiting||completedToday)return;
+  let alive=true;setFailed(false);setMessage(wash.saved?'あわを流しています…':'お湯に浸かっています…');
+  const timer=setTimeout(()=>void awardHappiness('homeBath').then(r=>{if(alive){setBathGain(r.gained);if(wash.saved){setRinsed(true);drop(restPoint.x,restPoint.y);if(!reduceMotion)step.value=withSequence(withTiming(3,{duration:180}),withTiming(0,{duration:220}),withTiming(2,{duration:160}),withTiming(0,{duration:200}));}else setMessage(r.gained?`あったまったね。幸福 ＋${r.gained}`:'あったまったね。');}}).catch(()=>{if(alive){setFailed(true);setMessage('保存できませんでした');}}),wash.saved?1800:8000);
+  return()=>{alive=false;clearTimeout(timer);};
+ },[active,bathing,attempt,awardHappiness,exiting,completedToday,wash.saved]);
+ return <View testID="home-bath-scene" pointerEvents={exiting?'none':'auto'} style={s.root}>
+  <View style={{position:'absolute',...frame}}>
+   <Image testID="bath-background-art" source={wide?require('@/assets/images/world/plush-bath-wide.webp'):require('@/assets/images/world/plush-bath.webp')} style={[StyleSheet.absoluteFill,{width:'100%',height:'100%'}]}/>
+   {holding&&<View testID="home-bath-drop-zone" pointerEvents="none" style={{position:'absolute',left:frame.width*(water.x-water.rx),top:frame.height*(water.y-water.ry),width:frame.width*water.rx*2,height:frame.height*water.ry*2,borderRadius:150,borderWidth:1,borderColor:'#D4EDF39A',backgroundColor:'#BDE8F31A'}}/>}
+   <Animated.View testID="home-bath-resident" style={[{position:'absolute',width:size,height:size,zIndex:20},body]}>
+    <Animated.View pointerEvents="none" style={[{position:'absolute',top:size*.62,left:-size*.2,width:size*1.4,height:size*.20,borderRadius:100,borderWidth:2,borderColor:'#CCF4F2'},ripple]}/>
+    <GestureDetector gesture={gesture} touchAction="none"><Animated.View testID="home-bath-body" accessible accessibilityRole="adjustable" accessibilityLabel={washing?'タオルでからだをこする':'持ち上げて湯船に入れる'} accessibilityHint={washing?'体全体を指でなぞって洗ってください。矢印キーでもタオルを動かせます。':'たまごをつかんでお湯へ運び、離してください。湯船から外へ運ぶとあがれます。'} accessibilityActions={washing?[{name:'increment',label:'タオルでひとこすり'}]:[{name:'increment',label:'湯船へ運ぶ'},{name:'decrement',label:'床へ運ぶ'}]} onAccessibilityAction={e=>washing?accessibleScrub():drop(e.nativeEvent.actionName==='increment'?water.x:restPoint.x,e.nativeEvent.actionName==='increment'?water.y:restPoint.y)} {...(Platform.OS==='web'?{tabIndex:0,onKeyDown:keyAction}:{})} style={[{width:size,overflow:'hidden'},crop]}>
+     <VillageResident stage={getMascotStage(progress)} size={size} active={active} reduceMotion={reduceMotion} asleep={bathing||!!wash.towel}/>
+     <BodyWashArt size={size} coverage={wash.coverage} cleanliness={bodyCleanliness} saved={rinsed}/>
+    </Animated.View></GestureDetector>
+    <BathCareHand size={size} point={wash.towel} enabled={active&&washing&&!exiting&&!completedToday} reduceMotion={reduceMotion}/>
+    {bathing&&!holding&&<View pointerEvents="none" style={{position:'absolute',top:size*.68,left:size*.08,width:size*.84,height:5,borderRadius:10,backgroundColor:'#A5D8D29A'}}/>}
+   </Animated.View>
+  </View>
+  <LinearGradient pointerEvents="none" colors={['#14101ED9','transparent']} style={s.shade}/>
+  <View style={[s.header,{top:insets.top+22}]}><View><Text style={s.kicker}>HOME / BATH</Text><Text style={s.title}>おうちのおふろ</Text><Text style={[s.hint,{textAlign:'left',marginTop:8}]}>洗って、すすいで、ふわふわに。</Text></View><WorldPill compact label="BGM" icon={music.enabled?'volume-2':'volume-x'} onPress={music.toggle}/></View>
+  <View pointerEvents="box-none" style={[s.caption,{bottom:getTabBarHeight('',insets.bottom)+(compact?12:26)},wide&&window.height<600&&{left:window.width*.70,right:12,gap:5}]}>
+   <View testID="bath-feedback" style={{width:wide?'100%':Math.min(window.width-40,390),padding:compact?10:14,borderRadius:22,backgroundColor:'#FFFDF2',borderWidth:1,borderColor:'#D8CCB2',gap:compact?5:9,alignItems:'center'}}>
+    <FeltDecoration radius={22}/>
+    {(!compact||wash.saved)&&<Text style={{fontSize:11,fontWeight:'700',color:'#526B59'}}>{rinsed?'3 / 3　できあがり':wash.saved?'2 / 3　お湯ですすぐ':'1 / 3　タオルで洗う'}</Text>}
+    <Text testID="home-bath-message" accessibilityLiveRegion="polite" style={{fontSize:rinsed?21:compact?14:16,fontWeight:'700',color:'#293F36',textAlign:'center'}}>{rinsed?'ふわふわになった！':wash.saving?'洗った状態を保存中…':wash.saved?(bathing?'あわを流しています…':'全体を洗えたよ。次はすすごう。'):washing?'からだ全体を、左右になぞってね':holding?'お湯の上で離してね':bathing?message:'タオルを選ぶと洗えるよ'}</Text>
+    {rinsed?<><Text style={{fontSize:12,color:'#526B59',textAlign:'center'}}>{bathGain?`${mascotName||'よっきー'}の幸福 ＋${bathGain}`:'今日の幸福ボーナスは受け取り済み'}</Text><View style={{flexDirection:'row',gap:8}}><WorldPill testID="bath-wash-again" label="もう一度洗う" icon="refresh-cw" onPress={()=>{wash.reset();setRinsed(false);setBathGain(null);setTool('towel');}}/><WorldPill testID="bath-go-home" label="おうちに帰る" icon="home" onPress={goHome}/></View></>:
+     wash.saved?<WorldPill testID="bath-rinse" primary label={bathing?'すすいでいます…':'お湯ですすぐ'} icon="droplet" disabled={bathing||wash.saving} onPress={()=>{setTool('lift');drop(water.x,water.y);}}/>:
+     <><View testID="body-wash-progress" accessibilityRole="progressbar" accessibilityLabel="からだの洗い具合" accessibilityValue={{min:0,max:100,now:wash.percent}} style={{width:'100%',gap:6,flexDirection:compact?'row':'column',alignItems:compact?'center':undefined}}><View style={{flex:compact?1:undefined,height:9,borderRadius:5,backgroundColor:'#DBE5DF',overflow:'hidden'}}><View style={{height:9,width:`${wash.percent}%`,backgroundColor:'#287B67'}}/></View><Text style={{fontSize:12,color:'#274C40',textAlign:'center',fontWeight:'700'}}>洗えたところ {wash.percent}%</Text></View><View style={{flexDirection:'row',gap:8}}><WorldPill testID="bath-tool-towel" primary={tool==='towel'} label="タオル" icon="square" onPress={()=>setTool('towel')} disabled={bathing||holding||wash.saving}/><WorldPill testID="bath-tool-lift" primary={tool==='lift'} label="持ち上げる" icon="move" onPress={()=>setTool('lift')} disabled={wash.saving}/></View></>}
+   </View>
+   {!!wash.error&&<><Text style={s.hint}>{wash.error}</Text><WorldPill testID="body-wash-retry" label="保存をもう一度試す" icon="refresh-cw" onPress={wash.retry}/></>}
+   {failed&&<WorldPill label="保存をもう一度試す" icon="refresh-cw" onPress={()=>setAttempt(n=>n+1)}/>}
+  </View>
+  <Animated.View testID="bath-exit-shade" pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#100D17',zIndex:1000},blackout]}/>
+ </View>;
 }
-
-function Mote({ index, chargeGlow }: { index: number; chargeGlow: SharedValue<number> }) {
-  const p = useSharedValue(0);
-  useEffect(() => {
-    p.value = withDelay(index * 620, withRepeat(withTiming(1, { duration: 3400 + (index * 200), easing: Easing.out(Easing.quad) }), -1, false));
-  }, []);
-  const st = useAnimatedStyle(() => {
-    const t = p.value;
-    return {
-      opacity: (t < 0.08 ? t / 0.08 : 1 - t * 0.85) * (0.28 + chargeGlow.value * 0.62),
-      shadowOpacity: 0.28 + chargeGlow.value * 0.62,
-      shadowRadius: 3 + chargeGlow.value * 4,
-      transform: [
-        { translateX: -(t * 100) + Math.sin(t * Math.PI * 2 + index) * 20 },
-        { translateY: -(t * 200) },
-        { scale: 0.7 + (1 - t) * 0.5 },
-      ],
-    };
-  });
-  const dot = 5 + (index % 2) * 3;
-  return (
-    <Animated.View style={[{ position: 'absolute', bottom: '30%', left: `${20 + (index % 5) * 15}%`, width: dot, height: dot, borderRadius: dot / 2, backgroundColor: ENERGY_NEON_LIGHT, shadowColor: ENERGY_NEON }, st]} />
-  );
-}
-
-function CharacterAura({ genki }: { genki: number }) {
-  const o = useSharedValue(0.5);
-  useEffect(() => {
-    o.value = withRepeat(withSequence(withTiming(1, { duration: 1500, easing: easeInOutSine }), withTiming(0.5, { duration: 1500, easing: easeInOutSine })), -1, false);
-  }, []);
-  const strength = 0.25 + (genki / 100) * 0.75;
-  const st = useAnimatedStyle(() => ({
-    opacity: strength * (0.4 + o.value * 0.4),
-    transform: [{ scale: 0.9 + o.value * 0.15 * strength }],
-  }));
-  return <Animated.View style={[s.aura, st]} pointerEvents="none" />;
-}
-
-function PowerCable({ chargeGlow }: { chargeGlow: SharedValue<number> }) {
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <Defs>
-          <SvgLinearGradient id="cableGrad" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor="#28643A" stopOpacity="0.95" />
-            <Stop offset="1" stopColor="#173B28" stopOpacity="0.95" />
-          </SvgLinearGradient>
-        </Defs>
-        {/* Shadow */}
-        <Path d="M 38 78 C 48 92, 55 92, 65 78" stroke="rgba(0,0,0,0.4)" strokeWidth="4" fill="none" transform="translate(0, 2)" />
-        {/* Base Cable */}
-        <Path d="M 38 78 C 48 92, 55 92, 65 78" stroke="url(#cableGrad)" strokeWidth="2.5" fill="none" />
-
-        {/* Character-side plug and glowing socket */}
-        <G>
-          <Circle cx="38" cy="78" r="3.4" fill="rgba(57,255,20,0.16)" />
-          <Rect x="35.8" y="75.7" width="4.8" height="4.6" rx="1.5" fill="#315E3E" stroke="#9DFF80" strokeWidth="0.55" />
-          <Rect x="39.8" y="76.65" width="2.1" height="2.7" rx="0.65" fill="#D7FFC9" />
-          <Circle cx="37.5" cy="78" r="0.8" fill={ENERGY_NEON} />
-        </G>
-        {/* Tank-side inlet and locking collar */}
-        <G>
-          <Circle cx="65" cy="78" r="4.2" fill="rgba(57,255,20,0.16)" />
-          <Rect x="62.2" y="75.35" width="5.8" height="5.3" rx="1.7" fill="#244D32" stroke="#8DFF70" strokeWidth="0.65" />
-          <Rect x="60.8" y="76.25" width="2.5" height="3.5" rx="0.8" fill="#3F8153" />
-          <Circle cx="65.2" cy="78" r="1.15" fill={ENERGY_NEON} />
-        </G>
-      </Svg>
-      <CableLights chargeGlow={chargeGlow} />
-    </View>
-  );
-}
-
-function CableLights({ chargeGlow }: { chargeGlow: SharedValue<number> }) {
-  // Simple dots moving along an approximation of the curve
-  // M 38 78 C 48 92, 55 92, 65 78
-  return (
-    <>
-      {Array.from({ length: 4 }).map((_, i) => <CableLight key={i} index={i} chargeGlow={chargeGlow} />)}
-    </>
-  );
-}
-
-function CableLight({ index, chargeGlow }: { index: number; chargeGlow: SharedValue<number> }) {
-  const p = useSharedValue(0);
-  useEffect(() => {
-    p.value = withDelay(index * 400, withRepeat(withTiming(1, { duration: 1600, easing: Easing.linear }), -1, false));
-  }, []);
-
-  const st = useAnimatedStyle(() => {
-    const t = p.value;
-    // Bezier curve approximation
-    // P0 = 38, 78
-    // P1 = 48, 92
-    // P2 = 55, 92
-    // P3 = 65, 78
-    const mt = 1 - t;
-    const mt2 = mt * mt;
-    const mt3 = mt2 * mt;
-    const t2 = t * t;
-    const t3 = t2 * t;
-
-    const x = mt3 * 38 + 3 * mt2 * t * 48 + 3 * mt * t2 * 55 + t3 * 65;
-    const y = mt3 * 78 + 3 * mt2 * t * 92 + 3 * mt * t2 * 92 + t3 * 78;
-
-    return {
-      left: `${x}%`,
-      top: `${y}%`,
-      opacity: (t < 0.1 ? t / 0.1 : t > 0.9 ? (1 - t) / 0.1 : 1) * (0.3 + chargeGlow.value * 0.65),
-      shadowOpacity: 0.3 + chargeGlow.value * 0.65,
-      shadowRadius: 3 + chargeGlow.value * 4,
-      transform: [{ translateX: -3 }, { translateY: -3 }],
-    };
-  });
-
-  return (
-    <Animated.View style={[{ position: 'absolute', width: 6, height: 6, borderRadius: 3, backgroundColor: ENERGY_NEON_LIGHT, shadowColor: ENERGY_NEON }, st]} />
-  );
-}
-
-function CrystalTank({ energy, chargeGlow }: { energy: number; chargeGlow: SharedValue<number> }) {
-  const float = useSharedValue(0);
-  const liquid = useSharedValue(0);
-  useEffect(() => {
-    float.value = withRepeat(
-      withSequence(
-        withTiming(-2, { duration: 1900, easing: easeInOutSine }),
-        withTiming(2, { duration: 1900, easing: easeInOutSine }),
-      ), -1, true,
-    );
-    liquid.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 2300, easing: easeInOutSine }),
-        withTiming(0, { duration: 2300, easing: easeInOutSine }),
-      ), -1, true,
-    );
-  }, []);
-
-  const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: float.value }] }));
-  const liquidStyle = useAnimatedStyle(() => ({
-    opacity: 0.46 + chargeGlow.value * 0.34 + liquid.value * 0.1,
-    transform: [{ translateY: liquid.value * -2 }, { scaleX: 1 + liquid.value * 0.015 }],
-  }));
-  const glassGlowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: 0.18 + chargeGlow.value * 0.42,
-    shadowRadius: 7 + chargeGlow.value * 8,
-  }));
-  const baseGlowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: 0.16 + chargeGlow.value * 0.36,
-    shadowRadius: 6 + chargeGlow.value * 7,
-  }));
-  const fillLevel = Math.min(92, 6 + Math.min(energy, 100) * 0.86);
-
-  return (
-    <Animated.View style={[s.tankWrap, floatStyle]} pointerEvents="none">
-      <View style={s.tankStatus}>
-        <Text style={s.tankStatusLabel}>チャージ</Text>
-        <Text style={s.tankValue}>{energy} ENERGY</Text>
-      </View>
-      <Animated.View style={[s.tankGlass, glassGlowStyle]}>
-        <Animated.View style={[s.tankLiquid, liquidStyle, { height: `${fillLevel}%` }]}>
-          <LinearGradient colors={['rgba(200,255,112,0.95)', ENERGY_NEON, ENERGY_NEON_DEEP]} style={StyleSheet.absoluteFill} />
-        </Animated.View>
-        <View style={s.tankSparkle}>
-          <Icon name="star" size={32} color="rgba(255,255,255,0.8)" />
-        </View>
-        <View style={s.tankShine} />
-      </Animated.View>
-      <Animated.View style={[s.tankBase, baseGlowStyle]} />
-    </Animated.View>
-  );
-}
-
-export default function EnergyChargeScreen() {
-  const insets = useSafeAreaInsets();
-  const { lightEnergy, powerPlant, convertStoredEnergy, exchangeEcoPoints, progress } = useApp();
-
-  const [converting, setConverting] = useState(false);
-  const [exchanging, setExchanging] = useState(false);
-  const [convertedMsg, setConvertedMsg] = useState<string | null>(null);
-  const [exchangedMsg, setExchangedMsg] = useState<string | null>(null);
-
-  const convertedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const exTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (convertedTimerRef.current) clearTimeout(convertedTimerRef.current);
-    if (exTimerRef.current) clearTimeout(exTimerRef.current);
-  }, []);
-
-  const genki = lightEnergy.genki;
-  const exchangeableEnergy = Math.floor(lightEnergy.storedEnergy);
-  const chargeGlowTarget = getChargeGlowStrength(exchangeableEnergy);
-  const chargeGlow = useSharedValue(chargeGlowTarget);
-  useEffect(() => {
-    chargeGlow.value = withTiming(chargeGlowTarget, { duration: 900, easing: easeInOutSine });
-  }, [chargeGlowTarget]);
-  const mascotStage = getMascotStage(progress.level);
-
-  const topPad = Platform.OS === 'web' ? space.xl : insets.top;
-  const convertScale = useSharedValue(1);
-  const convertStyle = useAnimatedStyle(() => ({ transform: [{ scale: convertScale.value }] }));
-
-  const handleConvert = async () => {
-    if (converting || exchangeableEnergy <= 0) return;
-    setConverting(true);
-    convertScale.value = withSequence(withSpring(0.94, { damping: 8, stiffness: 400 }), withSpring(1, { damping: 10, stiffness: 200 }));
-    try {
-      const { converted } = await convertStoredEnergy();
-      if (converted > 0) {
-        setConvertedMsg(`${converted} エネルギーを交換しました`);
-        if (convertedTimerRef.current) clearTimeout(convertedTimerRef.current);
-        convertedTimerRef.current = setTimeout(() => setConvertedMsg(null), 3000);
-      }
-    } finally {
-      setConverting(false);
-    }
-  };
-
-  const handleExchange = async () => {
-    if (exchanging || powerPlant.ecoPoints <= 0) return;
-    setExchanging(true);
-    try {
-      const { exchanged } = await exchangeEcoPoints(powerPlant.ecoPoints);
-      if (exchanged > 0) {
-        setExchangedMsg(`YOKIポイントを受け取りました`);
-        if (exTimerRef.current) clearTimeout(exTimerRef.current);
-        exTimerRef.current = setTimeout(() => setExchangedMsg(null), 3600);
-      }
-    } finally {
-      setExchanging(false);
-    }
-  };
-
-  return (
-    <View style={s.flex}>
-      <CosmicBackground />
-      <ScrollView
-        contentContainerStyle={[s.content, { paddingTop: topPad + space.lg, paddingBottom: (Platform.OS === 'web' ? space.xxl : insets.bottom) + control.height + space.xl }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={s.heading}>
-          <View style={s.titleRow}>
-            <View style={s.titleMark}><Icon name="star" size={iconSize.sm} color={ENERGY_NEON_DEEP} /></View>
-            <Text style={s.title}>エネルギーチャージ</Text>
-          </View>
-          <Text style={s.subtitle}>たまったエネルギーをYOKIポイントに交換できます</Text>
-        </View>
-
-        {/* 魔法の庭園シーン */}
-        <View style={s.sceneFrame}>
-          <View style={s.sceneInner}>
-            <ImageBackground
-              source={SCENE_BG}
-              style={StyleSheet.absoluteFill as any}
-              imageStyle={{ width: '100%', height: '100%' }}
-              resizeMode="cover"
-            />
-
-            <LightMotes chargeGlow={chargeGlow} targetGlow={chargeGlowTarget} />
-
-            <View style={s.mascotWrap} pointerEvents="none">
-              <View style={s.mascotStand}>
-                <CharacterAura genki={genki} />
-                <Mascot stage={mascotStage} mood={genki >= 60 ? 'excited' : 'happy'} size={120} idleBehavior="normal" />
-              </View>
-            </View>
-            <PowerCable chargeGlow={chargeGlow} />
-            <CrystalTank energy={exchangeableEnergy} chargeGlow={chargeGlow} />
-          </View>
-        </View>
-
-        <View style={[s.card, s.statsCard]}>
-          <View style={s.statsRow}>
-            <View style={s.statCell}>
-              <Text style={s.statHead}>本日のエネルギー</Text>
-              <Text style={s.statValue}>+{lightEnergy.todayEnergy}</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statHead}>チャージ量</Text>
-              <Text style={s.statValue}>{exchangeableEnergy}</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statHead}>元気度</Text>
-              <Text style={s.statValue}>{genki}%</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statHead}>受け取り可能</Text>
-              <Text style={s.statValue}>{powerPlant.ecoPoints}</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={[s.card, s.actionCard]}>
-          <View style={s.cardHeader}>
-            <Text style={s.cardTitle}>YOKIポイント交換</Text>
-          </View>
-          <Text style={s.hint}>蓄えたエネルギーを交換して、YOKIポイントとして受け取ろう</Text>
-
-          <View style={s.conversionRow}>
-            <View style={s.conversionValue}>
-              <View style={s.conversionIcon}><Icon name="zap" size={iconSize.sm} color={ENERGY_NEON_DEEP} /></View>
-              <View><Text style={s.conversionNumber}>{exchangeableEnergy}</Text><Text style={s.conversionLabel}>ENERGY</Text></View>
-            </View>
-            <Icon name="chevrons-right" size={iconSize.md} color="#E8A2C4" />
-            <View style={s.conversionValue}>
-              <View style={[s.conversionIcon, s.giftIcon]}><Icon name="gift" size={iconSize.sm} color="#F05A91" /></View>
-              <View><Text style={s.conversionNumber}>{exchangeableEnergy}</Text><Text style={s.conversionLabel}>交換待ち</Text></View>
-            </View>
-          </View>
-
-          {convertedMsg && (
-            <Animated.View entering={FadeInUp.springify().damping(10)} exiting={FadeOut} style={s.banner}>
-              <Text style={s.bannerText}>{convertedMsg}</Text>
-            </Animated.View>
-          )}
-
-          <Animated.View style={convertStyle}>
-            <Button
-              label={exchangeableEnergy > 0 ? `${exchangeableEnergy} エネルギーを交換する` : 'チャージがたまったら交換できるよ'}
-              icon="refresh-cw"
-              onPress={handleConvert}
-              disabled={converting || exchangeableEnergy <= 0}
-              loading={converting}
-              fullWidth
-            />
-          </Animated.View>
-        </View>
-
-        <View style={s.rewardSection}>
-          <View style={s.cardHeader}>
-            <Text style={s.cardTitle}>YOKIポイントに受け取る</Text>
-            <View style={s.ecoBadge}>
-              <Icon name="gift" size={iconSize.xs} color={colors.success} />
-              <Text style={s.ecoBadgeText}>{powerPlant.ecoPoints} pt</Text>
-            </View>
-          </View>
-          <Text style={s.hint}>受け取ったYOKIポイントは、ごはんやショップのアイテムに使えます</Text>
-
-          {exchangedMsg && (
-            <Animated.View entering={FadeInUp.springify().damping(10)} exiting={FadeOut} style={s.banner}>
-              <Text style={s.bannerText}>{exchangedMsg}</Text>
-            </Animated.View>
-          )}
-
-          <Button
-            label={powerPlant.ecoPoints > 0 ? `${powerPlant.ecoPoints} YOKIポイントを受け取る` : 'エネルギーを交換すると受け取れるよ'}
-            icon="coffee"
-            variant="secondary"
-            onPress={handleExchange}
-            disabled={exchanging || powerPlant.ecoPoints <= 0}
-            loading={exchanging}
-            fullWidth
-          />
-          <PressScale onPress={() => router.push('/(tabs)')} style={s.feedLinkBtn}>
-            <Text style={s.feedLinkText}>ホームでごはんをあげにいく</Text>
-            <Icon name="arrow-right" size={iconSize.sm} color={colors.primary} />
-          </PressScale>
-        </View>
-      </ScrollView>
-    </View>
-  );
-}
-
-const s = StyleSheet.create({
-  flex: { flex: 1 },
-  content: { paddingHorizontal: screenPadding, gap: space.md },
-  heading: { gap: space.xs, marginBottom: space.xs },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  titleMark: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.7)' },
-  title: { ...typography.display, color: '#331568' },
-  subtitle: { ...typography.caption, color: '#746986' },
-
-  card: {
-    backgroundColor: colors.card,
-    ...border.hairline,
-    borderRadius: radius.lg,
-    padding: space.lg,
-    gap: space.md,
-    ...elevation.raised,
-  },
-
-  statsCard: { paddingVertical: space.md, paddingHorizontal: space.sm, backgroundColor: 'rgba(255,255,255,0.84)' },
-  statsRow: { flexDirection: 'row', alignItems: 'stretch' },
-  statCell: { flex: 1, alignItems: 'center', gap: space.xs },
-  statDivider: { width: border.width, backgroundColor: colors.border },
-  statHead: { ...typography.micro, color: '#746986', textAlign: 'center' },
-  statValue: { ...typography.title, color: '#331568' },
-
-  sceneFrame: {
-    width: '100%',
-    aspectRatio: 0.85,
-    backgroundColor: '#1E1536',
-    borderRadius: radius.xl,
-    padding: space.xs,
-    ...elevation.raised,
-    ...border.hairline,
-  },
-  sceneInner: {
-    flex: 1,
-    borderRadius: radius.xl - space.xs,
-    overflow: 'hidden',
-    backgroundColor: '#0F0920',
-  },
-
-  mascotWrap: { position: 'absolute', left: '5%', bottom: '18%', width: '45%', alignItems: 'center' },
-  mascotStand: { alignItems: 'center', justifyContent: 'flex-end' },
-  aura: { position: 'absolute', bottom: -10, width: 140, height: 40, borderRadius: radius.pill, backgroundColor: ENERGY_GLOW, shadowColor: ENERGY_NEON, shadowOpacity: 0.75, shadowRadius: 18 },
-
-  tankWrap: { position: 'absolute', right: '8%', bottom: '15%', width: '28%', height: '50%', alignItems: 'center', justifyContent: 'flex-end' },
-  tankStatus: { position: 'absolute', top: -24, right: -16, paddingVertical: 5, paddingHorizontal: 10, borderRadius: radius.lg, backgroundColor: 'rgba(16,44,29,0.9)', alignItems: 'center', zIndex: 5, ...border.hairline, borderColor: 'rgba(141,255,112,0.5)' },
-  tankStatusLabel: { ...typography.micro, color: '#F1E9FF' },
-  tankValue: { ...typography.label, color: '#FFF', lineHeight: 22 },
-  tankGlass: { width: '80%', flex: 1, borderRadius: 16, backgroundColor: 'rgba(8,28,18,0.68)', borderWidth: 2, borderColor: 'rgba(141,255,112,0.62)', justifyContent: 'flex-end', alignItems: 'center', overflow: 'hidden', shadowColor: ENERGY_NEON, shadowOpacity: 0.5, shadowRadius: 12 },
-  tankLiquid: { position: 'absolute', left: 0, right: 0, bottom: 0, borderTopLeftRadius: 10, borderTopRightRadius: 10, overflow: 'hidden' },
-  tankSparkle: { position: 'absolute', top: '40%', zIndex: 2 },
-  tankShine: { position: 'absolute', left: 6, top: 10, bottom: 12, width: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' },
-  tankBase: { width: '90%', height: 16, borderRadius: 6, backgroundColor: '#183C29', marginTop: -4, borderWidth: 1, borderColor: '#3A7B50', shadowColor: ENERGY_NEON, shadowOpacity: 0.55, shadowRadius: 12 },
-
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  cardTitle: { ...typography.subhead, color: colors.foreground, flex: 1 },
-  ecoBadge: { flexDirection: 'row', alignItems: 'center', gap: space.xs, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.pill, backgroundColor: colors.successSoft },
-  ecoBadgeText: { ...typography.label, color: colors.success },
-  hint: { ...typography.caption, color: colors.mutedForeground },
-
-  actionCard: { borderColor: 'rgba(224,204,242,0.9)' },
-  conversionRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.sm },
-  conversionValue: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  conversionIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(57,255,20,0.13)' },
-  giftIcon: { backgroundColor: '#FFE8F1' },
-  conversionNumber: { ...typography.title, color: '#331568' },
-  conversionLabel: { ...typography.micro, color: colors.mutedForeground },
-
-  banner: { padding: space.md, borderRadius: radius.md, backgroundColor: colors.primarySoft, ...border.hairline, borderColor: colors.primary, alignItems: 'center' },
-  bannerText: { ...typography.calloutStrong, color: colors.primaryOnSoft, textAlign: 'center' },
-
-  rewardSection: { gap: space.md, marginTop: space.xs },
-  feedLinkBtn: { minHeight: control.minTouch, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
-  feedLinkText: { ...typography.calloutStrong, color: colors.primary },
-});
+const s=StyleSheet.create({root:{flex:1,backgroundColor:'#261C1B',overflow:Platform.OS==='web'?'clip' as 'hidden':'hidden'},shade:{position:'absolute',top:0,left:0,right:0,height:230},header:{position:'absolute',left:24,right:24,flexDirection:'row',justifyContent:'space-between',alignItems:'center'},kicker:{fontSize:9,letterSpacing:3,color:'#C5AA7C',marginBottom:8},title:{fontSize:23,fontWeight:'500',letterSpacing:2,color:'#F6E9D7'},caption:{position:'absolute',left:28,right:28,alignItems:'center',gap:9},ornament:{color:'#E4CAA0',fontSize:20},message:{fontSize:14,lineHeight:23,letterSpacing:.5,textAlign:'center',color:'#FFF0DC',textShadowColor:'#271A14',textShadowRadius:8},hint:{fontSize:11,color:'#DBC7AC',textAlign:'center',textShadowColor:'#271A14',textShadowRadius:8}});
