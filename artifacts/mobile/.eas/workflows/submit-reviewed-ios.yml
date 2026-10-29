@@ -1,0 +1,11 @@
+name: Submit validated iOS build 25
+
+# Manual only. Run after both native review journeys pass.
+# This uploads the existing archive; it does not rebuild or submit App Review.
+jobs:
+  submit_ios:
+    name: Upload build 25 to App Store Connect
+    type: submit
+    params:
+      build_id: 0ca7ff24-6a61-45db-82de-8535e7bd1dba
+      profile: production
