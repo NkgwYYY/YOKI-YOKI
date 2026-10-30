@@ -161,6 +161,46 @@ final class ReviewJourneys: XCTestCase {
         capture("14-persisted-furnished-home")
     }
 
+    private func openStarterFurnishings() {
+        tap(element("world-map-open"))
+        tap(text("部屋の模様替え"))
+        tap(element("atelier-tab-starter"))
+    }
+
+    private func verifyStarterFurnishings() {
+        let before = wallet()
+        openStarterFurnishings()
+        capture("15-starter-furnishings")
+        for id in ["bed", "rug"] {
+            tap(element("atelier-starter-\(id)"))
+            until("Putting away a starter set must finish saving") {
+                let control = self.element("atelier-starter-\(id)")
+                return control.isEnabled && control.label.contains("しまっています")
+            }
+        }
+        tap(app.buttons["閉じる"])
+        XCTAssertFalse(element("room-bed").exists)
+        XCTAssertEqual(wallet(), before)
+        capture("16-starter-bed-rug-hidden")
+        app.terminate()
+        app.launch()
+        visible(element("home-daily-record"), timeout: 60)
+        XCTAssertFalse(element("room-bed").exists)
+        openStarterFurnishings()
+        for id in ["bed", "rug"] {
+            XCTAssertTrue(element("atelier-starter-\(id)").label.contains("しまっています"))
+            tap(element("atelier-starter-\(id)"))
+            until("Restoring a starter set must finish saving") {
+                let control = self.element("atelier-starter-\(id)")
+                return control.isEnabled && control.label.contains("置いています")
+            }
+        }
+        tap(app.buttons["閉じる"])
+        visible(element("room-bed"))
+        XCTAssertEqual(wallet(), before)
+        capture("17-starter-furnishings-restored")
+    }
+
     func testFreshGuestReviewJourneys() {
         // The workflow creates a fresh simulator, never a user's installation.
         app.launch()
@@ -344,6 +384,7 @@ final class ReviewJourneys: XCTestCase {
         visible(element("home-daily-record"))
 
         verifyFurnishingPurchaseAndPersistence()
+        verifyStarterFurnishings()
 
         app.terminate()
         app.launch()

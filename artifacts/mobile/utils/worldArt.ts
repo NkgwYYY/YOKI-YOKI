@@ -29,9 +29,16 @@ const EMPTY_HOME_ART={
  eye:{day:require('@/assets/images/world/nook-eye-day-empty.webp'),night:require('@/assets/images/world/nook-eye-night-empty.webp')},
  eyeWide:{day:require('@/assets/images/world/nook-eye-wide-day-empty.webp'),night:require('@/assets/images/world/nook-eye-wide-night-empty.webp')},
 };
+const NO_LOUNGE_HOME_ART={
+ overview:{day:require('@/assets/images/world/nook-overview-day-no-lounge.webp'),night:require('@/assets/images/world/nook-overview-night-no-lounge.webp')},
+ wide:{day:require('@/assets/images/world/nook-wide-day-no-lounge.webp'),night:require('@/assets/images/world/nook-wide-night-no-lounge.webp')},
+ eye:{day:require('@/assets/images/world/nook-eye-day-no-lounge.webp'),night:require('@/assets/images/world/nook-eye-night-no-lounge.webp')},
+ eyeWide:{day:require('@/assets/images/world/nook-eye-wide-day-no-lounge.webp'),night:require('@/assets/images/world/nook-eye-wide-night-no-lounge.webp')},
+};
+const NO_CABINET_EYE_ART={day:require('@/assets/images/world/nook-eye-day-no-cabinet.webp'),night:require('@/assets/images/world/nook-eye-night-no-cabinet.webp')};
 export function starterRoomArt(night=false,wide=false,eye=false){
  const perspective=eye?(wide?'eyeWide':'eye'):(wide?'wide':'overview');
- return {perspective,empty:EMPTY_HOME_ART[perspective][night?'night':'day']} as const;
+ return {perspective,empty:EMPTY_HOME_ART[perspective][night?'night':'day'],noLounge:NO_LOUNGE_HOME_ART[perspective][night?'night':'day'],noCabinet:perspective==='eye'?NO_CABINET_EYE_ART[night?'night':'day']:undefined} as const;
 }
 export const OUTDOOR_ART = {
   grandma: webArt(require('@/assets/images/world/grandmother-garden.webp'), require('@/assets/images/world/grandmother-garden.jpg')),
