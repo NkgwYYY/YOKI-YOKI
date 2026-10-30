@@ -218,7 +218,10 @@ final class ReviewJourneys: XCTestCase {
         visible(text("メールとパスワードを入力してください"))
         tap(element("auth-email"))
         visible(app.keyboards.firstMatch)
-        let missingAccount = "qa-native-\(UUID().uuidString.lowercased())@example.invalid"
+        // .invalid is rejected by Clerk's address validation before lookup.
+        // A reserved example.com address reaches the missing-account check;
+        // a password sign-in attempt neither creates an account nor sends mail.
+        let missingAccount = "qa-native-\(UUID().uuidString.lowercased())@example.com"
         element("auth-email").typeText(missingAccount)
         XCTAssertEqual(element("auth-email").value as? String, missingAccount)
         tap(element("auth-password"))

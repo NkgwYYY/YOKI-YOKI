@@ -1,7 +1,7 @@
 name: iOS review smoke
 on:
   push:
-    branches: [codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030]
+    branches: [codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030, codex/ios-room-prefetch-20261030]
     paths:
       - .github/workflows/ios-review-smoke.yml
       - artifacts/mobile/**
@@ -73,9 +73,10 @@ jobs:
         env:
           DEVICE_FAMILY: iPhone
         run: |
+          set -o pipefail
           python3 scripts/prepare-ios-review.py
           YOKI_TEST_UDID=$(cat review-results/iPhone/device-id.txt)
-          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test > review-results/iPhone/xctest.log 2>&1 || { tail -100 review-results/iPhone/xctest.log; exit 1; }
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test 2>&1 | tee review-results/iPhone/xctest.log
       - name: Preserve iPhone screen and stop simulator
         if: always() && steps.iphone.outcome != 'skipped'
         run: |
@@ -107,9 +108,10 @@ jobs:
         env:
           DEVICE_FAMILY: iPad
         run: |
+          set -o pipefail
           python3 scripts/prepare-ios-review.py
           YOKI_TEST_UDID=$(cat review-results/iPad/device-id.txt)
-          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPad/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test > review-results/iPad/xctest.log 2>&1 || { tail -100 review-results/iPad/xctest.log; exit 1; }
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPad/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test 2>&1 | tee review-results/iPad/xctest.log
       - name: Preserve iPad screen
         if: always() && steps.ipad.outcome != 'skipped'
         run: |
