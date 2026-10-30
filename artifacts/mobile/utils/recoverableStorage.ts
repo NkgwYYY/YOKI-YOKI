@@ -38,6 +38,8 @@ export function createRecoverableStorage(storage: Storage, journalKey: string, a
   };
   const run = <T>(work: () => Promise<T>) => exclusive(async () => { await recover(); return work(); });
   return {
+    // Account replacement must hold this same lock for its complete journal.
+    exclusive: <T>(work: (raw: Storage) => Promise<T>) => run(() => work(storage)),
     getItem: (key: string) => run(() => storage.getItem(key)),
     setItem: (key: string, value: string) => run(() => storage.setItem(key, value)),
     removeItem: (key: string) => run(() => storage.removeItem(key)),

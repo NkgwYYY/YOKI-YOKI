@@ -349,12 +349,14 @@ const defaultCompanionState: CompanionState = { extraEggs: 0 };
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, getToken, user } = useAuth();
+  const { isSignedIn, getToken, user, isLoading: authLoading } = useAuth();
   const bowlingOwner = useRef(user?.id ?? "guest");
   bowlingOwner.current = user?.id ?? "guest";
   const rewardSession = useRef({owner: user?.id ?? 'guest', token: {}});
   if (rewardSession.current.owner !== (user?.id ?? 'guest')) rewardSession.current = {owner: user?.id ?? 'guest', token: {}};
   const rewardSessionToken = rewardSession.current.token;
+  const activeSession = useRef(true);
+  useEffect(()=>{activeSession.current=true;return()=>{activeSession.current=false;rewardSession.current={...rewardSession.current,token:{}};};},[]);
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
   const signedInRef = useRef(isSignedIn);
@@ -402,9 +404,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [roomCustomization, setRoomCustomization] = useState<RoomCustomization>(defaultRoomCustomization);
   const [companionState, setCompanionState] = useState<CompanionState>(defaultCompanionState);
 
+  const mutationReady=useRef(false);
+  mutationReady.current=!authLoading&&!isLoading&&!storageError&&(!isSignedIn||cloudSynced);
+  const assertCurrentMutation=(token:object)=>{
+    if(!activeSession.current||!mutationReady.current||pullingRef.current||rewardSession.current.token!==token||
+      (signedInRef.current&&cloudReadyOwner.current!==bowlingOwner.current))throw Error('データの準備ができていません');
+  };
+
   type Balances = { energy: LightEnergyState; plant: PowerPlantState; feed: FeedState };
   const updateBalances = useCallback(async <T,>(change: (state: Balances) => { state: Balances; result: T }): Promise<T> => {
+    const token=rewardSession.current.token;
+    assertCurrentMutation(token);
     const saved = await AsyncStorage.transaction(values => {
+      assertCurrentMutation(token);
       const parse = (key: string) => values[key] === null ? null : JSON.parse(values[key]!);
       const state: Balances = {
         energy: resolveLightEnergyState(parse(KEYS.LIGHT_ENERGY), getTodayDate()),
@@ -419,6 +431,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ];
       return { entries: entries.filter(([key, value]) => values[key] !== value), result: next };
     });
+    assertCurrentMutation(token);
     lightEnergyRef.current = saved.state.energy; setLightEnergy(saved.state.energy);
     powerPlantRef.current = saved.state.plant; setPowerPlant(saved.state.plant);
     feedStateRef.current = saved.state.feed; setFeedState(saved.state.feed);
@@ -1011,24 +1024,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ── サイズ成長: 1時間ごとに経過時間ぶんを再計算(時間ベース。開いた回数は無関係) ──
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading||authLoading||(isSignedIn&&!cloudSynced)) return;
+    const token=rewardSession.current.token;
     const timer = setInterval(() => {
+      try{assertCurrentMutation(token);}catch{return;}
       setGrowth((prev) => {
         const next = applyGrowth(prev);
         if (next !== prev) {
-          AsyncStorage.setItem(KEYS.GROWTH, JSON.stringify(next)).catch(() => {});
+          AsyncStorage.exclusive(async store=>{assertCurrentMutation(token);await store.setItem(KEYS.GROWTH,JSON.stringify(next));}).catch(()=>{});
         }
         return next;
       });
     }, 3_600_000);
     return () => clearInterval(timer);
-  }, [isLoading]);
+  }, [isLoading,authLoading,isSignedIn,cloudSynced,rewardSessionToken]);
 
   const markGrowthSeen = useCallback(async () => {
+    const token=rewardSession.current.token;
+    try{assertCurrentMutation(token);}catch{return;}
     setGrowth((prev) => {
       if (prev.lastSeenSize === prev.growthSize) return prev;
       const next = { ...prev, lastSeenSize: prev.growthSize };
-      AsyncStorage.setItem(KEYS.GROWTH, JSON.stringify(next)).catch(() => {});
+      AsyncStorage.exclusive(async store=>{assertCurrentMutation(token);await store.setItem(KEYS.GROWTH,JSON.stringify(next));}).catch(()=>{});
       return next;
     });
   }, []);

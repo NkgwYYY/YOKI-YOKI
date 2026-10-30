@@ -46,3 +46,27 @@ test('deleting one account removes its backup and preserves the guest and other 
  await f.cache.switchOwner('alice');assert.equal(f.data.get('diary'),'Alice');
  await f.cache.switchOwner('bob');assert.equal(f.data.has('diary'),false);
 });
+
+test('balance reads cannot observe or modify a half-switched account cache',async()=>{
+ const {createRecoverableStorage}=await import('../utils/recoverableStorage.ts');
+ const f=fixture({profile:'guest',progress:'old'});
+ let release,entered;
+ const paused=new Promise(resolve=>{entered=resolve;});
+ const resume=new Promise(resolve=>{release=resolve;});
+ const raw={...f.storage,setItem:async(k,v)=>{
+   await f.storage.setItem(k,v);
+   if(k==='profile'&&v==='Alice'){entered();await resume;}
+ }};
+ const store=createRecoverableStorage(raw,'balance-journal',keys);
+ const cache=createAccountCache(store,keys);
+ const switching=cache.replace('alice',{profile:'Alice',progress:'new'});
+ await paused;
+ let observed;
+ const reader=store.transaction(values=>{observed={...values};return {entries:[],result:null};});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(observed,undefined,'balance queue waits for complete account replacement');
+ release();await Promise.all([switching,reader]);
+ assert.deepEqual(observed,{profile:'Alice',diary:null,progress:'new'});
+ await cache.switchOwner('guest');
+ assert.equal(f.data.get('profile'),'guest');assert.equal(f.data.get('progress'),'old');
+});
