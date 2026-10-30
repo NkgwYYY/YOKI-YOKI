@@ -1,7 +1,7 @@
 name: iOS review smoke
 on:
   push:
-    branches: [codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030, codex/ios-room-prefetch-20261030]
+    branches: [codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030, codex/ios-room-prefetch-20261030, codex/ios-review-credential-prompt-20261030]
     paths:
       - .github/workflows/ios-review-smoke.yml
       - artifacts/mobile/**
@@ -18,7 +18,7 @@ jobs:
   native_review:
     # Standard arm64 runner: free for this public repository. No larger runner.
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       CI: 'true'
       EXPO_NO_TELEMETRY: '1'

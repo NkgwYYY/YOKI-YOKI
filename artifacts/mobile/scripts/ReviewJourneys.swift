@@ -9,6 +9,12 @@ final class ReviewJourneys: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        addUIInterruptionMonitor(withDescription: "Decline saving synthetic QA credentials") { prompt in
+            guard prompt.staticTexts["Save Password?"].exists,
+                  prompt.buttons["Not Now"].exists else { return false }
+            prompt.buttons["Not Now"].tap()
+            return true
+        }
     }
 
     override func tearDownWithError() throws {
@@ -67,6 +73,16 @@ final class ReviewJourneys: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private func declineSyntheticPasswordSave() {
+        // iOS can present this sheet after leaving the failed sign-in form.
+        // Keep AutoFill enabled in the app; never store the random QA password.
+        let prompt = app.sheets["Save Password?"]
+        if prompt.waitForExistence(timeout: 5) {
+            prompt.buttons["Not Now"].tap()
+            until("The password-save sheet must close") { !prompt.exists }
+        }
     }
 
     private func until(_ message: String, timeout: TimeInterval = 15,
@@ -234,11 +250,13 @@ final class ReviewJourneys: XCTestCase {
                 self.text("メールアドレスまたはパスワードが違います").exists
         }
         tap(element("auth-back"))
+        declineSyntheticPasswordSave()
         tap(element("welcome-register"))
         visible(element("auth-email"))
         visible(text("アカウントを作成"))
         capture("00-native-register")
         tap(element("auth-back"))
+        declineSyntheticPasswordSave()
         tap(element("welcome-guest"))
         visible(element("profile-nickname"), timeout: 60)
         tap(element("profile-nickname"))
