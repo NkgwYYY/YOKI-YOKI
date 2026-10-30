@@ -25,7 +25,7 @@ jobs:
       EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
       # Public client identifier for the same account instance as the web app.
       EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsueW9raS15b2tpLnJlcGxpdC5hcHAk
-      EXPO_PUBLIC_CLERK_PROXY_URL: https://yoki-yoki.replit.app/api/clerk
+      EXPO_PUBLIC_CLERK_PROXY_URL: https://yoki-yoki.replit.app/api/__clerk
     defaults:
       run:
         working-directory: artifacts/mobile
