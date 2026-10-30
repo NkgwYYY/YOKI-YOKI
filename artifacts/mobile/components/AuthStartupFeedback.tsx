@@ -8,6 +8,10 @@ import {Button} from './ui/Button';
 export function AuthStartupGate({children}:{children:React.ReactNode}) {
   const {isLoaded}=useClerkAuth();
   const clerk=useClerk();
+  useEffect(()=>{
+    // State flags only: no account identifiers, request bodies or tokens.
+    console.info('[yoki-auth]', JSON.stringify({authReady:isLoaded,clientReady:clerk.loaded,status:clerk.status}));
+  },[isLoaded,clerk.loaded,clerk.status]);
   // ClerkLoading and ClerkLoaded both render nothing when initialization fails.
   // Keep one exhaustive loading/ready branch, including network failures.
   return isLoaded&&clerk.loaded

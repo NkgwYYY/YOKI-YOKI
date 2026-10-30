@@ -15,7 +15,7 @@ udid = device_file.read_text().strip()
 
 for name, args in (
     ('screenshot', ['xcrun', 'simctl', 'io', udid, 'screenshot', str(evidence / 'final-screen.png')]),
-    ('runtime', ['xcrun', 'simctl', 'spawn', udid, 'log', 'show', '--style', 'compact', '--last', '12m', '--info', '--debug', '--predicate', 'process == "YOKIYOKI" AND (eventMessage CONTAINS[c] "Clerk" OR eventMessage CONTAINS[c] "error" OR eventMessage CONTAINS[c] "exception")']),
+    ('runtime', ['xcrun', 'simctl', 'spawn', udid, 'log', 'show', '--style', 'compact', '--last', '12m', '--info', '--debug', '--predicate', 'process == "YOKIYOKI" AND NOT subsystem BEGINSWITH "com.apple.Accessibility" AND NOT eventMessage CONTAINS[c] "AXXC" AND NOT eventMessage CONTAINS[c] "(no error)" AND (eventMessage CONTAINS[c] "Clerk" OR eventMessage CONTAINS[c] "error" OR eventMessage CONTAINS[c] "exception" OR eventMessage CONTAINS[c] "yoki-auth")']),
     ('shutdown', ['xcrun', 'simctl', 'shutdown', udid]),
 ):
     try:

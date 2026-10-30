@@ -176,6 +176,9 @@ export default function RootLayout() {
             publishableKey={clerkPublishableKey}
             tokenCache={tokenCache}
             proxyUrl={clerkProxyUrl}
+            // All account screens use the Expo JS hooks and the shared proxy.
+            // The separate Swift/Kotlin UI client does not receive proxyUrl.
+            __experimental_disableNativeClientSync
           >
             <AuthStartupGate>
               <AppProviders guestOnly={false} />
