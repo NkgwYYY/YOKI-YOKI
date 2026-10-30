@@ -237,7 +237,7 @@ export default function HomeScreen() {
       {menuRow('message-circle', 'この子とお話しする', chat)}
       {menuRow('coffee', 'ごはんの時間', () => openFeed())}
       {menuRow('heart', 'そっと、なでる', () => { setReaction(n => n + 1); interact('pet'); close(); })}
-      {menuRow('moon', 'ベッドで一緒に休む', () => { restTogether(); close(); })}
+      {menuRow('moon', '一緒にひと休み', () => { restTogether(); close(); })}
       {menuRow('help-circle', hints ? '家具のヒントを隠す' : '家具のヒントを表示', () => { toggleHints(); close(); })}
       {menuRow('home', '部屋の模様替え', () => {setAtelierCategory('furniture');setSheet('atelier');})}
       {menuRow(voice.enabled?'volume-2':'volume-x',`鳴き声：${voice.enabled?'オン':'オフ'}`,voice.toggle)}

@@ -59,7 +59,8 @@ import { VillageWheel } from '@/components/village/VillageWheel';
 import { mapPortals,nearbyPortalIndex,VILLAGERS,type VillagerId,type VillageExperience } from '@/utils/villageLife';
 import {mapGroundPoint} from '@/utils/worldMaps';
 
-import { HOME_ART, homeEyeArt, homeOverviewArt, prepareHomeOverviewArt, prepareHomeEyeArt, OUTDOOR_ART, prepareWorldArt, prepareVillageAtlas, worldArt } from '@/utils/worldArt';
+import {starterIsPlaced} from '@/utils/starterFurnishings';
+import { HOME_ART, starterRoomArt, homeEyeArt, homeOverviewArt, prepareHomeOverviewArt, prepareHomeEyeArt, OUTDOOR_ART, prepareWorldArt, prepareVillageAtlas, worldArt } from '@/utils/worldArt';
 import { WorldPill, worldUI } from './WorldPill';
 import { Icon } from '@/components/ui/Icon';
 import { RamenArt } from '@/components/village/RamenArt';
@@ -381,6 +382,7 @@ export function WorldHome(props: Props) {
   });
   const night = props.period === 'night'||map==='tobacco';
   const source = props.visitScene?VISIT_ART[props.visitScene]:eyeLevel?homeEyeArt(night,bounds.width>bounds.height):map==='home'?homeOverviewArt(night,bounds.width>bounds.height):worldArt(map,night);
+  const starter=map==='home'&&!scenic?{...starterRoomArt(night,bounds.width>bounds.height,eyeLevel),settings:props.customization.starterFurnishings}:undefined;
   const chooseHomeView=(nextView:HomeView)=>{
     if(map!=='home'||scenic||!props.active||!homePreference.ready||props.food||cleanTool||riding||transition.busy||homeMotion.busy||holding.value||touching.value)return;
     setViewOpen(false);
@@ -406,7 +408,7 @@ export function WorldHome(props: Props) {
         [zoom,view.panX,view.panY,camera].forEach(cancelAnimation);
         zoom.value=next.zoom;view.panX.value=nextView==='overview'?0:next.panX;view.panY.value=0;camera.value=next.panY;
         homePreference.select(nextView);
-        return {from:{source,frame:artFrame,room:!eyeLevel,...current},fromResident,toResident,
+        return {from:{source,starter,frame:artFrame,room:!eyeLevel,...current},fromResident,toResident,
           residentOffset:{x:frame.left+width/2+next.panX-width*next.zoom/2,y:frame.top+height/2+next.panY-height*next.zoom/2},residentZoom:next.zoom,
           width:bounds.width,height:bounds.height,closer:toResident.size>fromResident.size};
       },
@@ -434,7 +436,7 @@ export function WorldHome(props: Props) {
   </Pressable>;
   const speaker=VILLAGERS.find(n=>n.id===neighbor);
   return <View style={s.root} testID="room-scene" onLayout={e => setBounds(e.nativeEvent.layout)}>
-    {props.visitScene?<Image testID="scenic-background" source={source} resizeMode="cover" style={{position:'absolute',width:Math.max(bounds.width,bounds.height),height:Math.max(bounds.width,bounds.height),left:(bounds.width-Math.max(bounds.width,bounds.height))/2,top:(bounds.height-Math.max(bounds.width,bounds.height))*.65}} onLoad={()=>setLoadedArt(source)} onError={props.onReturnHome} accessible={false}/>:map==='home'&&<HomeViewBackdrop viewKey={scenic?'scenic':homeView} shot={{source,frame:artFrame,zoom:1,panX:0,panY:0,room:!eyeLevel}} cameraStyle={sceneCameraStyle} motion={homeMotion} onLoad={()=>setLoadedArt(source)}/>}
+    {props.visitScene?<Image testID="scenic-background" source={source} resizeMode="cover" style={{position:'absolute',width:Math.max(bounds.width,bounds.height),height:Math.max(bounds.width,bounds.height),left:(bounds.width-Math.max(bounds.width,bounds.height))/2,top:(bounds.height-Math.max(bounds.width,bounds.height))*.65}} onLoad={()=>setLoadedArt(source)} onError={props.onReturnHome} accessible={false}/>:map==='home'&&<HomeViewBackdrop viewKey={scenic?'scenic':homeView} shot={{source,starter,frame:artFrame,zoom:1,panX:0,panY:0,room:!eyeLevel}} cameraStyle={sceneCameraStyle} motion={homeMotion} onLoad={()=>setLoadedArt(source)}/>}
     {map==='home'&&props.period==='dusk'&&<View testID="home-dusk-light" pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:'#B5646028'}]}/>}
     {width > 0 && <GestureDetector gesture={view.gesture}><View testID="world-viewport" style={StyleSheet.absoluteFill} collapsable={false}><Animated.View testID="world-stage" style={[{position: 'absolute', ...frame}, sceneCameraStyle]}>
       {away&&<View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={source} onLoad={()=>setLoadedArt(source)} resizeMode="stretch" style={s.art} accessible={false} /></View>}
@@ -443,9 +445,9 @@ export function WorldHome(props: Props) {
       <GestureDetector gesture={groundGesture}><View testID="world-ground" accessible={false} style={StyleSheet.absoluteFill}/></GestureDetector>
       <WorldAmbient active={active} reduceMotion={props.reduceMotion} night={night} />
       {map==='home'&&!eyeLevel&&<>{props.background && <View pointerEvents="none" style={{position: 'absolute', left: width * 0.276, top: height * 0.244, width: width * 0.072, height: height * 0.065, borderRadius: 14, opacity: 0.55, overflow: 'hidden'}}><Image source={{uri: props.background}} resizeMode="cover" style={s.art} /></View>}
-      {hotspot('album', '思い出の本棚', .46, bounds.width>bounds.height?.36:.33, props.onAlbum)}
-      {hotspot('bed', 'ベッドでひと休み', bounds.width>bounds.height?.70:.77, bounds.width>bounds.height?.43:.355, props.onRest)}
-      {hotspot('record', '交換日記', bounds.width>bounds.height?.22:.285, bounds.width>bounds.height?.60:.54, props.onRecord)}
+      {starterIsPlaced(props.customization.starterFurnishings,'bookcase')&&hotspot('album', '思い出の本棚', .46, bounds.width>bounds.height?.36:.33, props.onAlbum)}
+      {starterIsPlaced(props.customization.starterFurnishings,'bed')&&hotspot('bed', 'ベッドでひと休み', bounds.width>bounds.height?.70:.77, bounds.width>bounds.height?.43:.355, props.onRest)}
+      {starterIsPlaced(props.customization.starterFurnishings,'lounge')&&hotspot('record', '交換日記', bounds.width>bounds.height?.22:.285, bounds.width>bounds.height?.60:.54, props.onRecord)}
       <HomeFurnishings width={width} height={height} customization={props.customization} decor={props.decor} night={night} safe={{left:Math.max(8,12-frame.left),right:Math.min(width-8,bounds.width-frame.left-12),bottom:Math.min(height*.89,bounds.height-Math.max(12,insets.bottom)-76-frame.top)}}
         editor={{selected:furnishingSelection,enabled:active&&!furnishingSaving&&!furnishingError&&!props.food&&!cleanTool&&!riding,camera:sceneCamera,frame,viewport:bounds,safeTop:insets.top+168,safeBottom:bounds.height-Math.max(12,insets.bottom)-76,
           onSelect:(kind,id)=>{if(furnishingWrite.current||furnishingError)return;pending.current=null;setDestination(null);steering.value={x:0,y:0};portalTravel.value=false;cancelAnimation(footX);cancelAnimation(footY);setFurnishingSelection({kind,id});},

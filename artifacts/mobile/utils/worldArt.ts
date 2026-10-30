@@ -23,6 +23,16 @@ export const HOME_EYE_ART={day:require('@/assets/images/world/nook-eye-day.webp'
 const HOME_EYE_WIDE_ART={day:require('@/assets/images/world/nook-eye-wide-day.webp'),night:require('@/assets/images/world/nook-eye-wide-night.webp')};
 export function homeEyeArt(night=false,wide=false){return (wide?HOME_EYE_WIDE_ART:HOME_EYE_ART)[night?'night':'day'];}
 export function prepareHomeEyeArt(night=false,wide=false):Promise<void>{return prepareImage(homeEyeArt(night,wide));}
+const EMPTY_HOME_ART={
+ overview:{day:require('@/assets/images/world/nook-overview-day-empty.webp'),night:require('@/assets/images/world/nook-overview-night-empty.webp')},
+ wide:{day:require('@/assets/images/world/nook-wide-day-empty.webp'),night:require('@/assets/images/world/nook-wide-night-empty.webp')},
+ eye:{day:require('@/assets/images/world/nook-eye-day-empty.webp'),night:require('@/assets/images/world/nook-eye-night-empty.webp')},
+ eyeWide:{day:require('@/assets/images/world/nook-eye-wide-day-empty.webp'),night:require('@/assets/images/world/nook-eye-wide-night-empty.webp')},
+};
+export function starterRoomArt(night=false,wide=false,eye=false){
+ const perspective=eye?(wide?'eyeWide':'eye'):(wide?'wide':'overview');
+ return {perspective,empty:EMPTY_HOME_ART[perspective][night?'night':'day']} as const;
+}
 export const OUTDOOR_ART = {
   grandma: webArt(require('@/assets/images/world/grandmother-garden.webp'), require('@/assets/images/world/grandmother-garden.jpg')),
   bank: webArt(require('@/assets/images/world/village-bank.webp'), require('@/assets/images/world/village-bank.jpg')),

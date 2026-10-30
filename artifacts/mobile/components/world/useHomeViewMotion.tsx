@@ -1,4 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
+import {StarterRoomArt,type StarterRoomShot} from '@/components/room/StarterRoomArt';
+import {STARTER_FURNISHINGS,starterIsPlaced} from '@/utils/starterFurnishings';
 import {Image, StyleSheet, View, type ImageSourcePropType} from 'react-native';
 import Animated, {cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming, type SharedValue} from 'react-native-reanimated';
 
@@ -8,6 +10,7 @@ export type HomeViewFlight = {progress:SharedValue<number>;from:Anchor;to:Anchor
 export type HomeViewShot = {
   source:ImageSourcePropType;frame:Frame;
   zoom:number;panX:number;panY:number;room?:boolean;
+  starter?:StarterRoomShot;
 };
 type Move = {
   from:HomeViewShot;fromResident:Anchor;toResident:Anchor;
@@ -16,6 +19,7 @@ type Move = {
 const DURATION = 760;
 // Explicit dimensions override Image's intrinsic asset size on react-native-web.
 const artStyle=StyleSheet.create({fill:{position:'absolute',left:0,top:0,width:'100%',height:'100%'}}).fill;
+const fillSource=(shot:HomeViewShot)=>shot.starter&&STARTER_FURNISHINGS.some(item=>!starterIsPlaced(shot.starter!.settings,item.id))?shot.starter.empty:shot.source;
 
 /** Move within HOME without the map-travel curtain or a second resident owner. */
 export function useHomeViewMotion(enabled:boolean, reduceMotion:boolean, onError:()=>void, layoutKey:string) {
@@ -77,14 +81,14 @@ export function HomeViewBackdrop({shot,cameraStyle,motion,onLoad,viewKey}: {
     ]};
   });
   const still=(image:HomeViewShot)=> <>
-    <Image source={image.source} blurRadius={image.room?30:0} resizeMode="cover" style={artStyle} accessible={false}/>
+    <Image source={fillSource(image)} blurRadius={image.room?30:0} resizeMode="cover" style={artStyle} accessible={false}/>
     <Animated.View style={[{position:'absolute',...image.frame}, {transform:[{translateX:image.panX},{translateY:image.panY},{scale:image.zoom}]}]}>
-      <Image source={image.source} resizeMode="stretch" style={artStyle} accessible={false}/>
+      <StarterRoomArt source={image.source} starter={image.starter}/>
     </Animated.View>
   </>;
   return <>
     {/* Full-cover base prevents an exposed edge when the outgoing camera pulls back. */}
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={move?.from.source??shot.source} blurRadius={(move?.from.room??shot.room)?30:0} resizeMode="cover" style={artStyle} accessible={false}/></View>
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}><Image source={fillSource(move?.from??shot)} blurRadius={(move?.from.room??shot.room)?30:0} resizeMode="cover" style={artStyle} accessible={false}/></View>
     {move&&<Animated.View testID="home-camera-outgoing" pointerEvents="none" style={[StyleSheet.absoluteFill,outgoing]}>{still(move.from)}</Animated.View>}
     <HomeViewIncoming key={viewKey} shot={shot} cameraStyle={cameraStyle} move={move} progress={progress} onLoad={onLoad}/>
   </>;
@@ -105,9 +109,10 @@ function HomeViewIncoming({shot,cameraStyle,move,progress,onLoad}: {
     ]};
   });
   return <Animated.View testID="home-camera-background" pointerEvents="none" style={[StyleSheet.absoluteFill,incoming]}>
-      <Image testID="home-camera-fill" source={shot.source} blurRadius={shot.room?30:0} resizeMode="cover" style={artStyle} accessible={false}/>
+      <Image testID="home-camera-fill" source={fillSource(shot)} blurRadius={shot.room?30:0} resizeMode="cover" style={artStyle} accessible={false}/>
       <Animated.View style={[{position:'absolute',...shot.frame},cameraStyle]}>
-        <Image testID="home-camera-art" source={shot.source} onLoad={onLoad} resizeMode="stretch" style={artStyle} accessible={false}/>
+        <StarterRoomArt testID="home-camera-art" source={shot.source} starter={shot.starter} onLoad={onLoad}/>
       </Animated.View>
     </Animated.View>;
 }
+

@@ -1,11 +1,12 @@
 import type { CompanionState, FeedState, RoomCustomization } from '../contexts/AppContext';
 import type { StorageEntry } from './recoverableStorage';
 import {roomItemPosition,readRoomPositions,roomPositionKey,type RoomItemPosition} from './roomPlacement.ts';
+import {isStarterFurnishing,readStarterFurnishings} from './starterFurnishings.ts';
 
 export const ROOM_KEYS = { feed: '@mentore/feed_state_v1', room: '@mentore/room_customization_v1', companions: '@mentore/companions_v1' } as const;
 export const ROOM_PRICES = { furniture: { sofa: 450, vanity: 650, bookshelf: 900 }, flower: { pink: 250, violet: 350, rainbow: 550 } } as const;
 export const COMPANION_PRICE = 1000;
-export type RoomOperation = { kind: 'companion' } | { kind: 'buy' | 'select'; category: 'furniture' | 'flower'; id: string; cost?: number } | {kind:'place';category:'furniture'|'flower';id:string;position:RoomItemPosition};
+export type RoomOperation = {kind:'starter';id:string;placed:boolean} | { kind: 'companion' } | { kind: 'buy' | 'select'; category: 'furniture' | 'flower'; id: string; cost?: number } | {kind:'place';category:'furniture'|'flower';id:string;position:RoomItemPosition};
 
 /** Ownership is the receipt. Recovery and retries never subtract twice. */
 export function prepareRoomOperation(values: Record<string, string | null>, operation: RoomOperation, defaultFeed: FeedState) {
@@ -25,7 +26,11 @@ export function prepareRoomOperation(values: Record<string, string | null>, oper
     entries: [] as StorageEntry[], result: { success, reason, newlyPurchased, feed, room, companions },
   });
   let target: string;
-  if (operation.kind === 'companion') {
+  if(operation.kind==='starter'){
+    if(!isStarterFurnishing(operation.id)||typeof operation.placed!=='boolean')return result(false,'invalid');
+    room={...room,starterFurnishings:{...readStarterFurnishings(room.starterFurnishings),[operation.id]:{placed:operation.placed,updatedAt:Date.now()}}};
+    target=ROOM_KEYS.room;
+  } else if (operation.kind === 'companion') {
     if (companions.extraEggs >= 1) return result(true);
     if (feed.points < COMPANION_PRICE) return result(false, 'not_enough');
     feed = { ...feed, points: feed.points - COMPANION_PRICE };

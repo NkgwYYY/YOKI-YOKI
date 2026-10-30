@@ -11,11 +11,12 @@ import {EGG_COMPANION_COST,useApp,type RoomFurniture,type RoomFlower,type RoomIt
 import {useItems,resolveItemAssetUrl} from '@/contexts/ItemContext';
 import {ROOM_FURNITURE,ROOM_FLOWERS,homewaresGenre} from '@/utils/homewares';
 import {readHousekeeping} from '@/utils/housekeeping';
-export type AtelierCategory='furniture'|'flower'|'decor'|'cleaning';
-const sections=[{id:'furniture',name:'家具'},{id:'flower',name:'花'},{id:'decor',name:'置物'},{id:'cleaning',name:'おもちゃ'}] as const;
+import {STARTER_FURNISHINGS,starterIsPlaced} from '@/utils/starterFurnishings';
+export type AtelierCategory='starter'|'furniture'|'flower'|'decor'|'cleaning';
+const sections=[{id:'starter',name:'初期家具'},{id:'furniture',name:'家具'},{id:'flower',name:'花'},{id:'decor',name:'置物'},{id:'cleaning',name:'おもちゃ'}] as const;
 export function RoomAtelier({onClose,initialCategory='furniture'}:{onClose:()=>void;initialCategory?:AtelierCategory}){
  const router=useRouter();
- const {feedState,roomCustomization:room,selectRoomItem,companionState,buyEggCompanion,cleanRoom}=useApp();
+ const {feedState,roomCustomization:room,selectRoomItem,setStarterFurnishing,companionState,buyEggCompanion,cleanRoom}=useApp();
  const {items,shopState,equipItem,updateItemPlacement}=useItems();
  const [tab,setTab]=useState<AtelierCategory>(initialCategory),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const lock=useRef(false);
@@ -29,6 +30,16 @@ export function RoomAtelier({onClose,initialCategory='furniture'}:{onClose:()=>v
  return <BottomSheet visible onClose={onClose} title="部屋の模様替え" subtitle="持っているものを、お気に入りの場所へ。" contentStyle={{gap:12}}>
    <View style={s.tabs} accessibilityRole="tablist">{sections.map(section=><Pressable key={section.id} testID={`atelier-tab-${section.id}`} accessibilityRole="tab" accessibilityLabel={section.name} accessibilityState={{selected:tab===section.id}} onPress={()=>{setTab(section.id);setMessage('');}} style={[s.tab,tab===section.id&&s.tabOn]}><Text style={[s.tabText,tab===section.id&&s.tabTextOn]}>{section.name}</Text></Pressable>)}</View>
    {!!message&&<Text accessibilityLiveRegion="polite" style={s.message}>{message}</Text>}
+   {tab==='starter'&&<>
+     <Text style={s.help}>最初からある家具も、セットごとにしまえます。いつでも無料で戻せます。</Text>
+     {STARTER_FURNISHINGS.map(item=>{
+       const placed=starterIsPlaced(room.starterFurnishings,item.id);
+       return <Pressable key={item.id} testID={`atelier-starter-${item.id}`} accessibilityRole="switch" accessibilityLabel={`${item.name}、${placed?'置いています。しまう':'しまっています。置く'}`} accessibilityState={{checked:placed,disabled:busy}} disabled={busy} style={[s.row,placed&&s.selected]} onPress={()=>void act(async()=>{await setStarterFurnishing(item.id,!placed);setMessage(`${item.name}を${placed?'しまいました':'置きました'}。`);})}>
+         <View style={{flex:1,gap:4}}><Text style={s.name}>{item.name}</Text><Text style={s.help}>{item.detail}</Text></View>
+         <Text style={s.status}>{placed?'しまう':'置く'}</Text>
+       </Pressable>;
+     })}
+   </>}
    {(tab==='furniture'||tab==='flower')&&<>
      {roomOption(tab,'none','置かない')}
      {(tab==='furniture'?ROOM_FURNITURE:ROOM_FLOWERS).filter(item=>(tab==='furniture'?room.ownedFurniture:room.ownedFlowers).some(id=>id===item.id)).map(item=>roomOption(tab,item.id,item.name))}

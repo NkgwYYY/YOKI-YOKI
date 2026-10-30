@@ -1,6 +1,7 @@
 import {APP_STORAGE_KEYS as KEYS} from '@/utils/appStorageKeys';
 import {accountDataStore} from '@/utils/accountDataStore';
 import {readRoomPositions,mergeRoomPositions} from '@/utils/roomPlacement';
+import {readStarterFurnishings,mergeStarterFurnishings,type StarterFurnishings,type StarterFurnishingId} from '@/utils/starterFurnishings';
 import {retainWorldAccess,mergeWorldAccess,type WorldAccess} from '@/utils/worldProgress';
 import {retireBank} from '@/utils/cozyMigration';
 import {collectionIds,knownKeepsake,prepareCollection,type KeepsakeId} from '@/utils/companionCollection';
@@ -190,6 +191,7 @@ export type RoomFlower = 'none' | 'pink' | 'violet' | 'rainbow';
 export type RoomItemKind = 'furniture' | 'flower';
 
 export interface RoomCustomization {
+  starterFurnishings?:StarterFurnishings;
   positions?:import('@/utils/roomPlacement').RoomItemPositions;
   keepsakes?: KeepsakeId[];
   displayedKeepsake?: KeepsakeId | 'none';
@@ -297,6 +299,7 @@ interface AppContextType {
   /** 交換待ちポイント(旧エコポイント)をYOKIポイントに受け取る(1:1) */
   exchangeEcoPoints: (amount: number) => Promise<{ exchanged: number }>;
   roomCustomization: RoomCustomization;
+  setStarterFurnishing:(id:StarterFurnishingId,placed:boolean)=>Promise<void>;
   /** 家具や花を選択する(購入済みアイテムのみ) */
   selectKeepsake: (id: KeepsakeId | 'none') => Promise<void>;
   selectRoomItem: (kind: RoomItemKind, id: RoomFurniture | RoomFlower) => Promise<boolean>;
@@ -743,6 +746,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const local=(localData[KEYS.ROOM_CUSTOMIZATION]??{}) as RoomCustomization;
       merged[KEYS.ROOM_CUSTOMIZATION]={...local,...cloud,
         positions:mergeRoomPositions(cloud.positions,local.positions),
+        starterFurnishings:mergeStarterFurnishings(cloud.starterFurnishings,local.starterFurnishings),
         ownedFurniture:[...new Set([...(local.ownedFurniture??[]),...(cloud.ownedFurniture??[])])],
         ownedFlowers:[...new Set([...(local.ownedFlowers??[]),...(cloud.ownedFlowers??[])])],
         keepsakes:collectionIds([...(local.keepsakes??[]),...(cloud.keepsakes??[])])};
@@ -906,6 +910,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // A single saved sofa/rose may be a legitimate purchase. Without a
         // versioned receipt we cannot infer starter ownership and remove it.
         const resolved: RoomCustomization = {
+          starterFurnishings:readStarterFurnishings(parsed.starterFurnishings),
           positions:readRoomPositions(parsed.positions),
           keepsakes: collectionIds(parsed.keepsakes),
           displayedKeepsake: parsed.displayedKeepsake==='none'||knownKeepsake(parsed.displayedKeepsake)?parsed.displayedKeepsake:undefined,
@@ -1184,7 +1189,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [pushDataToCloud]);
 
   const runRoomOperation = useCallback(async (operation: RoomOperation) => {
-    const saved = await AsyncStorage.transaction(values => prepareRoomOperation(values, operation, defaultFeedState));
+    if(isLoading||storageError||(isSignedIn&&(!cloudSynced||!user))||pullingRef.current)throw Error('データの準備ができていません');
+    const token=rewardSession.current.token;
+    const saved = await AsyncStorage.transaction(values => {
+      if(rewardSession.current.token!==token)throw Error('Account changed');
+      return prepareRoomOperation(values, operation, defaultFeedState);
+    });
+    if(rewardSession.current.token!==token)throw Error('Account changed');
     // Publish recovered snapshots even when the retry finds an existing receipt.
     feedStateRef.current = saved.feed;
     setFeedState(saved.feed);
@@ -1195,7 +1206,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       void pushDataToCloud().catch(() => {});
     }
     return saved;
-  }, [pushDataToCloud]);
+  }, [isLoading,storageError,isSignedIn,cloudSynced,user?.id,pushDataToCloud]);
+
+  const setStarterFurnishing=useCallback(async(id:StarterFurnishingId,placed:boolean)=>{
+    const saved=await runRoomOperation({kind:'starter',id,placed});
+    if(!saved.success)throw Error('家具の設定を保存できませんでした');
+  },[runRoomOperation]);
 
   const syncCollection = useCallback(async (selection?:KeepsakeId|'none') => {
     if(isLoading||storageError||(isSignedIn&&(!cloudSynced||!user))||pullingRef.current){
@@ -1513,6 +1529,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         buildTownItem,
         exchangeEcoPoints,
         roomCustomization,
+        setStarterFurnishing,
         selectKeepsake,
         selectRoomItem,
         placeRoomItem,
