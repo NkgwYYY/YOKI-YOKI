@@ -1,6 +1,7 @@
-import { Image, Platform } from 'react-native';
+import { Image, Platform, type ImageSourcePropType } from 'react-native';
 import { Asset } from 'expo-asset';
 import type { WorldMapId } from './worldMaps';
+import {STARTER_FURNISHINGS,starterIsPlaced,type StarterFurnishings} from './starterFurnishings';
 
 // Web uses smaller encodings; native retains its existing JPEG/PNG assets.
 const webArt = (web: number, native: number) => Platform.OS === 'web' ? web : native;
@@ -40,6 +41,16 @@ export function starterRoomArt(night=false,wide=false,eye=false){
  const perspective=eye?(wide?'eyeWide':'eye'):(wide?'wide':'overview');
  return {perspective,empty:EMPTY_HOME_ART[perspective][night?'night':'day'],noLounge:NO_LOUNGE_HOME_ART[perspective][night?'night':'day'],noCabinet:perspective==='eye'?NO_CABINET_EYE_ART[night?'night':'day']:undefined} as const;
 }
+/** Decode the saved room composition before a camera or map transition starts. */
+export async function prepareHomeRoomArt(night=false,wide=false,eye=false,settings?:StarterFurnishings){
+ const art=starterRoomArt(night,wide,eye);
+ const hidden=STARTER_FURNISHINGS.filter(item=>!starterIsPlaced(settings,item.id));
+ const sources=[eye?homeEyeArt(night,wide):homeOverviewArt(night,wide)];
+ if(hidden.length)sources.push(art.empty);
+ if(hidden.some(item=>item.id==='lounge'))sources.push(art.noLounge);
+ if(art.noCabinet&&hidden.some(item=>item.id==='cabinet')&&starterIsPlaced(settings,'bed'))sources.push(art.noCabinet);
+ await Promise.all(sources.map(prepareImage));
+}
 export const OUTDOOR_ART = {
   grandma: webArt(require('@/assets/images/world/grandmother-garden.webp'), require('@/assets/images/world/grandmother-garden.jpg')),
   bank: webArt(require('@/assets/images/world/village-bank.webp'), require('@/assets/images/world/village-bank.jpg')),
@@ -57,6 +68,13 @@ export const OUTDOOR_ART = {
 };
 export function worldArt(map: WorldMapId, night = false) { return map === 'home' ? HOME_ART[night ? 'night' : 'day'] : OUTDOOR_ART[map]; }
 const cached = new Map<string, Promise<void>>();
+const prepared=new Set<string>();
+export function rememberDecodedWorldArt(source:ImageSourcePropType){
+ if(typeof source==='number')prepared.add(Asset.fromModule(source).uri);
+}
+export function isWorldArtPrepared(source:ImageSourcePropType){
+ return typeof source==='number'&&prepared.has(Asset.fromModule(source).uri);
+}
 function prepareImage(source: number): Promise<void> {
   const uri = Asset.fromModule(source).uri;
   let promise = cached.get(uri);
@@ -64,7 +82,7 @@ function prepareImage(source: number): Promise<void> {
     let timer: ReturnType<typeof setTimeout>;
     const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Scene image timed out')), 6000); });
     // Native resolves a boolean; react-native-web resolves void after successful decoding.
-    promise = Promise.race([Promise.resolve().then(() => Image.prefetch(uri)).then(ok => { if (ok === false) throw new Error('Scene image unavailable'); }), timeout])
+    promise = Promise.race([Promise.resolve().then(() => Image.prefetch(uri)).then(ok => { if (ok === false) throw new Error('Scene image unavailable'); prepared.add(uri); }), timeout])
       .finally(() => clearTimeout(timer)).catch(error => { cached.delete(uri); throw error; });
     cached.set(uri, promise);
   }

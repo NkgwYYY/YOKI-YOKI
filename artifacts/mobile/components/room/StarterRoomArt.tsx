@@ -3,6 +3,7 @@ import {Image,StyleSheet,type ImageSourcePropType} from 'react-native';
 import Svg,{Mask,Defs,Image as SvgImage,Path,Rect} from 'react-native-svg';
 import {STARTER_FURNISHINGS,starterIsPlaced,type StarterFurnishings} from '@/utils/starterFurnishings';
 import {STARTER_ROOM_REGIONS,STARTER_ROOM_PROTECTION,type StarterRoomPerspective} from '@/utils/starterRoomRegions';
+import {isWorldArtPrepared,rememberDecodedWorldArt} from '@/utils/worldArt';
 export type StarterRoomShot={empty:ImageSourcePropType;noLounge:ImageSourcePropType;noCabinet?:ImageSourcePropType;perspective:StarterRoomPerspective;settings:StarterFurnishings|undefined};
 const fill=StyleSheet.create({art:{position:'absolute',left:0,top:0,width:'100%',height:'100%'}}).art;
 /** Composite restored artwork only for the starter sets the user has put away. */
@@ -23,11 +24,13 @@ export function StarterRoomArt({source,starter,onLoad,testID}:{source:ImageSourc
     {key:'room',items:hidden.filter(item=>item.id!=='lounge'&&(!restoreBed||item.id!=='cabinet')),image:starter.empty},
   ].filter(group=>group.items.length):[];
   const needed=starter&&loungeHidden?[base,...groups.map(group=>group.image)]:groups.map(group=>group.image);
-  const ready=needed.every(image=>loaded.includes(image));
+  // The outgoing camera layer remounts. Preserve decoded state across layers so
+  // stored furniture cannot flash back into a freshly mounted illustration.
+  const ready=needed.every(image=>loaded.includes(image)||isWorldArtPrepared(image));
   return <>
     <Image testID={testID} source={ready?base:source} style={fill} resizeMode="stretch" accessible={false} onLoad={onLoad}/>
     {!!hidden.length&&starter&&<>
-      {needed.map((image,index)=><Image key={index} source={image} style={[fill,{opacity:0}]} resizeMode="stretch" accessible={false} onLoad={()=>setLoaded(previous=>previous.includes(image)?previous:[...previous,image])}/>)}
+      {needed.map((image,index)=><Image key={index} source={image} style={[fill,{opacity:0}]} resizeMode="stretch" accessible={false} onLoad={()=>{rememberDecodedWorldArt(image);setLoaded(previous=>previous.includes(image)?previous:[...previous,image]);}}/>)}
       {ready&&(allHidden
         ?<Image testID="starter-room-empty" source={starter.empty} style={fill} resizeMode="stretch" accessible={false}/>
         :<Svg testID="starter-room-hidden" width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={fill}>

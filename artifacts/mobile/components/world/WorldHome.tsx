@@ -60,7 +60,7 @@ import { mapPortals,nearbyPortalIndex,VILLAGERS,type VillagerId,type VillageExpe
 import {mapGroundPoint} from '@/utils/worldMaps';
 
 import {starterIsPlaced} from '@/utils/starterFurnishings';
-import { HOME_ART, starterRoomArt, homeEyeArt, homeOverviewArt, prepareHomeOverviewArt, prepareHomeEyeArt, OUTDOOR_ART, prepareWorldArt, prepareVillageAtlas, worldArt } from '@/utils/worldArt';
+import { HOME_ART, starterRoomArt, homeEyeArt, homeOverviewArt, prepareHomeRoomArt, OUTDOOR_ART, prepareWorldArt, prepareVillageAtlas, worldArt } from '@/utils/worldArt';
 import { WorldPill, worldUI } from './WorldPill';
 import { Icon } from '@/components/ui/Icon';
 import { RamenArt } from '@/components/village/RamenArt';
@@ -337,7 +337,9 @@ export function WorldHome(props: Props) {
     if(target===map)return;
     pending.current=null;setDestination(null);steering.value={x:0,y:0};setMapMessage('');
     const place=WORLD_MAPS.find(p=>p.id===target)!;
-    void transition.run(place.name,()=>setMap(target),()=>prepareWorldArt(target,props.period==='night'));
+    void transition.run(place.name,()=>setMap(target),()=>target==='home'
+      ?prepareHomeRoomArt(props.period==='night',bounds.width>bounds.height,homeView==='eye',props.customization.starterFurnishings)
+      :prepareWorldArt(target,props.period==='night'));
   };
   const request=(point:{x:number;y:number},action:VillageAction)=>{
     if(!active||props.food||experience)return;
@@ -390,7 +392,7 @@ export function WorldHome(props: Props) {
     pending.current=null;setDestination(null);portalTravel.value=false;steering.value={x:0,y:0};setMapMessage('');
     void homeMotion.run(
       async()=>{
-        await (nextView==='eye'?prepareHomeEyeArt(night,bounds.width>bounds.height):prepareHomeOverviewArt(night,bounds.width>bounds.height));
+        await prepareHomeRoomArt(night,bounds.width>bounds.height,nextView==='eye',props.customization.starterFurnishings);
         // Save only after the target image is available. A failed save leaves the current view intact.
         await homePreference.persist(nextView);
       },
