@@ -839,30 +839,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loadAll = async () => {
+    const token=rewardSession.current.token;
+    const current=()=>activeSession.current&&rewardSession.current.token===token;
+    const check=()=>{if(!current())throw Error('Account changed');};
     try {
       await accountDataStore.recover();
-      await AsyncStorage.recover();
+      await AsyncStorage.exclusive(async raw=>{
+      check();
+      // Keep the loaded snapshot and its migrations under the account lock.
+      const storage={
+        getItem:async(key:string)=>{check();const value=await raw.getItem(key);check();return value;},
+        setItem:async(key:string,value:string)=>{check();await raw.setItem(key,value);check();},
+      };
       const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr, homeCommentPreferencesStr, bowlingStr] =
         await Promise.all([
-          AsyncStorage.getItem(KEYS.PROGRESS),
-          AsyncStorage.getItem(KEYS.RECORDS),
-          AsyncStorage.getItem(KEYS.CHECKED_STATE),
-          AsyncStorage.getItem(KEYS.CUSTOM_ITEMS),      // legacy
-          AsyncStorage.getItem(KEYS.CHECKLIST_ITEMS),   // new unified
-          AsyncStorage.getItem(KEYS.BADGES),
-          AsyncStorage.getItem(KEYS.MASCOT_NAME),
-          AsyncStorage.getItem(KEYS.FEED_STATE),
-          AsyncStorage.getItem(KEYS.LAST_OPENED),
-          AsyncStorage.getItem(KEYS.MINI_GAME),
-          AsyncStorage.getItem(KEYS.PROFILE),
-          AsyncStorage.getItem(KEYS.GROWTH),
-          AsyncStorage.getItem(KEYS.LIGHT_ENERGY),
-          AsyncStorage.getItem(KEYS.POWER_PLANT),
-          AsyncStorage.getItem(KEYS.ENCOUNTERS),
-          AsyncStorage.getItem(KEYS.ROOM_CUSTOMIZATION),
-          AsyncStorage.getItem(KEYS.COMPANIONS),
-          AsyncStorage.getItem(KEYS.HOME_COMMENT_PREFERENCES),
-          AsyncStorage.getItem(KEYS.BOWLING),
+          storage.getItem(KEYS.PROGRESS),
+          storage.getItem(KEYS.RECORDS),
+          storage.getItem(KEYS.CHECKED_STATE),
+          storage.getItem(KEYS.CUSTOM_ITEMS),      // legacy
+          storage.getItem(KEYS.CHECKLIST_ITEMS),   // new unified
+          storage.getItem(KEYS.BADGES),
+          storage.getItem(KEYS.MASCOT_NAME),
+          storage.getItem(KEYS.FEED_STATE),
+          storage.getItem(KEYS.LAST_OPENED),
+          storage.getItem(KEYS.MINI_GAME),
+          storage.getItem(KEYS.PROFILE),
+          storage.getItem(KEYS.GROWTH),
+          storage.getItem(KEYS.LIGHT_ENERGY),
+          storage.getItem(KEYS.POWER_PLANT),
+          storage.getItem(KEYS.ENCOUNTERS),
+          storage.getItem(KEYS.ROOM_CUSTOMIZATION),
+          storage.getItem(KEYS.COMPANIONS),
+          storage.getItem(KEYS.HOME_COMMENT_PREFERENCES),
+          storage.getItem(KEYS.BOWLING),
         ]);
 
       // ── サイズ成長: 保存値を読み、経過時間ぶんの成長を適用 ──
@@ -875,7 +884,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         const updated = applyGrowth(g);
         setGrowth(updated);
-        await AsyncStorage.setItem(KEYS.GROWTH, JSON.stringify(updated));
+        await storage.setItem(KEYS.GROWTH, JSON.stringify(updated));
       }
 
       // ── 光エネルギー: 保存値を読み、日付が変わっていたら日次値をリセット ──
@@ -888,7 +897,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         );
         lightEnergyRef.current = resolved;
         setLightEnergy(resolved);
-        await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(resolved));
+        await storage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(resolved));
       }
 
       // ── 発電所: 保存値を安全に読み込む ──
@@ -933,7 +942,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ownedFlowers: Array.from(new Set(ownedFlowers)) as RoomFlower[],
         };
         setRoomCustomization(resolved);
-        await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(resolved));
+        await storage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(resolved));
       }
 
       // ── 追加のたまご: 保存値を安全に読み込む ──
@@ -942,11 +951,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try { parsed = companionStr ? JSON.parse(companionStr) : {}; } catch {}
         const resolved: CompanionState = { extraEggs: Math.max(0, Math.min(1, Math.floor(parsed.extraEggs ?? 0))) };
         setCompanionState(resolved);
-        await AsyncStorage.setItem(KEYS.COMPANIONS, JSON.stringify(resolved));
+        await storage.setItem(KEYS.COMPANIONS, JSON.stringify(resolved));
       }
 
       if (lastOpenedStr) setInactivityHours(computeInactivityHours(lastOpenedStr));
-      await AsyncStorage.setItem(KEYS.LAST_OPENED, new Date().toISOString());
+      await storage.setItem(KEYS.LAST_OPENED, new Date().toISOString());
 
       const today = getTodayDate();
 
@@ -958,23 +967,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // First launch with new key: seed defaults + migrate any legacy custom items
         const legacyCustom: ChecklistItemDef[] = legacyCustomStr ? JSON.parse(legacyCustomStr) : [];
         loadedItems = [...DEFAULT_CHECKLIST_ITEMS, ...legacyCustom];
-        await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(loadedItems));
+        await storage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(loadedItems));
       }
 
-      if (progressStr) setProgress(JSON.parse(progressStr));
-      if (recordsStr)  setRecords(JSON.parse(recordsStr));
-      if (badgesStr)   setUnlockedBadges(JSON.parse(badgesStr));
-      if (nameStr)     setMascotNameState(nameStr);
+      setProgress(progressStr?JSON.parse(progressStr):defaultProgress);
+      setRecords(recordsStr?JSON.parse(recordsStr):[]);
+      setUnlockedBadges(badgesStr?JSON.parse(badgesStr):[]);
+      setMascotNameState(nameStr??'');
       if (feedStr) {
         const parsed = JSON.parse(feedStr);
         // Retire old smoking mechanics on iOS without deleting the saved history
         // or applying withdrawal penalties after the feature is removed.
         if (Platform.OS === 'ios' && parsed.happiness?.smoking && !parsed.happiness.smokingRetired) {
           parsed.happiness.smokingRetired = true;
-          await AsyncStorage.setItem(KEYS.FEED_STATE, JSON.stringify(parsed));
+          await storage.setItem(KEYS.FEED_STATE, JSON.stringify(parsed));
         }
         feedStateRef.current = parsed;
         setFeedState(parsed);
+      } else {
+        feedStateRef.current=defaultFeedState;setFeedState(defaultFeedState);
       }
       setBowlingState(readBowlingState(bowlingStr ? JSON.parse(bowlingStr) : null));
       setMiniGameState(resolveMiniGameState(miniGameStr ? JSON.parse(miniGameStr) : null));
@@ -1003,22 +1014,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             ? { ...state, items: [...state.items, ...missingIds.map(id => ({ id, checked: false, xpEarned: false }))] }
             : state;
           setCheckedState(merged);
-          if (missingIds.length > 0) await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(merged));
+          if (missingIds.length > 0) await storage.setItem(KEYS.CHECKED_STATE, JSON.stringify(merged));
         } else {
           const fresh = buildFreshCheckedState(loadedItems);
           setCheckedState(fresh);
-          await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
+          await storage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
         }
       } else {
         const fresh = buildFreshCheckedState(loadedItems);
         setCheckedState(fresh);
-        await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
+        await storage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
       }
       setStorageError(null);
+      });
     } catch {
+      if(!current())return;
       setStorageError('保存データを読み込めませんでした。データを保ったまま、もう一度読み込みます。');
     } finally {
-      setIsLoading(false);
+      if(current())setIsLoading(false);
     }
   };
 
