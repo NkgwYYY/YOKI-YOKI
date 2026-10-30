@@ -183,7 +183,10 @@ final class ReviewJourneys: XCTestCase {
         tap(element("auth-submit"))
         // No account is created and no verification email is sent. Require an
         // actual production auth response instead of accepting a network error.
-        visible(text("このメールアドレスは登録されていません"), timeout: 45)
+        until("Production auth must reject the synthetic missing account", timeout: 45) {
+            self.text("このメールアドレスは登録されていません").exists ||
+                self.text("メールアドレスまたはパスワードが違います").exists
+        }
         tap(element("auth-back"))
         tap(element("welcome-register"))
         visible(element("auth-email"))

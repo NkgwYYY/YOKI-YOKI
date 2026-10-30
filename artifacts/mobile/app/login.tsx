@@ -26,6 +26,7 @@ function clerkErrorMessage(error: unknown): string {
   const map: Record<string, string> = {
     form_identifier_not_found: 'このメールアドレスは登録されていません',
     form_password_incorrect: 'パスワードが違います',
+    form_password_or_identifier_incorrect: 'メールアドレスまたはパスワードが違います',
     form_identifier_exists: 'このメールアドレスはすでに登録されています',
     form_password_pwned: 'このパスワードは流出リストに含まれています。別のパスワードにしてください',
     form_password_length_too_short: 'パスワードが短すぎます（8文字以上にしてください）',
@@ -92,9 +93,9 @@ function ForgotPasswordModal({
     setLoading(true);
     try {
       const { error: createErr } = await signIn.create({ identifier: email.trim().toLowerCase() });
-      if (createErr) { setError(clerkErrorMessage({ errors: [createErr] })); return; }
+      if (createErr) { setError(clerkErrorMessage(createErr)); return; }
       const { error: sendErr } = await signIn.resetPasswordEmailCode.sendCode();
-      if (sendErr) { setError(clerkErrorMessage({ errors: [sendErr] })); return; }
+      if (sendErr) { setError(clerkErrorMessage(sendErr)); return; }
       setStep('code');
     } catch (e) {
       setError(clerkErrorMessage(e));
@@ -110,9 +111,9 @@ function ForgotPasswordModal({
     setLoading(true);
     try {
       const { error: verifyErr } = await signIn.resetPasswordEmailCode.verifyCode({ code: code.trim() });
-      if (verifyErr) { setError(clerkErrorMessage({ errors: [verifyErr] })); return; }
+      if (verifyErr) { setError(clerkErrorMessage(verifyErr)); return; }
       const { error: submitErr } = await signIn.resetPasswordEmailCode.submitPassword({ password: newPassword });
-      if (submitErr) { setError(clerkErrorMessage({ errors: [submitErr] })); return; }
+      if (submitErr) { setError(clerkErrorMessage(submitErr)); return; }
       if (signIn.status === 'complete') {
         await signIn.finalize({
           navigate: async () => {
