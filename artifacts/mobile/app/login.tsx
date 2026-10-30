@@ -6,7 +6,7 @@ import { Analytics } from '@/utils/analytics';
 import {
   View, Text, TextInput, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
-  Modal, Image,
+  Modal, Image, Linking,
 } from 'react-native';
 import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { Button } from '@/components/ui/Button';
@@ -527,6 +527,9 @@ function AccountLoginScreen() {
                 />
 
                 <Text style={styles.hint}>ログインすると、日記・育成・所持アイテムをアカウントに保存します。登録せずに使う場合は端末内に保存されます。</Text>
+                <PressScale accessibilityRole="link" accessibilityLabel="プライバシーポリシー" onPress={()=>{void Linking.openURL('https://yoki-yoki.replit.app/privacy/').catch(()=>setError('ページを開けませんでした。接続を確認してください。'));}}>
+                  <Text style={[styles.hint,{textDecorationLine:'underline',marginTop:8}]}>プライバシーポリシー</Text>
+                </PressScale>
 
                 {tab === 'login' && (
                   <PressScale onPress={() => setShowForgot(true)} style={styles.forgotWrap}>
