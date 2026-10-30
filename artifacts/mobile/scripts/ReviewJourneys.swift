@@ -175,8 +175,15 @@ final class ReviewJourneys: XCTestCase {
         visible(text("メールとパスワードを入力してください"))
         tap(element("auth-email"))
         visible(app.keyboards.firstMatch)
-        element("auth-email").typeText("qa@example.invalid")
-        XCTAssertEqual(element("auth-email").value as? String, "qa@example.invalid")
+        let missingAccount = "qa-native-\(UUID().uuidString.lowercased())@example.invalid"
+        element("auth-email").typeText(missingAccount)
+        XCTAssertEqual(element("auth-email").value as? String, missingAccount)
+        tap(element("auth-password"))
+        element("auth-password").typeText(UUID().uuidString)
+        tap(element("auth-submit"))
+        // No account is created and no verification email is sent. Require an
+        // actual production auth response instead of accepting a network error.
+        visible(text("このメールアドレスは登録されていません"), timeout: 45)
         tap(element("auth-back"))
         tap(element("welcome-register"))
         visible(element("auth-email"))
