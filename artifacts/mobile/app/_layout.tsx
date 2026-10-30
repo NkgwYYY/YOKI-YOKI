@@ -1,4 +1,4 @@
-import '@/utils/authStartupDiagnostics';
+import {instrumentAuthStartup} from '@/utils/authStartupDiagnostics';
 import {needsNativeEntry} from '@/utils/entryRoute';
 import {AuthStartupGate} from '@/components/AuthStartupFeedback';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
@@ -17,7 +17,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { ClerkProvider } from '@clerk/expo';
+import { ClerkProvider,getClerkInstance } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { AuthProvider, GuestAuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -41,6 +41,9 @@ const queryClient = new QueryClient();
 const clerkPublishableKey =
   process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ?? '';
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
+if(process.env.EXPO_PUBLIC_AUTH_DIAGNOSTICS==='1'&&Platform.OS!=='web'&&clerkPublishableKey){
+  instrumentAuthStartup(getClerkInstance({publishableKey:clerkPublishableKey,proxyUrl:clerkProxyUrl,tokenCache}));
+}
 
 function AuthGate() {
   const { isSignedIn, isLoading, entryChoice } = useAuth();

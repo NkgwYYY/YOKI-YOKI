@@ -1,3 +1,4 @@
+import type {getClerkInstance} from '@clerk/expo';
 /** Only enabled in the simulator QA build. Never records account data or tokens. */
 const enabled=process.env.EXPO_PUBLIC_AUTH_DIAGNOSTICS==='1';
 const events:string[]=[];
@@ -23,5 +24,20 @@ if(enabled){
       }
       return response;
     }catch(error){record(`${name}:transport-error`);throw error;}
+  };
+}
+
+export function instrumentAuthStartup(clerk:ReturnType<typeof getClerkInstance>){
+  if(!enabled)return;
+  const original=clerk.load.bind(clerk);
+  clerk.load=async(...args)=>{
+    try{return await original(...args);}
+    catch(error){
+      const detail=error as {name?:unknown;code?:unknown;errors?:{code?:unknown}[]};
+      const codes=[detail?.name,detail?.code,...(detail?.errors??[]).map(item=>item.code)]
+        .filter((value):value is string=>typeof value==='string'&&/^[a-zA-Z_]{1,80}$/.test(value));
+      record(`load:${codes.join(',')||'unknown-error'}`);
+      throw error;
+    }
   };
 }
