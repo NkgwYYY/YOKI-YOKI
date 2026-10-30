@@ -172,7 +172,7 @@ final class ReviewJourneys: XCTestCase {
         visible(element("auth-password"))
         capture("00-native-login")
         tap(element("auth-submit"))
-        visible(text("メールアドレスを入力してください"))
+        visible(text("メールとパスワードを入力してください"))
         tap(element("auth-email"))
         visible(app.keyboards.firstMatch)
         element("auth-email").typeText("qa@example.invalid")
