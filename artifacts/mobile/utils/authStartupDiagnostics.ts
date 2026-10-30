@@ -1,4 +1,4 @@
-import type {getClerkInstance} from '@clerk/expo';
+import type {TokenCache,getClerkInstance} from '@clerk/expo';
 /** Only enabled in the simulator QA build. Never records account data or tokens. */
 const enabled=process.env.EXPO_PUBLIC_AUTH_DIAGNOSTICS==='1';
 const events:string[]=[];
@@ -39,5 +39,18 @@ export function instrumentAuthStartup(clerk:ReturnType<typeof getClerkInstance>)
       record(`load:${codes.join(',')||'unknown-error'}`);
       throw error;
     }
+  };
+}
+
+export function instrumentTokenCache(cache:TokenCache|undefined):TokenCache|undefined{
+  if(!enabled||!cache)return cache;
+  const failure=(operation:string,error:unknown)=>{
+    const code=(error as {code?:unknown})?.code;
+    record(`cache:${operation}:${typeof code==='string'&&/^[a-zA-Z_]{1,80}$/.test(code)?code:'error'}`);
+  };
+  return {
+    async getToken(key){try{const result=await cache.getToken(key);record('cache:read:ok');return result;}catch(error){failure('read',error);throw error;}},
+    async saveToken(key,value){try{await cache.saveToken(key,value);record('cache:write:ok');}catch(error){failure('write',error);throw error;}},
+    async clearToken(key){try{await cache.clearToken?.(key);record('cache:clear:ok');}catch(error){failure('clear',error);throw error;}},
   };
 }

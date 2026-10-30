@@ -1,4 +1,4 @@
-import {instrumentAuthStartup} from '@/utils/authStartupDiagnostics';
+import {instrumentAuthStartup,instrumentTokenCache} from '@/utils/authStartupDiagnostics';
 import {needsNativeEntry} from '@/utils/entryRoute';
 import {AuthStartupGate} from '@/components/AuthStartupFeedback';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
@@ -41,8 +41,9 @@ const queryClient = new QueryClient();
 const clerkPublishableKey =
   process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim() ?? '';
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
+const accountTokenCache=instrumentTokenCache(tokenCache);
 if(process.env.EXPO_PUBLIC_AUTH_DIAGNOSTICS==='1'&&Platform.OS!=='web'&&clerkPublishableKey){
-  instrumentAuthStartup(getClerkInstance({publishableKey:clerkPublishableKey,proxyUrl:clerkProxyUrl,tokenCache}));
+  instrumentAuthStartup(getClerkInstance({publishableKey:clerkPublishableKey,proxyUrl:clerkProxyUrl,tokenCache:accountTokenCache}));
 }
 
 function AuthGate() {
@@ -178,7 +179,7 @@ export default function RootLayout() {
         ) : (
           <ClerkProvider
             publishableKey={clerkPublishableKey}
-            tokenCache={tokenCache}
+            tokenCache={accountTokenCache}
             proxyUrl={clerkProxyUrl}
             // All account screens use the Expo JS hooks and the shared proxy.
             // The separate Swift/Kotlin UI client does not receive proxyUrl.

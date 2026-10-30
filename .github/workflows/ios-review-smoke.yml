@@ -57,8 +57,12 @@ jobs:
       - name: Compile a Release simulator app without Apple credentials
         run: |
           mkdir -p review-results
-          xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/yoki-derived" -jobs 2 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build > review-results/xcodebuild.log 2>&1 || { tail -100 review-results/xcodebuild.log; exit 1; }
+          xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/yoki-derived" -jobs 2 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build > review-results/xcodebuild.log 2>&1 || { tail -100 review-results/xcodebuild.log; exit 1; }
           echo "YOKI_LOCAL_SIM_APP=$RUNNER_TEMP/yoki-derived/Build/Products/Release-iphonesimulator/YOKIYOKI.app" >> "$GITHUB_ENV"
+      - name: Preserve simulator signing diagnostics
+        run: |
+          codesign -dvv "$YOKI_LOCAL_SIM_APP" > review-results/simulator-signature.log 2>&1
+          codesign -d --entitlements :- "$YOKI_LOCAL_SIM_APP" > review-results/simulator-entitlements.plist 2>/dev/null || true
       - name: Prepare the native UI test runner
         run: |
           gem install xcodeproj --version 1.27.0 --no-document
