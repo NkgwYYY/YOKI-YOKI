@@ -84,6 +84,17 @@ jobs:
               [ ! -f "$shot" ] || mv "$shot" review-results/iPhone/
             done
           fi
+      - name: Upload iPhone preview evidence before iPad testing
+        if: always() && steps.iphone.outcome != 'skipped'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ios-review-iphone
+          retention-days: 7
+          path: |
+            artifacts/mobile/review-results/iPhone/attachments/
+            artifacts/mobile/review-results/iPhone/summary.json
+            !artifacts/mobile/review-results/**/*.mp4
+            !artifacts/mobile/review-results/**/*.mov
       - name: Test iPad compatibility review journeys
         if: always() && steps.iphone.outcome != 'skipped'
         id: ipad
