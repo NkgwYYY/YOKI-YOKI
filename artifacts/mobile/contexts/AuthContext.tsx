@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useCallback } from 'react';
+import {ENTRY_CHOICE_KEY,type EntryChoice} from '@/utils/entryRoute';
+import {accountDataStore} from '@/utils/accountDataStore';
+import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { useAuth as useClerkAuth, useUser } from '@clerk/expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -14,6 +16,9 @@ interface AuthContextType {
   isSignedIn: boolean;
   user: AuthUser | null;
   isLoading: boolean;
+  entryChoice: EntryChoice;
+  storageEpoch:number;
+  continueAsGuest:()=>Promise<void>;
   /** Returns a fresh Clerk session token for Authorization: Bearer */
   getToken: () => Promise<string | null>;
   logout: () => Promise<void>;
@@ -26,6 +31,9 @@ const guestOnlyAuth: AuthContextType = {
   isSignedIn: false,
   user: null,
   isLoading: false,
+  entryChoice:"guest",
+  storageEpoch:0,
+  continueAsGuest:async()=>{},
   getToken: async () => null,
   logout: async () => {},
   deleteAccount: async () => {
@@ -34,9 +42,7 @@ const guestOnlyAuth: AuthContextType = {
 };
 
 /**
- * iOS App Store builds run without Clerk entirely. This provider deliberately
- * ignores any session cached by a previously installed build, so an update
- * cannot resume cloud reads or writes behind the guest-only UI.
+ * Unconfigured development builds remain usable locally without an auth service.
  */
 export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={guestOnlyAuth}>{children}</AuthContext.Provider>;
@@ -45,6 +51,25 @@ export function GuestAuthProvider({ children }: { children: React.ReactNode }) {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn, getToken: clerkGetToken, signOut } = useClerkAuth();
   const { user: clerkUser } = useUser();
+  const [entryChoice,setEntryChoice]=useState<EntryChoice>(null);
+  const [entryReady,setEntryReady]=useState(false),[changing,setChanging]=useState(false);
+  const [storageEpoch,setStorageEpoch]=useState(0);
+  useEffect(()=>{
+    let cancelled=false;
+    void AsyncStorage.getItem(ENTRY_CHOICE_KEY).then(saved=>{
+      if(!cancelled)setEntryChoice(isSignedIn?'account':saved==='guest'||saved==='account'?saved:null);
+    }).finally(()=>{if(!cancelled)setEntryReady(true);}).catch(()=>{});
+    return()=>{cancelled=true;};
+  },[]);
+  useEffect(()=>{if(isSignedIn){setEntryChoice('account');void AsyncStorage.setItem(ENTRY_CHOICE_KEY,'account').catch(()=>{});}},[isSignedIn]);
+  const continueAsGuest=useCallback(async()=>{
+    setChanging(true);
+    try{
+      await accountDataStore.switchOwner('guest');
+      await AsyncStorage.setItem(ENTRY_CHOICE_KEY,'guest');
+      setEntryChoice('guest');setStorageEpoch(n=>n+1);
+    }finally{setChanging(false);}
+  },[]);
 
   const getToken = useCallback(async () => {
     try {
@@ -55,11 +80,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clerkGetToken]);
 
   const logout = useCallback(async () => {
+    setChanging(true);
     try {
+      await AsyncStorage.setItem(ENTRY_CHOICE_KEY,'account');
+      setEntryChoice('account');
       await signOut();
-    } catch {
-      // ignore
-    }
+      await accountDataStore.switchOwner('guest');
+      setStorageEpoch(n=>n+1);
+    } finally { setChanging(false); }
   }, [signOut]);
 
   const deleteAccount = useCallback(async () => {
@@ -83,11 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     await clerkUser.delete();
 
-    const localKeys = await AsyncStorage.getAllKeys();
-    const appKeys = localKeys.filter((key) => key.startsWith('@mentore/'));
-    if (appKeys.length > 0) {
-      await AsyncStorage.multiRemove(appKeys);
-    }
+    await accountDataStore.removeOwner(clerkUser.id);
+    await AsyncStorage.setItem(ENTRY_CHOICE_KEY,'account');
+    setEntryChoice('account');setStorageEpoch(n=>n+1);
+
   }, [clerkGetToken, clerkUser]);
 
   const user: AuthUser | null = clerkUser
@@ -102,7 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         isSignedIn: !!isSignedIn,
         user,
-        isLoading: !isLoaded,
+        isLoading: !isLoaded || !entryReady || changing,
+        entryChoice,storageEpoch,continueAsGuest,
         getToken,
         logout,
         deleteAccount,
@@ -118,3 +146,4 @@ export function useAuth(): AuthContextType {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
+

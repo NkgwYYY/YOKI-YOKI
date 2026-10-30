@@ -1,3 +1,2 @@
-import { Platform } from 'react-native';
-/** Unconfigured local installs support local-only care. Configured account builds are unchanged. */
-export const ACCOUNT_ENABLED = Platform.OS !== 'ios' && !!process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
+/** Account builds share the same Clerk instance on web and native. */
+export const ACCOUNT_ENABLED = !!process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();

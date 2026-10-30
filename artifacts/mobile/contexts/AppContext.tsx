@@ -1,3 +1,5 @@
+import {APP_STORAGE_KEYS as KEYS} from '@/utils/appStorageKeys';
+import {accountDataStore} from '@/utils/accountDataStore';
 import {readRoomPositions,mergeRoomPositions} from '@/utils/roomPlacement';
 import {retainWorldAccess,mergeWorldAccess,type WorldAccess} from '@/utils/worldProgress';
 import {retireBank} from '@/utils/cozyMigration';
@@ -203,28 +205,7 @@ export interface CompanionState {
 
 export const EGG_COMPANION_COST = COMPANION_PRICE;
 
-const KEYS = {
-  BOWLING: '@yoki/bowling_v1',
-  PROGRESS: '@mentore/progress_v2',
-  RECORDS: '@mentore/records_v2',
-  CHECKED_STATE: '@mentore/checked_state_v2',
-  CUSTOM_ITEMS: '@mentore/custom_items_v2',       // legacy – used for migration only
-  CHECKLIST_ITEMS: '@mentore/checklist_items_v3', // unified items list (default + custom)
-  BADGES: '@mentore/badges_v2',
-  MASCOT_NAME: '@mentore/mascot_name_v1',
-  FEED_STATE: '@mentore/feed_state_v1',
-  LAST_OPENED: '@mentore/last_opened_v1',
-  MINI_GAME: '@mentore/mini_game_v1',
-  PROFILE: '@mentore/profile_v1',
-  GROWTH: '@mentore/growth_v1',
-  LIGHT_ENERGY: '@mentore/light_energy_v1',
-  POWER_PLANT: '@mentore/power_plant_v1',
-  ENCOUNTERS: '@mentore/encounters_v1',
-  ROOM_CUSTOMIZATION: '@mentore/room_customization_v1',
-  COMPANIONS: '@mentore/companions_v1',
-  SHOP_STATE: '@mentore/shop_state_v2',
-  HOME_COMMENT_PREFERENCES: HOME_COMMENT_PREFERENCES_KEY,
-};
+
 
 /** Compute current satiety based on elapsed time since last feed */
 export function computeCurrentSatiety(feedState: FeedState): number {
@@ -372,9 +353,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   if (rewardSession.current.owner !== (user?.id ?? 'guest')) rewardSession.current = {owner: user?.id ?? 'guest', token: {}};
   const rewardSessionToken = rewardSession.current.token;
   const getTokenRef = useRef(getToken);
-  useEffect(() => { getTokenRef.current = getToken; }, [getToken]);
+  getTokenRef.current = getToken;
   const signedInRef = useRef(isSignedIn);
-  useEffect(() => { signedInRef.current = isSignedIn; }, [isSignedIn]);
+  signedInRef.current = isSignedIn;
 
   const [progress, setProgress] = useState<UserProgress>(defaultProgress);
   const [visitError, setVisitError] = useState<string|null>(null);
@@ -618,6 +599,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Blocks pushes while the initial post-login pull is running, so a quick
   // user action right after sign-in can't overwrite cloud data.
   const pullingRef = useRef(false);
+  const cloudReadyOwner=useRef<string|null>(null);
+  if(cloudReadyOwner.current!==user?.id)cloudReadyOwner.current=null;
 
   // push を直列化するチェーン。並走した push が古いスナップショットで
   // 新しいクラウド状態を上書きしないよう、常に「前の push 完了後に
@@ -625,9 +608,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const pushChainRef = useRef<Promise<void>>(Promise.resolve());
 
   const pushDataToCloud = useCallback(async () => {
-    if (!signedInRef.current || pullingRef.current) return;
+    const owner=bowlingOwner.current;
+    if (!signedInRef.current || pullingRef.current || cloudReadyOwner.current!==owner) return;
     const run = async () => {
-      if (!signedInRef.current || pullingRef.current) return;
+      if (!signedInRef.current || pullingRef.current || cloudReadyOwner.current!==owner || bowlingOwner.current!==owner) return;
       const t = await getTokenRef.current();
       if (!t) return;
       try {
@@ -639,6 +623,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             try { data[k] = JSON.parse(values[i]!); } catch { data[k] = values[i]; }
           }
         });
+        if(!signedInRef.current||bowlingOwner.current!==owner||pullingRef.current)return;
         await fetch(`${API_BASE}/sync`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
@@ -695,14 +680,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!signedInRef.current) return { ok: false, data: {} };
     const t = await getTokenRef.current();
     if (!t) return { ok: false, data: {} };
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
     try {
       const res = await fetch(`${API_BASE}/sync`, {
         headers: { Authorization: `Bearer ${t}` },
+        signal:controller.signal,
       });
       if (!res.ok) return { ok: false, data: {} };
       const { data } = await res.json() as { data: Record<string, unknown> };
+      if(!data||typeof data!=='object'||Array.isArray(data))return {ok:false,data:{}};
       return { ok: true, data };
-    } catch { return { ok: false, data: {} }; }
+    } catch { return { ok: false, data: {} }; } finally{clearTimeout(timeout);}
   }, []);
 
   const mergeGuestWithCloud = useCallback(async (cloudData: Record<string, unknown>) => {
@@ -770,9 +758,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         placements: { ...(cloud.placements ?? {}), ...(local.placements ?? {}) },
       };
     }
-    await Promise.all(Object.entries(merged).map(([k, v]) =>
-      AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
-    ));
+    return merged;
   }, []);
 
   // ─── Load all data from local storage (+ cloud on login) ─────────────
@@ -781,60 +767,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // When the user logs in, pull cloud data and reload
-  const prevSignedIn = useRef(false);
+  const syncedAccount = useRef<string|null>(null);
   const handledCloudSyncAttempt = useRef(0);
-  const retryCloudSync = useCallback(() => {
-    setCloudSyncAttempt((attempt) => attempt + 1);
-  }, []);
-
+  const retryCloudSync = useCallback(() => setCloudSyncAttempt(attempt=>attempt+1), []);
   useEffect(() => {
-    const shouldPull =
-      isSignedIn &&
-      (!prevSignedIn.current || handledCloudSyncAttempt.current !== cloudSyncAttempt);
-    if (shouldPull) {
-      prevSignedIn.current = true;
-      handledCloudSyncAttempt.current = cloudSyncAttempt;
-      (async () => {
-        pullingRef.current = true;
-        setIsCloudSyncing(true);
-        let ok = false;
-        let mergedGuestData = false;
-        try {
-          const pulled = await pullDataFromCloud();
-          ok = pulled.ok;
-          if (ok && wasGuestRef.current) {
-            await mergeGuestWithCloud(pulled.data);
-            mergedGuestData = true;
-          } else if (ok) {
-            await Promise.all(
-              Object.entries(pulled.data).map(([k, v]) =>
-                AsyncStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v))
-              )
-            );
-            if (!(KEYS.PROFILE in pulled.data)) await AsyncStorage.removeItem(KEYS.PROFILE);
-          }
-          await loadAll();
-        } finally {
-          pullingRef.current = false;
-          setIsCloudSyncing(false);
-          // Only mark synced when the pull actually succeeded, so a failed
-          // pull can't send an existing user (with a cloud profile) to onboarding
-          if (ok) setCloudSynced(true);
-          if (ok && mergedGuestData) {
-            await pushDataToCloud();
-            Analytics.guestDataBackedUp();
-          }
+    if(isLoading)return;
+    if(!isSignedIn){
+      syncedAccount.current=null;cloudReadyOwner.current=null;
+      setCloudSynced(false);setIsCloudSyncing(false);wasGuestRef.current=true;
+      return;
+    }
+    if(!user)return;
+    if(syncedAccount.current===user.id&&handledCloudSyncAttempt.current===cloudSyncAttempt)return;
+    const owner=user.id;
+    syncedAccount.current=owner;handledCloudSyncAttempt.current=cloudSyncAttempt;
+    let cancelled=false;
+    const current=()=>!cancelled&&signedInRef.current&&bowlingOwner.current===owner;
+    pullingRef.current=true;cloudReadyOwner.current=null;
+    setCloudSynced(false);setIsCloudSyncing(true);
+    void (async()=>{
+      let ok=false,mergedGuestData=false;
+      try{
+        const pulled=await pullDataFromCloud();
+        if(!pulled.ok||!current())return;
+        const cacheOwner=await accountDataStore.owner();
+        if(!current())return;
+        mergedGuestData=wasGuestRef.current&&cacheOwner==='guest';
+        const data=mergedGuestData?await mergeGuestWithCloud(pulled.data):pulled.data;
+        if(!current())return;
+        await accountDataStore.replace(owner,data);
+        if(!current())return;
+        await loadAll();
+        ok=true;wasGuestRef.current=false;
+      }catch{
+        // Preserve the cache and let the visible sync gate offer retry.
+      }finally{
+        if(current()){
+          pullingRef.current=false;setIsCloudSyncing(false);
+          if(ok){cloudReadyOwner.current=owner;setCloudSynced(true);}
+          if(ok&&mergedGuestData){await pushDataToCloud();Analytics.guestDataBackedUp();}
         }
-      })();
-    }
-    if (!isSignedIn) {
-      prevSignedIn.current = false;
-      handledCloudSyncAttempt.current = cloudSyncAttempt;
-      setCloudSynced(false);
-      setIsCloudSyncing(false);
-      if (!isLoading) wasGuestRef.current = true;
-    }
-  }, [isSignedIn, isLoading, pullDataFromCloud, mergeGuestWithCloud, cloudSyncAttempt]);
+      }
+    })();
+    return()=>{cancelled=true;};
+  },[isSignedIn,user?.id,isLoading,cloudSyncAttempt,pullDataFromCloud,mergeGuestWithCloud]);
 
   const buildFreshCheckedState = (items: ChecklistItemDef[]): CheckedState => {
     const today = getTodayDate();
@@ -847,6 +823,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
+      await accountDataStore.recover();
       await AsyncStorage.recover();
       const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr, homeCommentPreferencesStr, bowlingStr] =
         await Promise.all([
@@ -1557,3 +1534,4 @@ export function useApp(): AppContextType {
   if (!ctx) throw new Error('useApp must be used within AppProvider');
   return ctx;
 }
+

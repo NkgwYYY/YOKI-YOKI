@@ -1,4 +1,4 @@
-import type {SpeechAnchor} from '@/utils/residentSpeech';
+import {residentTrackingPose,type SpeechAnchor} from '@/utils/residentSpeech';
 import {homeArtPoint,homeLogicalPoint} from '@/utils/homeGeometry';
 import {StaticSmokingAccessory} from './CigaretteFeatures';
 import {ResidentDust} from './ResidentDust';
@@ -27,6 +27,7 @@ import type {HomeViewFlight} from './useHomeViewMotion';
 
 type Props = {
   speechAnchor?:SharedValue<SpeechAnchor>;
+  trackingFoot?:SharedValue<{x:number;y:number}>;
   viewFlight?:HomeViewFlight;
   onReposition?:()=>void;
   bodySize?:number;
@@ -59,6 +60,7 @@ export function WorldResident(p: Props) {
   const welcomeRunning=useSharedValue(0),welcomeStartedAt=useSharedValue(-1);
   const welcomeX=useSharedValue(0),welcomeY=useSharedValue(0);
   const welcomeFromX=useSharedValue(0),welcomeFromY=useSharedValue(0);
+  const welcomeEntry=useSharedValue(0);
   const welcomed=useRef(0);
   const mealProgress=useSharedValue(0);
   const lift = useSharedValue(0), jelly = useSharedValue(0), lean = useSharedValue(0);
@@ -109,6 +111,7 @@ export function WorldResident(p: Props) {
       const at=mapGroundPoint(map,{x:x.value,y:y.value});
       welcomeFromX.value=x.value;welcomeFromY.value=y.value;
       welcomeX.value=at.x;welcomeY.value=at.y;welcomeStartedAt.value=-1;
+      welcomeEntry.value=0;
       welcomeRunning.value=1;setWelcoming(true);
       latest.current.onWelcomeStarted?.(id);
     },750);
@@ -210,6 +213,7 @@ export function WorldResident(p: Props) {
       joy.jump*=familiarity;joy.dx*=familiarity;joy.lean*=familiarity;
       const point=mapGroundPoint(map,{x:welcomeX.value+joy.dx,y:welcomeY.value+joy.dy});
       const enter=Math.min(1,elapsed/.4);
+      welcomeEntry.value=enter;
       x.value=welcomeFromX.value*(1-enter)+point.x*enter;
       y.value=welcomeFromY.value*(1-enter)+point.y*enter;
       lift.value=-size*joy.jump;jelly.value=joy.squash;lean.value=joy.lean;
@@ -366,12 +370,20 @@ export function WorldResident(p: Props) {
       transform:[{translateX:(p.closeUp?p.closeUp.centerX:foot.x*width)-size/2},{translateY:(p.closeUp?.footY??foot.y*height)-size*.92+(1-scale)*size*.42},{scale}]};
   });
   useAnimatedReaction(()=>{
-    const foot=map==='home'?homeArtPoint({x:x.value,y:y.value},width>height):{x:x.value,y:y.value};
+    const tracked=residentTrackingPose({x:x.value,y:y.value},lift.value,!!holding.value,welcomeRunning.value?{
+      from:{x:welcomeFromX.value,y:welcomeFromY.value},to:{x:welcomeX.value,y:welcomeY.value},progress:welcomeEntry.value,
+    }:undefined);
+    const point={x:tracked.x,y:tracked.y};
+    const foot=map==='home'?homeArtPoint(point,width>height):point;
     const center=p.closeUp?.centerX??foot.x*width,ground=p.closeUp?.footY??foot.y*height;
-    const scale=p.closeUp?p.closeUp.size/size:worldResidentScale(y.value);
-    const visible=size*scale,air=lift.value*scale;
-    return {x:center,top:ground-visible*.86+air,bottom:ground+air,width:visible*.85};
-  },anchor=>{if(p.speechAnchor)p.speechAnchor.value=anchor;});
+    const scale=p.closeUp?p.closeUp.size/size:worldResidentScale(tracked.y);
+    const visible=size*scale,air=tracked.lift*scale;
+    return {point,anchor:{x:center,top:ground-visible*.86+air,bottom:ground+air,width:visible*.85}};
+  },({point,anchor},previous)=>{
+    if(p.speechAnchor&&(!previous||Object.keys(anchor).some(key=>anchor[key as keyof SpeechAnchor]!==previous.anchor[key as keyof SpeechAnchor])))p.speechAnchor.value=anchor;
+    // Do not restart camera easing for each dance frame when its target is unchanged.
+    if(p.trackingFoot&&(!previous||point.x!==previous.point.x||point.y!==previous.point.y))p.trackingFoot.value=point;
+  });
   const perspective = useAnimatedStyle(() => {
     const scale = p.closeUp || p.viewFlight ? 1 : worldResidentScale(y.value);
     return {transform: [{translateY: (1 - scale) * size * 0.42}, {scale}]};
@@ -440,3 +452,4 @@ export function WorldResident(p: Props) {
   </GestureDetector>;
 }
 const s = StyleSheet.create({root: {position: 'absolute', left: 0, top: 0}, shadow: {position: 'absolute', width: '100%', left: 0, bottom: '-8%'}});
+

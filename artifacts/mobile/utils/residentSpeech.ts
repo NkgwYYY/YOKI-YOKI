@@ -1,4 +1,17 @@
 export type SpeechAnchor = {x:number;top:number;bottom:number;width:number};
+type Point={x:number;y:number};
+type WelcomeGround={from:Point;to:Point;progress:number};
+/** Text and camera follow travel, not the welcome dance or reaction hops.
+ * Carrying (including the landing animation) still follows the lifted body. */
+export function residentTrackingPose(position:Point,lift:number,carrying:boolean,welcome?:WelcomeGround){
+  'worklet';
+  const t=welcome?Math.max(0,Math.min(1,welcome.progress)):0;
+  const ground=welcome?{
+    x:welcome.from.x+(welcome.to.x-welcome.from.x)*t,
+    y:welcome.from.y+(welcome.to.y-welcome.from.y)*t,
+  }:position;
+  return {...ground,lift:carrying?lift:0};
+}
 type Rect = {left:number;top:number;width:number;height:number};
 const clamp=(n:number,min:number,max:number)=>{'worklet';return Math.max(min,Math.min(max,n));};
 
@@ -15,3 +28,4 @@ export function placeResidentSpeech(anchor:SpeechAnchor,bubble:{width:number;hei
   const top=clamp((anchor.top+anchor.bottom-h)/2,safe.top,safe.top+safe.height-h);
   return {left:clamp(side,safe.left,safe.left+safe.width-w),top,tailX:onRight?-4:w-4,tailY:clamp((anchor.top+anchor.bottom)/2-top,16,h-16),rotation:45};
 }
+

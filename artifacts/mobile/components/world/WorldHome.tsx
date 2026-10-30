@@ -190,8 +190,9 @@ export function WorldHome(props: Props) {
   const footY = useSharedValue(WORLD_PLACES.idle.y);
   const holding = useSharedValue(0);
   const speechAnchor=useSharedValue<SpeechAnchor>({x:0,top:0,bottom:0,width:0});
+  const trackingFoot=useSharedValue({x:WORLD_PLACES.idle.x,y:WORLD_PLACES.idle.y});
   const cameraFootX=useSharedValue(WORLD_PLACES.idle.x),cameraFootY=useSharedValue(WORLD_PLACES.idle.y);
-  useAnimatedReaction(()=>({x:footX.value,y:footY.value,held:holding.value}),(p)=>{
+  useAnimatedReaction(()=>({...trackingFoot.value,held:holding.value}),(p)=>{
     if(p.held)return;
     cameraFootX.value=p.x;cameraFootY.value=p.y;
   });
@@ -313,12 +314,12 @@ export function WorldHome(props: Props) {
     return()=>{cancelled=true;clearTimeout(timer);};
   },[map,mapOpen,props.active,props.period,access,transition.busy]);
   useEffect(()=>{setGardenPlot(null);setGrandmaOpen(false);setBowlingOpen(false);setFortuneOpen(false);setRiding(false);setCleanTool(null);view.reset();portalTravel.value=false;clearTimeout(shopTimer.current);setZooming(false);setDestination(null);pending.current=null;setExperience(null);steering.value={x:0,y:0};footY.value=mapStart(map).y;footX.value=mapStart(map).x;},[map]);
-  useAnimatedReaction(() => ({y: footY.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active, height, viewportHeight, frameTop}), state => {
+  useAnimatedReaction(() => ({...trackingFoot.value, held: holding.value, cameraTouch: touching.value, zoom:zoom.value, active, height, viewportHeight, frameTop}), state => {
     // Before onLayout, a zero-sized room used to produce a -136px offset.
     // Never start that animation, and recalculate when the measured frame arrives.
     if (state.height<=0||state.viewportHeight<=0) {cancelAnimation(camera);camera.value=0;return;}
     if (!state.active||eyeLevel||homeZoomed) {cancelAnimation(camera);if(eyeLevel)camera.value=0;return;}
-    const offset=away?outdoorCameraOffset(state.y,state.height,state.viewportHeight,state.frameTop,clearBottom):worldCameraOffset(homeArtPoint({x:footX.value,y:state.y},bounds.width>bounds.height).y,state.height,state.viewportHeight,state.frameTop);
+    const offset=away?outdoorCameraOffset(state.y,state.height,state.viewportHeight,state.frameTop,clearBottom):worldCameraOffset(homeArtPoint({x:state.x,y:state.y},bounds.width>bounds.height).y,state.height,state.viewportHeight,state.frameTop);
     if (!state.held && !state.cameraTouch && state.zoom < 1.02) camera.value = withTiming(offset, {duration: reduceMotion ? 0 : 350});
   }, [height, viewportHeight, frameTop, clearBottom, reduceMotion, active,map,away,eyeLevel,homeZoomed]);
 
@@ -472,7 +473,7 @@ export function WorldHome(props: Props) {
       {map==='tobacco'&&merchant('tobacco','タバコ屋',{x:.33,y:.55},'stage3','tobacco')}
       {map==='tobacco'&&<TobaccoPatrons width={width} height={height} clearTop={stageTop-frame.top} viewportLeft={-frame.left} viewportWidth={bounds.width} active={active&&!props.food} reduceMotion={reduceMotion} onTalk={()=>{steering.value={x:0,y:0};pending.current=null;setDestination(null);portalTravel.value=false;}}/>}
       {nearbyTarget?.hint&&<EncounterHint key={nearbyTarget.key} target={nearbyTarget} targets={conversationTargets} width={width} height={height} viewportLeft={-frame.left} viewportWidth={bounds.width} clearTop={stageTop-frame.top} footX={footX} footY={footY}/>}
-      <WorldResident speechAnchor={speechAnchor} onReposition={()=>{pending.current=null;setDestination(null);portalTravel.value=false;steering.value={x:0,y:0};}} {...props} bodySize={map==='home'?baseResidentSize:undefined} closeUp={closeUp} viewFlight={flight} keepsake={keepsake==='none'?undefined:keepsake} bondDays={progress.visits?.totalVisits??0} grandmaUnlocked={grandmaUnlocked} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!furnishingSelection&&!cleanTool} map={map} zoom={homeZoomed?closeZoom:zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
+      <WorldResident speechAnchor={speechAnchor} trackingFoot={trackingFoot} onReposition={()=>{pending.current=null;setDestination(null);portalTravel.value=false;steering.value={x:0,y:0};}} {...props} bodySize={map==='home'?baseResidentSize:undefined} closeUp={closeUp} viewFlight={flight} keepsake={keepsake==='none'?undefined:keepsake} bondDays={progress.visits?.totalVisits??0} grandmaUnlocked={grandmaUnlocked} welcomeRequest={loadedArt===source?props.welcomeRequest:0} riding={riding} portalTravel={portalTravel} bowlingBusy={bowlingBusy} footX={footX} steering={steering} smoking={smoking.running} experience={experience==='smoke'?null:experience} onPortal={enterMap} onDestinationReached={arrive} active={active&&!furnishingSelection&&!cleanTool} map={map} zoom={homeZoomed?closeZoom:zoom} cameraTouch={touching} cameraGesture={view.pinch} width={width} height={height} footY={footY} holding={holding} destination={destination} />
       {map==='home'&&!eyeLevel&&props.carriedGift&&<CarriedGift kind={props.carriedGift} width={width} height={height} footX={footX} footY={footY}/>}
       {experience==='bath'&&<BathingEgg stage={props.stage} width={width} height={height} active={active} reduceMotion={reduceMotion}/>}
       {map==='tobacco'&&<TobaccoHaze active={active} reduceMotion={reduceMotion}/>}
@@ -590,3 +591,4 @@ const s = StyleSheet.create({
   merchantLabel:{letterSpacing:.6,borderBottomWidth:1,borderColor:'#D7C6AA',fontSize:10,color:'#644F40',backgroundColor:'#FFF9F2ED',paddingHorizontal:7,paddingVertical:4,borderRadius:10,textAlign:'center',minWidth:76},
   travelHint: {position: 'absolute', left: 20, color: '#FFF4DA', fontSize: 11},
 });
+

@@ -1,3 +1,5 @@
+import {ACCOUNT_ENABLED} from '@/utils/runtimeConfig';
+import {needsNativeEntry} from '@/utils/entryRoute';
 import {PlushLoading} from '@/components/PlushLoading';
 import {FeltDecoration,FeltBackground} from '@/components/ui/Felt';
 import { useDailyBath } from '@/components/world/useDailyBath';
@@ -49,7 +51,7 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  const { isSignedIn, isLoading: authLoading } = useAuth();
+  const { isSignedIn, isLoading: authLoading, entryChoice } = useAuth();
   const {
     profile,
     cloudSynced,
@@ -63,7 +65,7 @@ export default function TabLayout() {
   const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
-    if (!isSignedIn || profile || cloudSynced) {
+    if (!isSignedIn || cloudSynced) {
       setCloudWaitExpired(false);
       return;
     }
@@ -87,9 +89,10 @@ export default function TabLayout() {
       <Text style={styles.retryButtonText}>もう一度読み込む</Text>
     </Pressable>
   </View>;
+  if(needsNativeEntry(Platform.OS!=='web',ACCOUNT_ENABLED,isSignedIn,!!profile,entryChoice))return <Redirect href="/welcome" />;
   if (!isSignedIn && !profile) return <Redirect href="/onboarding" />;
-  if (isSignedIn && !profile && !cloudSynced && !cloudWaitExpired) return <View style={styles.syncGate}><FeltBackground/><PlushLoading message="思い出を、ひらいています。"/></View>;
-  if (isSignedIn && !profile && !cloudSynced) {
+  if (isSignedIn && !cloudSynced && !cloudWaitExpired) return <View style={styles.syncGate}><FeltBackground/><PlushLoading message="思い出を、ひらいています。"/></View>;
+  if (isSignedIn && !cloudSynced) {
     return (
       <View style={styles.syncGate}>
         {isCloudSyncing ? (

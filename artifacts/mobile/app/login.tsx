@@ -1,5 +1,6 @@
+import {useAuth} from '@/contexts/AuthContext';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
-import { Redirect } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 import React, { useState, useCallback, useEffect } from 'react';
 import { Analytics } from '@/utils/analytics';
 import {
@@ -13,7 +14,7 @@ import { SkyBackground } from '@/components/SkyBackground';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { useSignIn, useSignUp } from '@clerk/expo';
-import { Mascot } from '@/components/Mascot';
+import { Mascot, StaticMascot } from '@/components/Mascot';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { PressScale } from '@/components/ui/PressScale';
 
@@ -217,7 +218,9 @@ function AccountLoginScreen() {
   const { signIn } = useSignIn();
   const { signUp } = useSignUp();
 
-  const [tab, setTab] = useState<'login' | 'register'>('login');
+  const {mode}=useLocalSearchParams<{mode?:string}>();
+  const {continueAsGuest}=useAuth();
+  const [tab, setTab] = useState<'login' | 'register'>(mode==='register'?'register':'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -235,10 +238,10 @@ function AccountLoginScreen() {
     ({ session, decorateUrl }: { session?: { currentTask?: unknown } | null; decorateUrl: (url: string) => string }) => {
       if (session?.currentTask) return;
       const url = decorateUrl('/(tabs)');
-      if (url.startsWith('http')) {
+      if (Platform.OS==='web' && url.startsWith('http')) {
         window.location.href = url;
       } else {
-        router.replace(url as Href);
+        router.replace(Platform.OS==='web'?url as Href:'/(tabs)');
       }
     },
     [router],
@@ -340,20 +343,11 @@ function AccountLoginScreen() {
     tab === 'login' &&
     (signIn.status === 'needs_client_trust' || signIn.status === 'needs_second_factor');
 
-  // The App Store iOS release is guest-only. Keep the shared auth route for web
-  // and Android, while AuthGate redirects any native iOS deep link immediately.
-  if (Platform.OS === 'ios') {
-    return (
-      <View style={styles.root}>
-        <SkyBackground />
-      </View>
-    );
-  }
 
   return (
     <View style={[styles.root, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
       <SkyBackground />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="height">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS==='ios'?'padding':'height'}>
         <ScrollView
           contentContainerStyle={[
             styles.container,
@@ -362,20 +356,21 @@ function AccountLoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.mascotWrap}>
-            <Mascot stage="stage3" mood="happy" size={120} />
+            {Platform.OS==='web'?<Mascot stage="stage3" mood="happy" size={120}/>:<StaticMascot stage="stage3" mood="happy" size={120}/>}
             <Image
               source={require('@/assets/images/yoki_logo.png')}
               style={styles.titleLogo}
               resizeMode="contain"
             />
             <Text style={styles.subtitle}>小さな夢の、あなたの居場所</Text>
+            {Platform.OS!=='web'&&<Text style={styles.guestNote}>ブラウザ版と同じメールアドレスで、記録と育成の続きを。</Text>}
           </View>
 
-          <View style={styles.quickStart}>
+          {Platform.OS==='web'&&<View style={styles.quickStart}>
             <PressScale
               accessibilityRole="button"
               accessibilityLabel="アカウントなしで始める"
-              onPress={() => router.replace('/onboarding')}
+              onPress={async()=>{try{await continueAsGuest();router.replace('/(tabs)');}catch{setError('保存データを確認できませんでした。もう一度お試しください。');}}}
               style={styles.guestButton}
             >
               <Text style={styles.guestButtonText}>アカウントなしで始める</Text>
@@ -386,7 +381,7 @@ function AccountLoginScreen() {
               <Text style={styles.orText}>またはアカウントを利用</Text>
               <View style={styles.orLine} />
             </View>
-          </View>
+          </View>}
 
           {needsLoginVerification ? (
             <View style={styles.form}>
@@ -485,6 +480,9 @@ function AccountLoginScreen() {
                 <Text style={styles.label}>メールアドレス</Text>
                 <TextInput
                   style={styles.input}
+                  testID="auth-email"
+                  accessibilityLabel="メールアドレス"
+                  textContentType="emailAddress"
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
@@ -497,6 +495,9 @@ function AccountLoginScreen() {
                 <Text style={[styles.label, { marginTop: 16 }]}>パスワード</Text>
                 <TextInput
                   style={styles.input}
+                  testID="auth-password"
+                  accessibilityLabel="パスワード"
+                  textContentType={tab==='register'?'newPassword':'password'}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
@@ -517,15 +518,14 @@ function AccountLoginScreen() {
                 )}
 
                 <Button
+                  testID="auth-submit"
                   label={tab === 'login' ? 'ログイン' : 'アカウントを作成'}
                   onPress={handleSubmit}
                   loading={loading}
                   style={styles.submit}
                 />
 
-                {tab === 'register' && (
-                  <Text style={styles.hint}>今までのデータはそのまま引き継がれます</Text>
-                )}
+                <Text style={styles.hint}>ログインすると、日記・育成・所持アイテムをアカウントに保存します。登録せずに使う場合は端末内に保存されます。</Text>
 
                 {tab === 'login' && (
                   <PressScale onPress={() => setShowForgot(true)} style={styles.forgotWrap}>
@@ -538,6 +538,7 @@ function AccountLoginScreen() {
               </View>
             </>
           )}
+          {Platform.OS!=='web'&&<Button label="登録せずにはじめる" variant="ghost" onPress={async()=>{try{await continueAsGuest();router.replace('/(tabs)');}catch{setError('保存データを確認できませんでした。');}}}/>}
         </ScrollView>
       </KeyboardAvoidingView>
 

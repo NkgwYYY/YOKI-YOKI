@@ -1,3 +1,4 @@
+import {needsNativeEntry} from '@/utils/entryRoute';
 import {PlushLoading} from '@/components/PlushLoading';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
@@ -41,7 +42,7 @@ const clerkPublishableKey =
 const clerkProxyUrl = process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined;
 
 function AuthGate() {
-  const { isSignedIn, isLoading } = useAuth();
+  const { isSignedIn, isLoading, entryChoice } = useAuth();
   const { profile, cloudSynced, storageError, isLoading: appLoading } = useApp();
   const segments = useSegments();
   const router = useRouter();
@@ -57,8 +58,11 @@ function AuthGate() {
       return;
     }
 
+    const needsEntry=needsNativeEntry(Platform.OS!=='web',ACCOUNT_ENABLED,isSignedIn,!!profile,entryChoice);
+    if(needsEntry&&segments[0]!=='welcome'&&segments[0]!=='login'){router.replace('/welcome');return;}
+    if(isSignedIn&&segments[0]==='welcome'){router.replace('/(tabs)');return;}
     const isPublicRoute =
-      segments[0] === 'login' || segments[0] === 'gallery' ||
+      segments[0] === 'welcome' || segments[0] === 'login' || segments[0] === 'gallery' ||
       segments[0] === 'onboarding' || segments[0] === 'shop';
 
     if (!isSignedIn && !profile && !isPublicRoute) {
@@ -70,7 +74,7 @@ function AuthGate() {
     } else if (isSignedIn && profile && segments[0] === 'onboarding') {
       router.replace('/(tabs)');
     }
-  }, [isSignedIn, isLoading, appLoading, cloudSynced, storageError, profile, router, segments]);
+  }, [isSignedIn, isLoading, appLoading, cloudSynced, storageError, profile, entryChoice, router, segments]);
 
   return null;
 }
@@ -81,6 +85,7 @@ function RootLayoutNav() {
       <AuthGate />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="welcome" options={{headerShown:false,animation:"fade"}} />
         <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
@@ -96,8 +101,9 @@ function RootLayoutNav() {
 }
 
 function AppContent() {
+  const {storageEpoch}=useAuth();
   return (
-    <AppProvider>
+    <AppProvider key={storageEpoch}>
       <RecordPromptProvider><ItemProvider>
         <GestureHandlerRootView style={styles.root}>
           <SceneTransitionProvider><VillageMusicProvider><CommunityProvider><ConnectedDailyAds><RootLayoutNav />
@@ -200,3 +206,4 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 });
+

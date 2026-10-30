@@ -20,7 +20,7 @@ import {Icon} from '@/components/ui/Icon';
 import {PressScale} from '@/components/ui/PressScale';
 export default function GrowthScreen(){
  const insets=useSafeAreaInsets(),router=useRouter();
- const {progress,growth,markGrowthSeen,encounters}=useApp();
+ const {progress,growth,markGrowthSeen,encounters,pushDataToCloud}=useApp();
  const {active}=useRoomActivity();
  const {user,isSignedIn,logout,deleteAccount}=useAuth();
  const [dexChar,setDexChar]=useState<CharacterKey|null>(null);
@@ -31,8 +31,8 @@ export default function GrowthScreen(){
  const dexList=encounters.list.filter(e=>met.has(e.charKey));
   const handleLogout = async () => {
     setShowLogout(false);
-    await logout();
-    router.replace(isIOSGuestOnly ? '/(tabs)' : '/login');
+    try{await pushDataToCloud();await logout();router.replace(isIOSGuestOnly?'/(tabs)':Platform.OS==='web'?'/login':'/welcome');}
+    catch{Alert.alert('ログアウトできませんでした','通信や保存状態を確認して、もう一度お試しください。');}
   };
 
   const confirmDeleteAccount = () => {
