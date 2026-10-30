@@ -1,0 +1,22 @@
+name: Release iOS 1.0.1
+
+# Manual release of the native-tested runtime with an updated store version.
+defaults:
+  tools:
+    node: 22.16.0
+    pnpm: 10.11.0
+
+jobs:
+  build_ios:
+    name: Build iOS 1.0.1
+    type: build
+    params:
+      platform: ios
+      profile: production
+  submit_ios:
+    name: Upload iOS 1.0.1 to App Store Connect
+    needs: [build_ios]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
