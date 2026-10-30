@@ -166,6 +166,9 @@ final class ReviewJourneys: XCTestCase {
         app.launch()
         visible(element("welcome-register"), timeout: 60)
         visible(element("welcome-login"))
+        until("Welcome must be visible after startup artwork is ready", timeout: 30) {
+            self.element("welcome-register").isHittable && !self.element("plush-loading").exists
+        }
         capture("00-native-welcome")
         tap(element("welcome-login"))
         visible(element("auth-email"))
