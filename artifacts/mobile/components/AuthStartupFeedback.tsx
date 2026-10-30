@@ -1,3 +1,4 @@
+import {readAuthStartupDiagnostics} from '@/utils/authStartupDiagnostics';
 import React, {useEffect, useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {reloadAppAsync} from 'expo';
@@ -22,6 +23,12 @@ export function AuthStartupGate({children}:{children:React.ReactNode}) {
 /** Authentication failure must remain visible and recoverable, without resetting data. */
 export function AuthStartupFeedback({failed=false}:{failed?:boolean}) {
   const [slow,setSlow]=useState(false);
+  const [diagnostics,setDiagnostics]=useState('');
+  useEffect(()=>{
+    if(process.env.EXPO_PUBLIC_AUTH_DIAGNOSTICS!=='1')return;
+    const timer=setInterval(()=>setDiagnostics(readAuthStartupDiagnostics()),1000);
+    return()=>clearInterval(timer);
+  },[]);
   const [retrying,setRetrying]=useState(false);
   const [retryError,setRetryError]=useState(false);
   useEffect(()=>{
@@ -35,6 +42,7 @@ export function AuthStartupFeedback({failed=false}:{failed?:boolean}) {
   };
   return <View testID="auth-startup" style={s.root}>
     <PlushLoading message={failed?'接続を確認できませんでした':slow?'読み込みに時間がかかっています':'読み込み中…'}/>
+    {!!diagnostics&&<Text testID="auth-startup-diagnostics" style={s.message}>{diagnostics}</Text>}
     {(failed||slow)&&<View style={s.actions}>
       <Text accessibilityRole={failed?'alert':undefined} style={s.message}>通信環境を確認して、もう一度お試しください。</Text>
       <Button testID="auth-startup-retry" label="もう一度読み込む" onPress={retry} loading={retrying}/>

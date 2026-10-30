@@ -22,6 +22,7 @@ jobs:
     env:
       CI: 'true'
       EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_AUTH_DIAGNOSTICS: '1'
       EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
       # Public client identifier for the same account instance as the web app.
       EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsueW9raS15b2tpLnJlcGxpdC5hcHAk
@@ -44,7 +45,7 @@ jobs:
       - name: Verify account isolation, speech motion and renderer parity
         run: |
           pnpm typecheck
-          node --experimental-strip-types --test tests/accountCache.test.mjs tests/residentSpeechMotion.test.mjs tests/residentSpeech.test.mjs tests/residentWelcome.test.mjs
+          node --experimental-strip-types --test tests/accountCache.test.mjs tests/residentSpeechMotion.test.mjs tests/residentSpeech.test.mjs tests/residentWelcome.test.mjs tests/starterFurnishings.test.mjs tests/roomPurchase.test.mjs tests/roomPlacement.test.mjs
           node scripts/build-native-resident.mjs --check
       - name: Verify iOS JavaScript bundle before native compilation
         run: pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/yoki-ios-export" --max-workers 2

@@ -1,3 +1,4 @@
+import '@/utils/authStartupDiagnostics';
 import {needsNativeEntry} from '@/utils/entryRoute';
 import {AuthStartupGate} from '@/components/AuthStartupFeedback';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
