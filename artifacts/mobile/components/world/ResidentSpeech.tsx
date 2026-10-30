@@ -22,15 +22,16 @@ export function ResidentSpeech({text,anchor,camera,frame,viewport,safeTop,safeBo
  return <Animated.View testID="resident-speech-bubble" pointerEvents="none" style={[s.root,{width},position]}>
    <Animated.View style={[s.tail,tail]}/>
    <View style={s.bubble} onLayout={e=>setHeight(e.nativeEvent.layout.height)}>
-     <FeltDecoration radius={19}/>
+     <FeltDecoration radius={19} stitch={false}/>
      <Text testID="world-speech" accessibilityLiveRegion="polite" style={s.text}>{text}</Text>
    </View>
  </Animated.View>;
 }
 const s=StyleSheet.create({
  root:{position:'absolute',left:0,top:0,zIndex:1050},
- bubble:{borderRadius:19,borderWidth:1,borderColor:'#D6C5A6',backgroundColor:'#FFF9ED',paddingHorizontal:17,paddingVertical:13,
-   shadowColor:'#55482D',shadowOpacity:.13,shadowRadius:5,shadowOffset:{width:0,height:3},elevation:3},
+ bubble:{borderRadius:19,borderWidth:1,borderColor:'rgba(214,197,166,0.45)',backgroundColor:'rgba(255,249,237,0.72)',paddingHorizontal:17,paddingVertical:13,
+   shadowColor:'#55482D',shadowOpacity:.06,shadowRadius:5,shadowOffset:{width:0,height:3},elevation:3},
  text:{fontSize:14,lineHeight:21,color:'#655B4D',textAlign:'center'},
- tail:{position:'absolute',width:10,height:10,backgroundColor:'#FFF9ED',borderRightWidth:1,borderBottomWidth:1,borderColor:'#D6C5A6'},
+ tail:{position:'absolute',width:10,height:10,backgroundColor:'rgba(255,249,237,0.72)',borderRightWidth:1,borderBottomWidth:1,borderColor:'rgba(214,197,166,0.45)'},
 });
+
