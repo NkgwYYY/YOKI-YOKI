@@ -1,8 +1,8 @@
 import {needsNativeEntry} from '@/utils/entryRoute';
-import {PlushLoading} from '@/components/PlushLoading';
+import {AuthStartupFeedback} from '@/components/AuthStartupFeedback';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -16,7 +16,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { ClerkLoaded, ClerkLoading, ClerkProvider } from '@clerk/expo';
+import { ClerkFailed, ClerkLoaded, ClerkLoading, ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { AuthProvider, GuestAuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -178,10 +178,9 @@ export default function RootLayout() {
             proxyUrl={clerkProxyUrl}
           >
             <ClerkLoading>
-              <View style={styles.authLoading}>
-                <PlushLoading message="読み込み中…"/>
-              </View>
+              <AuthStartupFeedback />
             </ClerkLoading>
+            <ClerkFailed><AuthStartupFeedback failed /></ClerkFailed>
             <ClerkLoaded>
               <AppProviders guestOnly={false} />
             </ClerkLoaded>
@@ -194,16 +193,5 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  authLoading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    backgroundColor: '#211137',
-  },
-  authLoadingText: {
-    color: '#3B2157',
-    fontSize: 15,
-  },
 });
 
