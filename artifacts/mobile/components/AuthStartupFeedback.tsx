@@ -1,8 +1,19 @@
 import React, {useEffect, useState} from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {reloadAppAsync} from 'expo';
+import {useAuth as useClerkAuth, useClerk} from '@clerk/expo';
 import {PlushLoading} from './PlushLoading';
 import {Button} from './ui/Button';
+
+export function AuthStartupGate({children}:{children:React.ReactNode}) {
+  const {isLoaded}=useClerkAuth();
+  const clerk=useClerk();
+  // ClerkLoading and ClerkLoaded both render nothing when initialization fails.
+  // Keep one exhaustive loading/ready branch, including network failures.
+  return isLoaded&&clerk.loaded
+    ? children
+    : <AuthStartupFeedback failed={clerk.status==='error'}/>;
+}
 
 /** Authentication failure must remain visible and recoverable, without resetting data. */
 export function AuthStartupFeedback({failed=false}:{failed?:boolean}) {

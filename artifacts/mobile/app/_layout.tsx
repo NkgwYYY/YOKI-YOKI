@@ -1,5 +1,5 @@
 import {needsNativeEntry} from '@/utils/entryRoute';
-import {AuthStartupFeedback} from '@/components/AuthStartupFeedback';
+import {AuthStartupGate} from '@/components/AuthStartupFeedback';
 import { ACCOUNT_ENABLED } from '@/utils/runtimeConfig';
 import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet } from 'react-native';
@@ -16,7 +16,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { ClerkFailed, ClerkLoaded, ClerkLoading, ClerkProvider } from '@clerk/expo';
+import { ClerkProvider } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { AuthProvider, GuestAuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -177,13 +177,9 @@ export default function RootLayout() {
             tokenCache={tokenCache}
             proxyUrl={clerkProxyUrl}
           >
-            <ClerkLoading>
-              <AuthStartupFeedback />
-            </ClerkLoading>
-            <ClerkFailed><AuthStartupFeedback failed /></ClerkFailed>
-            <ClerkLoaded>
+            <AuthStartupGate>
               <AppProviders guestOnly={false} />
-            </ClerkLoaded>
+            </AuthStartupGate>
           </ClerkProvider>
         )}
       </ErrorBoundary>
