@@ -164,6 +164,20 @@ final class ReviewJourneys: XCTestCase {
     func testFreshGuestReviewJourneys() {
         // The workflow creates a fresh simulator, never a user's installation.
         app.launch()
+        visible(element("welcome-register"), timeout: 60)
+        visible(element("welcome-login"))
+        capture("00-native-welcome")
+        tap(element("welcome-login"))
+        visible(element("auth-email"))
+        visible(element("auth-password"))
+        capture("00-native-login")
+        tap(element("auth-back"))
+        tap(element("welcome-register"))
+        visible(element("auth-email"))
+        visible(text("アカウントを作成"))
+        capture("00-native-register")
+        tap(element("auth-back"))
+        tap(element("welcome-guest"))
         visible(element("profile-nickname"), timeout: 60)
         tap(element("profile-nickname"))
         element("profile-nickname").typeText("Yoki QA\n")
@@ -175,6 +189,7 @@ final class ReviewJourneys: XCTestCase {
         if text("よろしくね！").waitForExistence(timeout: 4) { tap(text("よろしくね！")) }
         if element("tutorial-skip").waitForExistence(timeout: 5) { tap(element("tutorial-skip")) }
         visible(element("home-daily-record"))
+        visible(element("resident-renderer-ready"), timeout: 30)
         capture("01-home")
 
         openDiary()
@@ -332,3 +347,4 @@ final class ReviewJourneys: XCTestCase {
         capture("11-growth-memories")
     }
 }
+

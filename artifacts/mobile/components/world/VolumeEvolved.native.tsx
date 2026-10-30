@@ -42,7 +42,7 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
     onMessage={event=>{try{const m=JSON.parse(event.nativeEvent.data);if(m.type==='ready')setReady(true);if(m.type==='failed')setFailed(true);}catch{}}}
     onError={()=>setFailed(true)} onContentProcessDidTerminate={()=>{setReady(false);ref.current?.reload();}}
     scrollEnabled={false} bounces={false} javaScriptEnabled domStorageEnabled={false} allowFileAccess={false} mixedContentMode="never"
-    style={{backgroundColor:'transparent'}} containerStyle={{backgroundColor:'transparent'}} opaque={false}
+    style={{backgroundColor:'transparent'}} containerStyle={{backgroundColor:'transparent'}}
     accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"/>
   </View>}
  </View>;

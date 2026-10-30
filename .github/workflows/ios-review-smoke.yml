@@ -1,7 +1,7 @@
 name: iOS review smoke
 on:
   push:
-    branches: [codex/ios-placement-review-20261029]
+    branches: [codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030]
     paths:
       - .github/workflows/ios-review-smoke.yml
       - artifacts/mobile/**
@@ -23,6 +23,8 @@ jobs:
       CI: 'true'
       EXPO_NO_TELEMETRY: '1'
       EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
+      # Public client identifier for the same account instance as the web app.
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Z3JhdGVmdWwtZ29sZGZpc2gtNS5jbGVyay5hY2NvdW50cy5kZXYk
     defaults:
       run:
         working-directory: artifacts/mobile
@@ -38,6 +40,11 @@ jobs:
         run: |
           npm install --global pnpm@10.11.0
           pnpm install --frozen-lockfile
+      - name: Verify account isolation, speech motion and renderer parity
+        run: |
+          pnpm typecheck
+          node --experimental-strip-types --test tests/accountCache.test.mjs tests/residentSpeechMotion.test.mjs tests/residentSpeech.test.mjs tests/residentWelcome.test.mjs
+          node scripts/build-native-resident.mjs --check
       - name: Verify iOS JavaScript bundle before native compilation
         run: pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/yoki-ios-export" --max-workers 2
       - name: Generate native project from the reviewed public source
@@ -120,4 +127,5 @@ jobs:
         run: |
           printf 'Actual test outcomes: iPhone=%s iPad=%s\n' "$IPHONE_RESULT" "$IPAD_RESULT"
           test "$IPHONE_RESULT" = success && test "$IPAD_RESULT" = success
+
 

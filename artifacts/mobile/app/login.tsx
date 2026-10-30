@@ -355,6 +355,7 @@ function AccountLoginScreen() {
           ]}
           keyboardShouldPersistTaps="handled"
         >
+          {Platform.OS!=='web'&&<Button testID="auth-back" label="はじめの画面へ" variant="ghost" onPress={()=>router.replace('/welcome')}/>}
           <View style={styles.mascotWrap}>
             {Platform.OS==='web'?<Mascot stage="stage3" mood="happy" size={120}/>:<StaticMascot stage="stage3" mood="happy" size={120}/>}
             <Image

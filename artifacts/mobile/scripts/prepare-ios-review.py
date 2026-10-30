@@ -143,13 +143,16 @@ container = Path(run('xcrun', 'simctl', 'get_app_container', udid,
 storage = container / 'Library/Application Support' / info['CFBundleIdentifier'] / 'RCTAsyncLocalStorage_V1'
 storage.mkdir(parents=True, exist_ok=False)
 feed = {'points': 5000, 'lastFeedTime': '', 'satietyAtFeed': 50}
+progress = {'level': 3, 'experience': 0, 'mentalMuscle': 0, 'streak': 0, 'totalDays': 0, 'lastRecordDate': ''}
 (storage / 'manifest.json').write_text(json.dumps({
     '@mentore/feed_state_v1': json.dumps(feed, separators=(',', ':')),
+    '@mentore/progress_v2': json.dumps(progress, separators=(',', ':')),
 }))
 (evidence / 'synthetic-fixture.json').write_text(json.dumps({
-    'scope': 'fresh isolated simulator only', 'wallet_points': 5000,
-    'purpose': 'Purchase and independently reposition sofa and violet through native UI.',
+    'scope': 'fresh isolated simulator only', 'wallet_points': 5000, 'legacy_character_level': 3,
+    'purpose': 'Verify native fur rendering, then purchase and independently reposition sofa and violet through native UI.',
     'production_app_modified': False, 'profile_seeded': False,
 }, indent=2))
 with open(os.environ['GITHUB_ENV'], 'a') as handle:
     handle.write('YOKI_SIMULATOR_UDID=' + udid + '\n')
+
