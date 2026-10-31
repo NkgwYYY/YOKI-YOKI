@@ -1,6 +1,6 @@
-# App Review Notes — optional accounts and room customization
+# App Review Notes — advertising readability and recovery
 
-The replacement release is version 1.0.1, build 27. Build 26 was withdrawn. The Japanese and English metadata saved in App Store Connect are archived in `store/1.0.1-build27-ja-en.json`.
+The advertising fix is version 1.0.1, build 28. Build 28 has been uploaded to App Store Connect but has not yet replaced build 27 in App Review. The Japanese and English metadata prepared for build 28 are archived as a draft in `store/1.0.1-build28-ja-en.draft.json`; they have not yet been applied in App Store Connect.
 
 ## Notes for App Review
 
@@ -24,23 +24,22 @@ AI is optional. Before use, the app explains the data to be sent and its destina
 
 Friend visits are invitation-based, use fixed greetings and support blocking and deletion of friend-service data. Diaries and AI conversations are not shared with friends. Optional rewarded ads are restricted to users whose age is confirmed as 20 or older, with a shared limit of three rewards per day. This version has no paid pass, and Japan distribution does not expose tobacco content.
 
+## Advertising changes in build 28
+
+- Advertising explanations, reward buttons and egg-result messages use the current cream interface palette with legible foreground colors.
+- A transient banner load failure hides the ad rail and permits a later foreground refresh after 1, 2, 4 and then at most 5 minutes. Duplicate callbacks during the wait do not extend it. A successful load resets the wait sequence.
+- Reward verification, the shared three-per-day limit, 30-point reward, age eligibility, consent and ad-free entitlements are unchanged. The existing placements remain optional and do not interrupt gameplay.
+
 ## Release verification record
 
-- Production runtime source: 63a4f6969d5f9f1291ad2f47551ee4c635b86cca.
-- Actual iPhone simulator welcome/login images were delivered to the owner before App Review submission.
-- QA source b0fc1ed18242b987944792ca8a969a02b66a6f30 was compared with the uploaded runtime. The differences are XCTest/workflow fixes and renderer readiness diagnostics gated by EXPO_PUBLIC_RENDERER_DIAGNOSTICS=1; these diagnostics are inactive in production. The renderer algorithm and production animation behavior are unchanged. Web/native renderer parity SHA-256: a6cdaea34a85ae715bd0ae3327161851c7d30159e4701eb3da59d26d1daa5157.
-- Native QA run: https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/41168017350
-- iPhone 17 Pro, iOS 26.5 simulator: 3 passed, 0 failed, 0 skipped. Actual result summary inspected. The journeys cover native account entry and negative sign-in, guest care/diary, and purchased/initial furniture placement, persistence, hiding and restoration.
-- iPad (A16), iOS 26.5 simulator, iPhone compatibility mode: 3 passed, 0 failed, 0 skipped. Actual result summary inspected. Both device result gates and the final workflow completed successfully. Full evidence artifact 13031421510 SHA-256: d207a44de69d509c7987fcf895f0c6a1fc23133e8abb1aa1fb29082b38201f2f.
-- Earlier failed runs were not treated as passing. The final driver fixes dismiss delayed iOS password-save prompts, read actual renderer readiness on the accessible owner, open the correct home overflow menu, and bring shop categories onscreen before interaction. No assertions were removed.
-- Native production authentication initialization and the synthetic missing-account response were reached. No test account was created and no verification email was sent by the negative test.
-- Successful real-account sign-in, verification-email delivery and signed-in relaunch have not been verified. Simulator checks do not establish physical-device smoothness or signed production-IPA behavior.
-- Browser guest checks passed for hiding the bed and round rug, persistence across reload, restoration, and access to rest while the bed is hidden, with no point charge.
-- Complete production-domain web, iOS and Android static packaging passed, including 181 assets and 12 higher-density variants per native platform.
-- The integrated production website was republished on 2026-10-31. Replit reports Live; the deployed privacy policy at https://yoki-yoki.replit.app/landing/privacy/ contains the October 30 account authentication, secure session storage and cross-device synchronization disclosures.
-- App privacy metadata was published with email address classified as app functionality, linked to identity and not used for tracking.
-- Japanese title: メンタルケア×育成ゲーム YOKI YOKI. English title: YOKI YOKI: Self-Care Pet Game.
-- Both localizations have updated descriptions, release notes and the four archived screenshot filenames. The room, welcome and night screenshots were captured from the native simulator; the existing diary image was retained.
-- Production build 1.0.1 (27), EAS build 0f9292bf-4477-44d8-a76f-969609679729, succeeded from the runtime source above. App Store Connect upload succeeded via EAS submission ed2959cf-41d4-4863-a11d-5a720ac8a46d.
-- Apple build UUID: 4477e14c-c206-415c-bddf-7793578c74fe.
-- App Review status: Waiting for Review (審査待ち), verified in App Store Connect on 2026-10-31 at 14:10 JST. The submitted item is iOS app 1.0.1 (27).
+- Runtime and QA source: 61abe12ee8a1e37de8d8086134bea75d85e12ef8.
+- Production build: 1.0.1 (28), EAS a58f627d-6dce-44d3-9af2-edab7465bef5. Build and upload workflow 01a191f2-c699-7cef-b0ee-f05a862af61c succeeded in 11m 52s. App Store Connect upload submission: 0d3c2d00-ba00-4bb6-9400-2038e137b817.
+- TypeScript checks and 150 advertising unit/integration tests passed, including transient recovery, bounded retries, success reset, eligibility, pass ownership and stale-account checks.
+- A separate 390px browser fixture rendered the actual advertising components on the current cream background. Synthetic interactions verified banner hiding and recovery, unchanged reward quota during a banner retry, optional reward receipt and the shared daily cap across HOME and meal placements. The fixture never connected to production data and was removed from the app before publication.
+- Native QA run: https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/41201417815
+- iPhone 17 Pro, iOS 26.5 simulator: 3 passed, 0 failed, 0 skipped. The actual result summary was inspected. Evidence artifact 13043426887 SHA-256: c065f062682a90af52106e48ef10d80206a49d7346f495f7ef91c91cb950bd44.
+- iPad (A16), iOS 26.5 simulator: 3 passed, 0 failed, 0 skipped. The actual result summary was inspected. Both device gates and the final workflow passed. Full evidence artifact 13044467420 SHA-256: af3bf50d5720898a140e2c61a962488b2b7aa51c3c6bb1c02721306af39dbda6.
+- The simulator journeys cover account entry and negative sign-in, guest care/records, and room customization. Renderer readiness diagnostics are enabled only for the QA build; production leaves EXPO_PUBLIC_RENDERER_DIAGNOSTICS unset.
+- Successful real-account sign-in, verification-email delivery, signed-in relaunch, physical-device smoothness, real AdMob delivery, server-side ad reward verification and advertising revenue are not established by these tests.
+- Replit integrated commit: 6b112b57961e4cc93671caf616911e72bbdbcd93. Normal publication completed successfully at https://yoki-yoki.replit.app; deployment b7cba70d-e06f-42d8-9eca-5afefd65978b.
+- App Review replacement submission is not complete. Build 27 was last observed Waiting for Review and was not withdrawn. Build 28 is uploaded; the next action is to select it and apply the prepared metadata after Apple access is restored. Preserve the existing screenshots, privacy disclosures and automatic release configuration.
