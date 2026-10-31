@@ -1,7 +1,7 @@
 name: iOS review smoke
 on:
   push:
-    branches: [codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030, codex/ios-room-prefetch-20261030, codex/ios-review-credential-prompt-20261030, release/ios-101-ads-fix-20261031]
+    branches: [codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030, codex/ios-room-prefetch-20261030, codex/ios-review-credential-prompt-20261030, release/ios-101-ads-fix-20261031, release/ios-101-startup-fix-20261101]
     paths:
       - .github/workflows/ios-review-smoke.yml
       - artifacts/mobile/**
