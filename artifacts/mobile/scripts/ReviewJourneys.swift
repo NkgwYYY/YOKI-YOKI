@@ -485,3 +485,47 @@ final class ReviewJourneys: XCTestCase {
 }
 
 
+
+@MainActor
+final class EggAppearanceJourney: XCTestCase {
+    private let app = XCUIApplication(bundleIdentifier: "app.replit.yokiyoki--")
+    private func item(_ id: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: id).firstMatch
+    }
+    private func tap(_ target: XCUIElement) {
+        XCTAssertTrue(target.waitForExistence(timeout: 60))
+        for _ in 0..<8 {
+            if target.isHittable { break }
+            app.swipeUp(velocity: .slow)
+        }
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in target.isHittable }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed)
+        target.tap()
+    }
+    private func text(_ label: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@ OR value == %@", label, label)).firstMatch
+    }
+    func testNativeEggHome() {
+        continueAfterFailure = false
+        defer { app.terminate() }
+        app.launch()
+        tap(item("welcome-guest"))
+        tap(item("profile-nickname"))
+        item("profile-nickname").typeText("Egg QA\n")
+        tap(item("profile-age-unknown"))
+        tap(item("profile-gender-unknown"))
+        tap(text("いっしょにはじめる"))
+        if text("よろしくね！").waitForExistence(timeout: 4) { tap(text("よろしくね！")) }
+        if item("tutorial-skip").waitForExistence(timeout: 5) { tap(item("tutorial-skip")) }
+        XCTAssertTrue(item("home-daily-record").waitForExistence(timeout: 60))
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.item("home-daily-record").isHittable && !self.item("plush-loading").exists }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed)
+        XCTAssertTrue(item("room-resident").exists)
+        XCTAssertFalse(item("daily-ad-rail-home").exists, "Unknown-age fixture must never request live ads")
+        XCTAssertGreaterThan(item("room-resident").frame.width, 40)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "native-egg-home"; shot.lifetime = .keepAlways; add(shot)
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "native-egg-hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+    }
+}

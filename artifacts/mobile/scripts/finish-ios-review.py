@@ -5,7 +5,7 @@ import sys
 import re
 
 family = sys.argv[1]
-if family not in ('iPhone', 'iPad'):
+if family not in ('iPhone', 'iPad', 'iPhoneEgg'):
     raise SystemExit('Unexpected simulator family')
 evidence = Path('review-results') / family
 device_file = evidence / 'device-id.txt'

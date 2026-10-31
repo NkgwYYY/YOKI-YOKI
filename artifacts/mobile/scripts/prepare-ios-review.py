@@ -65,7 +65,8 @@ if not runtimes:
 # Keep the newest OS first, then use a different installed compatible runtime
 # for the single bootstrap retry when available. Never retry an app test failure.
 boot_runtimes = runtimes[:2] if len(runtimes) > 1 else runtimes * 2
-evidence = Path('review-results') / family
+egg_capture = os.environ.get('YOKI_QA_EGG') == '1'
+evidence = Path('review-results') / (family + 'Egg' if egg_capture else family)
 evidence.mkdir(exist_ok=True, parents=True)
 (evidence / 'available-runtimes.json').write_text(json.dumps(runtimes, indent=2))
 # Use the onscreen keyboard in this disposable runner. A fresh simulator has
@@ -84,7 +85,7 @@ for attempt, runtime in enumerate(boot_runtimes, start=1):
     # Only retry an OS bootstrap failure, before installing or opening the app.
     # Preserve the first failure; never retry a failed application journey here.
     udid = run('xcrun', 'simctl', 'create',
-               'YokiReview-' + os.environ['GITHUB_RUN_ID'] + '-' + family + '-' + str(attempt),
+               'YokiReview-' + os.environ['GITHUB_RUN_ID'] + '-' + family + ('Egg' if egg_capture else '') + '-' + str(attempt),
                device_type, runtime)
     print('Testing device:', device['name'], 'Runtime:', runtime,
           'Fresh simulator:', udid, 'Boot attempt:', attempt, flush=True)
@@ -143,13 +144,13 @@ container = Path(run('xcrun', 'simctl', 'get_app_container', udid,
 storage = container / 'Library/Application Support' / info['CFBundleIdentifier'] / 'RCTAsyncLocalStorage_V1'
 storage.mkdir(parents=True, exist_ok=False)
 feed = {'points': 5000, 'lastFeedTime': '', 'satietyAtFeed': 50}
-progress = {'level': 3, 'experience': 0, 'mentalMuscle': 0, 'streak': 0, 'totalDays': 0, 'lastRecordDate': ''}
+progress = {'level': 1 if egg_capture else 3, 'experience': 0, 'mentalMuscle': 0, 'streak': 0, 'totalDays': 0, 'lastRecordDate': ''}
 (storage / 'manifest.json').write_text(json.dumps({
     '@mentore/feed_state_v1': json.dumps(feed, separators=(',', ':')),
     '@mentore/progress_v2': json.dumps(progress, separators=(',', ':')),
 }))
 (evidence / 'synthetic-fixture.json').write_text(json.dumps({
-    'scope': 'fresh isolated simulator only', 'wallet_points': 5000, 'legacy_character_level': 3,
+    'scope': 'fresh isolated simulator only', 'wallet_points': 5000, 'legacy_character_level': 1 if egg_capture else 3,
     'purpose': 'Verify native fur rendering, then purchase and independently reposition sofa and violet through native UI.',
     'production_app_modified': False, 'profile_seeded': False,
 }, indent=2))
