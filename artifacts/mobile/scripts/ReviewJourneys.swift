@@ -155,7 +155,18 @@ final class ReviewJourneys: XCTestCase {
         until("Flower purchase must persist") {
             self.element("shop-buy-room-violet").label == "模様替えで選ぶ"
         }
-        tap(element("shop-open-atelier"))
+        let atelier = element("shop-open-atelier")
+        visible(atelier)
+        let shopScroll = app.scrollViews.firstMatch
+        visible(shopScroll)
+        // This header is above the purchased flower. In iPhone compatibility
+        // mode XCTest can throw when asking an offscreen element's hittability.
+        // Scroll it into the viewport before the normal tap checks.
+        for _ in 0..<8 {
+            if atelier.frame.minY >= shopScroll.frame.minY { break }
+            shopScroll.swipeDown(velocity: .slow)
+        }
+        tap(atelier)
         tap(element("atelier-furniture-sofa"))
         until("Purchased sofa must be saved and selected") {
             self.element("atelier-furniture-sofa").isSelected && self.element("atelier-furniture-sofa").isEnabled
@@ -187,7 +198,7 @@ final class ReviewJourneys: XCTestCase {
     }
 
     private func openStarterFurnishings() {
-        tap(element("world-map-open"))
+        tap(element("home-more-menu"))
         tap(text("部屋の模様替え"))
         tap(element("atelier-tab-starter"))
     }
