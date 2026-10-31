@@ -1,0 +1,11 @@
+name: Upload iOS 1.0.1 build 27
+
+# Manual upload of the existing signed artifact. This does not create a new
+# build, publish an update, or send an App Store version for review.
+jobs:
+  submit_ios:
+    name: Upload iOS 1.0.1 (27) to App Store Connect
+    type: submit
+    params:
+      build_id: 0f9292bf-4477-44d8-a76f-969609679729
+      profile: production

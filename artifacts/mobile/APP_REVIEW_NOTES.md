@@ -1,69 +1,35 @@
-# App Review Notes — iOS guest-only release
+# App Review Notes — optional accounts and room customization
 
-## Build 18 rejection: unresponsive home actions
+Use the reviewer-facing notes below for the replacement 1.0.1 build only after its release checks pass. Build 26 was withdrawn and is not the replacement.
 
-The review reported that Record, feeding, chat, and play did not respond on an iPad Air 11-inch (M3), iPadOS 27.0.1. Authentication is not the reported issue in this review.
+## Notes for App Review
 
-Touch-handling changes have been made, but this workspace cannot verify UIKit touch handling on a physical iPad. Do not claim that the iPad issue has been reproduced or confirmed resolved until the release build has been tested there.
+YOKI YOKI is a Japanese-language self-care and character-raising game with a diary, mood records, character care, room customization and mini-games. It is not a medical diagnosis or treatment service. The iPhone app also runs in iPhone compatibility mode on iPad.
 
-### Reply while preparing the corrected release (safe to send now)
+The first-launch welcome offers 新規登録してはじめる (register), ログイン (sign in), and 登録せずにはじめる (continue without registering). Accounts are optional. For the core review journey, choose 登録せずにはじめる, enter a nickname, choose the optional profile answers, then choose いっしょにはじめる. Existing local users retain their room and records.
 
-```text
-Hello,
+The sign-in screen uses the same account service as the web version. Existing web users can enter the same email and password. New registrations use an email verification code. Signed-in users synchronize diary, mood records, character progress and room settings with their account. Sessions are retained between launches. Guest records remain on the device. Account deletion is available in the profile/account settings; signing out does not delete cloud records.
 
-Thank you for the detailed feedback and the device information.
+Main controls:
+- 日記: open the diary, choose あなたのページを書く, choose a mood and save with the character-name button. A mood can be saved without body text.
+- ごはん: choose food using earned in-game YOKI points.
+- おはなし: choose 少し、お話しする to open chat.
+- メニュー → ショップ: purchase room items. メニュー → あそぶ: open the mini-games.
+- 部屋の模様替え: choose owned furniture or flowers. Tap a placed item, drag it, release to save and select 完了.
+- 部屋の模様替え → 初期家具: put away or restore the bed area, lounge set, bookcase, chest, round rug and window decorations. These settings cost no points and persist after relaunch. Rest remains accessible from the home menu when the bed is hidden.
 
-We are investigating the unresponsive action buttons reported in build 18. We have made changes to the home screen's touch handling and will verify the Record, feeding, chat, and play flows in a new iOS release build before resubmitting.
+This update stabilizes the speech bubble during welcome hops, makes its background translucent, uses the web character renderer and original fur artwork on iOS, and adds the native account entry and initial-furniture settings.
 
-No account or sign-in is required in the iOS version.
+AI is optional. Before use, the app explains the data to be sent and its destination, and asks for consent. Data goes through the YOKI YOKI server hosted on Replit to OpenAI. Diary replies have a separate consent prompt. 今は日記の保存だけ saves without an AI reply. Consent can be withdrawn from the diary or プロフィール・話しかけ設定 → AIへの情報送信・同意設定. Records, character care and mini-games remain available without AI consent.
 
-Thank you.
-```
+Friend visits are invitation-based, use fixed greetings and support blocking and deletion of friend-service data. Diaries and AI conversations are not shared with friends. Optional rewarded ads are restricted to users whose age is confirmed as 20 or older, with a shared limit of three rewards per day. This version has no paid pass, and Japan distribution does not expose tobacco content.
 
-### Release-device checklist before resubmitting
+## Release verification record
 
-- Test a clean install and an update over build 18 on an iPad.
-- Wait for the loading screen to clear and dismiss the new-character greeting, if shown.
-- Tap the center and lower part of each home action in portrait and landscape.
-- Record: open the record screen, save a mood record, and check that it persists after restarting.
-- Feeding: open the food picker; earn enough YOKI points if necessary, feed the character, and check the points/satiety change.
-- Chat: open chat, type and send a message, and verify a response or an actionable network error.
-- Play: during an available play period with attempts remaining, open the game picker, start a game, and verify its controls.
-- Repeat after closing and reopening the app. Also check an iPhone release build.
-- Keep the final build number, tested device/OS, and results. Only then state that verification succeeded.
-
----
-
-## App Review Information → Notes
-
-Use the following text in **App Review Information → Notes**. Remove every previously supplied demo username, password, and authentication-code instruction before submitting the new build.
-
-```text
-NO SIGN-IN OR ACCOUNT IS REQUIRED OR AVAILABLE IN THIS iOS VERSION.
-
-Please do not use any demo account or credentials from an earlier submission. This build does not expose sign-in, account creation, email verification, or authentication-code screens on iOS.
-
-Review steps:
-1. Launch the app.
-2. Complete the short onboarding flow.
-3. The app opens directly to its main experience.
-4. On the home screen, tap Record, feeding, chat, and play to open their respective screens or pickers.
-
-All core features are available without authentication, including mood records, daily check-ins, AI chat, character growth, mini-games, the item shop, and character customization. Records, progress, purchased items, and settings are stored locally on the device.
-
-No phone call, verification email, authentication code, username, or password is needed to review this build.
-```
-
-Suggested Resolution Center reply after uploading the new build:
-
-```text
-Hello,
-
-Thank you for your feedback. We have submitted a new build that removes account authentication from the iOS version.
-
-The new iOS build does not expose sign-in, account creation, email verification, or authentication-code screens. No demo account or authentication code is required. Please disregard all credentials provided with earlier submissions.
-
-To review the app, launch it and complete the short onboarding flow. All core features are then available directly without authentication.
-
-Thank you.
-```
+- Runtime source: 63a4f6969d5f9f1291ad2f47551ee4c635b86cca. Changes since 2935386 affect the XCTest driver/workflow only.
+- Actual iPhone simulator welcome/login images were delivered to the owner before any new App Review submission.
+- Native production authentication initialization and the synthetic missing-account response were reached. No test account was created and no verification email was sent by the negative test.
+- Run 41031454142 failed on both devices because iOS displayed its password-save sheet after the driver's initial wait. This is not a passing functional run.
+- Run 41156957240 separately checks account entry, guest care/records and room customization; its final outcome is pending. All three journeys on both devices must pass.
+- Successful real-account sign-in, verification-email delivery and signed-in relaunch have not yet been verified. Simulator checks do not establish physical-device smoothness or signed production-IPA behavior.
+- Production build 1.0.1 (27), EAS build 0f9292bf-4477-44d8-a76f-969609679729, succeeded from the same source. Upload and App Review submission have not yet occurred.
