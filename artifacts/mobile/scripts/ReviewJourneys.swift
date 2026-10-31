@@ -82,7 +82,9 @@ final class ReviewJourneys: XCTestCase {
         // iOS can present this sheet after leaving the failed sign-in form.
         // Keep AutoFill enabled in the app; never store the random QA password.
         guard enteredSyntheticPassword else { return false }
-        let prompt = app.sheets["Save Password?"]
+        // iPhone presents a sheet; iPhone compatibility mode on iPad uses an alert.
+        let prompt = app.alerts["Save Password?"].exists
+            ? app.alerts["Save Password?"] : app.sheets["Save Password?"]
         let appeared = timeout > 0 ? prompt.waitForExistence(timeout: timeout) : prompt.exists
         if appeared {
             prompt.buttons["Not Now"].tap()
@@ -153,7 +155,18 @@ final class ReviewJourneys: XCTestCase {
         until("Flower purchase must persist") {
             self.element("shop-buy-room-violet").label == "模様替えで選ぶ"
         }
-        tap(element("shop-open-atelier"))
+        let atelier = element("shop-open-atelier")
+        visible(atelier)
+        let shopScroll = app.scrollViews.firstMatch
+        visible(shopScroll)
+        // This header is above the purchased flower. In iPhone compatibility
+        // mode XCTest can throw when asking an offscreen element's hittability.
+        // Scroll it into the viewport before the normal tap checks.
+        for _ in 0..<8 {
+            if atelier.frame.minY >= shopScroll.frame.minY { break }
+            shopScroll.swipeDown(velocity: .slow)
+        }
+        tap(atelier)
         tap(element("atelier-furniture-sofa"))
         until("Purchased sofa must be saved and selected") {
             self.element("atelier-furniture-sofa").isSelected && self.element("atelier-furniture-sofa").isEnabled
@@ -185,7 +198,7 @@ final class ReviewJourneys: XCTestCase {
     }
 
     private func openStarterFurnishings() {
-        tap(element("world-map-open"))
+        tap(element("home-more-menu"))
         tap(text("部屋の模様替え"))
         tap(element("atelier-tab-starter"))
     }
@@ -271,6 +284,17 @@ final class ReviewJourneys: XCTestCase {
         capture("00-returned-welcome")
     }
 
+    private func requireResidentRenderer() {
+        let resident = element("room-resident")
+        visible(resident)
+        // Read the actual WebView state from its existing accessible owner.
+        // Nested body nodes disappear from iOS's accessibility tree under the
+        // 3D transform, even while the common canvas renderer is on screen.
+        until("The common resident renderer must finish loading", timeout: 30) {
+            (resident.value as? String) == "renderer:ready"
+        }
+    }
+
     private func launchGuestHome() {
         // Each journey launches independently. An account-entry failure must
         // not prevent the room, care and persistence checks from executing.
@@ -279,7 +303,7 @@ final class ReviewJourneys: XCTestCase {
             self.element("home-daily-record").exists || self.element("welcome-guest").exists
         }
         if element("home-daily-record").exists {
-            visible(element("resident-renderer-ready"), timeout: 30)
+            requireResidentRenderer()
             return
         }
         tap(element("welcome-guest"))
@@ -294,7 +318,7 @@ final class ReviewJourneys: XCTestCase {
         if text("よろしくね！").waitForExistence(timeout: 4) { tap(text("よろしくね！")) }
         if element("tutorial-skip").waitForExistence(timeout: 5) { tap(element("tutorial-skip")) }
         visible(element("home-daily-record"))
-        visible(element("resident-renderer-ready"), timeout: 30)
+        requireResidentRenderer()
         capture("01-home")
     }
 
@@ -459,4 +483,5 @@ final class ReviewJourneys: XCTestCase {
         verifyStarterFurnishings()
     }
 }
+
 

@@ -161,6 +161,50 @@ test('server date rollover and banner no-fill update all placements without a lo
   f.service.bannerError();await f.service.refresh();assert.equal(f.service.getSnapshot().bannerAvailable,false);
 });
 
+test('a transient banner failure recovers on a later refresh without spending rewards',async()=>{
+  let now=1_000;
+  const f=fixture({now:()=>now});
+  await f.service.refresh();
+  assert.equal(f.service.getSnapshot().bannerAvailable,true);
+  f.service.bannerError();
+  assert.equal(f.service.getSnapshot().bannerAvailable,false);
+  now+=59_999;await f.service.refresh();
+  assert.equal(f.service.getSnapshot().bannerAvailable,false);
+  now++;await f.service.refresh();
+  assert.equal(f.service.getSnapshot().bannerAvailable,true);
+  assert.equal(f.service.getSnapshot().remaining,3);
+  assert.equal(f.service.getSnapshot().phase,'idle');
+  assert.equal(f.reservations.size,0);assert.equal(f.shown(),0);
+});
+
+test('repeated no-fill backs off, ignores duplicate callbacks and resets after load',async()=>{
+  let now=1_000;
+  const f=fixture({now:()=>now});
+  await f.service.refresh();
+  for(const delay of [60_000,120_000,240_000,300_000,300_000]){
+    f.service.bannerError();f.service.bannerError();
+    now+=delay-1;await f.service.refresh();
+    assert.equal(f.service.getSnapshot().bannerAvailable,false);
+    now++;await f.service.refresh();
+    assert.equal(f.service.getSnapshot().bannerAvailable,true);
+  }
+  f.service.bannerLoaded();f.service.bannerError();
+  now+=59_999;await f.service.refresh();assert.equal(f.service.getSnapshot().bannerAvailable,false);
+  now++;await f.service.refresh();assert.equal(f.service.getSnapshot().bannerAvailable,true);
+});
+
+test('banner recovery still obeys readiness, advertising eligibility and pass checks',async()=>{
+  let now=1_000,ready=true,banner=true,owned=false;
+  const f=fixture({now:()=>now,eligibility:()=>({ready,rewarded:true,banner,pass:false}),pass:async()=>owned});
+  await f.service.refresh();f.service.bannerError();now+=60_000;
+  banner=false;await f.service.refresh();assert.equal(f.service.getSnapshot().bannerAvailable,false);
+  banner=true;ready=false;await f.service.refresh();assert.equal(f.service.getSnapshot().bannerAvailable,false);
+  ready=true;owned=true;await f.service.refresh();assert.equal(f.service.getSnapshot().removePassiveAds,true);
+  f.switchAccount();f.service.bannerLoaded();f.service.bannerError();
+  assert.equal(f.service.getSnapshot().bannerAvailable,false);
+  assert.equal(f.reservations.size,0);assert.equal(f.shown(),0);
+});
+
 test('collector rejects a stale account even when no claims are present',async()=>{
   const response=deferred();let current=true,grants=0,acks=0;
   const collect=createBonusCollector({current:()=>current,ready:()=>true,status:()=>response.promise,grant:async()=>{grants++;return 30;},acknowledge:async()=>{acks++;}});
@@ -197,3 +241,4 @@ test('a closed reservation past server expiry is discarded before another ad is 
   assert.equal((await f.service.watchRewarded('meal')).status,'closed');
   assert.equal(reserves,2);
 });
+

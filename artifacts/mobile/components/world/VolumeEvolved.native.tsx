@@ -35,6 +35,8 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
   return()=>frames.setActive(false);
  },[ready,failed,active,reduceMotion,frames,send,lastPose]);
  useEffect(()=>{setReady(false);setFailed(false);lastSent.value=-1;lastPose.value='';},[stage]);
+ // Report only actual WebView readiness; the static fallback never satisfies it.
+ useEffect(()=>{props.onRendererStateChange?.(failed?'failed':ready?'ready':'loading');},[failed,ready,props.onRendererStateChange]);
  return <View testID={`resident-volume-${stage}`} pointerEvents="none" style={{width:size,height:size}}>
   {(!ready||failed)&&<StaticMascot stage={stage} mood={props.mood} size={size}/>}
   {!failed&&<View testID={ready?'resident-renderer-ready':'resident-renderer-loading'} style={[StyleSheet.absoluteFill,{opacity:ready?1:0}]}>
@@ -47,3 +49,4 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
   </View>}
  </View>;
 }
+

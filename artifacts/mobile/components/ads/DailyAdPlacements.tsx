@@ -3,6 +3,7 @@ import React, {
 } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {FeltPressable as Pressable} from '@/components/ui/FeltPressable';
+import {colors} from '@/constants/theme';
 import {
   BANNER_HEIGHT, BANNER_RAIL_HEIGHT, BANNER_WIDTH,
   createDailyRewardGate, dailyAdPresentation, dailyAdResultMessage, dailyAdNoticeAfterRefresh,
@@ -148,19 +149,20 @@ export function DailyAdRewardButton({placement, environment}: PlacementProps) {
 const styles = StyleSheet.create({
   rail: {
     height: BANNER_RAIL_HEIGHT, flexShrink: 0, paddingTop: 8, paddingBottom: 12,
-    alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: '#211B30',
+    alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: colors.sheet,
   },
-  adLabel: {fontSize: 10, lineHeight: 12, color: '#C8B9D4'},
+  adLabel: {fontSize: 10, lineHeight: 12, color: colors.mutedForeground},
   banner: {width: BANNER_WIDTH, height: BANNER_HEIGHT},
   reward: {alignItems: 'stretch', gap: 6, paddingVertical: 12},
   button: {
     minHeight: 48, paddingHorizontal: 16, paddingVertical: 12,
-    borderRadius: 7, borderWidth: 1, borderColor: '#B7A48290', backgroundColor: '#51415F',
+    borderRadius: 16, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
-  buttonText: {fontSize: 14, lineHeight: 21, fontWeight: '600', color: '#F0DDAE', textAlign: 'center'},
-  detail: {fontSize: 11, lineHeight: 17, color: '#C8B9D4', textAlign: 'center'},
+  buttonText: {fontSize: 14, lineHeight: 21, fontWeight: '600', color: colors.primaryForeground, textAlign: 'center'},
+  detail: {fontSize: 12, lineHeight: 18, color: colors.mutedForeground, textAlign: 'center'},
   privacy: {minHeight: 44, justifyContent: 'center', alignItems: 'center'},
-  notice: {fontSize: 12, lineHeight: 19, color: '#E6DAED', textAlign: 'center'},
+  notice: {fontSize: 12, lineHeight: 19, color: colors.foreground, textAlign: 'center'},
   dim: {opacity: 0.5},
 });
+

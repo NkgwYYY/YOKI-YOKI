@@ -21,7 +21,7 @@ type Dependencies = {
 let presenting = false;
 export function createDailyAds(deps: Dependencies) {
   let snapshot: DailyAdSnapshot = {...DISCONNECTED_DAILY_ADS, sessionKey: deps.sessionKey};
-  let pass = false, bannerFailed = false;
+  let pass = false, bannerFailures = 0, bannerRetryAt = 0;
   let refreshTask: Promise<void> | null = null;
   let pending: { receipt: string; reservation?: Reservation; watched: boolean } | null = null;
   const listeners = new Set<() => void>();
@@ -70,7 +70,7 @@ export function createDailyAds(deps: Dependencies) {
         pass = await deps.pass();
         assertCurrent();
         publish({ready: true, rewardedAvailable: allowed.rewarded,
-          bannerAvailable: allowed.banner && !bannerFailed, removePassiveAds: pass});
+          bannerAvailable: allowed.banner && now() >= bannerRetryAt, removePassiveAds: pass});
         if (pending?.reservation && isConfirmed(pending.reservation.id, result) && snapshot.phase === 'verifying') {
           pending = null; publish({phase: 'idle'});
         }
@@ -157,6 +157,19 @@ export function createDailyAds(deps: Dependencies) {
     watchRewarded: (placement: DailyAdPlacement) => watch(placement),
     watchEgg: (receipt: string) => watch('egg-job', receipt),
     hasPass: () => pass,
-    bannerError: () => { bannerFailed = true; publish({bannerAvailable: false}); },
+    bannerError: () => {
+      if (!current() || now() < bannerRetryAt) return;
+      // Retry only through the existing foreground refresh, after 1/2/4/5 minutes.
+      // No-fill must neither disable ads for the whole session nor cause a reload loop.
+      const delay = Math.min(60_000 * 2 ** Math.min(bannerFailures++, 3), 300_000);
+      bannerRetryAt = now() + delay;
+      publish({bannerAvailable: false});
+    },
+    bannerLoaded: () => {
+      if (!current() || !snapshot.bannerAvailable) return;
+      bannerFailures = 0;
+      bannerRetryAt = 0;
+    },
   };
 }
+

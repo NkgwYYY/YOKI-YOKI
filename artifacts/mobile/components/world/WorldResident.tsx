@@ -20,6 +20,7 @@ import {steerStep,mapPortals,nearbyPortalIndex,type VillageExperience} from '@/u
 import {ResidentMeal} from '@/components/village/ResidentMeal';
 import {rollStep} from '@/utils/residentPhysics';
 import {VolumeResident,hasResidentVolume} from './VolumeResident';
+import type {ResidentRendererState} from './VolumeEvolvedFallback';
 import {residentSoftScale,residentWalkYaw} from '@/utils/evolvedVolume';
 import { useWorldResident } from './useWorldResident';
 import {welcomeSample} from '@/utils/residentWelcome';
@@ -48,6 +49,9 @@ type Props = {
   onInteract: (kind: ResidentInteraction) => void; onMealFinished: () => void; onChat: () => void;
 };
 const SOFT = {mass: 0.85, damping: 15, stiffness: 150};
+// QA reads the actual WebView state from its accessible owner: iOS hides the
+// transformed body's descendants. No diagnostic value is exposed in production.
+const RENDERER_DIAGNOSTICS=Platform.OS!=='web'&&process.env.EXPO_PUBLIC_RENDERER_DIAGNOSTICS==='1';
 
 /** Scene-sized art, one motion owner, no React state or layout update on animation frames. */
 export function WorldResident(p: Props) {
@@ -57,6 +61,7 @@ export function WorldResident(p: Props) {
   const [manual,setManual]=useState(false);
   const [manualRevision,setManualRevision]=useState(0);
   const [welcoming,setWelcoming]=useState(false);
+  const [rendererState,setRendererState]=useState<ResidentRendererState>('loading');
   const welcomeRunning=useSharedValue(0),welcomeStartedAt=useSharedValue(-1);
   const welcomeX=useSharedValue(0),welcomeY=useSharedValue(0);
   const welcomeFromX=useSharedValue(0),welcomeFromY=useSharedValue(0);
@@ -421,6 +426,7 @@ export function WorldResident(p: Props) {
   };
   return <GestureDetector gesture={gesture} touchAction="none">
     <Animated.View testID="room-resident" style={[s.root, {width: size, height: size}, rootStyle]} accessible={!experience} accessibilityRole="button"
+      accessibilityValue={RENDERER_DIAGNOSTICS?{text:`renderer:${rendererState}`}:undefined}
       accessibilityElementsHidden={!!experience} importantForAccessibility={experience ? 'no-hide-descendants' : 'auto'} aria-hidden={!!experience}
       accessibilityState={{disabled: !active || !!experience || !!food || p.bowlingBusy}}
       accessibilityLabel={`${p.mascotName}にふれる。${activity}`} accessibilityHint={p.closeUp?'タップでごあいさつ。なでると喜びます。長押しで抱っこ。':'タップでごあいさつ。なでると喜びます。すばやく払うと、ころころ。長押しで抱っこして、お部屋の好きな場所に置けます。2本指で景色を拡大'}
@@ -438,7 +444,7 @@ export function WorldResident(p: Props) {
       <Animated.View pointerEvents="none" style={perspective}>
         <Animated.View testID="resident-body" style={body}>
           {p.effect && <Image source={{uri: p.effect.uri}} resizeMode="contain" style={{position: 'absolute', width: size * p.effect.scale * 1.3, height: size * p.effect.scale * 1.3, left: -size * 0.15 + p.effect.x, top: -size * 0.15 + p.effect.y}}/>}
-          {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} displaySize={p.viewFlight?Math.max(p.viewFlight.from.size,p.viewFlight.to.size):p.closeUp?.size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} smoking={p.smoking} active={active} reduceMotion={reduceMotion} mealProgress={pose==='eating'?mealProgress:undefined}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
+          {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} displaySize={p.viewFlight?Math.max(p.viewFlight.from.size,p.viewFlight.to.size):p.closeUp?.size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} smoking={p.smoking} active={active} reduceMotion={reduceMotion} mealProgress={pose==='eating'?mealProgress:undefined} onRendererStateChange={RENDERER_DIAGNOSTICS?setRendererState:undefined}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
           {p.smoking&&!volumetric&&<StaticSmokingAccessory size={size} active={active} reduceMotion={reduceMotion}/>}
           <ResidentDust value={p.cleanliness} size={size}/>
           {!volumetric&&<View style={[StyleSheet.absoluteFill, {opacity: p.period === 'night' ? 0.18 : 0.13}]} >
@@ -452,4 +458,5 @@ export function WorldResident(p: Props) {
   </GestureDetector>;
 }
 const s = StyleSheet.create({root: {position: 'absolute', left: 0, top: 0}, shadow: {position: 'absolute', width: '100%', left: 0, bottom: '-8%'}});
+
 

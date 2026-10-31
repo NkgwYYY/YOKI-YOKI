@@ -1,7 +1,7 @@
 name: iOS review smoke
 on:
   push:
-    branches: [codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030, codex/ios-room-prefetch-20261030, codex/ios-review-credential-prompt-20261030]
+    branches: [codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030, codex/ios-room-prefetch-20261030, codex/ios-review-credential-prompt-20261030, release/ios-101-ads-fix-20261031]
     paths:
       - .github/workflows/ios-review-smoke.yml
       - artifacts/mobile/**
@@ -23,6 +23,7 @@ jobs:
       CI: 'true'
       EXPO_NO_TELEMETRY: '1'
       EXPO_PUBLIC_AUTH_DIAGNOSTICS: '1'
+      EXPO_PUBLIC_RENDERER_DIAGNOSTICS: '1'
       EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
       # Public client identifier for the same account instance as the web app.
       EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsueW9raS15b2tpLnJlcGxpdC5hcHAk
@@ -46,6 +47,7 @@ jobs:
         run: |
           pnpm typecheck
           node --experimental-strip-types --test tests/accountCache.test.mjs tests/residentSpeechMotion.test.mjs tests/residentSpeech.test.mjs tests/residentWelcome.test.mjs tests/starterFurnishings.test.mjs tests/roomPurchase.test.mjs tests/roomPlacement.test.mjs
+          node --test tests/dailyAdPlacements.test.mjs tests/dailyAdStore.test.mjs tests/dailyAdsIntegration.test.mjs tests/dailyAdsExpiry.test.mjs tests/commerceNativeAds.test.mjs tests/nativeRewardedLifecycle.test.mjs
           node scripts/build-native-resident.mjs --check
       - name: Verify iOS JavaScript bundle before native compilation
         run: pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/yoki-ios-export" --max-workers 2
@@ -76,7 +78,7 @@ jobs:
           set -o pipefail
           python3 scripts/prepare-ios-review.py
           YOKI_TEST_UDID=$(cat review-results/iPhone/device-id.txt)
-          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test 2>&1 | tee review-results/iPhone/xctest.log
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO test 2>&1 | tee review-results/iPhone/xctest.log
       - name: Preserve iPhone screen and stop simulator
         if: always() && steps.iphone.outcome != 'skipped'
         run: |
@@ -111,7 +113,7 @@ jobs:
           set -o pipefail
           python3 scripts/prepare-ios-review.py
           YOKI_TEST_UDID=$(cat review-results/iPad/device-id.txt)
-          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPad/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 CODE_SIGNING_ALLOWED=NO test 2>&1 | tee review-results/iPad/xctest.log
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPad/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO test 2>&1 | tee review-results/iPad/xctest.log
       - name: Preserve iPad screen
         if: always() && steps.ipad.outcome != 'skipped'
         run: |
@@ -146,5 +148,6 @@ jobs:
         run: |
           printf 'Actual test outcomes: iPhone=%s iPad=%s\n' "$IPHONE_RESULT" "$IPAD_RESULT"
           test "$IPHONE_RESULT" = success && test "$IPAD_RESULT" = success
+
 
 

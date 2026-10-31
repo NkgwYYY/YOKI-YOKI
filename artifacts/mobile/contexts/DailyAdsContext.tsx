@@ -39,7 +39,7 @@ export function ConnectedDailyAds({children}: {children: React.ReactNode}) {
   }), [session, client]);
   const binding = useMemo(() => ({...service, onBannerError: service.bannerError,
     openPrivacy: async () => { await adPrivacyOptions(); await service.refresh(); },
-    renderBanner: () => <CommunityBanner onError={service.bannerError}/>}), [service]);
+    renderBanner: () => <CommunityBanner onError={service.bannerError} onLoaded={service.bannerLoaded}/>}), [service]);
   useEffect(() => {
     const refresh = () => { if (AppState.currentState === 'active') void service.refresh(); };
     refresh();
@@ -55,3 +55,4 @@ export function useDailyRewardService() {
   const snapshot = useSyncExternalStore(service.subscribe, service.getSnapshot, service.getSnapshot);
   return {service, snapshot};
 }
+

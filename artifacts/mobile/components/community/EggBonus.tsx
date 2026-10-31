@@ -5,6 +5,7 @@ import {useRouter} from 'expo-router';
 import {useCommunity} from '@/contexts/CommunityContext';
 import {useDailyRewardService} from '@/contexts/DailyAdsContext';
 import {WorldPill} from '@/components/world/WorldPill';
+import {colors} from '@/constants/theme';
 import {canBuyPass, adPrivacyOptions} from '@/utils/community/commerce';
 import {dailyAdResultMessage} from '@/utils/dailyAdPlacements';
 import type {EggReceipt} from '@/utils/eggJob';
@@ -42,4 +43,5 @@ export function EggBonus({receipt, onBusy}: {receipt: EggReceipt; onBusy: (busy:
     </View>
   </View>;
 }
-const s=StyleSheet.create({box:{gap:10,paddingTop:14,borderTopWidth:1,borderColor:'#C9AF8355'},title:{color:'#F3DFBB',fontSize:14,fontWeight:'600'},copy:{color:'#CDBED5',fontSize:11,lineHeight:18},message:{color:'#F5DDB1',fontSize:12,lineHeight:20},links:{gap:14,paddingTop:3},link:{color:'#D8C3E8',fontSize:11,textDecorationLine:'underline',paddingVertical:6}});
+const s=StyleSheet.create({box:{gap:10,paddingTop:14,borderTopWidth:1,borderColor:colors.borderStrong},title:{color:colors.foreground,fontSize:14,fontWeight:'600'},copy:{color:colors.mutedForeground,fontSize:12,lineHeight:19},message:{color:colors.foreground,fontSize:12,lineHeight:20},links:{gap:14,paddingTop:3},link:{color:colors.primaryOnSoft,fontSize:12,textDecorationLine:'underline',paddingVertical:12}});
+
