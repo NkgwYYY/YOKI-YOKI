@@ -1,6 +1,6 @@
 # App Review Notes — optional accounts and room customization
 
-Use the reviewer-facing notes below for the replacement 1.0.1 build only after its release checks pass. Build 26 was withdrawn and is not the replacement.
+The replacement release is version 1.0.1, build 27. Build 26 was withdrawn. The Japanese and English metadata saved in App Store Connect are archived in `store/1.0.1-build27-ja-en.json`.
 
 ## Notes for App Review
 
@@ -15,8 +15,8 @@ Main controls:
 - ごはん: choose food using earned in-game YOKI points.
 - おはなし: choose 少し、お話しする to open chat.
 - メニュー → ショップ: purchase room items. メニュー → あそぶ: open the mini-games.
-- 部屋の模様替え: choose owned furniture or flowers. Tap a placed item, drag it, release to save and select 完了.
-- 部屋の模様替え → 初期家具: put away or restore the bed area, lounge set, bookcase, chest, round rug and window decorations. These settings cost no points and persist after relaunch. Rest remains accessible from the home menu when the bed is hidden.
+- Home upper-right … → 部屋の模様替え: choose owned furniture or flowers. Tap a placed item, drag it, release to save and select 完了.
+- Home upper-right … → 部屋の模様替え → 初期家具: put away or restore the bed area, lounge set, bookcase, chest, round rug and window decorations. These settings cost no points and persist after relaunch. Rest remains accessible from the home menu when the bed is hidden.
 
 This update stabilizes the speech bubble during welcome hops, makes its background translucent, uses the web character renderer and original fur artwork on iOS, and adds the native account entry and initial-furniture settings.
 
@@ -26,13 +26,21 @@ Friend visits are invitation-based, use fixed greetings and support blocking and
 
 ## Release verification record
 
-- Runtime source: 63a4f6969d5f9f1291ad2f47551ee4c635b86cca. Changes since 2935386 affect the XCTest driver/workflow only.
-- Actual iPhone simulator welcome/login images were delivered to the owner before any new App Review submission.
+- Production runtime source: 63a4f6969d5f9f1291ad2f47551ee4c635b86cca.
+- Actual iPhone simulator welcome/login images were delivered to the owner before App Review submission.
+- QA source b0fc1ed18242b987944792ca8a969a02b66a6f30 was compared with the uploaded runtime. The differences are XCTest/workflow fixes and renderer readiness diagnostics gated by EXPO_PUBLIC_RENDERER_DIAGNOSTICS=1; these diagnostics are inactive in production. The renderer algorithm and production animation behavior are unchanged. Web/native renderer parity SHA-256: a6cdaea34a85ae715bd0ae3327161851c7d30159e4701eb3da59d26d1daa5157.
+- Native QA run: https://github.com/NkgwYYY/YOKI-YOKI/actions/runs/41168017350
+- iPhone 17 Pro, iOS 26.5 simulator: 3 passed, 0 failed, 0 skipped. Actual result summary inspected. The journeys cover native account entry and negative sign-in, guest care/diary, and purchased/initial furniture placement, persistence, hiding and restoration.
+- iPad (A16), iOS 26.5 simulator, iPhone compatibility mode: 3 passed, 0 failed, 0 skipped. Actual result summary inspected. Both device result gates and the final workflow completed successfully. Full evidence artifact 13031421510 SHA-256: d207a44de69d509c7987fcf895f0c6a1fc23133e8abb1aa1fb29082b38201f2f.
+- Earlier failed runs were not treated as passing. The final driver fixes dismiss delayed iOS password-save prompts, read actual renderer readiness on the accessible owner, open the correct home overflow menu, and bring shop categories onscreen before interaction. No assertions were removed.
 - Native production authentication initialization and the synthetic missing-account response were reached. No test account was created and no verification email was sent by the negative test.
-- Run 41031454142 failed on both devices because iOS displayed its password-save sheet after the driver's initial wait. This is not a passing functional run.
-- Run 41156957240 failed: iPhone account entry passed, but both devices could not locate the transformed renderer's nested readiness marker; iPad account entry was blocked by the password-save alert. The captured character was visible. These failures are not a completed gameplay check.
-- QA source 91eef9d222d41aa3e2de643aa0872ebe763d38d8 exposes actual renderer readiness on its existing accessible owner only when EXPO_PUBLIC_RENDERER_DIAGNOSTICS=1, and handles both iPhone sheets and iPad alerts. Run 41160549243 is pending. All three journeys on both devices must pass. This QA source is separate from the uploaded build 27.
-- Successful real-account sign-in, verification-email delivery and signed-in relaunch have not yet been verified. Simulator checks do not establish physical-device smoothness or signed production-IPA behavior.
-- Browser guest preview: hiding the bed area and round rug, retaining both settings across reload, restoring both sets and restoring the bed action all passed. No points were charged. This is browser evidence, separate from native tests.
-- Complete production-domain web, iOS and Android static packaging passed, including 181 assets and 12 higher-density variants per native platform. The production website has not been republished with this candidate.
-- Production build 1.0.1 (27), EAS build 0f9292bf-4477-44d8-a76f-969609679729, succeeded from the same source. App Store Connect upload succeeded via EAS submission ed2959cf-41d4-4863-a11d-5a720ac8a46d. App Review submission has not yet occurred.
+- Successful real-account sign-in, verification-email delivery and signed-in relaunch have not been verified. Simulator checks do not establish physical-device smoothness or signed production-IPA behavior.
+- Browser guest checks passed for hiding the bed and round rug, persistence across reload, restoration, and access to rest while the bed is hidden, with no point charge.
+- Complete production-domain web, iOS and Android static packaging passed, including 181 assets and 12 higher-density variants per native platform.
+- The integrated production website was republished on 2026-10-31. Replit reports Live; the deployed privacy policy at https://yoki-yoki.replit.app/landing/privacy/ contains the October 30 account authentication, secure session storage and cross-device synchronization disclosures.
+- App privacy metadata was published with email address classified as app functionality, linked to identity and not used for tracking.
+- Japanese title: メンタルケア×育成ゲーム YOKI YOKI. English title: YOKI YOKI: Self-Care Pet Game.
+- Both localizations have updated descriptions, release notes and the four archived screenshot filenames. The room, welcome and night screenshots were captured from the native simulator; the existing diary image was retained.
+- Production build 1.0.1 (27), EAS build 0f9292bf-4477-44d8-a76f-969609679729, succeeded from the runtime source above. App Store Connect upload succeeded via EAS submission ed2959cf-41d4-4863-a11d-5a720ac8a46d.
+- Apple build UUID: 4477e14c-c206-415c-bddf-7793578c74fe.
+- App Review status: Waiting for Review (審査待ち), verified in App Store Connect on 2026-10-31 at 14:10 JST. The submitted item is iOS app 1.0.1 (27).
