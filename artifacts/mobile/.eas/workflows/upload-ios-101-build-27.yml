@@ -1,5 +1,10 @@
 name: Upload iOS 1.0.1 build 27
 
+defaults:
+  tools:
+    node: 22.16.0
+    pnpm: 10.11.0
+
 # Manual upload of the existing signed artifact. This does not create a new
 # build, publish an update, or send an App Store version for review.
 jobs:
