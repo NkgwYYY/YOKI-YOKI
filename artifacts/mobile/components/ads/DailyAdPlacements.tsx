@@ -1,5 +1,5 @@
 import React, {
-  createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore,
+  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore,
 } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import {FeltPressable as Pressable} from '@/components/ui/FeltPressable';
@@ -16,7 +16,7 @@ export interface DailyAdBinding extends DailyRewardBinding {
   subscribe(listener: () => void): () => void;
   /** Render the real SDK banner at this exact size. No mock/test creatives in production.
    * On no-fill/error the shared store must set bannerAvailable=false. */
-  renderBanner(options: {placement: 'home' | 'street'; width: number; height: number}): React.ReactNode;
+  renderBanner(options: {placement: 'home' | 'street'; width: number; height: number; onLoaded: () => void}): React.ReactNode;
   onBannerError?(): void;
   openPrivacy?(): Promise<void>;
 }
@@ -24,7 +24,8 @@ export interface DailyAdBinding extends DailyRewardBinding {
 const disconnectedStore = createDailyAdStore(null);
 const AdContext = createContext<{
   binding: DailyAdBinding | null; store: ReturnType<typeof createDailyAdStore>;
-}>({binding: null, store: disconnectedStore});
+  bannerDismissed: boolean; dismissBanner: () => void;
+}>({binding: null, store: disconnectedStore, bannerDismissed: false, dismissBanner: () => {}});
 const rewardGate = createDailyRewardGate();
 
 /** Connect ONCE to the current ad service, never create one service per placement.
@@ -33,7 +34,11 @@ export function DailyAdProvider({binding, children}: {
   binding: DailyAdBinding | null;
   children: React.ReactNode;
 }) {
-  const value = useMemo(() => ({binding, store: createDailyAdStore(binding)}), [binding]);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const dismissBanner = useCallback(() => setBannerDismissed(true), []);
+  const store = useMemo(() => createDailyAdStore(binding), [binding]);
+  // Dismissal survives tab changes and service refreshes for this app session.
+  const value = useMemo(() => ({binding, store, bannerDismissed, dismissBanner}), [binding, store, bannerDismissed, dismissBanner]);
   return <AdContext.Provider value={value}>{children}</AdContext.Provider>;
 }
 
@@ -45,26 +50,19 @@ export function useDailyAds() {
 
 type PlacementProps = {placement: DailyAdPlacement; environment: DailyAdEnvironment};
 
-/** Place in a flex-column sibling AFTER the map, never absolute/on top of controls.
- * The parent must use the scene's measured height for its map geometry and dock. */
-export function useDailyAdRailHeight(placement: DailyAdPlacement, environment: DailyAdEnvironment) {
-  const {binding, snapshot} = useDailyAds();
-  // Keep the measured scene stable while a gesture, sheet or keyboard hides the creative.
-  const reserved = dailyAdPresentation(placement, {...snapshot, phase: 'idle'}, {...environment, interacting: false, obscured: false, keyboardOpen: false});
-  return binding && reserved.banner ? BANNER_RAIL_HEIGHT : 0;
-}
+/** A separate rail below the clipped scene, never over the room or care controls.
+ * The room camera must use the full HOME surface, independent of this rail. */
 export function DailyAdRail({placement, environment, bottomInset = 0}: PlacementProps & {bottomInset?: number}) {
   const {binding, snapshot} = useDailyAds();
+  const {bannerDismissed, dismissBanner} = useContext(AdContext);
   const model = dailyAdPresentation(placement, snapshot, environment);
-  const height = useDailyAdRailHeight(placement, environment);
-  if (!binding || !height || (placement !== 'home' && placement !== 'street')) return null;
-  return <View style={{height: height + bottomInset}}>
-    <View style={{height}} pointerEvents={model.banner ? 'auto' : 'none'} accessibilityElementsHidden={!model.banner} importantForAccessibility={model.banner ? 'auto' : 'no-hide-descendants'}>
-      <View style={{display: model.banner ? 'flex' : 'none'}}>
-        <AdBannerBoundary key={snapshot.sessionKey} onError={binding.onBannerError}><AdBannerContent binding={binding} placement={placement}/></AdBannerBoundary>
-      </View>
-    </View>
-  </View>;
+  // Keep a loaded creative mounted through a gesture/sheet. No extra ad request
+  // or geometric change simply because an interaction briefly hides it.
+  const eligible = dailyAdPresentation(placement, {...snapshot, phase: 'idle'}, {...environment, interacting: false, obscured: false, keyboardOpen: false}).banner;
+  if (!binding || !eligible || bannerDismissed || (placement !== 'home' && placement !== 'street')) return null;
+  return <AdBannerBoundary key={`${snapshot.sessionKey}:${placement}`} onError={binding.onBannerError}>
+    <AdBannerContent binding={binding} placement={placement} visible={model.banner} bottomInset={bottomInset} onDismiss={dismissBanner}/>
+  </AdBannerBoundary>;
 }
 
 /** A surrounding try/catch cannot catch an SDK child failing in React's render.
@@ -76,14 +74,28 @@ class AdBannerBoundary extends React.Component<{children?: React.ReactNode; onEr
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-function AdBannerContent({binding, placement}: {
-  binding: DailyAdBinding; placement: 'home' | 'street';
+function AdBannerContent({binding, placement, visible, bottomInset, onDismiss}: {
+  binding: DailyAdBinding; placement: 'home' | 'street'; visible: boolean; bottomInset: number; onDismiss: () => void;
 }) {
-  const banner = binding.renderBanner({placement, width: BANNER_WIDTH, height: BANNER_HEIGHT});
+  const [loaded, setLoaded] = useState(false);
+  const onLoaded = useCallback(() => setLoaded(true), []);
+  const banner = binding.renderBanner({placement, width: BANNER_WIDTH, height: BANNER_HEIGHT, onLoaded});
   if (banner === null || banner === undefined || banner === false) return null;
-  return <View testID={`daily-ad-rail-${placement}`} style={styles.rail}>
-    <Text style={styles.adLabel}>広告</Text>
-    <View style={styles.banner}>{banner}</View>
+  const shown = loaded && visible;
+  // Request at the real SDK size while clipped. Until onAdLoaded, neither an
+  // empty box nor the label is visible and no space is taken from HOME.
+  return <View testID={loaded ? `daily-ad-rail-${placement}` : `daily-ad-loading-${placement}`}
+    style={{height: loaded ? BANNER_RAIL_HEIGHT + bottomInset : 0, overflow: 'hidden'}}
+    pointerEvents={shown ? 'auto' : 'none'} accessibilityElementsHidden={!shown} importantForAccessibility={shown ? 'auto' : 'no-hide-descendants'}>
+    <View style={[styles.rail, {opacity: shown ? 1 : 0}]}>
+      <View style={styles.adHeader}><Text style={styles.adLabel}>広告</Text>
+        <Pressable testID={`daily-ad-close-${placement}`} accessibilityRole="button" accessibilityLabel="広告を閉じる"
+          accessibilityHint="今回の起動中は、この広告枠を表示しません。" onPress={onDismiss} style={styles.close}>
+          <Text style={styles.closeText}>×</Text>
+        </Pressable>
+      </View>
+      <View style={styles.banner}>{banner}</View>
+    </View>
   </View>;
 }
 
@@ -148,9 +160,12 @@ export function DailyAdRewardButton({placement, environment}: PlacementProps) {
 
 const styles = StyleSheet.create({
   rail: {
-    height: BANNER_RAIL_HEIGHT, flexShrink: 0, paddingTop: 8, paddingBottom: 12,
-    alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: colors.sheet,
+    height: BANNER_RAIL_HEIGHT, flexShrink: 0, paddingBottom: 10,
+    alignItems: 'center', gap: 8, backgroundColor: colors.sheet,
   },
+  adHeader: {height: 44, width: '100%', alignItems: 'center', justifyContent: 'center'},
+  close: {position: 'absolute', top: 0, right: 8, width: 44, height: 44, alignItems: 'center', justifyContent: 'center'},
+  closeText: {fontSize: 24, lineHeight: 28, color: colors.foreground},
   adLabel: {fontSize: 10, lineHeight: 12, color: colors.mutedForeground},
   banner: {width: BANNER_WIDTH, height: BANNER_HEIGHT},
   reward: {alignItems: 'stretch', gap: 6, paddingVertical: 12},

@@ -18,7 +18,9 @@ export function VolumeEgg({size,rx,ry,rz,blink,mood,night=false,mealProgress,smo
   const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectEgg(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew,smoking);});
   return <Svg testID="resident-volume" width={size} height={size} viewBox="0 0 100 100" accessible={false}>
     <Defs>
-      <RadialGradient id={`${id}shell`} gradientUnits="userSpaceOnUse" cx="42" cy="40" fx="30" fy="24" rx="53" ry="61"><Stop offset="0" stopColor={night?'#F8F7EF':'#FFFFF8'}/><Stop offset=".42" stopColor={night?'#E9EBE6':'#F4F3E9'}/><Stop offset=".74" stopColor={night?'#CCD4D7':'#DFDFD2'}/><Stop offset="1" stopColor={night?'#A3B1BB':'#B7B9AB'}/></RadialGradient>
+      {/* Standard SVG radius and bounding-box coordinates have the same meaning
+          in Web SVG and iOS. Use the standard radius on both renderers. */}
+      <RadialGradient id={`${id}shell`} gradientUnits="objectBoundingBox" cx="32%" cy="24%" fx="32%" fy="24%" r="82%"><Stop offset="0" stopColor={night?'#F8F7EF':'#FFFFF8'}/><Stop offset=".48" stopColor={night?'#ECEEEA':'#F8F7EF'}/><Stop offset=".78" stopColor={night?'#DBE2E4':'#E9E9DE'}/><Stop offset="1" stopColor={night?'#C3CFD6':'#D2D4C7'}/></RadialGradient>
     </Defs>
     <Feature projection={projection} part="body" fill={`url(#${id}shell)`} stroke={night?'#DFE7EA':'#F5F5E8'} width={.35}/>
     <Feature projection={projection} part="crack" fill="none" stroke="#A696BF" width={1.8}/>

@@ -15,9 +15,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FAF8FF"
+      "backgroundColor": "#211137"
     },
     "ios": {
       "bundleIdentifier": "app.replit.yokiyoki--",
@@ -42,6 +40,7 @@
         }
       ],
       "expo-font",
+      ["expo-splash-screen", {"backgroundColor": "#211137"}],
       "expo-web-browser",
       "expo-video"
     ],

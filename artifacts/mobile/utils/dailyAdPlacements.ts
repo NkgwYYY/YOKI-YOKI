@@ -3,7 +3,7 @@ export const DAILY_AD_POINTS = 30;
 export const DAILY_AD_LIMIT = 3;
 export const BANNER_WIDTH = 320;
 export const BANNER_HEIGHT = 50;
-export const BANNER_RAIL_HEIGHT = 88;
+export const BANNER_RAIL_HEIGHT = 112;
 export const BANNER_MIN_VIEWPORT_HEIGHT = 640;
 
 export type DailyAdPlacement = 'home' | 'street' | 'meal' | 'egg-job';
