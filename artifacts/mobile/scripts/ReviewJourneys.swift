@@ -6,6 +6,7 @@ import XCTest
 final class ReviewJourneys: XCTestCase {
     private let app = XCUIApplication(bundleIdentifier: "app.replit.yokiyoki--")
     private let diary = "Release QA: a quiet day."
+    private var enteredSyntheticPassword = false
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -45,6 +46,7 @@ final class ReviewJourneys: XCTestCase {
     private func reveal(_ target: XCUIElement,
                         file: StaticString = #filePath, line: UInt = #line) {
         for _ in 0..<12 {
+            if declineSyntheticPasswordSave() { continue }
             if target.exists && target.isHittable { return }
             let scroller = app.scrollViews.allElementsBoundByIndex.first { $0.isHittable }
             let surface = scroller ?? app
@@ -75,14 +77,19 @@ final class ReviewJourneys: XCTestCase {
         add(attachment)
     }
 
-    private func declineSyntheticPasswordSave() {
+    @discardableResult
+    private func declineSyntheticPasswordSave(timeout: TimeInterval = 0) -> Bool {
         // iOS can present this sheet after leaving the failed sign-in form.
         // Keep AutoFill enabled in the app; never store the random QA password.
+        guard enteredSyntheticPassword else { return false }
         let prompt = app.sheets["Save Password?"]
-        if prompt.waitForExistence(timeout: 5) {
+        let appeared = timeout > 0 ? prompt.waitForExistence(timeout: timeout) : prompt.exists
+        if appeared {
             prompt.buttons["Not Now"].tap()
             until("The password-save sheet must close") { !prompt.exists }
+            return true
         }
+        return false
     }
 
     private func until(_ message: String, timeout: TimeInterval = 15,
@@ -217,7 +224,7 @@ final class ReviewJourneys: XCTestCase {
         capture("17-starter-furnishings-restored")
     }
 
-    func testFreshGuestReviewJourneys() {
+    func testAccountEntry() {
         // The workflow creates a fresh simulator, never a user's installation.
         app.launch()
         visible(element("welcome-register"), timeout: 60)
@@ -242,6 +249,7 @@ final class ReviewJourneys: XCTestCase {
         XCTAssertEqual(element("auth-email").value as? String, missingAccount)
         tap(element("auth-password"))
         element("auth-password").typeText(UUID().uuidString)
+        enteredSyntheticPassword = true
         tap(element("auth-submit"))
         // No account is created and no verification email is sent. Require an
         // actual production auth response instead of accepting a network error.
@@ -250,13 +258,30 @@ final class ReviewJourneys: XCTestCase {
                 self.text("メールアドレスまたはパスワードが違います").exists
         }
         tap(element("auth-back"))
-        declineSyntheticPasswordSave()
+        visible(element("welcome-register"))
+        declineSyntheticPasswordSave(timeout: 5)
         tap(element("welcome-register"))
         visible(element("auth-email"))
         visible(text("アカウントを作成"))
         capture("00-native-register")
         tap(element("auth-back"))
-        declineSyntheticPasswordSave()
+        visible(element("welcome-guest"))
+        declineSyntheticPasswordSave(timeout: 5)
+        reveal(element("welcome-guest"))
+        capture("00-returned-welcome")
+    }
+
+    private func launchGuestHome() {
+        // Each journey launches independently. An account-entry failure must
+        // not prevent the room, care and persistence checks from executing.
+        app.launch()
+        until("An existing home or the guest entry must be available", timeout: 60) {
+            self.element("home-daily-record").exists || self.element("welcome-guest").exists
+        }
+        if element("home-daily-record").exists {
+            visible(element("resident-renderer-ready"), timeout: 30)
+            return
+        }
         tap(element("welcome-guest"))
         visible(element("profile-nickname"), timeout: 60)
         tap(element("profile-nickname"))
@@ -271,7 +296,10 @@ final class ReviewJourneys: XCTestCase {
         visible(element("home-daily-record"))
         visible(element("resident-renderer-ready"), timeout: 30)
         capture("01-home")
+    }
 
+    func testGuestCareAndRecords() {
+        launchGuestHome()
         openDiary()
         capture("02-diary")
         if element("diary-tab-user").exists { tap(element("diary-tab-user")) }
@@ -404,9 +432,6 @@ final class ReviewJourneys: XCTestCase {
         tap(element("egg-job-back"))
         visible(element("home-daily-record"))
 
-        verifyFurnishingPurchaseAndPersistence()
-        verifyStarterFurnishings()
-
         app.terminate()
         app.launch()
         visible(element("home-daily-record"))
@@ -426,6 +451,12 @@ final class ReviewJourneys: XCTestCase {
         visible(element("growth-memories-panel"))
         visible(element("album-shared-days"))
         capture("11-growth-memories")
+    }
+
+    func testRoomCustomization() {
+        launchGuestHome()
+        verifyFurnishingPurchaseAndPersistence()
+        verifyStarterFurnishings()
     }
 }
 
