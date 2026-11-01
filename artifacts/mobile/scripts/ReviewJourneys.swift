@@ -58,11 +58,16 @@ final class ReviewJourneys: XCTestCase {
                     .contains { $0.frame == targetFrame } && candidate.isHittable
             }
             let surface = scroller ?? app
+            // In iPhone compatibility mode the Application has no useful
+            // screen frame. Fixed controls still have valid native hit tests.
+            if scroller == nil && target.exists && target.isHittable { return }
             // XCUITest can throw while evaluating isHittable for a button
             // clipped by the scroll viewport. Bring its full frame into view
             // before asking native hit-testing for an activation point.
-            let viewport = surface.frame.intersection(app.frame).insetBy(dx: 0, dy: 16)
-            if target.exists && !target.frame.isEmpty {
+            // ScrollView and descendant frames already share screen coordinates;
+            // intersecting them with Application.frame breaks iPad compatibility.
+            let viewport = surface.frame.insetBy(dx: 0, dy: 16)
+            if scroller != nil && target.exists && !target.frame.isEmpty {
                 let bounds = target.frame
                 let fits = bounds.height <= viewport.height
                     ? viewport.contains(bounds)
