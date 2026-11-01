@@ -344,10 +344,10 @@ final class ReviewJourneys: XCTestCase {
         visible(diaryInput)
         reveal(diaryInput)
         XCTAssertTrue(diaryInput.isEnabled)
-        // Tap the first writing line of the native UITextView, then require
-        // actual onFocus feedback and the software keyboard before typing.
-        // Do not retry a failed tap or programmatically force app focus.
-        diaryInput.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.08)).tap()
+        // Native hit-testing chooses the visible part of the writing area.
+        // Its first line can be clipped after scrolling to capture the moods.
+        // Still require actual onFocus feedback and the software keyboard.
+        diaryInput.tap()
         visible(app.buttons["diary-keyboard-done"], timeout: 10)
         visible(app.keyboards.firstMatch, timeout: 10)
         capture("02-diary-focused")
