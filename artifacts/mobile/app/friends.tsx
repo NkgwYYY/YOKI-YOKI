@@ -10,8 +10,13 @@ import { type CommunityMe, GREETINGS } from '@/utils/community/api';
 import { StaticMascot } from '@/components/Mascot';
 import { WorldPill } from '@/components/world/WorldPill';
 import { Icon } from '@/components/ui/Icon';
+import {FriendsComingSoon} from '@/components/FriendsComingSoon';
+import {FRIEND_VISITS_RELEASED} from '@/utils/community/release';
 
 export default function FriendsScreen() {
+  return FRIEND_VISITS_RELEASED ? <ReleasedFriendsScreen/> : <FriendsComingSoon/>;
+}
+function ReleasedFriendsScreen() {
   const router=useRouter(), insets=useSafeAreaInsets(), {client,config,reloadConfig,metric}=useCommunity();
   const {progress,roomCustomization,feedState}=useApp();
   const [me,setMe]=useState<CommunityMe|null>(null),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[invite,setInvite]=useState('');

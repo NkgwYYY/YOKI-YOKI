@@ -22,6 +22,7 @@ import {rollStep} from '@/utils/residentPhysics';
 import {VolumeResident,hasResidentVolume} from './VolumeResident';
 import type {ResidentRendererState} from './VolumeEvolvedFallback';
 import {residentSoftScale,residentWalkYaw} from '@/utils/evolvedVolume';
+import {residentLocomotion,residentStridePhase} from '@/utils/residentLocomotion';
 import { useWorldResident } from './useWorldResident';
 import {welcomeSample} from '@/utils/residentWelcome';
 import type {HomeViewFlight} from './useHomeViewMotion';
@@ -71,6 +72,7 @@ export function WorldResident(p: Props) {
   const lift = useSharedValue(0), jelly = useSharedValue(0), lean = useSharedValue(0);
   const breath = useSharedValue(0), gait = useSharedValue(0), walkBlend=useSharedValue(0), walking = useSharedValue(0);
   const lastWalkX=useSharedValue(0),lastWalkY=useSharedValue(0);
+  const walkDirectionX=useSharedValue(0);
   const downX = useSharedValue(0), downY=useSharedValue(0), touchMode = useSharedValue(0), blink = useSharedValue(0);
   const startX = useSharedValue(0), startY = useSharedValue(0), petDistance = useSharedValue(0);
   const available = useSharedValue(active);
@@ -125,7 +127,13 @@ export function WorldResident(p: Props) {
   useEffect(()=>{
     if(!active||p.riding||experience||food||p.smoking||p.bowlingBusy||p.destination||interacting||manual)stopWelcome();
   },[active,p.riding,experience,food,p.smoking,p.bowlingBusy,p.destination,interacting,manual]);
-  useAnimatedReaction(()=>!p.riding&&Math.hypot(steering.value.x,steering.value.y)>.05,value=>{if(value){stopWelcome();cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}else walking.value=0;runOnJS(setManual)(value);});
+  useAnimatedReaction(()=>!p.riding&&Math.hypot(steering.value.x,steering.value.y)>.05,(value,wasManual)=>{
+    if(value===wasManual)return;
+    if(value){stopWelcome();cancelAnimation(x);cancelAnimation(y);rolling.value=0;walking.value=1;}
+    // Reattaching an idle steering observer must not stop an autonomous walk.
+    else if(wasManual===true)walking.value=0;
+    runOnJS(setManual)(value);
+  });
   const portals=mapPortals(map,p.grandmaUnlocked,Platform.OS);
   const onPortal=p.onPortal;
   useAnimatedReaction(()=>{if(!available.value||!p.portalTravel.value||experience||food||p.bowlingBusy)return -1;const dir=Math.hypot(steering.value.x,steering.value.y)>.05?steering.value:p.destination?{x:p.destination.point.x-x.value,y:p.destination.point.y-y.value}:null;return dir?nearbyPortalIndex({x:x.value,y:y.value},portals,dir):-1;},(index,previous)=>{if(index>=0&&index!==previous){p.portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(x);cancelAnimation(y);walking.value=0;runOnJS(onPortal)(portals[index].to);}},[map,onPortal,experience,food,p.bowlingBusy,p.destination]);
@@ -159,13 +167,11 @@ export function WorldResident(p: Props) {
     return () => {clearTimeout(moodTimer.current);};
   }, [active, available, x, y, lift, jelly, lean, holding, touchMode]);
   useEffect(() => {
-    if (!active || reduceMotion) {breath.value = 0; gait.value = 0; return;}
+    if (!active || reduceMotion) {breath.value = 0; gait.value = 0; walkBlend.value=0; return;}
     breath.value = withRepeat(withSequence(withTiming(1, {duration: 2200, easing: Easing.inOut(Easing.sin)}), withTiming(0, {duration: 2400, easing: Easing.inOut(Easing.sin)})), -1);
-    gait.value=0;
-    gait.value=withRepeat(withTiming(Math.PI*2,{duration:960,easing:Easing.linear}),-1);
-    return () => {cancelAnimation(breath); cancelAnimation(gait);};
+    return () => {cancelAnimation(breath); walkBlend.value=0;};
   }, [active, reduceMotion, breath, gait]);
-  useAnimatedReaction(()=>walking.value,value=>{walkBlend.value=reduceMotion?0:withTiming(value?1:0,{duration:260,easing:Easing.inOut(Easing.sin)});});
+  useEffect(()=>{if(p.riding||p.bowlingBusy||experience||food)walkBlend.value=0;},[p.riding,p.bowlingBusy,experience,food,walkBlend]);
   useEffect(() => {
     if (p.reaction === reaction.current || !active || interacting) return;
     reaction.current = p.reaction;
@@ -200,11 +206,21 @@ export function WorldResident(p: Props) {
   useEffect(()=>{idleAllowed.value=active&&!welcoming&&!p.riding&&!reduceMotion&&!interacting&&!manual&&!experience&&!p.smoking&&!food&&!p.resting&&(pose==='idle'||pose==='watching');},[active,reduceMotion,interacting,manual,experience,p.smoking,food,p.resting,pose,p.riding,welcoming]);
   const physics=useFrameCallback(frame=>{
     'worklet';
-    if(!available.value||cameraTouch.value||p.riding)return;
+    if(!available.value||cameraTouch.value||p.riding){walkBlend.value=0;return;}
     const dt=Math.min(1/30,(frame.timeSincePreviousFrame??16.67)/1000);
     if(p.bowlingBusy||p.riding)return;
     const dx=x.value-lastWalkX.value,dy=y.value-lastWalkY.value;
+    const from=map==='home'?homeArtPoint({x:lastWalkX.value,y:lastWalkY.value},width>height):{x:lastWalkX.value,y:lastWalkY.value};
+    const to=map==='home'?homeArtPoint({x:x.value,y:y.value},width>height):{x:x.value,y:y.value};
+    const screenX=(to.x-from.x)*width,screenY=(to.y-from.y)*height;
+    const distance=Math.hypot(screenX,screenY);
     lastWalkX.value=x.value;lastWalkY.value=y.value;
+    const travelling=walking.value&&!holding.value&&!rolling.value&&!welcomeRunning.value&&!touchMode.value&&!reduceMotion&&!experience&&!food;
+    // A map reset or drag is not a stride. A blocked direction must settle too.
+    const stride=travelling&&distance>.001&&distance<size*.5;
+    const strength=stride?Math.min(1,distance/(dt*size*.5)):0;
+    walkBlend.value=reduceMotion?0:walkBlend.value+(strength-walkBlend.value)*(1-Math.exp(-dt/.09));
+    if(stride){gait.value=residentStridePhase(gait.value,distance,size);walkDirectionX.value=screenX/distance;}
     if(walking.value&&!holding.value&&!rolling.value&&!welcomeRunning.value&&!reduceMotion&&Math.hypot(dx,dy)>.00001){
       const target=residentWalkYaw(dx,dy,height/width),delta=Math.atan2(Math.sin(target-ry.value),Math.cos(target-ry.value));
       ry.value+=delta*(1-Math.exp(-dt/0.10));
@@ -240,9 +256,17 @@ export function WorldResident(p: Props) {
     x.value=next.x;y.value=next.y;vx.value=next.vx;vy.value=next.vy;rollAge.value+=dt;
     if(next.hit)jelly.value=withSequence(withTiming(.7,{duration:60}),withSpring(0,SOFT));
     if(Math.hypot(next.vx,next.vy)<.018||rollAge.value>5){rolling.value=0;settleRotation();runOnJS(finishRoll)();}
-  },false);
-  useEffect(()=>{physics.setActive(active);return()=>physics.setActive(false);},[active,reduceMotion,physics]);
-  useEffect(()=>{if(reduceMotion){rolling.value=0;rx.value=0;ry.value=0;rz.value=0;setRollingLabel(false);setInteracting(false);}},[reduceMotion]);
+  });
+  // useFrameCallback owns registration/unregistration. A second effect cleanup
+  // can deactivate its replacement callback when the scene resumes after a menu.
+  useEffect(()=>{physics.setActive(active);},[active,reduceMotion,physics]);
+  useEffect(()=>{
+    if(!reduceMotion)return;
+    stopWelcome();rolling.value=0;
+    [rx,ry,rz,jelly,lean,gait,walkBlend].forEach(value=>{cancelAnimation(value);value.value=0;});
+    if(!holding.value){cancelAnimation(lift);lift.value=0;}
+    setRollingLabel(false);setInteracting(false);
+  },[reduceMotion]);
   const begin = () => {
     'worklet';
     stopWelcome();
@@ -394,22 +418,23 @@ export function WorldResident(p: Props) {
     return {transform: [{translateY: (1 - scale) * size * 0.42}, {scale}]};
   });
   const body = useAnimatedStyle(() => {
-    const step = Math.sin(gait.value)*walkBlend.value;
+    const stride = residentLocomotion(gait.value,walkBlend.value,walkDirectionX.value);
     const meal=mealSample(mealProgress.value);
     const mealMove=reduceMotion?0:meal.reach;
     const soft=residentSoftScale(jelly.value,breath.value);
     const mealY=-mealMove*.06+(reduceMotion?0:meal.swallow*.04);
-    const sy=stage==='egg'?1-jelly.value*.17-breath.value*.014+mealY:Math.min(1,soft.y+mealY);
+    const sy=(stage==='egg'?1-jelly.value*.17-breath.value*.014+mealY:Math.min(1,soft.y+mealY))*stride.scaleY;
     return {transform: [
       {translateX:mealMove*size*.12},
-      {translateY: (p.riding?-size*.12:0) + lift.value + (1 - sy) * size * 0.42 - Math.abs(step) * size * 0.021},
-      {rotate: `${lean.value + mealMove*8 + step * 2.2 + (volumetric?0:rz.value*180/Math.PI)}deg`},
-      {scaleX: (stage==='egg'?1+jelly.value*.14+breath.value*.011:soft.x)+(reduceMotion?0:meal.chew*.025)}, {scaleY: sy},
+      {translateY: (p.riding?-size*.12:0) + lift.value + (1 - sy) * size * 0.42 - stride.lift * size},
+      {rotate: `${lean.value + mealMove*8 + stride.roll + (volumetric?0:rz.value*180/Math.PI)}deg`},
+      {scaleX: ((stage==='egg'?1+jelly.value*.14+breath.value*.011:soft.x)+(reduceMotion?0:meal.chew*.025))*stride.scaleX}, {scaleY: sy},
     ]};
   });
   const shadow = useAnimatedStyle(() => {
+    const stride=residentLocomotion(gait.value,walkBlend.value,walkDirectionX.value);
     const air = Math.min(1, Math.abs(lift.value) / (size * 0.55));
-    return {opacity: 1 - air * 0.65, transform: [{scaleX: worldResidentScale(y.value) * (1 + air * 0.45)}, {scaleY: 1 + air * 0.3}]};
+    return {opacity: (1 - air * 0.65)*stride.shadowOpacity, transform: [{scaleX: worldResidentScale(y.value) * (1 + air * 0.45)*stride.shadowScale}, {scaleY: (1 + air * 0.3)*stride.shadowScale}]};
   });
   const mood: MascotMood = welcoming?'happy':touchMood ?? (interacting || pose === 'eating' ? 'happy' : p.resting || pose === 'sleeping' ? 'sleepy' : p.happinessValue>=75?'happy':p.happinessValue<=30?'tired':'normal');
   useEffect(() => {

@@ -16,8 +16,13 @@ import {getMascotStage,getStageName} from '@/utils/mascotUtils';
 import {HOME_ART} from '@/utils/worldArt';
 import {GREETINGS,type HomeSnapshot} from '@/utils/community/api';
 import {useReducedMotion} from '@/utils/useReducedMotion';
+import {FriendsComingSoon} from '@/components/FriendsComingSoon';
+import {FRIEND_VISITS_RELEASED} from '@/utils/community/release';
 
 export default function FriendHome(){
+ return FRIEND_VISITS_RELEASED ? <ReleasedFriendHome/> : <FriendsComingSoon/>;
+}
+function ReleasedFriendHome(){
  const {id}=useLocalSearchParams<{id:string}>(),router=useRouter(),insets=useSafeAreaInsets(),{width,height}=useWindowDimensions();
  const {client,metric}=useCommunity(),{progress}=useApp(),music=useVillageMusic(),reduce=useReducedMotion();
  const [home,setHome]=useState<HomeSnapshot|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[sent,setSent]=useState(false),[selected,setSelected]=useState(0);

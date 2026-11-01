@@ -1,4 +1,5 @@
 import {FirstSteps,useFirstSteps} from '@/components/onboarding/FirstSteps';
+import {FRIEND_VISITS_RELEASED,FRIEND_VISITS_STATUS} from '@/utils/community/release';
 import {hasMoodForDay} from '@/utils/firstSteps';
 import {nextHomeAssist} from '@/utils/homeAssist';
 import {useScenicVisit} from '@/components/world/useScenicVisit';
@@ -162,7 +163,7 @@ export default function HomeScreen() {
   }[kind]);};
   const openFeed=(venue?:'ramen')=>{if(food){say('いま、おやつを食べているところだよ。');return;}setFeedVenue(venue);setSheet('feed');};
   const restTogether = () => {voice.play('soft');setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
-  const menuRow = (icon: IconName, label: string, onPress: () => void, testID?:string) => <Pressable key={label} testID={testID} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#82715E" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#82715E" /></Pressable>;
+  const menuRow = (icon: IconName, label: string, onPress: () => void, testID?:string, caption?:string) => <Pressable key={label} testID={testID} accessibilityRole="button" accessibilityLabel={caption?`${label}。${caption}`:label} onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#82715E" /><View style={{flex:1,gap:3}}><Text style={s.menuText}>{label}</Text>{caption&&<Text style={{fontSize:11,color:'#82715E'}}>{caption}</Text>}</View><Icon name="chevron-right" size={16} color="#82715E" /></Pressable>;
   return <View style={s.root}>
     <StableSceneViewport rail={<View onLayout={event=>setAdRailHeight(event.nativeEvent.layout.height)}><DailyAdRail placement={adPlacement} environment={adEnvironment} bottomInset={tabHeight}/></View>} overlay={<>
     <View pointerEvents="box-none" style={[s.header, {top: insets.top + (compact ? 4 : 10)}]}>
@@ -238,7 +239,7 @@ export default function HomeScreen() {
       {menuRow('mail', '今日の便り', openLetter)}
       {menuRow('help-circle', 'はじめての使い方', () => {letter.markSeen();setSheet('tutorial');})}
       {menuRow('gift', '思い出・飾りもの', () => setSheet('collection'))}
-      {menuRow('users', '友だちのおうち', () => { close(); router.push('/friends'); })}
+      {menuRow('users', '友だちのおうち', () => { close(); router.push('/friends'); }, 'home-menu-friends', FRIEND_VISITS_RELEASED?undefined:FRIEND_VISITS_STATUS)}
       {menuRow('gift', 'この子からの贈りもの', () => { close(); router.push('/gifts'); })}
       {menuRow('book-open', '交換日記', () => { close(); router.push('/exchange-diary'); }, 'home-menu-diary')}
       {menuRow('message-circle', 'この子とお話しする', chat, 'home-menu-chat')}

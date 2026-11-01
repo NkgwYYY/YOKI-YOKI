@@ -7,6 +7,7 @@ import { getMascotStage } from '@/utils/mascotUtils';
 import { communityConfig, createCommunityClient, type CommunityClient, type CommunityConfig, type BonusStatus } from '@/utils/community/api';
 import { createBonusCollector } from '@/utils/community/collectBonus';
 import type { CollectedBonus } from '@/utils/community/dailyAds';
+import {FRIEND_VISITS_RELEASED} from '@/utils/community/release';
 type Community = { client: CommunityClient; config: CommunityConfig | null; reloadConfig: () => Promise<void>; collect: () => Promise<CollectedBonus>; metric: (event: string, durationMs?: number) => void };
 const Context = createContext<Community | null>(null);
 export function CommunityProvider({ children }: { children: React.ReactNode }) {
@@ -31,7 +32,7 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { void reloadConfig().catch(() => {}); }, [reloadConfig]);
   const snapshot = JSON.stringify({stage:getMascotStage(progress),furniture:roomCustomization.furniture,flower:roomCustomization.flower,robot:feedState.housekeeping?.robotPlaced===true});
   useEffect(() => {
-    if (!config?.enabled || isLoading || storageError || (user && !cloudSynced)) return;
+    if (!FRIEND_VISITS_RELEASED || !config?.enabled || isLoading || storageError || (user && !cloudSynced)) return;
     const timer = setTimeout(() => { void client.exists().then(exists => exists ? client.call('/home','PATCH',{home:JSON.parse(snapshot)}) : undefined).catch(()=>{}); }, 1500);
     return () => clearTimeout(timer);
   }, [snapshot, client, config?.enabled, isLoading, storageError, user, cloudSynced]);

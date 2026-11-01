@@ -38,9 +38,6 @@ export const Analytics = {
   miniGameStarted:   (slot: string)                  => track('mini_game_started',   { slot }),
   miniGameCompleted: (slot: string, score: number)   => track('mini_game_completed', { slot, score }),
 
-  restEventShown:     ()                            => track('rest_event_shown'),
-  restEventScene:     (scene: string)               => track('rest_event_scene',     { scene }),
-  restEventCompleted: (_felt_better: boolean)       => {},
 
   checklistItemToggled: (completed: boolean)        => track('checklist_toggled',    { completed }),
   moodRecorded:         (_mood: number)             => {},

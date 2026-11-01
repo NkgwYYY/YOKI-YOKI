@@ -31,7 +31,7 @@ const server=http.createServer((req,res)=>{
       requests.push(route.request().postDataJSON());
       if(mode==='pending')await new Promise(r=>release=r);
       const errorCode=mode==='unavailable'?'CHAT_UNAVAILABLE':mode==='busy'?'CHAT_BUSY':undefined;
-      await route.fulfill({status:mode==='http'||errorCode?503:200,headers,contentType:'application/json',body:JSON.stringify({code:errorCode,content:mode==='invalid'?{}:'テストの返事',citations:[{title:{},url:'bad'}]})}).catch(()=>{});
+      await route.fulfill({status:mode==='http'||errorCode?503:200,headers,contentType:'application/json',body:JSON.stringify({code:errorCode,content:mode==='invalid'?{}:'テストの返事',restEvent:true,citations:[{title:{},url:'bad'}]})}).catch(()=>{});
     });
     await page.goto('http://127.0.0.1:'+server.address().port+'/chat');
     await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
@@ -53,6 +53,12 @@ const server=http.createServer((req,res)=>{
     mode='busy';await retry.click();await page.getByRole('alert').filter({hasText:'今はおはなしが混み合っています'}).waitFor();
     mode='invalid';await retry.click();await retry.waitFor();
     mode='ok';await retry.click();await page.getByText('テストの返事',{exact:true}).waitFor();
+    // A legacy server flag must never open the removed break experience.
+    await page.waitForTimeout(1500);
+    assert.equal(await page.getByTestId('chat-rest-open').count(),0);
+    assert.equal(await page.getByTestId('rest-end').count(),0);
+    assert.equal(await page.getByText('今日は一緒に休もう。',{exact:true}).count(),0);
+    assert.equal(await page.getByRole('textbox',{name:'話しかける内容'}).isVisible(),true);
     assert.equal(requests.length,5);for(const request of requests)assert.deepEqual(requests[0].messages,request.messages,'retry does not duplicate user message');
     if(process.env.YOKI_QA_OUTPUT){fs.mkdirSync(process.env.YOKI_QA_OUTPUT,{recursive:true});await page.screenshot({path:path.join(process.env.YOKI_QA_OUTPUT,'chat-recovered.png')});}
     mode='pending';await page.getByRole('textbox',{name:'話しかける内容'}).fill('途中で部屋に戻る');await page.getByRole('button',{name:'送信',exact:true}).click();

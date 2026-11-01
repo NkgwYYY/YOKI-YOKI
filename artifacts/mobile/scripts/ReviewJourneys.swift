@@ -430,18 +430,10 @@ final class ReviewJourneys: XCTestCase {
         XCTAssertFalse(element("chat-send-error").exists)
         XCTAssertFalse(element("chat-assistant-message").label.isEmpty)
         capture("06-native-ai-reply")
-        for scene in ["campfire", "rain", "stars", "cat"] {
-            tap(element("chat-rest-open"))
-            tap(element("rest-choose-\(scene)"))
-            visible(element("rest-companion-touch"))
-            tap(element("rest-companion-touch"))
-            visible(element("rest-companion-reaction"))
-            XCTAssertTrue(element("rest-end").isHittable)
-            capture("06-rest-\(scene)")
-            tap(element("rest-end"))
-            visible(element("chat-input"))
-            XCTAssertFalse(element("rest-end").exists)
-        }
+        // The removed break experience must not interrupt normal conversation.
+        XCTAssertFalse(element("chat-rest-open").exists)
+        XCTAssertFalse(element("rest-end").exists)
+        visible(element("chat-input"))
         tap(text("部屋へ戻る"))
         tap(element("home-more-menu"))
         reveal(text("プロフィール・話しかけ設定"))

@@ -9,7 +9,6 @@ import { getTabBarHeight } from '@/utils/tabLayout';
 import { localDateKey, normalizeStoredMessage, type Message, type Citation } from '@/utils/chatHistory';
 import { chatErrorMessage } from '@/utils/chatErrors';
 import { Analytics } from '@/utils/analytics';
-import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
 import { SaveHintButton } from '@/components/hints/SaveHintButton';
@@ -218,7 +217,6 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
   const [input, setInput] = useState('');
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showRestEvent, setShowRestEvent] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -232,8 +230,6 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
   const sendEpoch = useRef(0);
   const currentOwner = useRef(aiOwner);
   currentOwner.current = aiOwner;
-  const restTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const restInteraction = useRef(0);
   const listRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -250,9 +246,6 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
       setIsLoading(false);
       setSendError(chatErrorMessage());
     }
-    if (restTimer.current) clearTimeout(restTimer.current);
-    restInteraction.current += 1;
-    setShowRestEvent(false);
   }, [aiOwner]));
 
   const loadHistory = async () => {
@@ -322,7 +315,6 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
     const msg = (text ?? input).trim();
     if ((!retry && !msg) || request.current || clearBusy.current || !historyLoaded) return;
     const epoch = sendEpoch.current;
-    const restEpoch = restInteraction.current;
     const allowed = await hasAiConsent(aiOwner);
     if (epoch !== sendEpoch.current || aiOwner !== currentOwner.current) return;
     if (!allowed) {
@@ -399,9 +391,6 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
       );
       setMessages(prev => [...prev, assistantMsg]);
       Analytics.chatMessageSent();
-      if (data.restEvent && restEpoch === restInteraction.current) {
-        restTimer.current = setTimeout(() => setShowRestEvent(true), 1200);
-      }
     } catch {
       if (request.current === controller) {
         setSendError(controller.signal.aborted ? chatErrorMessage('CHAT_TIMEOUT') : failureMessage);
@@ -443,16 +432,7 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
           <View style={styles.headerTitle}>
             <Text numberOfLines={1} style={[styles.headerName,{flexShrink:1}]}>{displayName}</Text>
           </View>
-          {keyboardOpen ? <Text style={styles.onlineText}>{conversationModes.find(mode => mode.id === conversationMode)?.label}</Text> : <PressScale testID="chat-rest-open" accessibilityLabel="一緒に休む" style={styles.restButton}
-          onPress={() => {
-            if (restTimer.current) clearTimeout(restTimer.current);
-            restInteraction.current += 1;
-            Keyboard.dismiss();
-            setShowRestEvent(true);
-          }}>
-          <Icon name="moon" size={15} color={colors.foreground} />
-          <Text style={styles.restButtonText}>一緒に休む</Text>
-          </PressScale>}
+          <Text style={styles.onlineText}>{conversationModes.find(mode => mode.id === conversationMode)?.label}</Text>
         </View>
         <PressScale style={styles.clearBtn} accessibilityLabel="自分のヒント帳を開く" onPress={() => router.push('/hints')}><Icon name="book-open" size={20} color="#795D90" /></PressScale>
         {keyboardOpen ? <PressScale style={styles.clearBtn} accessibilityLabel="キーボードを閉じる" onPress={() => Keyboard.dismiss()}><Icon name="chevron-down" size={20} color={colors.foreground} /></PressScale> : messages.length > 1 && (
@@ -569,18 +549,6 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
           </View>
         </View>
       </View>
-
-      {showRestEvent ? (
-        <RestEventModal
-          visible
-          mascotName={displayName}
-          onClose={() => {
-            if (restTimer.current) clearTimeout(restTimer.current);
-            restInteraction.current += 1;
-            setShowRestEvent(false);
-          }}
-        />
-      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -607,8 +575,6 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1, minWidth: 0, gap: 3 },
   headerTitle: {flexDirection:'row',alignItems:'center',gap:8},
-  restButton: { minHeight: 44, alignSelf:'flex-start', paddingHorizontal: 12, borderRadius: 22, backgroundColor: colors.muted, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  restButtonText: { fontSize: 11, color: colors.foreground },
   headerName: { ...typography.subhead, color: colors.foreground },
   onlineRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
   onlineDot: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.success },
