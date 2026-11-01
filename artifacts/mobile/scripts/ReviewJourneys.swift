@@ -393,6 +393,10 @@ final class ReviewJourneys: XCTestCase {
         XCTAssertTrue(element("chat-mode-listen").isSelected)
         tap(element("chat-input"))
         element("chat-input").typeText("Hello! Please greet me briefly.")
+        visible(element("chat-message-list"))
+        XCTAssertGreaterThan(element("chat-message-list").frame.height, app.frame.height * 0.1,
+                             "Typing must leave a readable conversation area on compact screens")
+        capture("05-chat-keyboard-layout")
         tap(text("送信"))
         visible(text("AIへの情報送信"))
         capture("05-ai-disclosure")
@@ -409,6 +413,9 @@ final class ReviewJourneys: XCTestCase {
         visible(element("chat-input"))
         XCTAssertFalse(element("chat-assistant-message").exists)
         tap(text("送信"))
+        until("Sending must dismiss the keyboard so the reply stays visible") {
+            !self.app.keyboards.firstMatch.exists
+        }
         visible(element("chat-assistant-message"), timeout: 75)
         XCTAssertFalse(element("chat-send-error").exists)
         XCTAssertFalse(element("chat-assistant-message").label.isEmpty)
@@ -510,7 +517,8 @@ final class ReviewJourneys: XCTestCase {
         let insightTitle = text(title)
         reveal(insightTitle)
         XCTAssertTrue(insightTitle.isHittable)
-        let evidenceToggle = text("比較した記録を見る（18日分）")
+        let evidenceToggle = element("personal-insight-evidence-toggle")
+        XCTAssertEqual(evidenceToggle.label, "比較した記録を見る（18日分）")
         reveal(evidenceToggle)
         XCTAssertTrue(insightTitle.isHittable, "The insight title and evidence control must both fit in the reading viewport")
         capture("18-personal-insight")

@@ -216,6 +216,7 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
   const [messages, setMessages] = useState<Message[]>([welcomeMsg]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [input, setInput] = useState('');
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showRestEvent, setShowRestEvent] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -234,6 +235,12 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
   const restTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const restInteraction = useRef(0);
   const listRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    const shown = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardOpen(true));
+    const hidden = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardOpen(false));
+    return () => { shown.remove(); hidden.remove(); };
+  }, []);
 
   useFocusEffect(useCallback(() => () => {
     sendEpoch.current += 1;
@@ -320,10 +327,12 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
     if (epoch !== sendEpoch.current || aiOwner !== currentOwner.current) return;
     if (!allowed) {
       if (!retry) setInput(msg);
+      Keyboard.dismiss();
       router.push('/ai-privacy');
       return;
     }
     if (request.current || clearBusy.current) return;
+    Keyboard.dismiss();
     const controller = new AbortController();
     request.current = controller;
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -433,9 +442,8 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
         <View style={styles.headerCopy}>
           <View style={styles.headerTitle}>
             <Text numberOfLines={1} style={[styles.headerName,{flexShrink:1}]}>{displayName}</Text>
-            {messages.length > 1 && <Text numberOfLines={1} style={styles.onlineText}>{messages.filter(m=>m.id!=='welcome').length}件の会話</Text>}
           </View>
-          <PressScale testID="chat-rest-open" accessibilityLabel="一緒に休む" style={styles.restButton}
+          {keyboardOpen ? <Text style={styles.onlineText}>{conversationModes.find(mode => mode.id === conversationMode)?.label}</Text> : <PressScale testID="chat-rest-open" accessibilityLabel="一緒に休む" style={styles.restButton}
           onPress={() => {
             if (restTimer.current) clearTimeout(restTimer.current);
             restInteraction.current += 1;
@@ -444,10 +452,10 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
           }}>
           <Icon name="moon" size={15} color={colors.foreground} />
           <Text style={styles.restButtonText}>一緒に休む</Text>
-          </PressScale>
+          </PressScale>}
         </View>
         <PressScale style={styles.clearBtn} accessibilityLabel="自分のヒント帳を開く" onPress={() => router.push('/hints')}><Icon name="book-open" size={20} color="#795D90" /></PressScale>
-        {messages.length > 1 && (
+        {keyboardOpen ? <PressScale style={styles.clearBtn} accessibilityLabel="キーボードを閉じる" onPress={() => Keyboard.dismiss()}><Icon name="chevron-down" size={20} color={colors.foreground} /></PressScale> : messages.length > 1 && (
           <PressScale
             onPress={clearHistory}
             disabled={isLoading || clearing}
@@ -459,10 +467,10 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
         )}
       </View>
 
-      <View style={styles.modeSection}>
+      {!keyboardOpen && <View style={styles.modeSection}>
         <View style={styles.modeRow}>{conversationModes.map(mode => <PressScale key={mode.id} testID={`chat-mode-${mode.id}`} accessibilityRole="button" accessibilityLabel={mode.label} accessibilityState={{ selected: conversationMode === mode.id, disabled: isLoading }} disabled={isLoading} onPress={() => setConversationMode(mode.id)} style={[styles.modeButton, conversationMode === mode.id && styles.modeSelected]}><Icon name={mode.id === 'listen' ? 'message-circle' : 'sunrise'} size={18} color={conversationMode === mode.id ? '#795D90' : '#8D7B93'} /><Text style={[styles.modeLabel, conversationMode === mode.id && styles.modeSelectedLabel]}>{mode.label}</Text></PressScale>)}</View>
         <Text style={styles.modeDescription}>{conversationModes.find(mode => mode.id === conversationMode)?.description}</Text>
-      </View>
+      </View>}
 
       <View style={styles.medicalNotice}>
         <Icon name="info" size={15} color={colors.mutedForeground} />
@@ -472,12 +480,15 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
       </View>
 
       <FlatList
+        testID="chat-message-list"
         ref={listRef}
         data={messages}
         keyExtractor={m => m.id}
         style={styles.list}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
         onContentSizeChange={scrollToBottom}
         renderItem={({ item, index }) => (
           <>
@@ -510,7 +521,7 @@ function OwnerChat({ aiOwner }: { aiOwner: string }) {
       <View
         style={[
           styles.inputArea,
-          { paddingBottom: tabBarHeight + space.sm },
+          { paddingBottom: keyboardOpen ? space.sm : tabBarHeight + space.sm },
         ]}
       >
         {historyError && <Text accessibilityRole="alert">履歴を消せませんでした。もう一度お試しください。</Text>}

@@ -79,9 +79,9 @@ function InsightCard({ insight, saved, busy, onSave }: { insight: PersonalInsigh
   return <NotebookPaper testID="personal-insight-card" style={s.paper}>
     <View style={s.stamp}><Icon name="sunrise" size={18} color="#9169A1" /><Text style={s.stampText}>記録から見つけたこと</Text></View>
     <Text style={s.cardTitle}>{insight.title}</Text><Text style={s.body}>{insight.body}</Text>
-    <View style={s.note}><Text style={s.noteTitle}>あなたのペースで</Text><Text style={s.body}>{insight.suggestion}</Text></View>
-    <Pressable accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded(v => !v)} style={s.evidenceButton}><Text style={s.evidenceButtonText}>比較した記録を見る（{e.selectedDays + e.comparisonDays}日分）</Text><Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color="#866693" /></Pressable>
+    <Pressable testID="personal-insight-evidence-toggle" accessibilityRole="button" accessibilityLabel={`比較した記録を見る（${e.selectedDays + e.comparisonDays}日分）`} accessibilityState={{ expanded }} onPress={() => setExpanded(v => !v)} style={s.evidenceButton}><Text style={s.evidenceButtonText}>比較した記録を見る（{e.selectedDays + e.comparisonDays}日分）</Text><Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color="#866693" /></Pressable>
     {expanded && <View testID="personal-insight-evidence" style={s.evidence}><Text style={s.small}>{e.from} 〜 {e.to}</Text><EvidenceRow testID="personal-insight-selected-count" label={e.selectedLabel} days={e.selectedDays} goodDays={e.selectedGoodDays} /><EvidenceRow testID="personal-insight-comparison-count" label={e.comparisonLabel} days={e.comparisonDays} goodDays={e.comparisonGoodDays} /><Text style={s.small}>「いい感じ」「うれしい」を選んだ日を「元気な日」としています。比較には、気分と対象の項目を両方記録した日だけを使います。</Text></View>}
+    <View style={s.note}><Text style={s.noteTitle}>あなたのペースで</Text><Text style={s.body}>{insight.suggestion}</Text></View>
     <Pressable accessibilityRole="button" accessibilityLabel={saved ? 'ヒント帳に保存済み' : 'この気づきをヒント帳に保存'} disabled={saved || busy} onPress={onSave} style={[s.primary, (saved || busy) && s.disabled]}><Icon name={saved ? 'check' : 'bookmark'} size={18} color="#FFFDF7" /><Text style={s.primaryText}>{saved ? 'ヒント帳に保存しました' : 'ヒント帳に保存'}</Text></Pressable>
   </NotebookPaper>;
 }
