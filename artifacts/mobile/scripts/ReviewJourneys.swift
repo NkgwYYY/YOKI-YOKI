@@ -47,13 +47,23 @@ final class ReviewJourneys: XCTestCase {
                         file: StaticString = #filePath, line: UInt = #line) {
         for _ in 0..<12 {
             if declineSyntheticPasswordSave() { continue }
-            if target.exists && target.isHittable { return }
             let scroller = app.scrollViews.allElementsBoundByIndex.first { $0.isHittable }
             let surface = scroller ?? app
+            // XCUITest can throw while evaluating isHittable for a button
+            // clipped by the scroll viewport. Bring its full frame into view
+            // before asking native hit-testing for an activation point.
+            let viewport = surface.frame.intersection(app.frame).insetBy(dx: 0, dy: 16)
+            if target.exists && !target.frame.isEmpty {
+                let bounds = target.frame
+                let fits = bounds.height <= viewport.height
+                    ? viewport.contains(bounds)
+                    : viewport.intersection(bounds).height >= 100
+                if fits && target.isHittable { return }
+            }
             // A return button can be above the viewport after scrolling a form.
             // Use its native screen frame to reveal it in the correct direction.
             if target.exists && target.frame.height > 0 &&
-                target.frame.minY < surface.frame.minY {
+                target.frame.minY < viewport.minY {
                 surface.swipeDown(velocity: .slow)
             } else {
                 surface.swipeUp(velocity: .slow)
