@@ -1,4 +1,6 @@
 import {ENTRY_CHOICE_KEY,type EntryChoice} from '@/utils/entryRoute';
+import {clearConversationData} from '@/utils/conversationStorageClient';
+import {clearHintBook} from '@/utils/hintBookStorage';
 import {accountDataStore} from '@/utils/accountDataStore';
 import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import { useAuth as useClerkAuth, useUser } from '@clerk/expo';
@@ -81,40 +83,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     setChanging(true);
+    let signedOut = false;
     try {
       await AsyncStorage.setItem(ENTRY_CHOICE_KEY,'account');
       setEntryChoice('account');
       await signOut();
+      signedOut = true;
       await accountDataStore.switchOwner('guest');
-      setStorageEpoch(n=>n+1);
-    } finally { setChanging(false); }
+    } finally {
+      // Once signed out, discard the old in-memory records even if storage
+      // failed to switch. The fresh provider restores guest storage or shows
+      // its existing recovery screen before reading any records.
+      if (signedOut) setStorageEpoch(n => n + 1);
+      setChanging(false);
+    }
   }, [signOut]);
 
   const deleteAccount = useCallback(async () => {
     if (!clerkUser) {
       throw new Error('削除するアカウントが見つかりません');
     }
+    const removedOwner = clerkUser.id;
+    setChanging(true);
+    try {
+      const token = await clerkGetToken();
+      if (!token) {
+        throw new Error('認証を確認できませんでした。もう一度ログインしてください');
+      }
 
-    const token = await clerkGetToken();
-    if (!token) {
-      throw new Error('認証を確認できませんでした。もう一度ログインしてください');
+      const response = await fetch(`${API_BASE}/account`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(body?.error || '保存データを削除できませんでした');
+      }
+
+      await clerkUser.delete();
+
+      // After remote deletion, one failed local cleanup must not skip the
+      // remaining work or leave the deleted owner's in-memory data mounted.
+      const cleanup = await Promise.allSettled([
+        clearHintBook(removedOwner),
+        clearConversationData(removedOwner),
+        accountDataStore.removeOwner(removedOwner),
+        AsyncStorage.setItem(ENTRY_CHOICE_KEY, 'account'),
+      ]);
+      setEntryChoice('account');
+      setStorageEpoch(n => n + 1);
+      if (cleanup.some(result => result.status === 'rejected')) {
+        throw new Error('アカウントは削除しましたが、端末内の記録の一部を消去できませんでした。');
+      }
+    } finally {
+      setChanging(false);
     }
-
-    const response = await fetch(`${API_BASE}/account`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (!response.ok) {
-      const body = await response.json().catch(() => null) as { error?: string } | null;
-      throw new Error(body?.error || '保存データを削除できませんでした');
-    }
-
-    await clerkUser.delete();
-
-    await accountDataStore.removeOwner(clerkUser.id);
-    await AsyncStorage.setItem(ENTRY_CHOICE_KEY,'account');
-    setEntryChoice('account');setStorageEpoch(n=>n+1);
-
   }, [clerkGetToken, clerkUser]);
 
   const user: AuthUser | null = clerkUser

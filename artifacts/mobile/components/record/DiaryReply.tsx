@@ -57,7 +57,7 @@ export function DiaryReply({page}: {page:DiaryPage}) {
   const ready=page.replyKind==='ai'||page.replyKind==='local';
   const action=()=>{if(allowed)void receive();else setConsent(true);};
   return <View testID="diary-reply" style={s.card}>
-    <Text style={s.label}>{ready?`${page.name}が、ページのすみに書いたこと`:`${page.name}からの返事`}</Text>
+    <Text style={s.label}>{ready?`${page.name}から、あなたへ`:`${page.name}からの返事`}</Text>
     {ready?<Text testID={page.replyKind==='ai'?'diary-ai-reply':'diary-local-reply'} selectable style={s.body}>{page.reply}</Text>:<>
       {busy?<View style={s.status}><ActivityIndicator color="#84638E"/><Text accessibilityLiveRegion="polite" style={s.body}>日記を読んで、返事を書いているよ…</Text></View>:<>
         <Text style={s.body}>{error||'日記は、このページに大切にしまったよ。'}</Text>
@@ -78,8 +78,8 @@ export function DiaryReply({page}: {page:DiaryPage}) {
   </View>;
 }
 const s=StyleSheet.create({
- card:{backgroundColor:'#EEE2B7',padding:20,gap:12,borderRadius:2,borderTopWidth:9,borderColor:'#DDCFA0',marginHorizontal:10,shadowColor:'#21132B',shadowOpacity:.13,shadowRadius:5,shadowOffset:{width:1,height:4}},
- label:{fontSize:11,color:'#8B7750'},body:{fontSize:14,lineHeight:26,color:'#65573F'},status:{flexDirection:'row',alignItems:'center',gap:10,flexWrap:'wrap'},
- action:{minHeight:46,borderWidth:1,borderColor:'#B7A1C0',borderRadius:9,padding:12,justifyContent:'center',alignItems:'center'},actionText:{fontSize:13,color:'#735580'},
+ card:{backgroundColor:'#F1E9F5',padding:20,gap:12,borderRadius:16,borderWidth:1,borderColor:'#E0D3E7',marginHorizontal:5,shadowColor:'#21132B',shadowOpacity:.13,shadowRadius:5,shadowOffset:{width:1,height:4}},
+ label:{fontSize:12,fontWeight:'600',color:'#8D729B'},body:{fontSize:15,lineHeight:28,color:'#634F6B'},status:{flexDirection:'row',alignItems:'center',gap:10,flexWrap:'wrap'},
+ action:{minHeight:46,borderWidth:1,borderColor:'#B7A1C0',borderRadius:22,padding:12,justifyContent:'center',alignItems:'center'},actionText:{fontSize:13,color:'#735580'},
  settings:{minHeight:44,justifyContent:'center'},small:{fontSize:11,color:'#816A8A'},disclosure:{fontSize:14,lineHeight:24,color:colors.foreground,marginBottom:14},
 });

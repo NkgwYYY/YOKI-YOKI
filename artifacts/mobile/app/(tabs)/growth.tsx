@@ -13,6 +13,7 @@ import {useApp} from '@/contexts/AppContext';
 import {useAuth} from '@/contexts/AuthContext';
 import {useRoomActivity} from '@/components/room/useRoomActivity';
 import {CompactGrowth} from '@/components/growth/CompactGrowth';
+import {PersonalInsightPreview} from '@/components/insights/PersonalInsightPreview';
 import {CharacterDexModal} from '@/components/dex/CharacterDexModal';
 import {Button} from '@/components/ui/Button';
 import {CenterDialog} from '@/components/ui/BottomSheet';
@@ -59,6 +60,7 @@ export default function GrowthScreen(){
  return <View testID="album-screen" style={styles.flex}>
  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content,{paddingTop:(Platform.OS==='web'?20:insets.top)+12,paddingBottom:getTabBarHeight(Platform.OS,insets.bottom)+20}]}>
   <View style={styles.titleRow}><View><Text style={styles.eyebrow}>MY RECORD</Text><Text style={styles.title}>わたしの歩み</Text></View><PressScale style={styles.accountBtn} onPress={()=>setShowLogout(true)} accessibilityLabel={isIOSGuestOnly?'プロフィールと使い方':'アカウント'}><Icon name="user" size={20} color="#493659"/></PressScale></View>
+  <PersonalInsightPreview/>
   <CompactGrowth onCharacter={setDexChar}/>
  </ScrollView>
         {/* アカウント */}

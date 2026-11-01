@@ -91,7 +91,7 @@ for (const placement of ['meal', 'egg-job']) {
     assert.equal(model(placement).canWatch, true);
   });
 }
-for (const placement of ['diary', 'chat', 'fortune', undefined]) {
+for (const placement of ['diary', 'chat', 'insights', 'hints', 'fortune', undefined]) {
   test(`non-allowlisted screen ${placement} never shows an ad`, () => {
     assert.equal(isDailyAdPlacement(placement), false);
     assert.equal(model(placement ?? null).banner, false);

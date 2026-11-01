@@ -1,6 +1,8 @@
 """Install the reviewed simulator build in an isolated GitHub macOS runner."""
 import json
 import os
+from datetime import datetime, timedelta
+import hashlib
 from pathlib import Path
 import plistlib
 import re
@@ -143,14 +145,47 @@ storage = container / 'Library/Application Support' / info['CFBundleIdentifier']
 storage.mkdir(parents=True, exist_ok=False)
 feed = {'points': 5000, 'lastFeedTime': '', 'satietyAtFeed': 50}
 progress = {'level': 1 if egg_capture else 3, 'experience': 0, 'mentalMuscle': 0, 'streak': 0, 'totalDays': 0, 'lastRecordDate': ''}
-(storage / 'manifest.json').write_text(json.dumps({
-    '@mentore/feed_state_v1': json.dumps(feed, separators=(',', ':')),
-    '@mentore/progress_v2': json.dumps(progress, separators=(',', ':')),
-}))
+fixture = {'@mentore/feed_state_v1': feed}
+synthetic_records = []
+if not egg_capture:
+    # The current day stays empty, so the original diary-save/reward journey
+    # retains its meaning. Interleave the groups to avoid a before/after-only
+    # comparison; both have nine independently dated observations.
+    # Fresh simulator time follows its runner's local timezone, as getTodayDate
+    # does in the app. These dates remain in the 30-day window across midnight.
+    local_today = datetime.now().astimezone().date()
+    for offset in range(1, 19):
+        outside = offset % 2 == 1
+        synthetic_records.append({
+            'id': f'synthetic-pattern-{offset}',
+            'date': (local_today - timedelta(days=offset)).isoformat(),
+            'mood': 5 if outside else 2,
+            'sleep': 0, 'sleepRecorded': False,
+            'behaviors': ['外に出た' if outside else 'ゆっくり休んだ'],
+            'notes': '',
+        })
+    fixture['@mentore/records_v2'] = synthetic_records
+    progress['totalDays'] = len(synthetic_records)
+    progress['lastRecordDate'] = (local_today - timedelta(days=1)).isoformat()
+fixture['@mentore/progress_v2'] = progress
+manifest = {}
+for key, value in fixture.items():
+    encoded = json.dumps(value, ensure_ascii=False, separators=(',', ':'))
+    # Match RNCAsyncStorage's actual inline/MD5-file convention. No app source
+    # test hook, network request, user installation, or existing data is used.
+    if len(encoded.encode('utf-16-le')) // 2 <= 1024:
+        manifest[key] = encoded
+    else:
+        (storage / hashlib.md5(key.encode('utf-8')).hexdigest()).write_text(encoded, encoding='utf-8')
+        manifest[key] = None
+(storage / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False), encoding='utf-8')
 (evidence / 'synthetic-fixture.json').write_text(json.dumps({
     'scope': 'fresh isolated simulator only', 'wallet_points': 5000, 'legacy_character_level': 1 if egg_capture else 3,
-    'purpose': 'Verify native fur rendering, then purchase and independently reposition sofa and violet through native UI.',
+    'purpose': 'Verify native rendering, care and furniture persistence, plus real local insight comparison and saved-hint persistence.',
     'production_app_modified': False, 'profile_seeded': False,
+    'synthetic_pattern_days': len(synthetic_records),
+    'pattern_expected': None if egg_capture else {'activity': '外に出た', 'selected_days': 9, 'selected_good_days': 9, 'comparison_days': 9, 'comparison_good_days': 0},
+    'current_day_seeded': False,
 }, indent=2))
 with open(os.environ['GITHUB_ENV'], 'a') as handle:
     handle.write('YOKI_SIMULATOR_UDID=' + udid + '\n')

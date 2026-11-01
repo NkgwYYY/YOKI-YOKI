@@ -2,7 +2,6 @@ import {ACCOUNT_ENABLED} from '@/utils/runtimeConfig';
 import {needsNativeEntry} from '@/utils/entryRoute';
 import {PlushLoading} from '@/components/PlushLoading';
 import {FeltDecoration,FeltBackground} from '@/components/ui/Felt';
-import { useDailyBath } from '@/components/world/useDailyBath';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import {FeltPressable as Pressable} from '@/components/ui/FeltPressable';
@@ -18,9 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 type DockProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
 function WorldDock({state, navigation}: DockProps) {
   const insets = useSafeAreaInsets();
-  // The home screen includes these destinations in its single care dock.
-  if (state.routes[state.index].name === 'index') return null;
-  const places = [{name: 'index', label: 'おうち', icon: 'home'}, {name: 'plant', label: 'おふろ', icon: 'droplet'}, {name: 'growth', label: '歩み', icon: 'book-open'}] as const;
+  const places = [{name:'index',label:'おうち',icon:'home',testID:'home-tab'}, {name:'record',label:'日記',icon:'book-open',testID:'home-daily-record'}, {name:'chat',label:'おはなし',icon:'message-circle',testID:'home-chat'}, {name:'growth',label:'歩み',icon:'sun',testID:'home-growth'}] as const;
   return <View pointerEvents="box-none" style={{position: 'absolute', bottom: Math.max(12, insets.bottom), left: 16, right: 16, alignItems: 'center'}}>
     <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 20, backgroundColor: '#FFF8EA', borderWidth: 1, borderColor: '#D4C2A3', shadowColor:'#50355F', shadowOpacity:.16, shadowRadius:18, shadowOffset:{width:0,height:5}}}>
       <FeltDecoration radius={24}/>{places.map(place => {
@@ -28,12 +25,12 @@ function WorldDock({state, navigation}: DockProps) {
         if (!route) return null;
         const selected = state.routes[state.index].key === route.key;
         const disabled=false;
-        return <Pressable key={route.key} disabled={disabled} accessibilityRole="tab" accessibilityLabel={place.label} accessibilityState={{selected,disabled}}
+        return <Pressable key={route.key} testID={place.testID} disabled={disabled} accessibilityRole="tab" accessibilityLabel={place.label} accessibilityState={{selected,disabled}}
           onPress={() => {const event = navigation.emit({type: 'tabPress', target: route.key, canPreventDefault: true}); if (!selected && !event.defaultPrevented) navigation.navigate(route.name, route.params);}}
           onLongPress={() => navigation.emit({type: 'tabLongPress', target: route.key})}
-          style={({pressed}) => ({flex: 1, minHeight: 48, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: selected ? '#E1EACF' : 'transparent', opacity: disabled ? .45 : pressed ? 0.7 : 1})}>
-          <Icon name={place.icon} size={20} color={selected ? '#617853' : '#8A7C69'} />
-          <Text style={{fontSize: 10, color: selected ? '#617853' : '#8A7C69'}}>{place.label}</Text>
+          style={({pressed}) => ({flex: 1, minHeight: 48, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 3, backgroundColor: selected ? '#EEE5F3' : 'transparent', opacity: disabled ? .45 : pressed ? 0.7 : 1})}>
+          <Icon name={place.icon} size={20} color={selected ? '#806096' : '#8A7C69'} />
+          <Text style={{fontSize: 11, color: selected ? '#806096' : '#8A7C69'}}>{place.label}</Text>
         </Pressable>;
       })}
     </View>

@@ -21,12 +21,12 @@ const server=http.createServer((req,res)=>{
     localStorage.setItem('@mentore/mascot_name_v1','とても長い名前のキャラクターテスト');
     if(!localStorage.getItem('qa-populated')){
      const list=Array.from({length:120},(_,i)=>({id:'u_'+(1790985600000+i*60000),role:i%2?'assistant':'user',content:'会話'+i+' '+('長い文章の表示を確認しています。'.repeat(10)),timestamp:i%3===0?1790985600000+i*60000:new Date(1790985600000+i*60000).toISOString(),dateKey:i%7===0?'2026-02-30':'2026-10-03'}));
-     localStorage.setItem('@mentore/chat_history_v1',JSON.stringify(list));localStorage.setItem('qa-populated','true');
+     localStorage.setItem('@mentore/chat_history_v2/guest',JSON.stringify(list));localStorage.setItem('qa-populated','true');
     }
    });
    await page.goto('http://127.0.0.1:'+server.address().port+'/chat');
    await page.getByText('60件の会話',{exact:true}).waitFor();await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});
-   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/chat_history_v1')).length),120,'hydration does not rewrite stored history');
+   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/chat_history_v2/guest')).length),120,'hydration does not rewrite stored history');
    const input=page.getByRole('textbox',{name:'話しかける内容'});await input.fill('長い下書き'.repeat(30));
    const send=page.getByRole('button',{name:'送信',exact:true});const b=await send.boundingBox();assert.ok(b.y>=0&&b.y+b.height<=viewport.height-84);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),viewport.width);

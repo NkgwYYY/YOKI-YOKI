@@ -2,7 +2,7 @@ import {homeArtPoint} from './homeGeometry.ts';
 import type {RoomItemPosition} from './roomPlacement';
 
 const FURNITURE={
- sofa:{x:.24,y:.89,width:.40,aspect:1.3142},
+ sofa:{x:.23,y:.745,width:.28,aspect:1.3142},
  vanity:{x:.19,y:.88,width:.27,aspect:0.7678},
  bookshelf:{x:.20,y:.88,width:.28,aspect:0.8333},
 };

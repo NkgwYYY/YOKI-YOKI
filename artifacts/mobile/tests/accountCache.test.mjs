@@ -47,6 +47,39 @@ test('deleting one account removes its backup and preserves the guest and other 
  await f.cache.switchOwner('bob');assert.equal(f.data.has('diary'),false);
 });
 
+test('failed deletion before its journal never makes account records a guest cache',async()=>{
+ const f=fixture({diary:'guest diary'});
+ await f.cache.replace('alice',{diary:'private account diary'});
+ f.fail('@yoki/account-cache/v1/alice');
+ await assert.rejects(f.cache.removeOwner('alice'));
+ assert.equal(f.data.has(ACCOUNT_SWITCH_KEY),false,'failure happened before a recovery journal');
+ assert.equal(await f.cache.owner(),'alice');
+ const restarted=createAccountCache(f.storage,keys);
+ f.fail('@yoki/account-cache/v1/alice');
+ await assert.rejects(restarted.switchOwner('guest'),'guest reads must wait while switching still fails');
+ assert.equal(await restarted.owner(),'alice');
+ await restarted.switchOwner('guest');
+ assert.equal(f.data.get('diary'),'guest diary');
+ assert.equal(await restarted.owner(),'guest');
+ await restarted.removeOwner('alice');
+ assert.equal(f.data.has('@yoki/account-cache/v1/alice'),false);
+ assert.equal(f.data.get('diary'),'guest diary');
+});
+
+test('interrupted logout restores the complete guest cache before a fresh provider reads it',async()=>{
+ const f=fixture({profile:'Guest',diary:'guest diary',progress:'guest progress'});
+ await f.cache.replace('alice',{profile:'Alice',diary:'private diary',progress:'account progress'});
+ f.fail('diary');
+ await assert.rejects(f.cache.switchOwner('guest'));
+ assert.ok(f.data.has(ACCOUNT_SWITCH_KEY));
+ const restarted=createAccountCache(f.storage,keys);
+ await restarted.switchOwner('guest');
+ assert.equal(await restarted.owner(),'guest');
+ assert.deepEqual(keys.map(key=>f.data.get(key)),['Guest','guest diary','guest progress']);
+ await restarted.switchOwner('alice');
+ assert.deepEqual(keys.map(key=>f.data.get(key)),['Alice','private diary','account progress']);
+});
+
 test('balance reads cannot observe or modify a half-switched account cache',async()=>{
  const {createRecoverableStorage}=await import('../utils/recoverableStorage.ts');
  const f=fixture({profile:'guest',progress:'old'});

@@ -17,10 +17,10 @@ const server=http.createServer((req,res)=>{
     await page.addInitScript(()=>{
       localStorage.setItem('@mentore/profile_v1',JSON.stringify({nickname:'テスト',ageRange:'回答しない',gender:'回答しない'}));
       localStorage.setItem('@mentore/encounters_v1',JSON.stringify({list:[{charKey:'egg',metDate:'2026-09-01'}]}));
-      if(!localStorage.getItem('qa-history-seeded')){localStorage.setItem('@mentore/chat_history_v1','broken');localStorage.setItem('qa-history-seeded','true');}
+      if(!localStorage.getItem('qa-history-seeded')){localStorage.setItem('@mentore/chat_history_v2/guest','broken');localStorage.setItem('qa-history-seeded','true');}
       const set=Storage.prototype.setItem,remove=Storage.prototype.removeItem;
-      Storage.prototype.setItem=function(k,v){if(k==='@mentore/chat_history_v1'&&localStorage.getItem('qa-write-fail'))throw Error('QA write failure');return set.call(this,k,v);};
-      Storage.prototype.removeItem=function(k){if(k==='@mentore/chat_history_v1'&&localStorage.getItem('qa-remove-fail'))throw Error('QA remove failure');return remove.call(this,k);};
+      Storage.prototype.setItem=function(k,v){if(k==='@mentore/chat_history_v2/guest'&&localStorage.getItem('qa-write-fail'))throw Error('QA write failure');return set.call(this,k,v);};
+      Storage.prototype.removeItem=function(k){if(k==='@mentore/chat_history_v2/guest'&&localStorage.getItem('qa-remove-fail'))throw Error('QA remove failure');return remove.call(this,k);};
     });
     let calls=0;const headers={'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'POST, OPTIONS'};
     await page.route('**/api/chat/message',async route=>{
@@ -30,22 +30,22 @@ const server=http.createServer((req,res)=>{
     const url='http://127.0.0.1:'+server.address().port+'/chat';
     const open=async()=>{await page.goto(url);await page.getByText('Loading...',{exact:true}).waitFor({state:'hidden'});};
     await open();await page.getByRole('button',{name:'会話履歴を読み込み直す'}).waitFor();
-    assert.equal(await page.evaluate(()=>localStorage.getItem('@mentore/chat_history_v1')),'broken','failed hydration must not overwrite history');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('@mentore/chat_history_v2/guest')),'broken','failed hydration must not overwrite history');
     await page.getByRole('textbox',{name:'話しかける内容'}).fill('保存テスト');
     assert.equal(await page.getByRole('button',{name:'送信',exact:true}).isDisabled(),true);
-    await page.evaluate(()=>localStorage.setItem('@mentore/chat_history_v1','[]'));
+    await page.evaluate(()=>localStorage.setItem('@mentore/chat_history_v2/guest','[]'));
     await page.getByRole('button',{name:'会話履歴を読み込み直す'}).click();
     await page.evaluate(()=>localStorage.setItem('qa-write-fail','true'));
     await page.getByRole('button',{name:'送信',exact:true}).click();await page.getByText('保存テストの返事',{exact:true}).waitFor();
     await page.getByRole('button',{name:'会話履歴を保存し直す'}).waitFor();
-    assert.equal(await page.evaluate(()=>localStorage.getItem('@mentore/chat_history_v1')),'[]');
+    assert.equal(await page.evaluate(()=>localStorage.getItem('@mentore/chat_history_v2/guest')),'[]');
     await page.evaluate(()=>localStorage.removeItem('qa-write-fail'));
     await page.getByRole('button',{name:'会話履歴を保存し直す'}).click();
     await page.getByRole('button',{name:'会話履歴を保存し直す'}).waitFor({state:'hidden'});
     await open();await page.getByText('保存テストの返事',{exact:true}).waitFor();assert.equal(calls,1);
     await page.evaluate(()=>localStorage.setItem('qa-remove-fail','true'));
     await page.getByRole('button',{name:'会話履歴を消す'}).click();await page.getByText('履歴を消せませんでした。もう一度お試しください。',{exact:true}).waitFor();
-    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/chat_history_v1')).length),2);
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/chat_history_v2/guest')).length),2);
     await page.evaluate(()=>localStorage.removeItem('qa-remove-fail'));
     await page.getByRole('button',{name:'会話履歴を消す'}).click();
     await page.getByText('保存テストの返事',{exact:true}).waitFor({state:'hidden'});await open();

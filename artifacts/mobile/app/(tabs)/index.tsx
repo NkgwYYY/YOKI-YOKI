@@ -4,7 +4,7 @@ import {nextHomeAssist} from '@/utils/homeAssist';
 import {useScenicVisit} from '@/components/world/useScenicVisit';
 import {DailyLetter,useDailyLetter} from '@/components/daily/DailyLetter';
 import {QuickAffirmationRecord} from '@/components/record/QuickAffirmationRecord';
-import {FeltDecoration} from '@/components/ui/Felt';
+import {PersonalInsightPreview} from '@/components/insights/PersonalInsightPreview';
 import {CompanionCollection} from '@/components/collection/CompanionCollection';
 import {StableSceneViewport} from '@/components/world/StableSceneViewport';
 import {DailyAdRail, DailyAdRewardButton} from '@/components/ads/DailyAdPlacements';
@@ -25,8 +25,6 @@ import {useWelcomeVisit} from '@/components/world/useWelcomeVisit';
 import { useApp } from '@/contexts/AppContext';
 import { useItems, resolveItemAssetUrl } from '@/contexts/ItemContext';
 import { getMascotStage } from '@/utils/mascotUtils';
-import { SatietyGauge } from '@/components/world/SatietyGauge';
-import {HappinessGauge} from '@/components/world/HappinessGauge';
 import {useWorldHappiness} from '@/components/world/useWorldHappiness';
 import {useVillageMusic} from '@/contexts/VillageMusicContext';
 import {HAPPY_REWARDS,type HappyAction} from '@/utils/happiness';
@@ -68,6 +66,9 @@ export default function HomeScreen() {
   const [sceneBusy,setSceneBusy]=useState(false);
   const [worldInteracting,setWorldInteracting]=useState(false);
   const [worldMap,setWorldMap]=useState('home');
+  const [adRailHeight,setAdRailHeight]=useState(0);
+  const [controlsRequest,setControlsRequest]=useState<{id:number;action:'menu'|'view'}>();
+  const openSceneControls=(action:'menu'|'view')=>{setSheet(null);setControlsRequest(previous=>({id:(previous?.id??0)+1,action}));};
   const [feedVenue,setFeedVenue]=useState<'ramen'|undefined>(undefined);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [cleanRequest,setCleanRequest]=useState(0);
@@ -161,22 +162,28 @@ export default function HomeScreen() {
   }[kind]);};
   const openFeed=(venue?:'ramen')=>{if(food){say('いま、おやつを食べているところだよ。');return;}setFeedVenue(venue);setSheet('feed');};
   const restTogether = () => {voice.play('soft');setRest(n => n + 1); say('少し、ここでひと休みしよう。');};
-  const menuRow = (icon: IconName, label: string, onPress: () => void) => <Pressable key={label} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#82715E" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#82715E" /></Pressable>;
+  const menuRow = (icon: IconName, label: string, onPress: () => void, testID?:string) => <Pressable key={label} testID={testID} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#82715E" /><Text style={s.menuText}>{label}</Text><Icon name="chevron-right" size={16} color="#82715E" /></Pressable>;
   return <View style={s.root}>
-    <StableSceneViewport rail={<DailyAdRail placement={adPlacement} environment={adEnvironment} bottomInset={tabHeight}/>} overlay={<>
-    <View pointerEvents="box-none" style={[s.header, {top: insets.top + (compact ? 6 : 16)}]}>
-      <View pointerEvents="box-none" style={s.brandRow}><View pointerEvents="none"><Text style={s.brand}>YOKI YOKI</Text><Text style={s.subtitle}>{time.dateLabel}　{time.label}</Text></View>
-        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Pressable testID="home-points" accessibilityRole="button" accessibilityLabel={`${feedState.points}ポイント。ポイントの受け取りを開く`} style={s.points} onPress={()=>setSheet('points')}><Icon name="star" size={14} color="#71845D"/><Text style={s.pointsText}>{feedState.points} pt</Text></Pressable><WorldPill compact testID="home-more-menu" label="部屋のメニュー" icon="more-horizontal" onPress={()=>setSheet('menu')}/></View>
+    <StableSceneViewport rail={<View onLayout={event=>setAdRailHeight(event.nativeEvent.layout.height)}><DailyAdRail placement={adPlacement} environment={adEnvironment} bottomInset={tabHeight}/></View>} overlay={<>
+    <View pointerEvents="box-none" style={[s.header, {top: insets.top + (compact ? 4 : 10)}]}>
+      <View pointerEvents="box-none" style={s.brandRow}><View pointerEvents="none" style={s.brandCopy}><Text style={s.brand}>YOKI YOKI</Text><Text numberOfLines={1} style={s.subtitle}>{time.dateLabel}　{time.label}</Text></View>
+        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Pressable testID="home-points" accessibilityRole="button" accessibilityLabel={`${feedState.points}ポイント。ポイントの受け取りを開く`} style={s.points} onPress={()=>setSheet('points')}><Icon name="star" size={14} color="#71845D"/><Text style={s.pointsText}>{feedState.points} pt</Text></Pressable><Pressable testID="home-more-menu" accessibilityRole="button" accessibilityLabel="部屋のメニュー" onPress={()=>setSheet('menu')} style={s.moreButton}><Icon name="more-horizontal" size={20} color="#736184"/></Pressable></View>
       </View>
-      {(worldMap==='home'||window.height>=660)&&<View style={[s.statusRow,wide&&{maxWidth:300}]}><SatietyGauge compact value={currentSatiety} onPress={()=>openFeed()}/><HappinessGauge value={happiness.value} onPress={()=>setSheet('happiness')}/><WorldPill testID="home-letter" label="今日の便り" icon="mail" onPress={openLetter}/></View>}
+      {(worldMap==='home'||window.height>=660)&&<View testID="home-condition-strip" style={[s.statusRow,wide&&{maxWidth:340}]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`満腹度${Math.round(currentSatiety)}%。ごはんを選ぶ`} onPress={()=>openFeed()} style={s.condition}><Icon name="coffee" size={15} color="#7F8E6F"/><View style={s.conditionCopy}><Text style={s.conditionLabel}>満腹 {Math.round(currentSatiety)}%</Text><View style={s.gaugeTrack}><View style={[s.gaugeFill,{width:`${Math.max(0,Math.min(100,currentSatiety))}%`,backgroundColor:'#9DAB87'}]}/></View></View></Pressable>
+        <View style={s.conditionDivider}/>
+        <Pressable accessibilityRole="button" accessibilityLabel={`幸福度${happiness.value}%。うれしい気持ちを開く`} onPress={()=>setSheet('happiness')} style={s.condition}><Icon name="heart" size={15} color="#A78FB2"/><View style={s.conditionCopy}><Text style={s.conditionLabel}>幸福 {happiness.value}%</Text><View style={s.gaugeTrack}><View style={[s.gaugeFill,{width:`${Math.max(0,Math.min(100,happiness.value))}%`,backgroundColor:'#B39ABE'}]}/></View></View></Pressable>
+        <View style={s.conditionDivider}/>
+        <Pressable testID="home-letter" accessibilityRole="button" accessibilityLabel="今日の便り" onPress={openLetter} style={s.letterButton}><Icon name="mail" size={17} color="#897499"/><Text style={s.conditionLabel}>便り</Text></Pressable>
+      </View>}
     </View>
-    {worldMap==='home'&&<View pointerEvents="box-none" style={[s.roomNotice,{top:insets.top+164},wide&&{left:'auto',width:320}]}>
+    {worldMap==='home'&&<View pointerEvents="box-none" style={[s.roomNotice,{top:insets.top+(compact?105:116)},wide&&{left:'auto',width:320}]}>
       {!!gifts.error?<Pressable accessibilityRole="button" onPress={gifts.retry} style={s.noticePill}><Text style={s.noticeText}>{gifts.error} タップして再試行</Text></Pressable>:
       giftAvailable&&gifts.waiting?<Pressable testID="home-character-gift" accessibilityRole="button" accessibilityLabel={`${gifts.waiting.from}からの贈りものを受け取る`} onPress={()=>{setOpenedGift({gift:gifts.waiting!,owner:giftOwner});setSheet('gift');}} style={s.noticePill}><Icon name="gift" size={17} color="#84728B"/><Text style={s.noticeText}>贈りものが届いてるよ</Text><Icon name="chevron-right" size={14} color="#84728B"/></Pressable>:
-      null}
+      !sheet&&!sceneBusy&&!worldInteracting?<PersonalInsightPreview compact/>:null}
     </View>}
     </>}>
-    <WorldHome speech={speech} visitScene={outing.scene} onReturnHome={outing.returnHome} cleanRequest={cleanRequest} onCleaningOpened={()=>setCleanRequest(0)} onInteractingChange={setWorldInteracting} carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('わあっ、おかえり！ 会えてうれしい！',7000);}} onMapChange={setWorldMap} key={`${bathReturn??'world'}-${journey??''}-${outing.scene??'home'}`} cleanliness={100} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={tab=>router.push(tab==='seeds'?'/shop?tab=seeds':'/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={WORLD_MAPS.find(p=>p.id===place)?.id} customization={roomCustomization} stage={getMascotStage(progress)} growthSize={growth.growthSize}
+    <WorldHome controlsRequest={controlsRequest} onControlsOpened={()=>setControlsRequest(undefined)} speech={speech||(!sheet&&!worldInteracting&&!food&&worldMap==='home'?'今日は、どんな一日だった？':'')} visitScene={outing.scene} onReturnHome={outing.returnHome} cleanRequest={cleanRequest} onCleaningOpened={()=>setCleanRequest(0)} onInteractingChange={setWorldInteracting} carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('おかえり！\n会えてうれしいよ。',7000);}} onMapChange={setWorldMap} key={`${bathReturn??'world'}-${journey??''}-${outing.scene??'home'}`} cleanliness={100} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={tab=>router.push(tab==='seeds'?'/shop?tab=seeds':'/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={WORLD_MAPS.find(p=>p.id===place)?.id} customization={roomCustomization} stage={getMascotStage(progress)} growthSize={growth.growthSize}
       mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
@@ -186,17 +193,13 @@ export default function HomeScreen() {
       onRecord={() => router.push('/exchange-diary')} onFeed={openFeed}
       onChat={chat} onRest={restTogether} onAlbum={() => router.push('/(tabs)/growth')} />
     </StableSceneViewport>
-    {worldMap==='home'&&<View testID="home-care-footer" pointerEvents="box-none" style={[s.footer,{bottom:dockBottom}]}>
-      <View testID="home-action-dock" style={s.quickActions}><FeltDecoration radius={20}/>
+    {worldMap==='home'&&!sceneBusy&&<View testID="home-care-footer" pointerEvents="box-none" style={[s.footer,{bottom:Math.max(tabHeight,adRailHeight)+12}]}>
+      <View testID="home-action-dock" style={s.quickActions}>
         {([
           {id:'room-meal',label:'ごはん',name:'ごはんを選ぶ',icon:'coffee',kind:'feed',run:()=>openFeed()},
-          {id:'home-quick-mood',label:'気分',name:'気分を残す',icon:needsMood?'smile':'check-circle',kind:'mood',run:()=>setSheet('mood')},
-          {id:'home-daily-record',label:'日記',name:'交換日記を開く',icon:feedState.exchangeDiary?.pages[getTodayDate()]?.user?'check':'book-open',kind:'diary',run:()=>router.push('/exchange-diary')},
-          {id:'home-chat',label:'おはなし',name:'この子とお話しする',icon:'message-circle',run:chat},
           {id:'home-bath',label:'おふろ',name:'おふろを開く',icon:'droplet',run:()=>router.push('/(tabs)/plant')},
-          {id:'home-growth',label:'歩み',name:'歩みを開く',icon:'sun',run:()=>router.push('/(tabs)/growth')},
-        ] as {id:string;label:string;name:string;icon:IconName;kind?:string;run:()=>void}[]).map(action=><Pressable key={action.id} testID={action.id} accessibilityRole="button" accessibilityLabel={action.name} accessibilityHint={assist&&assist.kind===action.kind?assist?.text:undefined} onPress={()=>{dismissAssist();action.run();}} style={({pressed})=>[s.dockButton,pressed&&{backgroundColor:'#E5ECD9'}]}>
-          <View><Icon name={action.icon} size={19} color="#71845D"/>{assist&&assist.kind===action.kind&&<View testID={`home-assist-dot-${action.kind}`} style={s.assistDot}/>}</View>
+        ] as {id:string;label:string;name:string;icon:IconName;kind?:string;run:()=>void}[]).map(action=><Pressable key={action.id} testID={action.id} accessibilityRole="button" accessibilityLabel={action.name} accessibilityHint={assist&&assist.kind===action.kind?assist?.text:undefined} onPress={()=>{dismissAssist();action.run();}} style={({pressed})=>[s.dockButton,pressed&&{backgroundColor:'#F0E7F4'}]}>
+          <View><Icon name={action.icon} size={20} color="#927AA4"/>{assist&&assist.kind===action.kind&&<View testID={`home-assist-dot-${action.kind}`} style={s.assistDot}/>}</View>
           <Text numberOfLines={1} style={s.dockLabel}>{action.label}</Text>
         </Pressable>)}
       </View>
@@ -228,13 +231,18 @@ export default function HomeScreen() {
     </BottomSheet>}
     {sheet === 'collection' && <BottomSheet visible onClose={close} title="思い出" subtitle="少しずつ、この部屋が好きになる。"><CompanionCollection/></BottomSheet>}
     {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
+      {menuRow('grid', 'ショップ・あそび・占い', ()=>openSceneControls('menu'), 'world-map-open')}
+      {menuRow('layers', 'お部屋の視点を変える', ()=>openSceneControls('view'), 'home-view-toggle')}
+      {menuRow(music.enabled?'volume-2':'volume-x',`BGM：${music.enabled?'オン':'オフ'}`,music.toggle,'world-bgm-toggle')}
+      {menuRow('smile', '今日の気分を残す', ()=>setSheet('mood'), 'home-quick-mood')}
       {menuRow('mail', '今日の便り', openLetter)}
       {menuRow('help-circle', 'はじめての使い方', () => {letter.markSeen();setSheet('tutorial');})}
       {menuRow('gift', '思い出・飾りもの', () => setSheet('collection'))}
       {menuRow('users', '友だちのおうち', () => { close(); router.push('/friends'); })}
       {menuRow('gift', 'この子からの贈りもの', () => { close(); router.push('/gifts'); })}
-      {menuRow('book-open', '交換日記', () => { close(); router.push('/exchange-diary'); })}
-      {menuRow('message-circle', 'この子とお話しする', chat)}
+      {menuRow('book-open', '交換日記', () => { close(); router.push('/exchange-diary'); }, 'home-menu-diary')}
+      {menuRow('message-circle', 'この子とお話しする', chat, 'home-menu-chat')}
+      {menuRow('sun', 'わたしの歩み', ()=>{close();router.push('/(tabs)/growth');}, 'home-menu-growth')}
       {menuRow('coffee', 'ごはんの時間', () => openFeed())}
       {menuRow('heart', 'そっと、なでる', () => { setReaction(n => n + 1); interact('pet'); close(); })}
       {menuRow('moon', '一緒にひと休み', () => { restTogether(); close(); })}
@@ -258,12 +266,19 @@ export default function HomeScreen() {
   </View>;
 }
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#243A33' },
-  header: { position: 'absolute', left: 20, right: 20, gap: 10 },
-  brandRow: {flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
-  statusRow: {flexDirection:'row',gap:8,alignItems:'center'},
-  points:{minHeight:44,paddingHorizontal:12,backgroundColor:'#FFF8EA',borderColor:'#D7C6AA',borderWidth:1,borderRadius: 18,flexDirection:'row',alignItems:'center',gap:6},
-  pointsText:{fontSize:11,fontWeight:'700',color:'#6D7758'},
+  root: { flex: 1, backgroundColor: '#B1C6DE' },
+  header: { position: 'absolute', left: 16, right: 16, gap: 9 },
+  brandRow: {flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},
+  brandCopy:{flex:1,minWidth:0},
+  moreButton:{width:44,height:44,borderRadius:22,backgroundColor:'#FFF9EE',borderWidth:1,borderColor:'#E6D9C9',alignItems:'center',justifyContent:'center'},
+  statusRow: {flexDirection:'row',gap:9,alignItems:'center',backgroundColor:'#FFFAF1F5',borderWidth:1,borderColor:'#E8DED0',borderRadius:24,paddingHorizontal:12,minHeight:48},
+  condition:{flex:1,minHeight:44,flexDirection:'row',gap:7,alignItems:'center'},
+  conditionCopy:{flex:1,gap:5},conditionLabel:{fontSize:10,lineHeight:14,color:'#6D6074'},
+  conditionDivider:{width:1,height:20,backgroundColor:'#E7DEDE'},
+  gaugeTrack:{height:4,borderRadius:3,backgroundColor:'#ECE4D8',overflow:'hidden'},
+  gaugeFill:{height:4,borderRadius:3},letterButton:{minWidth:48,minHeight:44,gap:4,flexDirection:'row',alignItems:'center',justifyContent:'center'},
+  points:{minHeight:44,paddingHorizontal:12,backgroundColor:'#FFF9EE',borderColor:'#E6D9C9',borderWidth:1,borderRadius: 22,flexDirection:'row',alignItems:'center',gap:6},
+  pointsText:{fontSize:12,fontWeight:'600',color:'#6E6277'},
   brand: { fontSize: 12, letterSpacing: 3, color: '#FFF5E6', fontWeight: '700', textShadowColor: '#263A35', textShadowRadius: 6 },
   subtitle: { marginTop: 6, fontSize: 11, color: '#FFF1D9', textShadowColor: '#263A35', textShadowRadius: 6 },
   headerTools: { flexDirection: 'row', gap: 5 }, iconButton: { width: 44, height: 44, borderRadius: 18, backgroundColor: '#223D367A', alignItems: 'center', justifyContent: 'center' },
@@ -271,9 +286,9 @@ const s = StyleSheet.create({
   roomNotice:{position:'absolute',left:20,right:20,alignItems:'center'},
   noticePill:{maxWidth:360,minHeight:44,paddingHorizontal:14,paddingVertical:8,borderRadius:16,backgroundColor:'#FFF8EAEF',flexDirection:'row',alignItems:'center',gap:8},
   noticeText:{color:'#685869',fontSize:12,lineHeight:18,flexShrink:1,textAlign:'center'},
-  quickActions:{width:'100%',maxWidth:440,height:58,flexDirection:'row',padding:4,borderRadius:20,backgroundColor:'#FFF8EA',borderWidth:1,borderColor:'#D7C6AA',shadowColor:'#50355F',shadowOpacity:.10,shadowRadius:10,shadowOffset:{width:0,height:3}},
-  dockButton:{flex:1,minWidth:44,minHeight:48,alignItems:'center',justifyContent:'center',gap:3,borderRadius:15},
-  dockLabel:{fontSize:10,lineHeight:14,color:'#685D4F'},
+  quickActions:{flexDirection:'row',gap:14,alignItems:'center',justifyContent:'center'},
+  dockButton:{width:92,minHeight:58,alignItems:'center',justifyContent:'center',gap:4,borderRadius:28,backgroundColor:'#FFF9EEF5',borderWidth:1,borderColor:'#E8DCCA',shadowColor:'#584364',shadowOpacity:.12,shadowRadius:8,shadowOffset:{width:0,height:3}},
+  dockLabel:{fontSize:11,lineHeight:15,color:'#6C597B'},
   assistDot:{position:'absolute',right:-5,top:-2,width:6,height:6,borderRadius:3,backgroundColor:'#B793BB',borderWidth:1,borderColor:'#FFF8EA'},
   menuRow: { minHeight: 50, flexDirection: 'row', gap: 14, alignItems: 'center', paddingVertical: 10 },
   menuText: { flex: 1, fontSize: 14, color: '#574234' },

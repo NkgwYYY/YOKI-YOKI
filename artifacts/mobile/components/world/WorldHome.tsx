@@ -81,6 +81,7 @@ export { HOME_ART } from '@/utils/worldArt';
 type VillageAction={kind:'portal';map:WorldMapId}|{kind:'bath'|'wheel'|'smoke'|'shop'|'feed'|'ramen-meal'|'plaza'}|{kind:'neighbor';id:VillagerId}|{kind:'story';encounter:StoryEncounter}|{kind:'garden';plot:number};
 type Props = {
   speech?:string;
+  controlsRequest?:{id:number;action:'menu'|'view'};onControlsOpened?:()=>void;
   feedAssist?:HomeAssist|null;onDismissAssist?:()=>void;
   carriedGift?: GiftKind;
   welcomeRequest?:number; onWelcomeStarted?:(id:number)=>void;
@@ -169,6 +170,12 @@ export function WorldHome(props: Props) {
   const [bowlingOpen,setBowlingOpen]=useState(false);
   useEffect(()=>{if(props.initialMap==='bowling')setBowlingOpen(true);if(props.initialMap==='fortune')setFortuneOpen(true);},[props.initialMap]);
   const [placesOpen,setPlacesOpen]=useState(false),[viewOpen,setViewOpen]=useState(false);
+  useEffect(()=>{
+    if(!props.controlsRequest)return;
+    if(props.controlsRequest.action==='menu')setMapOpen(true);
+    else setViewOpen(true);
+    props.onControlsOpened?.();
+  },[props.controlsRequest?.id]);
   const [experience,setExperience]=useState<VillageExperience|null>(null);
   const [neighbor,setNeighbor]=useState<VillagerId|null>(null);
   const [neighborsOpen,setNeighborsOpen]=useState(false);
@@ -483,7 +490,7 @@ export function WorldHome(props: Props) {
       {map==='tobacco'&&<TobaccoHaze active={active} reduceMotion={reduceMotion}/>}
     </Animated.View></View></GestureDetector>}
     <LinearGradient pointerEvents="none" colors={['#15262A75', 'transparent']} style={s.topShade} />
-    {map==='home'&&active&&!furnishingSelection&&!!props.speech&&!experience&&<ResidentSpeech text={props.speech} anchor={speechAnchor} camera={sceneCamera} frame={frame} viewport={bounds} safeTop={insets.top+168} safeBottom={bounds.height-dockBottom-68}/> }
+    {map==='home'&&active&&!furnishingSelection&&!!props.speech&&!experience&&<ResidentSpeech text={props.speech} anchor={speechAnchor} camera={sceneCamera} frame={frame} viewport={bounds} safeTop={insets.top+120} safeBottom={bounds.height-dockBottom-80}/> }
     <LinearGradient pointerEvents="none" colors={['transparent', map==='home'?'#263C4B20':'#192D2CB8']} style={s.bottomShade} />
     {furnishingSelection&&<View testID="furnishing-editor" style={{position:'absolute',top:insets.top+(bounds.width>bounds.height?2:166),left:bounds.width>bounds.height?(bounds.width-Math.min(340,Math.max(198,bounds.width-370)))/2:16,right:bounds.width>bounds.height?undefined:16,width:bounds.width>bounds.height?Math.min(340,Math.max(198,bounds.width-370)):undefined,maxWidth:358,alignSelf:'center',borderRadius:18,backgroundColor:'#FFF8E8',padding:bounds.width>bounds.height?6:11,flexDirection:'row',alignItems:'center',gap:10,shadowColor:'#5B644B',shadowOpacity:.12,shadowRadius:8}}>
       <FeltDecoration radius={18}/><Icon name="move" size={19} color="#71815E"/>
@@ -491,7 +498,7 @@ export function WorldHome(props: Props) {
       {furnishingError&&<Pressable testID="furnishing-retry" accessibilityRole="button" onPress={()=>{const p=furnishingPending.current;if(p)void saveFurnishing(p.kind,p.id,p.position);}} style={{padding:10}}><Text style={{color:'#6C7D58',fontWeight:'700'}}>再保存</Text></Pressable>}
       <Pressable testID="furnishing-done" accessibilityRole="button" accessibilityLabel={furnishingError?'配置の編集を閉じる':'配置を完了'} disabled={furnishingSaving} onPress={closeFurnishing} style={{minHeight:40,minWidth:44,alignItems:'center',justifyContent:'center',opacity:furnishingSaving?.5:1}}><Text style={{color:'#6C7D58',fontWeight:'700',fontSize:13}}>{furnishingError?'閉じる':'完了'}</Text></Pressable>
     </View>}
-    <View style={[s.toolbar,{top:insets.top+(tight?64:114)}]} pointerEvents="box-none">
+    {away&&<View style={[s.toolbar,{top:insets.top+(tight?64:114)}]} pointerEvents="box-none">
       <View style={{flexDirection:'row',gap:8}}>
       <Pressable testID="world-map-open" accessibilityRole="button" accessibilityLabel="メニューを開く" accessibilityState={{disabled:!active||bowlingBusy}} disabled={!active||!!furnishingSelection||!!cleanTool||riding||bowlingBusy} onPress={()=>{steering.value={x:0,y:0};setMapOpen(true);}} style={({pressed})=>[s.travelButton,{opacity:(!active||bowlingBusy)?0.5:pressed?0.85:1}]}>
         <FeltDecoration radius={20}/><DoorIcon name="grid" size={18} color="#6C7D58"/>
@@ -502,7 +509,7 @@ export function WorldHome(props: Props) {
       </View>
       <View style={{flexDirection:'row',gap:8}}><WorldPill testID="world-bgm-toggle" label="BGM" icon={props.music.enabled?'volume-2':'volume-x'} accessibilityLabel={props.music.enabled?'BGMを止める':'BGMを流す'} disabled={props.music.busy} onPress={props.music.toggle} style={{paddingHorizontal:11}}/>
       {away&&<WorldPill compact icon="sliders" label="景色の見かた" disabled={!active||bowlingBusy} onPress={()=>setViewOpen(true)} />}</View>
-    </View>
+    </View>}
 
     {props.visitScene&&<View testID="scenic-visit" pointerEvents="box-none" style={{position:'absolute',top:insets.top+169,left:20,right:20,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={{color:'#FFFDF4',fontWeight:'700',fontSize:15,textShadowColor:'#253E35',textShadowRadius:4}}>{VISIT_NAMES[props.visitScene]}</Text><WorldPill testID="scenic-return-home" label="おうちに帰る" icon="home" onPress={()=>props.onReturnHome?.()} disabled={!active||!!props.food}/></View>}
     {eyeLevel&&closeUp&&<View testID="home-eye-level" pointerEvents="box-none" style={{position:'absolute',top:props.feedAssist?Math.min(closeUp.footY+frame.top-(bounds.width>bounds.height?42:20),bounds.height-dockBottom-182):closeUp.footY+frame.top-(bounds.width>bounds.height?42:20),left:props.feedAssist&&bounds.width>bounds.height?bounds.width*.5:20,right:20,flexDirection:'row',gap:12,justifyContent:bounds.width>bounds.height?'flex-start':'space-between'}}><View>{active&&props.feedAssist&&<View style={{position:'absolute',top:'100%',left:0,width:Math.min(bounds.width-40,280),marginTop:12}}><HomeAssistBubble above assist={props.feedAssist} onPress={()=>props.onFeed()} onDismiss={()=>props.onDismissAssist?.()}/></View>}<WorldPill compact testID="eye-feed" label="ごはんを選ぶ" icon="coffee" disabled={!active||!!props.food} onPress={()=>props.onFeed()}/></View><WorldPill compact testID="eye-rest" label="ひと休み" icon="moon" disabled={!active||!!props.food} onPress={props.onRest}/></View>}

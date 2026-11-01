@@ -53,11 +53,15 @@ function App() {
   const [placement,setPlacement]=useState<DailyAdPlacement>('home');
   const [interacting,setInteracting]=useState(false);
   const [obscured,setObscured]=useState(false);
+  const [keyboardOpen,setKeyboardOpen]=useState(false);
+  const [screenActive,setScreenActive]=useState(true);
+  const [foreground,setForeground]=useState(true);
+  const [railHeight,setRailHeight]=useState(0);
   const [width,setWidth]=useState(390);
   const height=760;
   const binding=useMemo<DailyAdBinding>(()=>({...service,renderBanner:({onLoaded})=> <SyntheticBanner onLoaded={onLoaded}/>,
     openPrivacy:async()=>{},onBannerError:service.bannerError}),[]);
-  const env={width,height,screenActive:true,foreground:true,obscured,interacting,keyboardOpen:false};
+  const env={width,height,screenActive,foreground,obscured,interacting,keyboardOpen};
   useEffect(()=>{void service.refresh();},[]);
   return <DailyAdProvider binding={binding}><View style={{backgroundColor:'#211b30',padding:16,gap:8}}>
     <Text style={{color:'#ffce8a'}}>隔離テスト専用・合成広告／合成報酬。本番データには接続しません。</Text>
@@ -71,12 +75,16 @@ function App() {
     <button onClick={()=>{pass=!pass;void service.refresh();}}>toggle pass</button>
     <button onClick={()=>setInteracting(v=>!v)}>toggle movement</button>
     <button onClick={()=>setObscured(v=>!v)}>toggle overlay</button>
+    <button onClick={()=>setKeyboardOpen(v=>!v)}>toggle keyboard</button>
+    <button onClick={()=>setScreenActive(v=>!v)}>toggle screen</button>
+    <button onClick={()=>setForeground(v=>!v)}>toggle foreground</button>
     <button onClick={()=>{fail=!fail;void service.refresh();}}>toggle offline</button>
     <button onClick={()=>{for(const r of reservations.values())confirmed.add(r.id);void service.refresh();}}>deliver delayed SSV</button>
     <button onClick={()=>{current=false;void service.refresh();}}>switch account</button>
     <View testID="fixture-home" style={{width,height,backgroundColor:'#243A33'}}>
-      <StableSceneViewport rail={<DailyAdRail placement={placement} environment={env} bottomInset={70}/>}><Scene/></StableSceneViewport>
-      <View testID="fixture-dock" style={{position:'absolute',bottom:12,left:10,right:10,height:48,backgroundColor:'#FFF6E4'}}><Text>ごはん　気分　日記　おはなし</Text></View>
+      <StableSceneViewport rail={<View onLayout={event=>setRailHeight(event.nativeEvent.layout.height)}><DailyAdRail placement={placement} environment={env} bottomInset={70}/></View>}><Scene/></StableSceneViewport>
+      <View testID="fixture-care" style={{position:'absolute',bottom:Math.max(70,railHeight)+12,left:50,right:50,height:58,backgroundColor:'#FFF6E4'}}><Text>ごはん　おふろ</Text></View>
+      <View testID="fixture-dock" style={{position:'absolute',bottom:12,left:10,right:10,height:48,backgroundColor:'#FFF6E4'}}><Text>おうち　日記　おはなし　歩み</Text></View>
     </View>
     <DailyAdRewardButton placement={placement} environment={env}/>
   </View></DailyAdProvider>;

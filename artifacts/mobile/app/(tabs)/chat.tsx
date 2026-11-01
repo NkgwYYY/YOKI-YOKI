@@ -1,9 +1,9 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TextInput,
+  View, Text, StyleSheet, TextInput, ActivityIndicator,
   FlatList, Keyboard, KeyboardAvoidingView, Platform, Linking,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { readChatHistory, writeChatHistory, clearChatHistory } from '@/utils/conversationStorageClient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getTabBarHeight } from '@/utils/tabLayout';
 import { localDateKey, normalizeStoredMessage, type Message, type Citation } from '@/utils/chatHistory';
@@ -12,7 +12,8 @@ import { Analytics } from '@/utils/analytics';
 import { RestEventModal } from '@/components/RestEventModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { border, colors, control, radius, screenPadding, space, typography } from '@/constants/theme';
-import { SkyBackground } from '@/components/SkyBackground';
+import { SaveHintButton } from '@/components/hints/SaveHintButton';
+import { applyConversationMode, conversationModes, type ConversationMode } from '@/utils/conversationMode';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasAiConsent, postAiJson } from '@/utils/aiConsent';
@@ -82,6 +83,7 @@ function MessageBubble({ msg, mascotStage, mascotMood }: {
       </View>
       <View style={bubbleStyles.bubbleMascot}>
         <Text testID={msg.id === 'welcome' ? 'chat-welcome' : 'chat-assistant-message'} style={bubbleStyles.mascotText}>{msg.content}</Text>
+        {msg.id !== 'welcome' && <SaveHintButton hint={{ id: `chat:${msg.id}`, title: msg.content.split(/[。！？\n]/)[0].slice(0, 45) || 'おはなしのヒント', body: msg.content, source: 'conversation', citations: msg.sourcePolicyVersion === 2 ? msg.citations : undefined }} />}
         {msg.sourcePolicyVersion===2 && !!msg.citations?.length && (
           <View style={bubbleStyles.citations}>
             <Text style={bubbleStyles.citationsTitle}>健康・相談についての参考情報</Text>
@@ -127,7 +129,7 @@ const bubbleStyles = StyleSheet.create({
     padding: space.md,
     borderRadius: radius.lg,
     borderBottomRightRadius: radius.sm,
-    backgroundColor: colors.primary,
+    backgroundColor: '#8967A3',
   },
   userText: { ...typography.body, color: colors.primaryForeground },
   bubbleMascot: {
@@ -135,10 +137,10 @@ const bubbleStyles = StyleSheet.create({
     padding: space.md,
     borderRadius: radius.lg,
     borderBottomLeftRadius: radius.sm,
-    backgroundColor: colors.card,
+    backgroundColor: '#FFFCF5',
     ...border.hairline,
   },
-  mascotText: { ...typography.body, color: colors.foreground },
+  mascotText: { ...typography.body, color: '#554559', lineHeight: 25 },
   citations: {
     marginTop: space.md,
     paddingTop: space.sm,
@@ -177,26 +179,24 @@ const chipStyles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: space.lg,
     borderRadius: radius.pill,
-    backgroundColor: colors.card,
+    backgroundColor: '#FFFCF5',
     ...border.hairlineStrong,
   },
   text: { ...typography.label, color: colors.foreground },
 });
 
-const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
 const MAX_STORED = 60;
 const MAX_CONTEXT = 20;
-// Keep reads, writes and deletion ordered, including across screen remounts.
-let historyQueue: Promise<unknown> = Promise.resolve();
-function queueHistory<T>(operation: () => Promise<T>): Promise<T> {
-  const result = historyQueue.then(operation, operation);
-  historyQueue = result.catch(() => {});
-  return result;
-}
 
 export default function ChatScreen() {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}><ActivityIndicator color="#8967A3" /></View>;
+  const owner = user?.id ?? 'guest';
+  return <OwnerChat key={owner} aiOwner={owner} />;
+}
+
+function OwnerChat({ aiOwner }: { aiOwner: string }) {
   const router = useRouter();
-  const aiOwner = useAuth().user?.id ?? 'guest';
   const insets = useSafeAreaInsets();
   const tabBarHeight = getTabBarHeight(Platform.OS, insets.bottom);
   const { progress, records, mascotName, getTodayRecord, getCompletedCount, getTotalCheckCount,
@@ -209,9 +209,10 @@ export default function ChatScreen() {
   const mascotMood = getMascotMood(progress, todayRecord, completedCount, totalCount, {
     inactivityHours, satiety: currentSatiety,
   });
-  const displayName = mascotName || 'こころん';
-  const welcomeMsg = newMessage('welcome', 'assistant', `やあ！${displayName}だよ。なんでも話しかけてね！`);
+  const displayName = mascotName || 'よっきー';
+  const welcomeMsg = newMessage('welcome', 'assistant', `今日は、どんな一日だった？ 聞いてほしいことでも、一緒に考えたいことでも。${displayName}は、ここにいるよ。`);
 
+  const [conversationMode, setConversationMode] = useState<ConversationMode>('listen');
   const [messages, setMessages] = useState<Message[]>([welcomeMsg]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [input, setInput] = useState('');
@@ -252,7 +253,7 @@ export default function ChatScreen() {
       loadBusy.current = true;
       setLoadError(false);
       try {
-        const raw = await queueHistory(() => AsyncStorage.getItem(CHAT_HISTORY_KEY));
+        const raw = await readChatHistory(aiOwner);
         if (raw) {
           const parsed: unknown = JSON.parse(raw);
           if (!Array.isArray(parsed)) throw new Error('Invalid history');
@@ -278,10 +279,10 @@ export default function ChatScreen() {
   const persistHistory = useCallback((serialized: string) => {
     const version = ++saveVersion.current;
     lastScheduled.current = serialized;
-    return queueHistory(() => AsyncStorage.setItem(CHAT_HISTORY_KEY, serialized))
+    return writeChatHistory(aiOwner, serialized)
       .then(() => { if (saveVersion.current === version) setSaveError(false); })
       .catch(() => { if (saveVersion.current === version) setSaveError(true); });
-  }, []);
+  }, [aiOwner]);
 
   useEffect(() => {
     if (!historyLoaded) return;
@@ -299,7 +300,7 @@ export default function ChatScreen() {
     clearBusy.current = true;
     setClearing(true);
     try {
-      await queueHistory(() => AsyncStorage.removeItem(CHAT_HISTORY_KEY));
+      await clearChatHistory(aiOwner);
       ++saveVersion.current;
       lastScheduled.current = '[]';
       setSaveError(false);
@@ -308,7 +309,7 @@ export default function ChatScreen() {
       setHistoryError(false);
     } catch { setHistoryError(true); }
     finally { clearBusy.current = false; setClearing(false); }
-  }, [displayName, historyLoaded]);
+  }, [displayName, historyLoaded, aiOwner]);
 
   const sendMessage = useCallback(async (text?: string, retry = false) => {
     const msg = (text ?? input).trim();
@@ -364,7 +365,8 @@ export default function ChatScreen() {
       if (progress?.streak) ctxParts.push(`連続記録${progress.streak}日目`);
 
       const res = await postAiJson(aiOwner, `${API_BASE}/chat/message`, {
-          messages: history,
+          messages: applyConversationMode(history, conversationMode),
+          conversationMode,
           mascotName: displayName,
           mascotStage,
           todayDate: getTodayDate(),
@@ -403,7 +405,7 @@ export default function ChatScreen() {
         scrollToBottom();
       }
     }
-  }, [input, historyLoaded, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom, aiOwner, router]);
+  }, [input, historyLoaded, messages, displayName, mascotStage, records, progress, profile, getTodayRecord, scrollToBottom, aiOwner, router, conversationMode]);
 
   const topPad = Platform.OS === 'web' ? space.xl : insets.top;
 
@@ -417,7 +419,6 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
-      <SkyBackground />
 
       <View style={[styles.header, { paddingTop: topPad + space.md }]}>
         <PressScale accessibilityLabel="部屋へ戻る" style={styles.clearBtn}
@@ -445,6 +446,7 @@ export default function ChatScreen() {
           <Text style={styles.restButtonText}>一緒に休む</Text>
           </PressScale>
         </View>
+        <PressScale style={styles.clearBtn} accessibilityLabel="自分のヒント帳を開く" onPress={() => router.push('/hints')}><Icon name="book-open" size={20} color="#795D90" /></PressScale>
         {messages.length > 1 && (
           <PressScale
             onPress={clearHistory}
@@ -455,6 +457,11 @@ export default function ChatScreen() {
             <Icon name="trash-2" size={18} color={colors.mutedForeground} />
           </PressScale>
         )}
+      </View>
+
+      <View style={styles.modeSection}>
+        <View style={styles.modeRow}>{conversationModes.map(mode => <PressScale key={mode.id} testID={`chat-mode-${mode.id}`} accessibilityRole="button" accessibilityLabel={mode.label} accessibilityState={{ selected: conversationMode === mode.id, disabled: isLoading }} disabled={isLoading} onPress={() => setConversationMode(mode.id)} style={[styles.modeButton, conversationMode === mode.id && styles.modeSelected]}><Icon name={mode.id === 'listen' ? 'message-circle' : 'sunrise'} size={18} color={conversationMode === mode.id ? '#795D90' : '#8D7B93'} /><Text style={[styles.modeLabel, conversationMode === mode.id && styles.modeSelectedLabel]}>{mode.label}</Text></PressScale>)}</View>
+        <Text style={styles.modeDescription}>{conversationModes.find(mode => mode.id === conversationMode)?.description}</Text>
       </View>
 
       <View style={styles.medicalNotice}>
@@ -568,7 +575,14 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: '#F8F3EA' },
+  modeSection: { paddingHorizontal: screenPadding, paddingTop: 12, paddingBottom: 8, gap: 7, backgroundColor: '#FFFCF5' },
+  modeRow: { flexDirection: 'row', gap: 8 },
+  modeButton: { flex: 1, minHeight: 48, paddingHorizontal: 10, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 14, borderWidth: 1, borderColor: '#E4DACB', backgroundColor: '#FFFCF5' },
+  modeSelected: { backgroundColor: '#EEE4F4', borderColor: '#B398C8' },
+  modeLabel: { fontSize: 13, color: '#89798C', flexShrink: 1 },
+  modeSelectedLabel: { color: '#644778', fontWeight: '600' },
+  modeDescription: { fontSize: 11, color: '#8B7D8A', textAlign: 'center', lineHeight: 18 },
 
   header: {
     flexDirection: 'row',
@@ -578,7 +592,7 @@ const styles = StyleSheet.create({
     paddingBottom: space.md,
     borderBottomWidth: border.width,
     borderBottomColor: colors.border,
-    backgroundColor: colors.card,
+    backgroundColor: '#FFFCF5',
   },
   headerCopy: { flex: 1, minWidth: 0, gap: 3 },
   headerTitle: {flexDirection:'row',alignItems:'center',gap:8},
@@ -601,7 +615,7 @@ const styles = StyleSheet.create({
     gap: space.sm,
     paddingHorizontal: screenPadding,
     paddingVertical: space.sm,
-    backgroundColor: colors.muted,
+    backgroundColor: '#F5F0E8',
     borderBottomWidth: border.width,
     borderBottomColor: colors.border,
   },
@@ -618,7 +632,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     borderTopWidth: border.width,
     borderTopColor: colors.border,
-    backgroundColor: colors.card,
+    backgroundColor: '#FFFCF5',
     paddingTop: space.md,
     paddingHorizontal: screenPadding,
     gap: space.md,
@@ -628,7 +642,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     borderRadius: radius.xl,
-    backgroundColor: colors.input,
+    backgroundColor: '#F7F2E9',
     ...border.hairlineStrong,
     paddingLeft: space.lg,
     paddingRight: space.xs,
@@ -646,7 +660,7 @@ const styles = StyleSheet.create({
     width: control.icon,
     height: control.icon,
     borderRadius: radius.pill,
-    backgroundColor: colors.primary,
+    backgroundColor: '#8967A3',
     ...border.inner,
     alignItems: 'center',
     justifyContent: 'center',

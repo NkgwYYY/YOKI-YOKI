@@ -7,8 +7,8 @@ import {
   type HomeCommentTimeOfDay,
 } from '@/utils/homeCommentTiming';
 
-const CHAT_HISTORY_KEY = '@mentore/chat_history_v1';
-const HOME_COMMENT_KEY = '@mentore/home_comment_v1';
+import { readChatHistory } from './conversationStorageClient';
+import { homeCommentCacheKey } from './conversationStorage';
 export const HOME_COMMENT_PREFERENCES_KEY = '@mentore/home_comment_preferences_v1';
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 
@@ -60,8 +60,8 @@ export function resolveHomeCommentPreferences(value: unknown): HomeCommentPrefer
   };
 }
 
-export async function clearHomeCommentCache(): Promise<void> {
-  await AsyncStorage.removeItem(HOME_COMMENT_KEY);
+export async function clearHomeCommentCache(owner: string): Promise<void> {
+  await AsyncStorage.removeItem(homeCommentCacheKey(owner));
 }
 
 interface StoredChatMessage {
@@ -104,9 +104,9 @@ function buildRecordContext(record: DailyRecord | undefined, completed: number, 
   return lines.join('\n');
 }
 
-async function loadRecentChat(): Promise<string> {
+async function loadRecentChat(owner: string): Promise<string> {
   try {
-    const raw = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
+    const raw = await readChatHistory(owner);
     if (!raw) return '';
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return '';
@@ -175,7 +175,7 @@ export async function getHomeComment(params: {
     return fallbackComment(params.record, params.completed, getHomeCommentTimeOfDay());
   }
   const context = buildRecordContext(params.record, params.completed, params.total);
-  const recentChat = preferences.includeRecentChat ? await loadRecentChat() : '';
+  const recentChat = preferences.includeRecentChat ? await loadRecentChat(params.owner) : '';
   const timeOfDay = getHomeCommentTimeOfDay();
   const source = buildHomeCommentCacheSource({
     date: params.date,
@@ -191,7 +191,7 @@ export async function getHomeComment(params: {
   );
 
   try {
-    const raw = await AsyncStorage.getItem(HOME_COMMENT_KEY);
+    const raw = await AsyncStorage.getItem(homeCommentCacheKey(params.owner));
     if (raw) {
       const cached = JSON.parse(raw) as CachedHomeComment;
       if (cached.date === params.date && cached.fingerprint === fingerprint && cached.comment) {
@@ -219,7 +219,7 @@ export async function getHomeComment(params: {
   }
 
   if (!comment) comment = fallbackComment(params.record, params.completed, timeOfDay);
-  await AsyncStorage.setItem(HOME_COMMENT_KEY, JSON.stringify({
+  await AsyncStorage.setItem(homeCommentCacheKey(params.owner), JSON.stringify({
     date: params.date,
     fingerprint,
     comment,

@@ -1,3 +1,4 @@
+import { readChatHistory } from '@/utils/conversationStorageClient';
 import {APP_STORAGE_KEYS as KEYS} from '@/utils/appStorageKeys';
 import {accountDataStore} from '@/utils/accountDataStore';
 import {readRoomPositions,mergeRoomPositions} from '@/utils/roomPlacement';
@@ -780,8 +781,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // ─── Load all data from local storage (+ cloud on login) ─────────────
   useEffect(() => {
-    loadAll();
-  }, []);
+    if (!authLoading) void loadAll();
+  }, [authLoading]);
 
   // When the user logs in, pull cloud data and reload
   const syncedAccount = useRef<string|null>(null);
@@ -844,6 +845,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const check=()=>{if(!current())throw Error('Account changed');};
     try {
       await accountDataStore.recover();
+      // A failed account deletion/logout may leave that owner's active cache
+      // intact. Restore guest storage before reading any records; a failed
+      // switch goes through the existing storage recovery screen and retry.
+      if (!signedInRef.current) await accountDataStore.switchOwner('guest');
+      check();
       await AsyncStorage.exclusive(async raw=>{
       check();
       // Keep the loaded snapshot and its migrations under the account lock.
@@ -1206,11 +1212,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const commentInputsChanged =
       resolved.frequency !== homeCommentPreferences.frequency ||
       resolved.includeRecentChat !== homeCommentPreferences.includeRecentChat;
-    if (commentInputsChanged) await clearHomeCommentCache();
+    if (commentInputsChanged) await clearHomeCommentCache(user?.id ?? 'guest');
     await AsyncStorage.setItem(KEYS.HOME_COMMENT_PREFERENCES, JSON.stringify(resolved));
     setHomeCommentPreferences(resolved);
     void pushDataToCloud().catch(() => {});
-  }, [homeCommentPreferences, pushDataToCloud]);
+  }, [homeCommentPreferences, pushDataToCloud, user?.id]);
 
   const setMascotName = useCallback(async (name: string) => {
     await AsyncStorage.setItem(KEYS.MASCOT_NAME, name);
@@ -1331,7 +1337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const owner = user?.id ?? 'guest';
     let chat: unknown = [];
     if (operation.kind === 'sync') {
-      const raw = await AsyncStorage.getItem('@mentore/chat_history_v1');
+      const raw = await readChatHistory(owner);
       if (raw) { try { chat = JSON.parse(raw); } catch { /* A damaged chat must not erase diary gifts. */ } }
     }
     const saved = await AsyncStorage.transaction(values => {

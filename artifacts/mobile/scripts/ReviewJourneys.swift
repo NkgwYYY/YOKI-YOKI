@@ -111,6 +111,13 @@ final class ReviewJourneys: XCTestCase {
         visible(element("diary-character-story"))
     }
 
+    private func openActivitiesMenu() {
+        // The compact home keeps these actions in its explicit overflow menu.
+        tap(element("home-more-menu"))
+        tap(element("world-map-open"))
+        visible(element("home-direct-menu"))
+    }
+
     private func wallet() -> Int {
         visible(element("home-points"))
         let digits = element("home-points").label.prefix { $0.isNumber }
@@ -143,7 +150,7 @@ final class ReviewJourneys: XCTestCase {
         // The production app is unchanged; purchases and placement use real UI.
         let before = wallet()
         XCTAssertGreaterThanOrEqual(before, 800)
-        tap(element("world-map-open"))
+        openActivitiesMenu()
         tap(element("menu-shop"))
         capture("12-native-shop")
         tap(element("shop-buy-room-sofa"))
@@ -303,6 +310,8 @@ final class ReviewJourneys: XCTestCase {
             self.element("home-daily-record").exists || self.element("welcome-guest").exists
         }
         if element("home-daily-record").exists {
+            // The shared dock is also present on diary, chat and growth tabs.
+            tap(element("home-tab"))
             requireResidentRenderer()
             return
         }
@@ -326,7 +335,11 @@ final class ReviewJourneys: XCTestCase {
         launchGuestHome()
         openDiary()
         capture("02-diary")
+        capture("store-diary-letter")
         if element("diary-tab-user").exists { tap(element("diary-tab-user")) }
+        reveal(element("diary-mood-3"))
+        tap(element("diary-mood-3"))
+        capture("store-diary-mood")
         let diaryInput = app.textViews["diary-input"]
         visible(diaryInput)
         reveal(diaryInput)
@@ -349,6 +362,7 @@ final class ReviewJourneys: XCTestCase {
         visible(element("diary-user-page"))
         visible(text(diary))
         capture("03-saved-diary")
+        capture("store-diary-saved")
         tap(element("diary-request-reply"))
         tap(text("今は日記の保存だけ"))
         XCTAssertFalse(element("diary-ai-reply").exists)
@@ -369,7 +383,14 @@ final class ReviewJourneys: XCTestCase {
         // opening another screen, and verify its visible completion feedback.
         visible(text("ごちそうさま。また一緒に食べようね。"), timeout: 30)
         tap(element("home-chat"))
-        tap(text("少し、お話しする"))
+        visible(element("chat-mode-listen"))
+        visible(element("chat-mode-think"))
+        tap(element("chat-mode-think"))
+        XCTAssertTrue(element("chat-mode-think").isSelected)
+        XCTAssertFalse(element("chat-mode-listen").isSelected)
+        capture("05-chat-think-mode")
+        tap(element("chat-mode-listen"))
+        XCTAssertTrue(element("chat-mode-listen").isSelected)
         tap(element("chat-input"))
         element("chat-input").typeText("Hello! Please greet me briefly.")
         tap(text("送信"))
@@ -418,8 +439,7 @@ final class ReviewJourneys: XCTestCase {
         tap(text("AIを使わずに戻る"))
         tap(text("戻る"))
 
-        tap(element("world-map-open"))
-        visible(element("home-direct-menu"))
+        openActivitiesMenu()
         XCTAssertFalse(element("world-map-tobacco").exists)
         capture("07-home-menu")
         tap(element("menu-play"))
@@ -477,6 +497,87 @@ final class ReviewJourneys: XCTestCase {
         capture("11-growth-memories")
     }
 
+    func testPersonalInsightsAndSavedHints() {
+        // 18 past-day records exist only in the fresh normal QA simulators.
+        // No network request or app-only test backdoor produces these insights.
+        launchGuestHome()
+        capture("store-home-cloud-living")
+        tap(element("home-growth"))
+        tap(element("personal-insight-preview"))
+        visible(element("personal-insights-screen"))
+        visible(element("personal-insight-card"))
+        let title = "外に出た日"
+        let insightTitle = text(title)
+        reveal(insightTitle)
+        XCTAssertTrue(insightTitle.isHittable)
+        let evidenceToggle = text("比較した記録を見る（18日分）")
+        reveal(evidenceToggle)
+        XCTAssertTrue(insightTitle.isHittable, "The insight title and evidence control must both fit in the reading viewport")
+        capture("18-personal-insight")
+        tap(evidenceToggle)
+        visible(element("personal-insight-evidence"))
+        let selectedCount = element("personal-insight-selected-count")
+        let comparisonCount = element("personal-insight-comparison-count")
+        visible(selectedCount)
+        visible(comparisonCount)
+        XCTAssertEqual(selectedCount.label, "9日中9日が元気な日")
+        XCTAssertEqual(comparisonCount.label, "9日中0日が元気な日")
+        reveal(comparisonCount)
+        capture("19-personal-insight-evidence")
+        tap(app.buttons["この気づきをヒント帳に保存"])
+        visible(app.buttons["ヒント帳に保存済み"])
+        XCTAssertFalse(app.buttons["ヒント帳に保存済み"].isEnabled)
+        tap(app.buttons["自分のヒント帳を開く"])
+        visible(element("hintbook-screen"))
+        visible(element("saved-hint"))
+        visible(text(title))
+        let evidence = app.staticTexts.matching(NSPredicate(
+            format: "label CONTAINS %@ AND label CONTAINS %@", "9日中9日が元気な日", "9日中0日")).firstMatch
+        visible(evidence)
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "saved-hint").count, 1)
+        reveal(evidence)
+        capture("20-personal-hintbook")
+
+        app.terminate()
+        launchGuestHome()
+        tap(element("home-growth"))
+        tap(element("personal-insight-preview"))
+        visible(element("personal-insights-screen"))
+        let savedButton = app.buttons["ヒント帳に保存済み"]
+        visible(savedButton)
+        reveal(savedButton)
+        XCTAssertFalse(savedButton.isEnabled, "Relaunch must preserve the saved hint receipt")
+        tap(app.buttons["自分のヒント帳を開く"])
+        visible(element("saved-hint"))
+        visible(evidence)
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "saved-hint").count, 1)
+        capture("21-persisted-personal-hintbook")
+
+        // Regression: removing a hint and returning must refresh its saved state.
+        tap(app.buttons["\(title)をヒント帳から外す"])
+        visible(text("このヒントを削除しますか？"))
+        tap(app.buttons["残しておく"])
+        visible(element("saved-hint"))
+        tap(app.buttons["\(title)をヒント帳から外す"])
+        tap(app.buttons["ヒント帳から外す"])
+        until("The selected hint must be removed, leaving the original records intact") {
+            !self.element("saved-hint").exists
+        }
+        tap(app.buttons["戻る"])
+        visible(element("personal-insights-screen"))
+        let saveAgain = app.buttons["この気づきをヒント帳に保存"]
+        visible(saveAgain)
+        reveal(saveAgain)
+        XCTAssertTrue(saveAgain.isEnabled)
+        tap(saveAgain)
+        visible(app.buttons["ヒント帳に保存済み"])
+        tap(app.buttons["自分のヒント帳を開く"])
+        visible(element("saved-hint"))
+        visible(evidence)
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "saved-hint").count, 1)
+        capture("22-restored-personal-hintbook")
+    }
+
     func testRoomCustomization() {
         launchGuestHome()
         verifyFurnishingPurchaseAndPersistence()
@@ -527,5 +628,13 @@ final class EggAppearanceJourney: XCTestCase {
         shot.name = "native-egg-home"; shot.lifetime = .keepAlways; add(shot)
         let hierarchy = XCTAttachment(string: app.debugDescription)
         hierarchy.name = "native-egg-hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        // The fresh egg fixture has no records: no favorable pattern is invented.
+        tap(item("home-growth"))
+        tap(item("personal-insight-preview"))
+        XCTAssertTrue(item("personal-insights-screen").waitForExistence(timeout: 30))
+        XCTAssertTrue(text("記録がたまると傾向が見えてくるよ").waitForExistence(timeout: 30))
+        XCTAssertFalse(item("personal-insight-card").exists)
+        let emptyShot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        emptyShot.name = "native-empty-insights"; emptyShot.lifetime = .keepAlways; add(emptyShot)
     }
 }
