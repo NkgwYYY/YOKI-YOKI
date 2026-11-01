@@ -47,7 +47,16 @@ final class ReviewJourneys: XCTestCase {
                         file: StaticString = #filePath, line: UInt = #line) {
         for _ in 0..<12 {
             if declineSyntheticPasswordSave() { continue }
-            let scroller = app.scrollViews.allElementsBoundByIndex.first { $0.isHittable }
+            // Fixed tabs and tutorial controls sit beside, not inside, the
+            // visible ScrollView. Only use a viewport that owns this target.
+            let identity = NSPredicate(format: "identifier == %@ AND label == %@",
+                                       target.identifier, target.label)
+            let targetFrame = target.frame
+            let scroller = app.scrollViews.allElementsBoundByIndex.first { candidate in
+                candidate.descendants(matching: target.elementType)
+                    .matching(identity).allElementsBoundByIndex
+                    .contains { $0.frame == targetFrame } && candidate.isHittable
+            }
             let surface = scroller ?? app
             // XCUITest can throw while evaluating isHittable for a button
             // clipped by the scroll viewport. Bring its full frame into view
