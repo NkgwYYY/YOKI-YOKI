@@ -20,7 +20,7 @@ export function VolumeEgg({size,rx,ry,rz,blink,mood,night=false,mealProgress,smo
     <Defs>
       {/* Standard SVG radius and bounding-box coordinates have the same meaning
           in Web SVG and iOS. Use the standard radius on both renderers. */}
-      <RadialGradient id={`${id}shell`} gradientUnits="objectBoundingBox" cx="32%" cy="24%" fx="32%" fy="24%" r="82%"><Stop offset="0" stopColor={night?'#F8F7EF':'#FFFFF8'}/><Stop offset=".48" stopColor={night?'#ECEEEA':'#F8F7EF'}/><Stop offset=".78" stopColor={night?'#DBE2E4':'#E9E9DE'}/><Stop offset="1" stopColor={night?'#C3CFD6':'#D2D4C7'}/></RadialGradient>
+      <RadialGradient id={`${id}shell`} gradientUnits="objectBoundingBox" cx="32%" cy="24%" fx="32%" fy="24%" r="82%"><Stop offset="0" stopColor={night?'#F8F7EF':'#FFFFF8'}/><Stop offset={0.48} stopColor={night?'#ECEEEA':'#F8F7EF'}/><Stop offset={0.78} stopColor={night?'#DBE2E4':'#E9E9DE'}/><Stop offset="1" stopColor={night?'#C3CFD6':'#D2D4C7'}/></RadialGradient>
     </Defs>
     <Feature projection={projection} part="body" fill={`url(#${id}shell)`} stroke={night?'#DFE7EA':'#F5F5E8'} width={.35}/>
     <Feature projection={projection} part="crack" fill="none" stroke="#A696BF" width={1.8}/>

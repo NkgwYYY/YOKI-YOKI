@@ -18,7 +18,7 @@ export function VolumeOdango({size,rx,ry,rz,blink,mood,night=false,mealProgress,
   const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectOdango(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew,smoking);});
   return <Svg testID="resident-volume-odango" width={size} height={size} viewBox="0 0 100 100" accessible={false}>
     <Defs>
-      <RadialGradient id={`${id}fur`} gradientUnits="userSpaceOnUse" cx="42" cy="38" rx="59" ry="57"><Stop offset="0" stopColor={night?'#F3F5F6':'#FFFFFC'}/><Stop offset=".58" stopColor={night?'#E3E8EB':'#F3F3EF'}/><Stop offset="1" stopColor={night?'#AAB6C2':'#C7C9C3'}/></RadialGradient>
+      <RadialGradient id={`${id}fur`} gradientUnits="userSpaceOnUse" cx="42" cy="38" rx="59" ry="57"><Stop offset="0" stopColor={night?'#F3F5F6':'#FFFFFC'}/><Stop offset={0.58} stopColor={night?'#E3E8EB':'#F3F3EF'}/><Stop offset="1" stopColor={night?'#AAB6C2':'#C7C9C3'}/></RadialGradient>
       <RadialGradient id={`${id}cheek`}><Stop offset="0" stopColor="#E6BAB5" stopOpacity=".65"/><Stop offset="1" stopColor="#E6BAB5" stopOpacity="0"/></RadialGradient>
       <RadialGradient id={`${id}eye`}><Stop offset="0" stopColor="#282C27"/><Stop offset="1" stopColor="#0E120E"/></RadialGradient>
       <ClipPath id={`${id}coat`}><Feature projection={projection} part="furHalo" fill="#FFFFFF"/></ClipPath>

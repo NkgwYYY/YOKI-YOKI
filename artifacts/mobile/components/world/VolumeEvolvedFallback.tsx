@@ -20,11 +20,11 @@ export function VolumeEvolvedFallback({stage,size,rx,ry,rz,blink,mood,night=fals
   const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectEvolved(stage,rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew,smoking);});
   return <Svg testID={`resident-volume-${stage}-fallback`} width={size} height={size} viewBox="0 0 100 100" accessible={false}>
     <Defs>
-      <LinearGradient id={`${id}rainbow`} x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#FFD4DD"/><Stop offset=".28" stopColor="#FFF0AC"/><Stop offset=".52" stopColor="#CAE9C4"/><Stop offset=".75" stopColor="#BDCFE8"/><Stop offset="1" stopColor="#D6B4DC"/></LinearGradient>
-      <RadialGradient id={`${id}fur`} gradientUnits="userSpaceOnUse" cx="42" cy="38" rx="59" ry="57"><Stop offset="0" stopColor={night?'#F3F5F6':'#FFFFFC'}/><Stop offset=".58" stopColor={night?'#E3E8EB':'#F3F3EF'}/><Stop offset="1" stopColor={night?'#C1C6D4':'#E2D8E2'}/></RadialGradient>
+      <LinearGradient id={`${id}rainbow`} x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#FFD4DD"/><Stop offset={0.28} stopColor="#FFF0AC"/><Stop offset={0.52} stopColor="#CAE9C4"/><Stop offset={0.75} stopColor="#BDCFE8"/><Stop offset="1" stopColor="#D6B4DC"/></LinearGradient>
+      <RadialGradient id={`${id}fur`} gradientUnits="userSpaceOnUse" cx="42" cy="38" rx="59" ry="57"><Stop offset="0" stopColor={night?'#F3F5F6':'#FFFFFC'}/><Stop offset={0.58} stopColor={night?'#E3E8EB':'#F3F3EF'}/><Stop offset="1" stopColor={night?'#C1C6D4':'#E2D8E2'}/></RadialGradient>
       <RadialGradient id={`${id}cheek`}><Stop offset="0" stopColor="#E6BAB5" stopOpacity=".65"/><Stop offset="1" stopColor="#E6BAB5" stopOpacity="0"/></RadialGradient>
       <RadialGradient id={`${id}eye`}><Stop offset="0" stopColor="#282C27"/><Stop offset="1" stopColor="#0E120E"/></RadialGradient>
-      <RadialGradient id={`${id}sclera`}><Stop offset="0" stopColor="#FFFFF7"/><Stop offset=".72" stopColor="#EEEFE6"/><Stop offset="1" stopColor="#B8C0B5"/></RadialGradient>
+      <RadialGradient id={`${id}sclera`}><Stop offset="0" stopColor="#FFFFF7"/><Stop offset={0.72} stopColor="#EEEFE6"/><Stop offset="1" stopColor="#B8C0B5"/></RadialGradient>
       <ClipPath id={`${id}coat`}><Feature projection={projection} part="furHalo" fill="#FFFFFF"/></ClipPath>
       <Pattern id={`${id}texture`} patternUnits="userSpaceOnUse" width="100" height="100">
         {/* Enlarge the opaque centre past the model's edge; the source's circular outline stays outside. */}
