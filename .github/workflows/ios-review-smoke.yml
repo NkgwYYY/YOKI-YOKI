@@ -66,6 +66,7 @@ jobs:
       - name: Verify account isolation, speech motion and renderer parity
         run: |
           pnpm typecheck
+          node --experimental-strip-types --test tests/conditionTrends.test.mjs tests/dailyRecordTransaction.test.mjs tests/residentLocomotion.test.mjs
           node --experimental-strip-types --test tests/accountCache.test.mjs tests/residentSpeechMotion.test.mjs tests/residentSpeech.test.mjs tests/residentWelcome.test.mjs tests/starterFurnishings.test.mjs tests/roomPurchase.test.mjs tests/roomPlacement.test.mjs tests/personalInsights.test.mjs tests/hintBook.test.mjs tests/conversationStorage.test.mjs
           node --test tests/dailyAdPlacements.test.mjs tests/dailyAdStore.test.mjs tests/dailyAdsIntegration.test.mjs tests/dailyAdsExpiry.test.mjs tests/commerceNativeAds.test.mjs tests/nativeRewardedLifecycle.test.mjs
           node scripts/build-native-resident.mjs --check

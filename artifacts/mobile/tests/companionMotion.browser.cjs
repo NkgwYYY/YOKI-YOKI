@@ -51,7 +51,7 @@ let browser,activePage;
  await page.goto(base);await page.getByTestId('room-resident').waitFor();await page.getByTestId('plush-loading').waitFor({state:'hidden'});await page.waitForTimeout(1600);
  const letter=page.getByRole('button',{name:'よっきーに会いに行く',exact:true});if(await letter.isVisible())await letter.click();
  await page.getByTestId('home-more-menu').click();await page.getByTestId('home-menu-friends').waitFor();
- assert.match(await page.getByTestId('home-menu-friends').innerText(),/準備中・有料予定/);
+ assert.match(await page.getByTestId('home-menu-friends').innerText(),/準備中[\s\S]*有料オプション[\s\S]*予定/);
  await page.getByTestId('home-menu-friends').click();await page.getByTestId('friends-coming-soon').waitFor();
  await page.getByRole('button',{name:'おうちへ戻る',exact:true}).click();await page.getByTestId('room-resident').waitFor();await page.waitForTimeout(1200);
  const motionStart=Date.now();

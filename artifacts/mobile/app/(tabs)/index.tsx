@@ -1,5 +1,5 @@
 import {FirstSteps,useFirstSteps} from '@/components/onboarding/FirstSteps';
-import {FRIEND_VISITS_RELEASED,FRIEND_VISITS_STATUS} from '@/utils/community/release';
+import {HomeDashboardMenu} from '@/components/world/HomeDashboardMenu';
 import {hasMoodForDay} from '@/utils/firstSteps';
 import {nextHomeAssist} from '@/utils/homeAssist';
 import {useScenicVisit} from '@/components/world/useScenicVisit';
@@ -52,7 +52,7 @@ type Sheet = 'collection' | 'points' | 'feed' | 'chat' | 'menu' | 'atelier' | 'n
 export default function HomeScreen() {
   const router = useRouter();
   const navigation=useNavigation<{setParams:(params:{learn:string})=>void}>();
-  const {place,bathReturn,atelier,journey,learn}=useLocalSearchParams<{place?:string;bathReturn?:string;atelier?:string;journey?:string;learn?:string}>();
+  const {place,bathReturn,atelier,journey,learn,menu}=useLocalSearchParams<{place?:string;bathReturn?:string;atelier?:string;journey?:string;learn?:string;menu?:string}>();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const compact = window.height < 600;
@@ -77,6 +77,7 @@ export default function HomeScreen() {
   const currentOwner=useRef(giftOwner);currentOwner.current=giftOwner;
   const tutorial=useFirstSteps(giftOwner,!isLoading&&!auth.isLoading&&(!auth.isSignedIn||cloudSynced));
   useEffect(()=>{setSheet(null);},[giftOwner]);
+  useEffect(()=>{if(menu==='1'){setSheet('menu');router.setParams({menu:undefined});}},[menu,giftOwner]);
   const {runCharacterGifts}=useApp();
   const gifts=useCharacterGifts(active&&worldMap==='home');
   const [openedGift,setOpenedGift]=useState<{gift:CharacterGift;owner:string}|null>(null);
@@ -231,22 +232,22 @@ export default function HomeScreen() {
       <Button label="少し、お話しする" icon="message-circle" onPress={() => { close(); router.push('/(tabs)/chat'); }} />
     </BottomSheet>}
     {sheet === 'collection' && <BottomSheet visible onClose={close} title="思い出" subtitle="少しずつ、この部屋が好きになる。"><CompanionCollection/></BottomSheet>}
-    {sheet === 'menu' && <BottomSheet visible onClose={close} title="この部屋でできること">
-      {menuRow('grid', 'ショップ・あそび・占い', ()=>openSceneControls('menu'), 'world-map-open')}
+    {sheet === 'menu' && <HomeDashboardMenu onClose={close} mood={today?.mood}
+      onRecord={()=>{close();router.navigate('/(tabs)/condition');}} onPlay={()=>openSceneControls('menu')}
+      onShop={()=>{close();router.push('/shop');}} onAtelier={()=>{setAtelierCategory('furniture');setSheet('atelier');}}
+      onFriends={()=>{close();router.push('/friends');}} onGrowth={()=>{close();router.navigate('/(tabs)/growth');}}
+      onHints={()=>{close();router.push('/hints');}} onGuide={()=>{close();router.push('/guide');}}>
       {menuRow('layers', 'お部屋の視点を変える', ()=>openSceneControls('view'), 'home-view-toggle')}
       {menuRow(music.enabled?'volume-2':'volume-x',`BGM：${music.enabled?'オン':'オフ'}`,music.toggle,'world-bgm-toggle')}
       {menuRow('smile', '今日の気分を残す', ()=>setSheet('mood'), 'home-quick-mood')}
       {menuRow('mail', '今日の便り', openLetter)}
       {menuRow('help-circle', 'はじめての使い方', () => {letter.markSeen();setSheet('tutorial');})}
       {menuRow('gift', '思い出・飾りもの', () => setSheet('collection'))}
-      {menuRow('users', '友だちのおうち', () => { close(); router.push('/friends'); }, 'home-menu-friends', FRIEND_VISITS_RELEASED?undefined:FRIEND_VISITS_STATUS)}
       {menuRow('gift', 'この子からの贈りもの', () => { close(); router.push('/gifts'); })}
       {menuRow('book-open', '交換日記', () => { close(); router.push('/exchange-diary'); }, 'home-menu-diary')}
       {menuRow('message-circle', 'この子とお話しする', chat, 'home-menu-chat')}
-      {menuRow('sun', 'わたしの歩み', ()=>{close();router.push('/(tabs)/growth');}, 'home-menu-growth')}
       {menuRow('coffee', 'ごはんの時間', () => openFeed())}
       {menuRow('heart', 'そっと、なでる', () => { setReaction(n => n + 1); interact('pet'); close(); })}
-      {menuRow('moon', '一緒にひと休み', () => { restTogether(); close(); })}
       {menuRow('help-circle', hints ? '家具のヒントを隠す' : '家具のヒントを表示', () => { toggleHints(); close(); })}
       {menuRow('home', '部屋の模様替え', () => {setAtelierCategory('furniture');setSheet('atelier');})}
       {menuRow(voice.enabled?'volume-2':'volume-x',`鳴き声：${voice.enabled?'オン':'オフ'}`,voice.toggle)}
@@ -257,7 +258,7 @@ export default function HomeScreen() {
       {menuRow('clock', '記録する時間', () => { close(); router.push('/profile'); })}
       {menuRow('user', 'プロフィール・話しかけ設定', () => { close(); router.push('/profile'); })}
       {menuRow('book-open', '使い方ガイド', () => { close(); router.push('/guide'); })}
-    </BottomSheet>}
+    </HomeDashboardMenu>}
     {sheet === 'atelier' && <RoomAtelier onClose={close} initialCategory={atelierCategory} />}
     {sheet === 'name' && <CenterDialog visible onClose={close}><Text style={s.menuText}>この子を、なんて呼ぼう？</Text>
       <TextInput accessibilityLabel="なかまの名前" editable={!savingName} maxLength={16} value={name} onChangeText={setName} style={s.input} placeholder="よっきー" />

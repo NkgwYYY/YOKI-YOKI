@@ -33,14 +33,20 @@ export function prepareDailyRecord(
     || !Number.isFinite(foodPoints) || foodPoints < 0) throw new Error('記録内容を確認できません');
   const index = records.findIndex(r => r.date === input.today);
   const isNew = index === -1;
-  const record: DailyRecord = input.extras?.moodOnly && !isNew ? {...records[index], mood: input.mood} : {
+  if ([input.extras?.fatigue, input.extras?.worry].some(v => v !== undefined && (!Number.isInteger(v) || v < 1 || v > 3))) throw new Error('からだの疲れ・心配ごとの記録を確認してください');
+  const record: DailyRecord = (input.extras?.moodOnly || input.extras?.conditionOnly) && !isNew ? {...records[index], mood: input.mood} : {
     id: (isNew ? undefined : records[index].id) ?? `r_${now.getTime()}`,
     date: input.today, mood: input.mood, sleep: input.sleep,
     sleepRecorded: input.extras?.sleepRecorded ?? true,
     behaviors: input.behaviors, notes: input.notes,
     exercise: input.extras?.exercise, meal: input.extras?.meal, social: input.extras?.social,
     win: input.extras?.win?.trim() || undefined, activities: input.extras?.activities,
+    ...(!isNew && records[index].fatigue !== undefined ? {fatigue: records[index].fatigue} : {}),
+    ...(!isNew && records[index].worry !== undefined ? {worry: records[index].worry} : {}),
   };
+  // Legacy diary saves omit these keys; explicit undefined from the new editor clears them.
+  if (input.extras && Object.prototype.hasOwnProperty.call(input.extras, 'fatigue')) record.fatigue = input.extras.fatigue;
+  if (input.extras && Object.prototype.hasOwnProperty.call(input.extras, 'worry')) record.worry = input.extras.worry;
   const nextRecords = isNew ? [...records, record] : records.map((r, i) => i === index ? record : r);
   const nextProgress = isNew ? {
     ...progress,

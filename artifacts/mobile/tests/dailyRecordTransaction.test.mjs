@@ -108,3 +108,24 @@ test('a quick first entry does not invent sleep and repeated taps keep one leaf 
  const saved=await save(store,{mood:4,sleep:0,notes:'',behaviors:[],extras:{moodOnly:true,sleepRecorded:false}});
  assert.equal(saved.records.length,1);assert.equal(saved.records[0].sleepRecorded,false);assert.equal(saved.feed.points,105);
 });
+
+test('condition edits merge with the latest diary, keep rewards stable, and survive legacy diary saves',async()=>{
+ const f=fixture(),store=f.open();
+ const first=await save(store,{sleep:7,extras:{sleepRecorded:true,meal:3,activities:{walk:1}}});
+ const state=await save(store,{mood:4,sleep:0,behaviors:[],notes:'',extras:{conditionOnly:true,sleepRecorded:false,fatigue:3,worry:1}});
+ assert.equal(state.records[0].notes,first.records[0].notes);assert.equal(state.records[0].sleep,7);
+ assert.deepEqual(state.records[0].activities,{walk:1});assert.equal(state.records[0].fatigue,3);assert.equal(state.records[0].worry,1);
+ assert.equal(state.feed.points,first.feed.points);assert.equal(state.gainedEnergy,0);
+ const diary=await save(store,{notes:'書き直した日記',extras:{sleepRecorded:true}});
+ assert.equal(diary.records[0].fatigue,3);assert.equal(diary.records[0].worry,1);
+ const mood=await save(store,{mood:2,extras:{moodOnly:true}});
+ assert.equal(mood.records[0].fatigue,3);assert.equal(mood.records[0].notes,'書き直した日記');
+ const skipped=await save(store,{extras:{conditionOnly:true,fatigue:undefined,worry:undefined}});
+ assert.equal(skipped.records[0].fatigue,undefined);assert.equal(skipped.records[0].worry,undefined);
+ assert.equal(skipped.records[0].notes,'書き直した日記');
+});
+test('invalid condition values leave persisted records untouched',async()=>{
+ const f=fixture(),store=f.open();await save(store);const before=new Map(f.data);
+ for(const value of [0,4,1.5,NaN])await assert.rejects(save(store,{extras:{conditionOnly:true,fatigue:value}}));
+ assert.deepEqual(f.data,before);
+});

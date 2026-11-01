@@ -206,7 +206,7 @@ final class ReviewJourneys: XCTestCase {
 
     private func openStarterFurnishings() {
         tap(element("home-more-menu"))
-        tap(text("部屋の模様替え"))
+        tap(element("home-menu-atelier"))
         tap(element("atelier-tab-starter"))
     }
 
@@ -436,6 +436,7 @@ final class ReviewJourneys: XCTestCase {
         visible(element("chat-input"))
         tap(text("部屋へ戻る"))
         tap(element("home-more-menu"))
+        tap(element("home-menu-settings"))
         reveal(text("プロフィール・話しかけ設定"))
         tap(text("プロフィール・話しかけ設定"))
         reveal(text("AIへの情報送信・同意設定"))
@@ -494,7 +495,8 @@ final class ReviewJourneys: XCTestCase {
         visible(element("diary-ai-reply"))
         capture("10-persisted-diary")
         tap(element("diary-home"))
-        tap(element("home-growth"))
+        tap(element("home-more-menu"))
+        tap(element("home-menu-growth"))
         visible(element("compact-growth"))
         visible(element("growth-records-panel"))
         capture("11-growth-records")
@@ -506,12 +508,47 @@ final class ReviewJourneys: XCTestCase {
         capture("11-growth-memories")
     }
 
+    func testConditionTrendsAndUnreleasedFriends() {
+        launchGuestHome()
+        tap(element("home-condition"))
+        visible(element("condition-screen"))
+        tap(element("condition-edit"))
+        tap(element("condition-mood-4"))
+        tap(element("condition-fatigue-3"))
+        tap(element("condition-worry-1"))
+        tap(element("condition-save"))
+        until("The saved condition editor closes") { !self.element("condition-save").exists }
+        XCTAssertEqual(element("condition-current-mood").label, "いい感じ")
+        XCTAssertEqual(element("condition-current-fatigue").label, "強い")
+        XCTAssertEqual(element("condition-current-worry").label, "ない")
+        capture("store-current-condition")
+        tap(element("condition-period-30"))
+        visible(element("condition-chart-mood"))
+        reveal(element("condition-chart-worry"))
+        capture("store-condition-trends")
+        tap(element("home-tab"))
+        tap(element("home-more-menu"))
+        visible(element("home-dashboard-menu"))
+        capture("store-refined-menu")
+        tap(element("home-menu-friends"))
+        visible(element("friends-coming-soon"))
+        XCTAssertFalse(element("friend-invite-code").exists)
+        capture("22-friends-coming-soon")
+        app.terminate()
+        launchGuestHome()
+        tap(element("home-condition"))
+        visible(element("condition-current-fatigue"))
+        XCTAssertEqual(element("condition-current-fatigue").label, "強い")
+        XCTAssertEqual(element("condition-current-worry").label, "ない")
+    }
+
     func testPersonalInsightsAndSavedHints() {
         // 18 past-day records exist only in the fresh normal QA simulators.
         // No network request or app-only test backdoor produces these insights.
         launchGuestHome()
         capture("store-home-cloud-living")
-        tap(element("home-growth"))
+        tap(element("home-more-menu"))
+        tap(element("home-menu-growth"))
         tap(element("personal-insight-preview"))
         visible(element("personal-insights-screen"))
         visible(element("personal-insight-card"))
@@ -550,7 +587,8 @@ final class ReviewJourneys: XCTestCase {
 
         app.terminate()
         launchGuestHome()
-        tap(element("home-growth"))
+        tap(element("home-more-menu"))
+        tap(element("home-menu-growth"))
         tap(element("personal-insight-preview"))
         visible(element("personal-insights-screen"))
         let savedButton = app.buttons["ヒント帳に保存済み"]
@@ -639,7 +677,8 @@ final class EggAppearanceJourney: XCTestCase {
         let hierarchy = XCTAttachment(string: app.debugDescription)
         hierarchy.name = "native-egg-hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
         // The fresh egg fixture has no records: no favorable pattern is invented.
-        tap(item("home-growth"))
+        tap(item("home-more-menu"))
+        tap(item("home-menu-growth"))
         tap(item("personal-insight-preview"))
         XCTAssertTrue(item("personal-insights-screen").waitForExistence(timeout: 30))
         XCTAssertTrue(text("記録がたまると傾向が見えてくるよ").waitForExistence(timeout: 30))

@@ -194,7 +194,7 @@ async function journey(browser, viewport) {
     const navigation = await visible(page, 'world-navigation').boundingBox();
     assert.ok(dock && navigation && dock.y + dock.height <= navigation.y + 1,
       'Home care actions do not overlap the four navigation tabs');
-    for (const id of ['home-points', 'home-more-menu', 'home-daily-record', 'home-chat', 'home-growth']) {
+    for (const id of ['home-points', 'home-more-menu', 'home-daily-record', 'home-chat', 'home-condition']) {
       await assertReachable(visible(page, id), id, viewport);
     }
     await assertNoOverflow(page, viewport, 'Home');

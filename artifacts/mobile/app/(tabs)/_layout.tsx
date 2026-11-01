@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 type DockProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
 function WorldDock({state, navigation}: DockProps) {
   const insets = useSafeAreaInsets();
-  const places = [{name:'index',label:'おうち',icon:'home',testID:'home-tab'}, {name:'record',label:'日記',icon:'book-open',testID:'home-daily-record'}, {name:'chat',label:'おはなし',icon:'message-circle',testID:'home-chat'}, {name:'growth',label:'歩み',icon:'sun',testID:'home-growth'}] as const;
+  const places = [{name:'index',label:'おうち',icon:'home',testID:'home-tab'}, {name:'record',label:'日記',icon:'book-open',testID:'home-daily-record'}, {name:'chat',label:'おはなし',icon:'message-circle',testID:'home-chat'}, {name:'condition',label:'きろく',icon:'bar-chart-2',testID:'home-condition'}] as const;
   return <View pointerEvents="box-none" style={{position: 'absolute', bottom: Math.max(12, insets.bottom), left: 16, right: 16, alignItems: 'center'}}>
     <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 20, backgroundColor: '#FFF8EA', borderWidth: 1, borderColor: '#D4C2A3', shadowColor:'#50355F', shadowOpacity:.16, shadowRadius:18, shadowOffset:{width:0,height:5}}}>
       <FeltDecoration radius={24}/>{places.map(place => {
@@ -42,6 +42,7 @@ function ClassicTabLayout() {
     <Tabs.Screen name="index" options={{title: 'おうち'}} />
     <Tabs.Screen name="plant" options={{title: 'おふろ'}} />
     <Tabs.Screen name="growth" options={{title: '思い出'}} />
+    <Tabs.Screen name="condition" options={{title: 'きろく'}} />
     <Tabs.Screen name="record" options={{title: '交換日記', href: null}} />
     <Tabs.Screen name="chat" options={{title: 'おはなし', href: null}} />
   </Tabs>;

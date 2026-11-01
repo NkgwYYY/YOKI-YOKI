@@ -110,6 +110,8 @@ export interface DailyRecord {
   exercise?: number; // 1=なし 2=軽め 3=しっかり
   meal?: number;     // 1=乱れた 2=ふつう 3=整ってた
   social?: number;   // 1=しんどい 2=ふつう 3=温かい
+  fatigue?: number;  // 1=ない 2=少しある 3=強い; absent means not recorded
+  worry?: number;    // 1=ない 2=少しある 3=多い; absent means not recorded
   win?: string;      // 今日の小さな成功(1行)
   /** 活動カウント(読書・運動など。タップで+1) */
   activities?: Record<string, number>;
@@ -129,6 +131,10 @@ export interface UserProfile {
 export interface RecordExtras {
   /** Merge only mood against the latest committed daily record. */
   moodOnly?: boolean;
+  /** Merge mood/fatigue/worry only against the latest persisted record. */
+  conditionOnly?: boolean;
+  fatigue?: number;
+  worry?: number;
   sleepRecorded?: boolean;
   exercise?: number;
   meal?: number;
