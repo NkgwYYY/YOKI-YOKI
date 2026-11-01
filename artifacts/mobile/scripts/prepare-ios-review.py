@@ -91,17 +91,15 @@ for attempt, runtime in enumerate(boot_runtimes, start=1):
           'Fresh simulator:', udid, 'Boot attempt:', attempt, flush=True)
     (evidence / 'device-id.txt').write_text(udid)
     subprocess.run(['xcrun', 'simctl', 'boot', udid], check=True, timeout=600)
-    if family == 'iPhone':
-        # The isolated bootstrap diagnostic completed on iPhone 17 Pro with the
-        # Simulator window open. Preserve this configuration and its evidence;
-        # boot readiness still does not substitute for the application tests.
-        try:
-            window = subprocess.run(['open', '-a', 'Simulator', '--args', '-CurrentDeviceUDID', udid],
-                                    capture_output=True, text=True, timeout=30)
-            window_output = window.stdout + window.stderr
-        except subprocess.TimeoutExpired as error:
-            window_output = str(error)
-        (evidence / f'simulator-window-attempt-{attempt}.log').write_text(window_output)
+    # Open the window for each isolated device, including iPad compatibility
+    # testing, so CoreSimulator and Xcode observe the same active device.
+    try:
+        window = subprocess.run(['open', '-a', 'Simulator', '--args', '-CurrentDeviceUDID', udid],
+                                capture_output=True, text=True, timeout=30)
+        window_output = window.stdout + window.stderr
+    except subprocess.TimeoutExpired as error:
+        window_output = str(error)
+    (evidence / f'simulator-window-attempt-{attempt}.log').write_text(window_output)
     boot = subprocess.run(['xcrun', 'simctl', 'bootstatus', udid, '-b'],
                           capture_output=True, text=True, timeout=600)
     output = boot.stdout + boot.stderr
