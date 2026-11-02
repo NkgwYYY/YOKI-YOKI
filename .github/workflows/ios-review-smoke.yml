@@ -1,7 +1,7 @@
 name: iOS review smoke
 on:
   push:
-    branches: [codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030, codex/ios-room-prefetch-20261030, codex/ios-review-credential-prompt-20261030, release/ios-101-ads-fix-20261031, release/ios-101-startup-fix-20261101, release/ios-110-companion-insights-20261101]
+    branches: [release/ios-120-choice-evolution-20261102, codex/ios-placement-review-20261029, codex/ios-welcome-quality-20261030, codex/ios-room-prefetch-20261030, codex/ios-review-credential-prompt-20261030, release/ios-101-ads-fix-20261031, release/ios-101-startup-fix-20261101, release/ios-110-companion-insights-20261101]
     paths:
       - .github/workflows/ios-review-smoke.yml
       - artifacts/mobile/**
@@ -66,7 +66,7 @@ jobs:
       - name: Verify account isolation, speech motion and renderer parity
         run: |
           pnpm typecheck
-          node --experimental-strip-types --test tests/conditionTrends.test.mjs tests/dailyRecordTransaction.test.mjs tests/residentLocomotion.test.mjs
+          node --experimental-strip-types --test tests/evolutionChoice.test.mjs tests/sharedMemories.test.mjs tests/visitGrowth.test.mjs tests/homeView.test.mjs tests/conditionTrends.test.mjs tests/dailyRecordTransaction.test.mjs tests/residentLocomotion.test.mjs
           node --experimental-strip-types --test tests/accountCache.test.mjs tests/residentSpeechMotion.test.mjs tests/residentSpeech.test.mjs tests/residentWelcome.test.mjs tests/starterFurnishings.test.mjs tests/roomPurchase.test.mjs tests/roomPlacement.test.mjs tests/personalInsights.test.mjs tests/hintBook.test.mjs tests/conversationStorage.test.mjs
           node --test tests/dailyAdPlacements.test.mjs tests/dailyAdStore.test.mjs tests/dailyAdsIntegration.test.mjs tests/dailyAdsExpiry.test.mjs tests/commerceNativeAds.test.mjs tests/nativeRewardedLifecycle.test.mjs
           node scripts/build-native-resident.mjs --check

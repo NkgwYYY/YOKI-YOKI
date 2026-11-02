@@ -1,3 +1,5 @@
+import {YourConditionCard} from '@/components/world/YourConditionCard';
+import {evolutionOffer} from '@/utils/evolutionChoice';
 import {FirstSteps,useFirstSteps} from '@/components/onboarding/FirstSteps';
 import {HomeDashboardMenu} from '@/components/world/HomeDashboardMenu';
 import {hasMoodForDay} from '@/utils/firstSteps';
@@ -68,6 +70,7 @@ export default function HomeScreen() {
   const [worldInteracting,setWorldInteracting]=useState(false);
   const [worldMap,setWorldMap]=useState('home');
   const [adRailHeight,setAdRailHeight]=useState(0);
+  const [headerHeight,setHeaderHeight]=useState(240);
   const [controlsRequest,setControlsRequest]=useState<{id:number;action:'menu'|'view'}>();
   const openSceneControls=(action:'menu'|'view')=>{setSheet(null);setControlsRequest(previous=>({id:(previous?.id??0)+1,action}));};
   const [feedVenue,setFeedVenue]=useState<'ramen'|undefined>(undefined);
@@ -105,6 +108,7 @@ export default function HomeScreen() {
   const nameBusy = useRef(false);
   const nameSession = useRef(0);
   const today = getTodayRecord();
+  const evolution=evolutionOffer(progress);
   const prompt = useRecordPrompt();
   const invitation = false; // Recording is always optional.
   const letter=useDailyLetter(giftOwner,active);
@@ -167,22 +171,16 @@ export default function HomeScreen() {
   const menuRow = (icon: IconName, label: string, onPress: () => void, testID?:string, caption?:string) => <Pressable key={label} testID={testID} accessibilityRole="button" accessibilityLabel={caption?`${label}。${caption}`:label} onPress={onPress} style={s.menuRow}><Icon name={icon} size={20} color="#82715E" /><View style={{flex:1,gap:3}}><Text style={s.menuText}>{label}</Text>{caption&&<Text style={{fontSize:11,color:'#82715E'}}>{caption}</Text>}</View><Icon name="chevron-right" size={16} color="#82715E" /></Pressable>;
   return <View style={s.root}>
     <StableSceneViewport rail={<View onLayout={event=>setAdRailHeight(event.nativeEvent.layout.height)}><DailyAdRail placement={adPlacement} environment={adEnvironment} bottomInset={tabHeight}/></View>} overlay={<>
-    <View pointerEvents="box-none" style={[s.header, {top: insets.top + (compact ? 4 : 10)}]}>
-      <View pointerEvents="box-none" style={s.brandRow}><View pointerEvents="none" style={s.brandCopy}><Text style={s.brand}>YOKI YOKI</Text><Text numberOfLines={1} style={s.subtitle}>{time.dateLabel}　{time.label}</Text></View>
+    <View pointerEvents="box-none" onLayout={event=>setHeaderHeight(event.nativeEvent.layout.height)} style={[s.header, {top: insets.top + (compact ? 4 : 10)}]}>
+      <View pointerEvents="box-none" style={s.brandRow}><View pointerEvents="none" style={s.brandCopy}><Text style={[s.brand,time.period==='night'&&{color:'#F3EAF9'}]}>YOKI YOKI</Text><Text style={[s.greeting,time.period==='night'&&{color:'#FFF9F1'}]}>おかえり。</Text><Text numberOfLines={1} style={[s.subtitle,time.period==='night'&&{color:'#E9DBF1'}]}>{time.dateLabel}</Text></View>
         <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Pressable testID="home-points" accessibilityRole="button" accessibilityLabel={`${feedState.points}ポイント。ポイントの受け取りを開く`} style={s.points} onPress={()=>setSheet('points')}><Icon name="star" size={14} color="#71845D"/><Text style={s.pointsText}>{feedState.points} pt</Text></Pressable><Pressable testID="home-more-menu" accessibilityRole="button" accessibilityLabel="部屋のメニュー" onPress={()=>setSheet('menu')} style={s.moreButton}><Icon name="more-horizontal" size={20} color="#736184"/></Pressable></View>
       </View>
-      {(worldMap==='home'||window.height>=660)&&<View testID="home-condition-strip" style={[s.statusRow,wide&&{maxWidth:340}]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`満腹度${Math.round(currentSatiety)}%。ごはんを選ぶ`} onPress={()=>openFeed()} style={s.condition}><Icon name="coffee" size={15} color="#7F8E6F"/><View style={s.conditionCopy}><Text style={s.conditionLabel}>満腹 {Math.round(currentSatiety)}%</Text><View style={s.gaugeTrack}><View style={[s.gaugeFill,{width:`${Math.max(0,Math.min(100,currentSatiety))}%`,backgroundColor:'#9DAB87'}]}/></View></View></Pressable>
-        <View style={s.conditionDivider}/>
-        <Pressable accessibilityRole="button" accessibilityLabel={`幸福度${happiness.value}%。うれしい気持ちを開く`} onPress={()=>setSheet('happiness')} style={s.condition}><Icon name="heart" size={15} color="#A78FB2"/><View style={s.conditionCopy}><Text style={s.conditionLabel}>幸福 {happiness.value}%</Text><View style={s.gaugeTrack}><View style={[s.gaugeFill,{width:`${Math.max(0,Math.min(100,happiness.value))}%`,backgroundColor:'#B39ABE'}]}/></View></View></Pressable>
-        <View style={s.conditionDivider}/>
-        <Pressable testID="home-letter" accessibilityRole="button" accessibilityLabel="今日の便り" onPress={openLetter} style={s.letterButton}><Icon name="mail" size={17} color="#897499"/><Text style={s.conditionLabel}>便り</Text></Pressable>
-      </View>}
+      {worldMap==='home'&&!sceneBusy&&<View style={wide?{width:340}:undefined}><YourConditionCard compact={compact||wide}/></View>}
     </View>
-    {worldMap==='home'&&<View pointerEvents="box-none" style={[s.roomNotice,{top:insets.top+(compact?105:116)},wide&&{left:'auto',width:320}]}>
+    {worldMap==='home'&&<View pointerEvents="box-none" style={[s.roomNotice,{top:insets.top+(compact?4:10)+headerHeight+8},wide&&{left:'auto',width:320}]}>
       {!!gifts.error?<Pressable accessibilityRole="button" onPress={gifts.retry} style={s.noticePill}><Text style={s.noticeText}>{gifts.error} タップして再試行</Text></Pressable>:
       giftAvailable&&gifts.waiting?<Pressable testID="home-character-gift" accessibilityRole="button" accessibilityLabel={`${gifts.waiting.from}からの贈りものを受け取る`} onPress={()=>{setOpenedGift({gift:gifts.waiting!,owner:giftOwner});setSheet('gift');}} style={s.noticePill}><Icon name="gift" size={17} color="#84728B"/><Text style={s.noticeText}>贈りものが届いてるよ</Text><Icon name="chevron-right" size={14} color="#84728B"/></Pressable>:
-      !sheet&&!sceneBusy&&!worldInteracting?<PersonalInsightPreview compact/>:null}
+      !sheet&&!sceneBusy&&!worldInteracting&&evolution.free?<Pressable testID="home-evolution-offer" accessibilityRole="button" onPress={()=>router.push('/evolution')} style={s.noticePill}><Icon name="star" size={16} color="#84728B"/><Text style={s.noticeText}>次の姿を、選べるようになったよ</Text><Icon name="chevron-right" size={14} color="#84728B"/></Pressable>:null}
     </View>}
     </>}>
     <WorldHome controlsRequest={controlsRequest} onControlsOpened={()=>setControlsRequest(undefined)} speech={speech||(!sheet&&!worldInteracting&&!food&&worldMap==='home'?'今日は、どんな一日だった？':'')} visitScene={outing.scene} onReturnHome={outing.returnHome} cleanRequest={cleanRequest} onCleaningOpened={()=>setCleanRequest(0)} onInteractingChange={setWorldInteracting} carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('おかえり！\n会えてうれしいよ。',7000);}} onMapChange={setWorldMap} key={`${bathReturn??'world'}-${journey??''}-${outing.scene??'home'}`} cleanliness={100} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={tab=>router.push(tab==='seeds'?'/shop?tab=seeds':'/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={WORLD_MAPS.find(p=>p.id===place)?.id} customization={roomCustomization} stage={getMascotStage(progress)} growthSize={growth.growthSize}
@@ -193,7 +191,7 @@ export default function HomeScreen() {
       totalDays={progress.totalDays} wear={equipment('wear')} effect={equipment('effect')} decor={equipment('decor')}
       background={background?.assetUrl ? resolveItemAssetUrl(background.assetUrl) : undefined}
       onRecord={() => router.push('/exchange-diary')} onFeed={openFeed}
-      onChat={chat} onRest={restTogether} onAlbum={() => router.push('/(tabs)/growth')} />
+      onChat={chat} onRest={restTogether} onAlbum={() => router.push('/memories')} />
     </StableSceneViewport>
     {worldMap==='home'&&!sceneBusy&&<View testID="home-care-footer" pointerEvents="box-none" style={[s.footer,{bottom:Math.max(tabHeight,adRailHeight)+12}]}>
       <View testID="home-action-dock" style={s.quickActions}>
@@ -214,7 +212,7 @@ export default function HomeScreen() {
     </BottomSheet>}
     {sheet==='gift'&&openedGift?.owner===giftOwner&&<GiftPresentation key={openedGift.gift.id+giftOwner} gift={openedGift.gift} onClose={close} onReceive={async id=>{const saved=await runCharacterGifts({kind:'receive',id});if(!saved.received)throw Error('Gift missing');voice.play('happy');return saved.received;}} onList={()=>{close();router.push('/gifts');}}/>}
     {sheet==='brief'&&<DailyLetter date={letter.date} onClose={close} onGrowth={()=>{close();router.push('/(tabs)/growth');}}/>}
-    {sheet==='tutorial'&&<FirstSteps key={giftOwner} onFinish={async record=>{const owner=giftOwner;await tutorial.finish();if(currentOwner.current!==owner)return;letter.markSeen();setSheet(record?'mood':null);}}/>}
+    {sheet==='tutorial'&&<FirstSteps key={giftOwner} onFinish={async record=>{const owner=giftOwner;await tutorial.finish();if(currentOwner.current!==owner)return;letter.markSeen();setSheet(null);if(record)router.push('/check-in');}}/>}
     {sheet==='mood'&&<BottomSheet visible title="今日の気持ち" onClose={close}><QuickAffirmationRecord/><Button variant="ghost" label="日記も書く" onPress={()=>{close();router.push('/exchange-diary');}}/></BottomSheet>}
     {sheet === 'happiness' && <BottomSheet visible onClose={close} title="うれしい気持ち" subtitle="会いに来てくれることが、いちばんうれしい。">
       <Text style={s.chatText}>幸福度 {happiness.value}%</Text>
@@ -237,6 +235,8 @@ export default function HomeScreen() {
       onShop={()=>{close();router.push('/shop');}} onAtelier={()=>{setAtelierCategory('furniture');setSheet('atelier');}}
       onFriends={()=>{close();router.push('/friends');}} onGrowth={()=>{close();router.navigate('/(tabs)/growth');}}
       onHints={()=>{close();router.push('/hints');}} onGuide={()=>{close();router.push('/guide');}}>
+      {menuRow('image', 'ふたりの思い出', () => {close();router.push('/memories');}, 'home-memories')}
+      {menuRow('star', 'この子の進化', () => {close();router.push('/evolution');}, 'home-evolution', '好きな姿を、自分で選ぶ')}
       {menuRow('layers', 'お部屋の視点を変える', ()=>openSceneControls('view'), 'home-view-toggle')}
       {menuRow(music.enabled?'volume-2':'volume-x',`BGM：${music.enabled?'オン':'オフ'}`,music.toggle,'world-bgm-toggle')}
       {menuRow('smile', '今日の気分を残す', ()=>setSheet('mood'), 'home-quick-mood')}
@@ -246,7 +246,8 @@ export default function HomeScreen() {
       {menuRow('gift', 'この子からの贈りもの', () => { close(); router.push('/gifts'); })}
       {menuRow('book-open', '交換日記', () => { close(); router.push('/exchange-diary'); }, 'home-menu-diary')}
       {menuRow('message-circle', 'この子とお話しする', chat, 'home-menu-chat')}
-      {menuRow('coffee', 'ごはんの時間', () => openFeed())}
+      {menuRow('coffee', 'ごはんの時間', () => openFeed(),undefined,`満腹度 ${Math.round(currentSatiety)}%`)}
+      {menuRow('heart', 'この子のうれしい気持ち', () => setSheet('happiness'),undefined,`幸福度 ${happiness.value}%`)}
       {menuRow('heart', 'そっと、なでる', () => { setReaction(n => n + 1); interact('pet'); close(); })}
       {menuRow('help-circle', hints ? '家具のヒントを隠す' : '家具のヒントを表示', () => { toggleHints(); close(); })}
       {menuRow('home', '部屋の模様替え', () => {setAtelierCategory('furniture');setSheet('atelier');})}
@@ -281,8 +282,9 @@ const s = StyleSheet.create({
   gaugeFill:{height:4,borderRadius:3},letterButton:{minWidth:48,minHeight:44,gap:4,flexDirection:'row',alignItems:'center',justifyContent:'center'},
   points:{minHeight:44,paddingHorizontal:12,backgroundColor:'#FFF9EE',borderColor:'#E6D9C9',borderWidth:1,borderRadius: 22,flexDirection:'row',alignItems:'center',gap:6},
   pointsText:{fontSize:12,fontWeight:'600',color:'#6E6277'},
-  brand: { fontSize: 12, letterSpacing: 3, color: '#FFF5E6', fontWeight: '700', textShadowColor: '#263A35', textShadowRadius: 6 },
-  subtitle: { marginTop: 6, fontSize: 11, color: '#FFF1D9', textShadowColor: '#263A35', textShadowRadius: 6 },
+  brand: {fontSize:10,letterSpacing:3,color:'#634E79',fontWeight:'700'},
+  greeting:{fontSize:25,lineHeight:33,color:'#4C365C',fontWeight:'600'},
+  subtitle:{fontSize:10,color:'#695474',lineHeight:16},
   headerTools: { flexDirection: 'row', gap: 5 }, iconButton: { width: 44, height: 44, borderRadius: 18, backgroundColor: '#223D367A', alignItems: 'center', justifyContent: 'center' },
   footer: {position:'absolute',left:12,right:12,alignItems:'center'},
   roomNotice:{position:'absolute',left:20,right:20,alignItems:'center'},

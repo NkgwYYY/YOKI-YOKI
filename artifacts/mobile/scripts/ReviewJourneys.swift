@@ -129,6 +129,7 @@ final class ReviewJourneys: XCTestCase {
 
     private func openDiary() {
         tap(element("home-daily-record"))
+        tap(element("memory-open-diary"))
         if element("diary-open-cover").waitForExistence(timeout: 5) {
             tap(element("diary-open-cover"))
         }
@@ -655,6 +656,57 @@ final class ReviewJourneys: XCTestCase {
         verifyFurnishingPurchaseAndPersistence()
         verifyStarterFurnishings()
     }
+    func testZConditionAndChosenEvolution() {
+        launchGuestHome()
+        tap(element("home-condition-record"))
+        visible(element("check-in-screen"))
+        capture("30-new-condition-mood")
+        tap(element("check-in-mood-4"))
+        tap(element("check-in-next"))
+        tap(element("check-in-fatigue-3"))
+        tap(element("check-in-next"))
+        tap(element("check-in-worry-1"))
+        tap(element("check-in-next"))
+        tap(element("check-in-home"))
+        XCTAssertEqual(element("home-your-mood").label, "いい感じ")
+        XCTAssertEqual(element("home-your-fatigue").label, "強い")
+        XCTAssertEqual(element("home-your-worry").label, "ない")
+        capture("31-new-home-condition")
+        tap(element("home-daily-record"))
+        visible(element("shared-memories-screen"))
+        capture("32-shared-memories")
+        tap(element("memory-evolution"))
+        XCTAssertEqual(element("evolution-current-stage").label, "モフモフ")
+        tap(element("evolution-later"))
+        tap(element("memory-evolution"))
+        visible(element("evolution-free"))
+        tap(element("evolution-free"))
+        tap(element("evolution-confirm-cancel"))
+        XCTAssertEqual(element("evolution-current-stage").label, "モフモフ")
+        tap(element("evolution-free"))
+        tap(element("evolution-confirm"))
+        until("A confirmation evolves exactly one stage") {
+            self.element("evolution-current-stage").label == "はっぱ"
+        }
+        tap(element("evolution-decline"))
+        capture("33-keep-form-warning")
+        tap(element("evolution-confirm"))
+        until("Declining closes only this stage's free offer") { !self.element("evolution-free").exists }
+        visible(element("stone-coming-soon-evolution"))
+        visible(element("stone-coming-soon-regression"))
+        XCTAssertFalse(element("stone-buy-evolution").exists)
+        XCTAssertFalse(element("stone-buy-regression").exists)
+        capture("34-stones-coming-soon")
+        app.terminate(); app.launch()
+        visible(element("home-more-menu"), timeout: 60)
+        tap(element("home-more-menu"))
+        tap(element("home-menu-settings"))
+        tap(element("home-evolution"))
+        XCTAssertEqual(element("evolution-current-stage").label, "はっぱ")
+        XCTAssertFalse(element("evolution-free").exists)
+        capture("35-chosen-form-after-relaunch")
+    }
+
 }
 
 
@@ -680,7 +732,13 @@ final class EggAppearanceJourney: XCTestCase {
     }
     func testNativeEggHome() {
         continueAfterFailure = false
-        defer { app.terminate() }
+        defer {
+            let proof = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            proof.name = "egg-final-screen"; proof.lifetime = .keepAlways; add(proof)
+            let tree = XCTAttachment(string: app.debugDescription)
+            tree.name = "egg-final-hierarchy"; tree.lifetime = .keepAlways; add(tree)
+            app.terminate()
+        }
         app.launch()
         tap(item("welcome-guest"))
         tap(item("profile-nickname"))
@@ -689,7 +747,10 @@ final class EggAppearanceJourney: XCTestCase {
         tap(item("profile-gender-unknown"))
         tap(text("いっしょにはじめる"))
         if text("よろしくね！").waitForExistence(timeout: 4) { tap(text("よろしくね！")) }
-        if item("tutorial-skip").waitForExistence(timeout: 5) { tap(item("tutorial-skip")) }
+        XCTAssertTrue(item("tutorial-skip").waitForExistence(timeout: 60), "A new guest receives the three-step introduction")
+        tap(item("tutorial-skip"))
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !self.item("tutorial-skip").exists }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 30), .completed, "Skipping must dismiss the introduction persistently")
         XCTAssertTrue(item("home-daily-record").waitForExistence(timeout: 60))
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.item("home-daily-record").isHittable && !self.item("plush-loading").exists }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed)

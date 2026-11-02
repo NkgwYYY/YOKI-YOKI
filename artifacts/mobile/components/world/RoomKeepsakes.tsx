@@ -4,13 +4,15 @@ import React,{useEffect,useState} from 'react';
 import {StyleSheet,Text,View} from 'react-native';
 import {FeltPressable as Pressable} from '@/components/ui/FeltPressable';
 import Svg,{Circle,Defs,Ellipse,Line,LinearGradient,Path,Rect,Stop,Text as Ink} from 'react-native-svg';
+import {useRouter} from 'expo-router';
+import {evolutionOffer} from '@/utils/evolutionChoice';
 import {useApp} from '@/contexts/AppContext';
 import {colors} from '@/constants/theme';
 import {BottomSheet} from '@/components/ui/BottomSheet';
 import {StaticMascot} from '@/components/Mascot';
 import {getMascotStage} from '@/utils/mascotUtils';
 import {getTodayDate} from '@/utils/dateUtils';
-import {moodDays,nextVisitStage,readVisitGrowth,shiftDay,VISIT_STAGES} from '@/utils/visitGrowth';
+import {moodDays,readVisitGrowth,shiftDay,VISIT_STAGES} from '@/utils/visitGrowth';
 
 const MOODS=['','つらい','少ししんどい','ふつう','穏やか','うれしい'];
 const TINTS=['','#A296BA','#B3A6C7','#C8B6D4','#A4B9A0','#D9BB79'];
@@ -20,7 +22,7 @@ export function RoomKeepsakes({width,height,frameLeft,frameTop,viewportWidth,vie
  const {progress,records,visitError,refreshVisits}=useApp();
  const [open,setOpen]=useState<Kind|null>(null);
  const today=getTodayDate(),visits=readVisitGrowth(progress.visits),days=moodDays(records,today);
- const next=nextVisitStage(visits),stage=getMascotStage(progress);
+ const router=useRouter(),offer=evolutionOffer(progress),next=offer.next,stage=getMascotStage(progress);
  const streak=visits?.totalVisits??0,month=Number(today.slice(5,7));
  useEffect(()=>{onBusy(open!==null);return()=>onBusy(false);},[open,onBusy]);
  // Anchor to the back wall in artwork coordinates, independent of the HUD.
@@ -53,7 +55,8 @@ export function RoomKeepsakes({width,height,frameLeft,frameTop,viewportWidth,vie
     <Pressable testID="calendar-open-collection" accessibilityRole="button" onPress={()=>setOpen('collection')} style={{padding:16,borderRadius:18,backgroundColor:colors.primarySoft}}><Text style={{color:colors.primary,fontSize:14,fontWeight:'600'}}>思い出・飾りもの　›</Text></Pressable>
     <Pressable testID="room-mood-frame" accessibilityRole="button" accessibilityLabel="気分の推移。最近7日間の気分を見る" onPress={()=>setOpen('moods')} style={{padding:16,borderRadius:18,marginTop:8,marginBottom:12,backgroundColor:colors.muted}}><Text style={{color:colors.primary,fontSize:14,fontWeight:'600'}}>最近7日間の気分　›</Text></Pressable>
     <MonthCalendar today={today} dates={visits?.dates??[]}/>
-    <View style={s.growth}><Text style={s.eyebrow}>次の姿へ</Text><Text testID="visit-next-evolution" style={s.heading}>{next?`${next.name}まで、あと${Math.max(0,next.days-streak)}日`:'カラフルはっぱと、今日も一緒。'}</Text><Text style={s.note}>{next?`累計${next.days}日で進化します。日記を書かない日も、アプリを開けば数えます。`:(visits?.totalVisits??0)>=30?'30日、一緒に過ごした、特別な姿です。':'これまで一緒に育ってきた、特別な姿です。'}</Text></View>
+    <View style={s.growth}><Text style={s.eyebrow}>次の姿へ</Text><Text testID="visit-next-evolution" style={s.heading}>{next?offer.declined?'今の姿を選んでいます':offer.free?'次の姿を選べます':`${next.name}を選べるまで、あと${Math.max(0,next.days-streak)}日`:'カラフルはっぱと、今日も一緒。'}</Text><Text style={s.note}>{next?`累計${next.days}日で、進化するか選べます。日記を書かない日も、アプリを開けば数えます。`:(visits?.totalVisits??0)>=30?'30日、一緒に過ごした、特別な姿です。':'これまで一緒に育ってきた、特別な姿です。'}</Text></View>
+    <Pressable testID="calendar-evolution" accessibilityRole="button" onPress={()=>{setOpen(null);router.push('/evolution');}} style={s.retry}><Text style={s.body}>この子の進化を見る　›</Text></Pressable>
     <View style={s.steps}>{VISIT_STAGES.map((v,i)=><View key={v.stage} style={s.step}><View style={[s.seed,{backgroundColor:v.stage===stage?'#94779C':'#DAD0D7'}]}><Text style={[s.stepNumber,{color:v.stage===stage?'#FFF9ED':'#77687E'}]}>{i+1}</Text></View><Text style={s.stepLabel}>{v.name}</Text><Text style={s.note}>{i?`${v.days}日`:'はじまり'}</Text></View>)}</View>
     <Text style={s.fine}>ログインしない日があっても、累計日数と進化した姿は変わりません。</Text>
    </>:<>

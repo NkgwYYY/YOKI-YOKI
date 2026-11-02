@@ -1,8 +1,8 @@
 /**
  * YOKI-YOKI デザインシステム — 単一のソース・オブ・トゥルース。
  *
- * コンセプト: "Little Felt World" (ミルク色の布、若葉、いちご色の刺繍)
- * クリーム・ピスタチオ・いちごミルク。陰影と縫い目で、触れたくなる世界へ。
+ * コンセプト: "A little home together" (ミルク色の紙、淡い木目、ラベンダー)
+ * 余白のある明るい面と、やわらかな立体感。主役は、この子と日々の記録。
  */
 
 /* ------------------------------------------------------------------ *
@@ -10,22 +10,22 @@
  * ------------------------------------------------------------------ */
 
 const atelierColors = {
-  900: '#574234', // Bright headings
-  800: '#644F40', // Main text
-  700: '#7F6D5D', // Muted text
-  600: '#917E68', // Borders strong, Icons
-  500: '#AB9F8D', // Disabled
-  400: '#D7C6AA', // Borders subtle
-  300: '#E9DFCC', // Muted backgrounds / Dividers
-  200: '#F3EBDC', // Secondary surfaces
-  100: '#F6F1E5', // App background
-  50:  '#FFF9EC', // Raised purple surfaces
+  900: '#4E3A5C', // Bright headings
+  800: '#5D486C', // Main text
+  700: '#82718A', // Muted text
+  600: '#9984A4', // Borders strong, Icons
+  500: '#B3A6BB', // Disabled
+  400: '#DBCEE3', // Borders subtle
+  300: '#E9E0EC', // Muted backgrounds / Dividers
+  200: '#F1EBF4', // Secondary surfaces
+  100: '#FAF7F2', // App background
+  50:  '#FFFCF7', // Raised purple surfaces
 } as const;
 
 const charmColors = {
-  500: '#627C57', // Violet command fill
-  600: '#4C6543', // Primary pressed
-  900: '#E4ECD9', // Selected purple surface
+  500: '#8865A3', // Violet command fill
+  600: '#715187', // Primary pressed
+  900: '#EFE5F6', // Selected purple surface
 } as const;
 
 export const colors = {
@@ -60,7 +60,7 @@ export const colors = {
   primaryForeground: '#FFFFFF',
   primaryPressed: charmColors[600],
   primarySoft: charmColors[900],
-  primaryOnSoft: '#4D6546',
+  primaryOnSoft: '#6C4E80',
   ring: charmColors[500],
   tint: charmColors[500],
 
@@ -103,9 +103,9 @@ export const homePalette = {
   playMarker: '#E7B944',
   gaugeTrack: '#E8DDCA',
   dateText: '#6D5F8A',
-  navActive: '#697F5A',
-  navInactive: '#94836C',
-  navBackground: '#FFF9EC',
+  navActive: '#8865A3',
+  navInactive: '#9C89A7',
+  navBackground: '#FFFCF7',
   navBorder: 'rgba(160, 149, 181, 0.22)',
   softShadow: 'rgba(180, 170, 210, 0.25)',
   actionShadow: 'rgba(200, 180, 210, 0.35)',

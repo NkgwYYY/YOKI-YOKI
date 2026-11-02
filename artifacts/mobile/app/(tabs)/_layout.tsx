@@ -19,7 +19,7 @@ function WorldDock({state, navigation}: DockProps) {
   const insets = useSafeAreaInsets();
   const places = [{name:'index',label:'おうち',icon:'home',testID:'home-tab'}, {name:'record',label:'日記',icon:'book-open',testID:'home-daily-record'}, {name:'chat',label:'おはなし',icon:'message-circle',testID:'home-chat'}, {name:'condition',label:'きろく',icon:'bar-chart-2',testID:'home-condition'}] as const;
   return <View pointerEvents="box-none" style={{position: 'absolute', bottom: Math.max(12, insets.bottom), left: 16, right: 16, alignItems: 'center'}}>
-    <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 20, backgroundColor: '#FFF8EA', borderWidth: 1, borderColor: '#D4C2A3', shadowColor:'#50355F', shadowOpacity:.16, shadowRadius:18, shadowOffset:{width:0,height:5}}}>
+    <View testID="world-navigation" style={{width: '100%', maxWidth: 400, minHeight: 60, flexDirection: 'row', alignItems: 'center', padding: 5, borderRadius: 28, backgroundColor: '#FFFBF3', borderWidth: 1, borderColor: '#E3D7C6', shadowColor:'#50355F', shadowOpacity:.16, shadowRadius:18, shadowOffset:{width:0,height:5}}}>
       <FeltDecoration radius={24}/>{places.map(place => {
         const route = state.routes.find(r => r.name === place.name);
         if (!route) return null;

@@ -1,0 +1,22 @@
+name: TestFlight iOS 1.2.0
+
+# Manual TestFlight upload only. Does not submit for public App Review.
+defaults:
+  tools:
+    node: 22.16.0
+    pnpm: 10.11.0
+
+jobs:
+  build_ios:
+    name: Build iOS 1.2.0
+    type: build
+    params:
+      platform: ios
+      profile: production
+  submit_ios:
+    name: Upload iOS 1.2.0 to App Store Connect
+    needs: [build_ios]
+    type: submit
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production

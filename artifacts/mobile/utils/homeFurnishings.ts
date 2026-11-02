@@ -2,9 +2,9 @@ import {homeArtPoint} from './homeGeometry.ts';
 import type {RoomItemPosition} from './roomPlacement';
 
 const FURNITURE={
- sofa:{x:.23,y:.745,width:.28,aspect:1.3142},
- vanity:{x:.19,y:.88,width:.27,aspect:0.7678},
- bookshelf:{x:.20,y:.88,width:.28,aspect:0.8333},
+ sofa:{x:.23,y:.745,width:.34,aspect:1.3142},
+ vanity:{x:.19,y:.88,width:.32,aspect:0.7678},
+ bookshelf:{x:.20,y:.88,width:.34,aspect:0.8333},
 };
 const DECOR:Record<string,{x:number;y:number;width:number;aspect:number}>={
  'catalog-decor-cushion':{x:.73,y:.80,width:.15,aspect:0.9877},

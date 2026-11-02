@@ -1,4 +1,5 @@
 import {readVisitGrowth,legacyStage} from './visitGrowth';
+import {readEvolution} from './evolutionChoice';
 import type { DailyRecord, UserProgress } from '@/contexts/AppContext';
 
 export type MascotStage = 'egg' | 'odango' | 'stage3' | 'stage4';
@@ -25,8 +26,8 @@ export function getStageName(stage: MascotStage): string {
 }
 
 /** Cumulative visits drive evolution. Level is only an older-save import fallback. */
-export function getMascotStage(progress: Pick<Partial<UserProgress>, 'visits' | 'level'>): MascotStage {
-  return readVisitGrowth(progress.visits)?.stage ?? legacyStage(progress.level ?? 1);
+export function getMascotStage(progress: Pick<Partial<UserProgress>, 'visits' | 'level' | 'evolution'>): MascotStage {
+  return readEvolution(progress.evolution)?.stage ?? readVisitGrowth(progress.visits)?.stage ?? legacyStage(progress.level ?? 1);
 }
 
 /** Pick a random idle behavior for this app-open session */

@@ -7,6 +7,7 @@ import {retainWorldAccess,mergeWorldAccess,type WorldAccess} from '@/utils/world
 import {retireBank} from '@/utils/cozyMigration';
 import {collectionIds,knownKeepsake,prepareCollection,type KeepsakeId} from '@/utils/companionCollection';
 import {advanceVisit,mergeVisitGrowth,readVisitGrowth,type VisitGrowth} from '@/utils/visitGrowth';
+import {evolutionFor,evolutionForCloud,mergeEvolution,chooseEvolution,type EvolutionChoice,type EvolutionAction} from '@/utils/evolutionChoice';
 import {prepareGarden,type VegetableGarden,type GardenOperation} from '@/utils/vegetableGarden';
 import {storyFinished,prepareVillageStory,type VillageStoryState,type StoryOperation} from '@/utils/villageStories';
 import {prepareCharacterGifts,type CharacterGiftState,type CharacterGiftOperation} from '@/utils/characterGifts';
@@ -158,6 +159,7 @@ export interface CheckedState {
 }
 
 export interface UserProgress {
+  evolution?: EvolutionChoice;
   visits?: VisitGrowth;
   worldAccess?: WorldAccess;
   /** Retired counters: retained solely to import older saves and interoperate with older clients. */
@@ -257,6 +259,7 @@ interface AppContextType {
   /** 端末側ポイントを不足チェック付きで減算する */
   spendFeedPoints: (points: number) => Promise<boolean>;
   purchaseGuestItem: (itemId: string, cost: number) => Promise<ReturnType<typeof prepareItemPurchase>['result']>;
+  runEvolution: (action:EvolutionAction) => Promise<void>;
   currentSatiety: number;
   inactivityHours: number;
   miniGameState: MiniGameState;
@@ -525,7 +528,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (newlyMet.length > 0) {
       setNewEncounters((prev) => [...prev, ...newlyMet.filter((k) => !prev.includes(k))]);
     }
-  }, [progress.level, progress.visits?.highestStage, isLoading, isSignedIn, cloudSynced]);
+  }, [progress.level, progress.visits?.highestStage, progress.evolution?.stage, isLoading, isSignedIn, cloudSynced]);
 
   /** 「新しい仲間が生まれました!」演出を1件消化する */
   const dismissNewEncounter = useCallback(() => {
@@ -646,6 +649,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             try { data[k] = JSON.parse(values[i]!); } catch { data[k] = values[i]; }
           }
         });
+        const outgoing=data[KEYS.PROGRESS] as UserProgress|undefined;
+        if(outgoing?.evolution)data[KEYS.PROGRESS]={...outgoing,evolution:evolutionForCloud(outgoing.evolution)};
         if(!signedInRef.current||bowlingOwner.current!==owner||pullingRef.current)return;
         await fetch(`${API_BASE}/sync`, {
           method: 'PUT',
@@ -669,8 +674,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const visits=advanceVisit(current.visits,getTodayDate(),current.level);
         const oldFeed:FeedState=values[KEYS.FEED_STATE]?JSON.parse(values[KEYS.FEED_STATE]!):defaultFeedState;
         const withAccess=retainWorldAccess(current,oldFeed.villageStories);
-        const changed=visits!==current.visits||withAccess!==current;
-        const next={...withAccess,visits};
+        const evolution=evolutionFor(current);
+        const changed=visits!==current.visits||withAccess!==current||evolution!==current.evolution;
+        const next={...withAccess,visits,evolution};
         const retired=retireBank(oldFeed);
         const migrated=retired!==oldFeed;
         const staged=migrated?{...values,[KEYS.FEED_STATE]:JSON.stringify(retired)}:values;
@@ -748,6 +754,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...cloud,
         ...local,
         visits: mergeVisitGrowth(cloud.visits, local.visits),
+        evolution: mergeEvolution(cloud,local),
         worldAccess: mergeWorldAccess(cloud,local,(cloudData[KEYS.FEED_STATE] as FeedState|undefined)?.villageStories,(localData[KEYS.FEED_STATE] as FeedState|undefined)?.villageStories),
         experience: Math.max(cloud.experience ?? 0, local.experience ?? 0),
         mentalMuscle: Math.max(cloud.mentalMuscle ?? 0, local.mentalMuscle ?? 0),
@@ -1304,6 +1311,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return saved.gained;
   }, [rewardSessionToken, isLoading, storageError, isSignedIn, cloudSynced, user, pushDataToCloud]);
 
+  const mutateEvolution=useCallback(async(operation:(current:UserProgress)=>UserProgress,isCurrent:()=>boolean=()=>true)=>{
+    const token=rewardSessionToken,owner=user?.id??'guest';
+    const check=()=>{if(isLoading||storageError||(isSignedIn&&(!cloudSynced||!user))||bowlingOwner.current!==owner||rewardSession.current.token!==token||!isCurrent())throw Error('利用者または保存状態が変わりました。もう一度お試しください。');};
+    check();
+    const next=await AsyncStorage.transaction(values=>{
+      check();const current:UserProgress=values[KEYS.PROGRESS]?JSON.parse(values[KEYS.PROGRESS]!):defaultProgress;
+      const saved=operation(current);return {entries:[[KEYS.PROGRESS,JSON.stringify(saved)] as [string,string]],result:saved};
+    });
+    check();setProgress(next);void pushDataToCloud().catch(()=>{});
+  },[rewardSessionToken,user?.id,isLoading,storageError,isSignedIn,cloudSynced,pushDataToCloud]);
+  const runEvolution=useCallback((action:EvolutionAction)=>mutateEvolution(current=>{if(action.kind==='evolution'||action.kind==='regression')throw Error('進化の石・退化の石は近日公開予定です。');return chooseEvolution(current,action);}),[mutateEvolution]);
+
   const runEggJob = useCallback(async (operation: EggJobOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
     const owner = user?.id ?? 'guest';
@@ -1336,7 +1355,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (saved.changed) void pushDataToCloud().catch(() => {});
     return {page:saved.page,changed:saved.changed};
-  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud, mascotName, progress.level, progress.visits, queueGainEvent]);
+  }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud, mascotName, progress.level, progress.visits, progress.evolution?.stage, queueGainEvent]);
 
   const runCharacterGifts = useCallback(async (operation: CharacterGiftOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
@@ -1356,7 +1375,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     feedStateRef.current=saved.feed;setFeedState(saved.feed);
     if(changed)void pushDataToCloud().catch(()=>{});
     return saved;
-  }, [user?.id,isSignedIn,isLoading,cloudSynced,pushDataToCloud,mascotName,progress.level,progress.visits]);
+  }, [user?.id,isSignedIn,isLoading,cloudSynced,pushDataToCloud,mascotName,progress.level,progress.visits,progress.evolution?.stage]);
 
   const runVillageStory = useCallback(async (operation: StoryOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
@@ -1531,6 +1550,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         syncFeedPoints,
         spendFeedPoints,
         purchaseGuestItem,
+        runEvolution,
         currentSatiety,
         inactivityHours,
         miniGameState,

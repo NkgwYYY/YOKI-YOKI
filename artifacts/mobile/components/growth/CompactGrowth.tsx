@@ -6,7 +6,8 @@ import {useApp} from '@/contexts/AppContext';
 import {dailyCheckin} from '@/utils/dailyCheckin';
 import {getTodayDate} from '@/utils/dateUtils';
 import {MOOD_LABELS} from '@/utils/personalGrowth';
-import {readVisitGrowth,nextVisitStage} from '@/utils/visitGrowth';
+import {readVisitGrowth} from '@/utils/visitGrowth';
+import {evolutionOffer} from '@/utils/evolutionChoice';
 import {getMascotStage,getCharacter,type CharacterKey} from '@/utils/mascotUtils';
 import {charsMetThroughStage} from '@/utils/encounters';
 import {StaticMascot} from '@/components/Mascot';
@@ -27,7 +28,7 @@ export function CompactGrowth({onCharacter}:{onCharacter:(key:CharacterKey)=>voi
  const [chart,setChart]=useState<'radar'|'trend'>('radar');
  const [section,setSection]=useState<'records'|'memories'>('records');
  const [sheet,setSheet]=useState<'tree'|'memory'|'badges'|'review'|'mood'|null>(null);
- const visits=readVisitGrowth(progress.visits),next=nextVisitStage(visits),days=visits?.totalVisits??0;
+ const visits=readVisitGrowth(progress.visits),offer=evolutionOffer(progress),next=offer.next,days=visits?.totalVisits??0;
  const stage=getMascotStage(progress),character=getCharacter(stage),name=mascotName||'よっきー';
  const met=new Set(charsMetThroughStage(stage)),dex=encounters.list.filter(e=>met.has(e.charKey));
  const badges=BADGE_DEFINITIONS.filter(b=>!b.retired||unlockedBadges.some(u=>u.id===b.id));
@@ -58,7 +59,9 @@ export function CompactGrowth({onCharacter}:{onCharacter:(key:CharacterKey)=>voi
    <Pressable accessibilityRole="button" onPress={()=>{if(data.action.kind==='mood')setSheet('mood');else router.push(data.action.kind==='rest'?'/(tabs)':'/exchange-diary');}} style={s.action}><View style={{flex:1,gap:4}}><Text style={s.small}>今日できること</Text><Text style={s.actionTitle}>{data.action.title}</Text></View><Icon name="arrow-right" size={18} color={PURPLE}/></Pressable>
    <View style={s.grid}>{tile('月間レポート','カレンダー・睡眠','calendar',()=>router.push('/monthly-report'))}{tile('きもちの木',`${data.leaves.length}日分の葉っぱ`,'feather',()=>setSheet('tree'),'growth-open-tree')}</View>
   </View>:<View testID="growth-memories-panel" style={s.panel}>
-   <View style={s.companion}><StaticMascot stage={stage} mood="happy" size={80}/><View style={{flex:1,gap:7}}><Text style={s.heading}>{name}と過ごした日</Text><Text testID="album-shared-days" style={s.days}>{days}<Text style={s.dayUnit}> 日</Text></Text><Text style={s.small}>{next?`${next.name}まで、あと${Math.max(0,next.days-days)}日`:`いまの姿：${character.name}`}</Text></View></View>
+   <View style={s.companion}><StaticMascot stage={stage} mood="happy" size={80}/><View style={{flex:1,gap:7}}><Text style={s.heading}>{name}と過ごした日</Text><Text testID="album-shared-days" style={s.days}>{days}<Text style={s.dayUnit}> 日</Text></Text><Text style={s.small}>{next?offer.declined?'今の姿を選んでいます':offer.free?'次の姿を選べます':`${next.name}を選べるまで、あと${Math.max(0,next.days-days)}日`:`いまの姿：${character.name}`}</Text></View></View>
+   {tile('この子の進化','好きな姿を、自分で選ぶ','star',()=>router.push('/evolution'),'growth-evolution')}
+   {tile('ふたりの思い出','一緒に過ごした日をひらく','image',()=>router.push('/memories'),'growth-memories')}
    <View style={s.grid}>{tile('交換日記','日記を読み返す','book-open',()=>router.push('/exchange-diary'))}{tile('アルバム',`${dex.length}人のなかま`,'image',()=>setSheet('memory'))}{tile('贈りもの','この子から届いたもの','gift',()=>router.push('/gifts'))}{tile('バッジ',`${unlockedBadges.length}個獲得`,'award',()=>setSheet('badges'))}</View>
    {feedState.villageStories&&tile('思い出のお話','これまでのお話を読む','book',()=>router.push('/stories'))}
    {tile('ふりかえり','記録から気づいたこと','sun',()=>setSheet('review'))}

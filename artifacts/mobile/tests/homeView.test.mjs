@@ -22,7 +22,7 @@ test('room and close views fill every edge without shrinking the room into a box
    assert.ok(x>=0&&x<=width&&y>=0&&y<=height,'the resident stays on screen');
   }
   const size=homeResidentSize(f,height,1);
-  assert.ok(size<=height*.18&&size>0,'overview leaves room around the resident');
+  assert.ok(size<=height*.205&&size>0,'overview leaves room around the resident');
  }
 });
 

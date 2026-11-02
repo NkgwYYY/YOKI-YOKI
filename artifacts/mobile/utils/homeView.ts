@@ -32,7 +32,7 @@ export function closeHomeCamera(frame:HomeFrame,viewport:{width:number;height:nu
       viewport.height-frame.top-frame.height/2-frame.height*z/2,frame.height*z/2-frame.top-frame.height/2)};
 }
 export function homeResidentSize(frame:HomeFrame,viewportHeight:number,growth:number){
-  return Math.min(frame.width*.23,viewportHeight*.18)*Math.max(.9,Math.min(1.12,growth));
+  return Math.min(frame.width*.29,viewportHeight*.205)*Math.max(.9,Math.min(1.12,growth));
 }
 
 /** A single writer for the scene transform; changing views must clear old pan/zoom. */

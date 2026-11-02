@@ -167,6 +167,13 @@ if not egg_capture:
     fixture['@mentore/records_v2'] = synthetic_records
     progress['totalDays'] = len(synthetic_records)
     progress['lastRecordDate'] = (local_today - timedelta(days=1)).isoformat()
+    # Choice-evolution fixture: thirty real synthetic visit dates, still fluffy.
+    visit_dates = [(local_today - timedelta(days=i)).isoformat() for i in range(29, -1, -1)]
+    progress['visits'] = {'version':2,'historicalVisits':0,'lastDate':visit_dates[-1],
+        'streak':30,'bestStreak':30,'totalVisits':30,'stage':'stage4','highestStage':'stage4','dates':visit_dates}
+    progress['evolution'] = {'version':1,'stage':'odango','declined':[],'usedFree':['egg'],
+        'revision':0,'changedAt':0,'wallet':{'evolution':0,'regression':0,'receipts':[]}}
+
 fixture['@mentore/progress_v2'] = progress
 manifest = {}
 for key, value in fixture.items():
