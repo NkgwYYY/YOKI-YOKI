@@ -1,0 +1,15 @@
+name: Upload TestFlight 1.2.0 build 35
+
+defaults:
+  tools:
+    node: 22.16.0
+    pnpm: 10.11.0
+
+# Submit the already-built c6188ec binary after native QA. No rebuild and no public App Review.
+jobs:
+  submit_ios:
+    name: Upload iOS 1.2.0 (35) to TestFlight
+    type: submit
+    params:
+      build_id: 68707514-4bc3-4e8b-894a-b82cfcb173b8
+      profile: production
