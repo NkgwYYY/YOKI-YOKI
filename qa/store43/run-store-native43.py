@@ -1,7 +1,7 @@
 """Capture build43 in an isolated standard GitHub macOS runner.
 Uses the completed build43 simulator archive unchanged; no app source patching.
 """
-import json, os, plistlib, re, subprocess, tarfile, tempfile, urllib.parse, urllib.request, urllib.error
+import hashlib, json, os, plistlib, re, subprocess, tarfile, tempfile, urllib.parse, urllib.request, urllib.error
 from pathlib import Path
 
 root=Path.cwd()
@@ -25,6 +25,9 @@ download=subprocess.run(['node','-e',node_download,str(archive)],capture_output=
 if download.returncode:
     raise SystemExit('Official Expo downloader failed; secret URL intentionally omitted')
 print('Downloaded original simulator build43 with official Expo downloader', flush=True)
+archive_sha=hashlib.sha256(archive.read_bytes()).hexdigest()
+if archive_sha != '9eeb233001108c5d5a03a263897c965223e6c252e8126875c5075e491e4e35e0':
+    raise SystemExit('Simulator archive does not match verified Expo build 553dbe7c')
 with tarfile.open(archive) as z:
     for m in z.getmembers():
         if m.name.startswith('/') or '..' in Path(m.name).parts: raise SystemExit('Unsafe archive path')
@@ -36,14 +39,20 @@ with (app/'Info.plist').open('rb') as f: info=plistlib.load(f)
 bundle=info['CFBundleIdentifier']
 # Stop any runner-provided simulator before creating this isolated device.
 subprocess.run(['xcrun','simctl','shutdown','all'],check=False,timeout=60)
-if bundle!='app.replit.yokiyoki--' or str(info['CFBundleVersion'])!='43': raise SystemExit('Wrong app or build number')
+# EAS source commit is production43; this simulator retains local app.json CFBundleVersion19.
+# Pin the verified complete archive and JS bundle instead of treating that metadata as43.
+if bundle!='app.replit.yokiyoki--' or str(info['CFBundleVersion'])!='19' or info['CFBundleShortVersionString']!='1.2.0' or info['DTPlatformName']!='iphonesimulator':
+    raise SystemExit('Unexpected verified simulator metadata')
+js_sha=hashlib.sha256((app/'main.jsbundle').read_bytes()).hexdigest()
+if js_sha != '30d8bed687213bcbe0df940b07476be10dcb63ee020894d629ede040cbc2571f':
+    raise SystemExit('Unexpected simulator JS bundle')
 def read(*cmd): return subprocess.check_output(cmd,text=True).strip()
 devices=json.loads(read('xcrun','simctl','list','devices','available','--json'))['devices']
 candidates=[(r,d) for r,rows in devices.items() if '.iOS-' in r for d in rows if d['name']=='iPhone 16 Plus' and d.get('isAvailable')]
 if not candidates: candidates=[(r,d) for r,rows in devices.items() if '.iOS-' in r for d in rows if d['name'].startswith('iPhone') and d.get('isAvailable')]
 runtime,d=max(candidates,key=lambda x:tuple(map(int,re.findall(r'\d+',x[0]))))
 udid=read('xcrun','simctl','create','YokiStoreCapture43',d['deviceTypeIdentifier'],runtime)
-evidence={'native':True,'archiveSha256':__import__('hashlib').sha256(archive.read_bytes()).hexdigest(),'sourceSimulatorBuild':input_data['buildId'],'runtimeCommit':input_data['runtimeCommit'],'version':info['CFBundleShortVersionString'],'buildNumber':info['CFBundleVersion'],'device':d['name'],'runtime':runtime,'syntheticProfile':True,'runtimeModified':False}
+evidence={'native':True,'archiveSha256':__import__('hashlib').sha256(archive.read_bytes()).hexdigest(),'sourceSimulatorBuild':input_data['buildId'],'runtimeCommit':input_data['runtimeCommit'],'version':info['CFBundleShortVersionString'],'productionBuildNumber':'43','simulatorCFBundleVersion':info['CFBundleVersion'],'sourceCommit':'fa00d08cdd8258a3139a63540f18a3f8c9b036a6','jsBundleSha256':js_sha,'device':d['name'],'runtime':runtime,'syntheticProfile':True,'runtimeModified':False}
 (out/'provenance.json').write_text(json.dumps(evidence,indent=2))
 try:
     subprocess.run(['xcrun','simctl','boot',udid],check=True,timeout=120)
