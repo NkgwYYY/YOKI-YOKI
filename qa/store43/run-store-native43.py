@@ -1,7 +1,7 @@
 """Capture build43 in an isolated standard GitHub macOS runner.
 Uses the completed build43 simulator archive unchanged; no app source patching.
 """
-import json, os, plistlib, re, subprocess, tarfile, tempfile, urllib.parse, urllib.request
+import json, os, plistlib, re, subprocess, tarfile, tempfile, urllib.parse, urllib.request, urllib.error
 from pathlib import Path
 
 root=Path.cwd()
@@ -17,8 +17,12 @@ if parsed.scheme!='https' or parsed.hostname!='expo.dev' or not parsed.path.star
 archive=work/'app.tar.gz'
 try:
     urllib.request.urlretrieve(url,archive)
-except Exception:
-    raise SystemExit('Could not download the simulator archive; URL intentionally omitted')
+except urllib.error.HTTPError as e:
+    raise SystemExit(f'Simulator download HTTP {e.code}; host={urllib.parse.urlparse(e.url).hostname}; URL omitted')
+except urllib.error.URLError as e:
+    reason=str(e.reason)
+    reason=re.sub(r'https?://[^\s]+', '[URL]', reason)
+    raise SystemExit(f'Simulator download transport error: {reason[:240]}')
 with tarfile.open(archive) as z:
     for m in z.getmembers():
         if m.name.startswith('/') or '..' in Path(m.name).parts: raise SystemExit('Unsafe archive path')
