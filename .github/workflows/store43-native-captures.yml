@@ -1,0 +1,33 @@
+name: Capture App Store build 43
+on:
+  push:
+    branches: [qa/store43-native-captures-20261103]
+    paths: [.github/workflows/store43-native-captures.yml, qa/store43/**]
+permissions:
+  contents: read
+concurrency:
+  group: store43-native-captures
+  cancel-in-progress: false
+jobs:
+  screenshots:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          sparse-checkout: qa/store43
+      - name: Install UI test project generator
+        run: gem install xcodeproj --version 1.27.0 --no-document
+      - name: Capture unchanged simulator build 43
+        env:
+          YOKI_SIMULATOR_ARCHIVE_URL: ${{ secrets.YOKI_STORE_SIM43_ARCHIVE_URL }}
+        run: python3 qa/store43/run-store-native43.py
+      - name: Retain synthetic screenshots and test result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: yokiyoki-store43-native
+          retention-days: 3
+          if-no-files-found: error
+          path: store-native43/

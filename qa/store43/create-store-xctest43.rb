@@ -1,0 +1,16 @@
+require 'xcodeproj'
+require 'fileutils'
+destination = File.expand_path(ARGV.fetch(0))
+FileUtils.mkdir_p(destination)
+project = Xcodeproj::Project.new(File.join(destination, 'StoreCapture.xcodeproj'))
+target = project.new_target(:ui_test_bundle, 'StoreCaptureUITests', :ios, '15.1')
+target.source_build_phase.add_file_reference(project.main_group.new_file(File.expand_path('StoreCaptures43.swift', __dir__)))
+target.build_configurations.each do |c|
+  c.build_settings.merge!({'PRODUCT_BUNDLE_IDENTIFIER'=>'dev.yokiyoki.store-capture43','GENERATE_INFOPLIST_FILE'=>'YES','SWIFT_VERSION'=>'5.0','TARGETED_DEVICE_FAMILY'=>'1','CODE_SIGNING_ALLOWED'=>'NO'})
+end
+project.save
+scheme=Xcodeproj::XCScheme.new
+scheme.add_build_target(target)
+scheme.add_test_target(target)
+scheme.test_action.build_configuration='Release'
+scheme.save_as(project.path,'StoreCaptureUITests',true)
