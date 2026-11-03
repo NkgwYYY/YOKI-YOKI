@@ -19,8 +19,11 @@ jobs:
           sparse-checkout: qa/store43
       - name: Install UI test project generator
         run: gem install xcodeproj --version 1.27.0 --no-document
+      - name: Install official Expo artifact downloader
+        run: npm install --no-audit --no-fund --prefix "$RUNNER_TEMP/yoki-capture-tools" eas-cli@25.2.0
       - name: Capture unchanged simulator build 43
         env:
+          YOKI_CAPTURE_TOOLS: ${{ runner.temp }}/yoki-capture-tools
           YOKI_SIMULATOR_ARCHIVE_URL: ${{ secrets.YOKI_STORE_SIM43_ARCHIVE_URL }}
         run: python3 qa/store43/run-store-native43.py
       - name: Retain synthetic screenshots and test result

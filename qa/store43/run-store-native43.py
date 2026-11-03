@@ -15,14 +15,16 @@ parsed=urllib.parse.urlparse(url)
 if parsed.scheme!='https' or parsed.hostname!='expo.dev' or not parsed.path.startswith('/artifacts/eas/'):
     raise SystemExit('Unexpected simulator artifact source')
 archive=work/'app.tar.gz'
-try:
-    urllib.request.urlretrieve(url,archive)
-except urllib.error.HTTPError as e:
-    raise SystemExit(f'Simulator download HTTP {e.code}; host={urllib.parse.urlparse(e.url).hostname}; URL omitted')
-except urllib.error.URLError as e:
-    reason=str(e.reason)
-    reason=re.sub(r'https?://[^\s]+', '[URL]', reason)
-    raise SystemExit(f'Simulator download transport error: {reason[:240]}')
+# Use the official Expo downloader with its normal transport; no account token is needed.
+node_download = """
+const {downloadFileWithProgressTrackerAsync} = require(process.env.YOKI_CAPTURE_TOOLS + '/node_modules/eas-cli/build/utils/download.js');
+downloadFileWithProgressTrackerAsync(process.env.YOKI_SIMULATOR_ARCHIVE_URL, process.argv[1], () => 'Downloading simulator43', 'Downloaded simulator43')
+.then(() => process.exit(0)).catch(() => { console.error('Official Expo download failed'); process.exit(1); });
+"""
+download=subprocess.run(['node','-e',node_download,str(archive)],capture_output=True,text=True,timeout=360)
+if download.returncode:
+    raise SystemExit('Official Expo downloader failed; secret URL intentionally omitted')
+print('Downloaded original simulator build43 with official Expo downloader', flush=True)
 with tarfile.open(archive) as z:
     for m in z.getmembers():
         if m.name.startswith('/') or '..' in Path(m.name).parts: raise SystemExit('Unsafe archive path')
