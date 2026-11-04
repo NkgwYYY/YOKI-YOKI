@@ -1,0 +1,73 @@
+name: Costume native purchase verification
+on:
+  push:
+    branches: [release/costume-records44-qa-20261104]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: costume44-qa-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  purchases:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      DEVICE_FAMILY: iPhone
+      YOKI_QA_EGG: '0'
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Download the successful native artifact without rebuilding
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: yokiyoki-costume44-native
+          path: native-candidate
+          run-id: 41761717083
+          github-token: ${{ github.token }}
+      - name: Verify artifact provenance and install test runner
+        run: |
+          test "$(cat ../../native-candidate/source-commit.txt)" = 8626d75e2c24c4c69321ebd8eae1011ea4edb70b
+          ditto -x -k ../../native-candidate/YOKIYOKI-simulator.zip "$RUNNER_TEMP/yoki-app"
+          echo "YOKI_LOCAL_SIM_APP=$RUNNER_TEMP/yoki-app/YOKIYOKI.app" >> "$GITHUB_ENV"
+          mkdir -p review-results
+          cp ../../native-candidate/source-commit.txt review-results/app-source-commit.txt
+          # The artifact still has build number 19; production will be 1.2.1 (44).
+          gem install xcodeproj --version 1.27.0 --no-document
+          ruby scripts/create-costume-xctest.rb "$RUNNER_TEMP/yoki-review-xctest"
+      - name: Prepare isolated simulator with synthetic data
+        run: python3 scripts/prepare-ios-review.py
+      - name: Verify native purchases, cancellation, persistence and restore
+        id: journeys
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -sdk iphonesimulator -destination "platform=iOS Simulator,id=$YOKI_SIMULATOR_UDID" -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO '-only-testing:YokiReviewUITests/CostumeReleaseJourney' test > review-results/iPhone/xctest.log 2>&1 || { tail -100 review-results/iPhone/xctest.log; exit 1; }
+      - name: Export screenshots and diagnostics
+        if: always()
+        run: |
+          python3 scripts/finish-ios-review.py iPhone
+          if [ -d review-results/iPhone/native.xcresult ]; then
+            xcrun xcresulttool export attachments --path review-results/iPhone/native.xcresult --output-path review-results/iPhone/attachments || true
+            xcrun xcresulttool get test-results summary --path review-results/iPhone/native.xcresult > review-results/iPhone/summary.json || true
+          fi
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: yokiyoki-costume44-native-purchases
+          retention-days: 7
+          path: |
+            artifacts/mobile/review-results/
+            !artifacts/mobile/review-results/**/native.xcresult/**
+      - name: Require actual test success
+        if: always()
+        env:
+          OUTCOME: ${{ steps.journeys.outcome }}
+        run: test "$OUTCOME" = success

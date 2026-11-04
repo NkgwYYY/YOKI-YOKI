@@ -1,5 +1,5 @@
 {
-  "status": "PARTIALLY_CREATED_PENDING_AVAILABILITY_AND_REVIEW",
+  "status": "METADATA_SAVED_REVIEW_SCREENSHOTS_AND_SUBMISSION_PENDING",
   "products": [
     {
       "product_id": "yokiyoki.costume.dog",
@@ -18,7 +18,11 @@
       },
       "review_notes": "Home → … menu → 着ぐるみ. Select an unowned costume, then choose the App Store price button. The alternative 500-point button is not an IAP. Non-consumable, restored using 購入を復元. Purchases unlock the same costume across all growth stages. No subscription.",
       "app_store_connect_id": "6830432588",
-      "registration_status": "CREATED_PRICE_JPY_50_SAVED_LOCALIZATION_SAVE_UNVERIFIED"
+      "registration_status": "PRICE_JPY_50_JAPAN_ONLY_JA_EN_AND_REVIEW_NOTES_SAVED",
+      "available_territories": [
+        "JPN"
+      ],
+      "available_in_new_territories": false
     },
     {
       "product_id": "yokiyoki.costume.cat",
@@ -36,7 +40,12 @@
         }
       },
       "review_notes": "Home → … menu → 着ぐるみ. Select an unowned costume, then choose the App Store price button. The alternative 500-point button is not an IAP. Non-consumable, restored using 購入を復元. Purchases unlock the same costume across all growth stages. No subscription.",
-      "registration_status": "NOT_CREATED"
+      "registration_status": "PRICE_JPY_50_JAPAN_ONLY_JA_EN_AND_REVIEW_NOTES_SAVED",
+      "app_store_connect_id": "6830440857",
+      "available_territories": [
+        "JPN"
+      ],
+      "available_in_new_territories": false
     },
     {
       "product_id": "yokiyoki.costume.rabbit",
@@ -54,7 +63,12 @@
         }
       },
       "review_notes": "Home → … menu → 着ぐるみ. Select an unowned costume, then choose the App Store price button. The alternative 500-point button is not an IAP. Non-consumable, restored using 購入を復元. Purchases unlock the same costume across all growth stages. No subscription.",
-      "registration_status": "NOT_CREATED"
+      "registration_status": "PRICE_JPY_50_JAPAN_ONLY_JA_EN_AND_REVIEW_NOTES_SAVED",
+      "app_store_connect_id": "6830441984",
+      "available_territories": [
+        "JPN"
+      ],
+      "available_in_new_territories": false
     },
     {
       "product_id": "yokiyoki.costume.frog",
@@ -72,7 +86,12 @@
         }
       },
       "review_notes": "Home → … menu → 着ぐるみ. Select an unowned costume, then choose the App Store price button. The alternative 500-point button is not an IAP. Non-consumable, restored using 購入を復元. Purchases unlock the same costume across all growth stages. No subscription.",
-      "registration_status": "NOT_CREATED"
+      "registration_status": "PRICE_JPY_50_JAPAN_ONLY_JA_EN_AND_REVIEW_NOTES_SAVED",
+      "app_store_connect_id": "6830442233",
+      "available_territories": [
+        "JPN"
+      ],
+      "available_in_new_territories": false
     },
     {
       "product_id": "yokiyoki.costume.panda",
@@ -90,7 +109,12 @@
         }
       },
       "review_notes": "Home → … menu → 着ぐるみ. Select an unowned costume, then choose the App Store price button. The alternative 500-point button is not an IAP. Non-consumable, restored using 購入を復元. Purchases unlock the same costume across all growth stages. No subscription.",
-      "registration_status": "NOT_CREATED"
+      "registration_status": "PRICE_JPY_50_JAPAN_ONLY_JA_EN_AND_REVIEW_NOTES_SAVED",
+      "app_store_connect_id": "6830442397",
+      "available_territories": [
+        "JPN"
+      ],
+      "available_in_new_territories": false
     }
   ]
 }

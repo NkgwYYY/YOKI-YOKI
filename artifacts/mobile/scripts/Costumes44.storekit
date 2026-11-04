@@ -1,0 +1,118 @@
+{
+  "identifier": "8DD69933-C5A6-42BE-B252-F219AA805004",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "50",
+      "familyShareable": false,
+      "internalID": "44001",
+      "localizations": [
+        {
+          "description": "相棒が着られるいぬの着ぐるみ。すべての成長段階で使えます。",
+          "displayName": "いぬの着ぐるみ",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "A dog costume for every companion stage.",
+          "displayName": "Dog Costume",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.costume.dog",
+      "referenceName": "Dog Costume",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "50",
+      "familyShareable": false,
+      "internalID": "44002",
+      "localizations": [
+        {
+          "description": "相棒が着られるねこの着ぐるみ。すべての成長段階で使えます。",
+          "displayName": "ねこの着ぐるみ",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "A cat costume for every companion stage.",
+          "displayName": "Cat Costume",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.costume.cat",
+      "referenceName": "Cat Costume",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "50",
+      "familyShareable": false,
+      "internalID": "44003",
+      "localizations": [
+        {
+          "description": "相棒が着られるうさぎの着ぐるみ。すべての成長段階で使えます。",
+          "displayName": "うさぎの着ぐるみ",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "A rabbit costume for every companion stage.",
+          "displayName": "Rabbit Costume",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.costume.rabbit",
+      "referenceName": "Rabbit Costume",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "50",
+      "familyShareable": false,
+      "internalID": "44004",
+      "localizations": [
+        {
+          "description": "相棒が着られるかえるの着ぐるみ。すべての成長段階で使えます。",
+          "displayName": "かえるの着ぐるみ",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "A frog costume for every companion stage.",
+          "displayName": "Frog Costume",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.costume.frog",
+      "referenceName": "Frog Costume",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "50",
+      "familyShareable": false,
+      "internalID": "44005",
+      "localizations": [
+        {
+          "description": "相棒が着られるパンダの着ぐるみ。すべての成長段階で使えます。",
+          "displayName": "パンダの着ぐるみ",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "A panda costume for every companion stage.",
+          "displayName": "Panda Costume",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.costume.panda",
+      "referenceName": "Panda Costume",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_askToBuyEnabled": false,
+    "_failTransactionsEnabled": false,
+    "_locale": "ja_JP",
+    "_storefront": "JPN",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}
