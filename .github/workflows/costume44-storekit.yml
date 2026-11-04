@@ -1,0 +1,23 @@
+name: Costume StoreKit typecheck
+on:
+  push:
+    branches: [qa/costume44-storekit-20261104]
+    paths:
+      - qa/costume44/**
+      - .github/workflows/costume44-storekit.yml
+permissions:
+  contents: read
+jobs:
+  storekit:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: qa/costume44
+          persist-credentials: false
+      - name: Compile purchase store against the iOS Simulator SDK
+        run: |
+          xcodebuild -version
+          shasum -a 256 qa/costume44/CostumeStore.swift
+          xcrun --sdk iphonesimulator swiftc -typecheck -warnings-as-errors -swift-version 5 -target arm64-apple-ios17.0-simulator -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" qa/costume44/CostumeStore.swift
