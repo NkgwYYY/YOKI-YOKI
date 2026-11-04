@@ -17,6 +17,7 @@ jobs:
       CI: 'true'
       DEVICE_FAMILY: iPhone
       YOKI_QA_EGG: '0'
+      YOKI_SIM_RUNTIME: com.apple.CoreSimulator.SimRuntime.iOS-26-2
     defaults:
       run:
         working-directory: artifacts/mobile
@@ -43,12 +44,15 @@ jobs:
           ruby scripts/create-costume-xctest.rb "$RUNNER_TEMP/yoki-review-xctest"
       - name: Prepare isolated simulator with synthetic data
         run: python3 scripts/prepare-ios-review.py
+      - name: Build the isolated UI test runner
+        run: |
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -sdk iphonesimulator -destination "platform=iOS Simulator,id=$YOKI_SIMULATOR_UDID" -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build-for-testing > review-results/iPhone/test-build.log 2>&1 || { tail -80 review-results/iPhone/test-build.log; exit 1; }
+          python3 scripts/configure-costume-xctestrun.py
       - name: Verify native purchases, cancellation, persistence and restore
         id: journeys
         continue-on-error: true
         run: |
-          set -o pipefail
-          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -sdk iphonesimulator -destination "platform=iOS Simulator,id=$YOKI_SIMULATOR_UDID" -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO '-only-testing:YokiReviewUITests/CostumeReleaseJourney' test > review-results/iPhone/xctest.log 2>&1 || { tail -100 review-results/iPhone/xctest.log; exit 1; }
+          xcodebuild -xctestrun "$YOKI_XCTESTRUN" -destination "platform=iOS Simulator,id=$YOKI_SIMULATOR_UDID" -destination-timeout 180 -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 '-only-testing:YokiReviewUITests/CostumeReleaseJourney' test-without-building > review-results/iPhone/xctest.log 2>&1 || { tail -100 review-results/iPhone/xctest.log; exit 1; }
       - name: Export screenshots and diagnostics
         if: always()
         run: |

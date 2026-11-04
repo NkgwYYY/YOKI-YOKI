@@ -63,6 +63,12 @@ runtimes = sorted({r for r, _ in choices if runtime_version(r) >= minimum_os},
                   key=runtime_version, reverse=True)
 if not runtimes:
     raise SystemExit('No installed simulator runtime meets the app minimum OS')
+# Pin a known installed runtime for targeted StoreKit CI compatibility checks.
+requested_runtime = os.environ.get('YOKI_SIM_RUNTIME')
+if requested_runtime:
+    runtimes = [r for r in runtimes if r == requested_runtime]
+    if not runtimes:
+        raise SystemExit('Requested simulator runtime is not installed: ' + requested_runtime)
 # Repeated fresh iPhones on one runtime failed OS data migration before install.
 # Keep the newest OS first, then use a different installed compatible runtime
 # for the single bootstrap retry when available. Never retry an app test failure.
