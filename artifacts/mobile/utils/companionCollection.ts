@@ -2,6 +2,7 @@ import type {FeedState,RoomCustomization,UserProgress} from '../contexts/AppCont
 import type {BowlingState} from './bowling';
 import type {StorageEntry} from './recoverableStorage';
 export const KEEPSAKES = [
+ {id:'moyamoya-cushion',name:'モヤモヤ雲のクッション',hint:'モヤモヤバトルに累計5日参加する',story:'勝った日も、ひと休みした日も。向き合った時間の記念。',kind:'cushion',days:0},
  {id:'cushion',name:'おひるねクッション',hint:'累計7日、一緒に過ごす',story:'きみのとなりが、いちばん落ち着く場所になった。',kind:'cushion',days:7},
  {id:'flower',name:'小さな花の贈りもの',hint:'累計14日、一緒に過ごす',story:'きみに見せたくて、大切に持って帰ってきたお花。',kind:'flower',days:14},
  {id:'lamp',name:'おかえりの星あかり',hint:'累計30日、一緒に過ごす',story:'帰ってくる場所に、小さな星をひとつ。',kind:'lamp',days:30},
@@ -29,7 +30,9 @@ export function prepareCollection(values:Record<string,string|null>,selection?:K
  const room:RoomCustomization=values[ROOM]?JSON.parse(values[ROOM]!):{furniture:'none',flower:'none',ownedFurniture:[],ownedFlowers:[]};
  if(!room||!Array.isArray(room.ownedFurniture)||!Array.isArray(room.ownedFlowers))throw Error('お部屋の記録を確認できません');
  const progress=JSON.parse(values['@mentore/progress_v2']??'{}'),feed=JSON.parse(values['@mentore/feed_state_v1']??'{}'),bowling=JSON.parse(values['@yoki/bowling_v1']??'{"plays":{}}');
- const keepsakes=[...new Set([...collectionIds(room.keepsakes),...earnedKeepsakes(progress,feed,bowling)])];
+ const records=JSON.parse(values['@mentore/records_v2']??'[]');
+ const battleReward:KeepsakeId[]=Array.isArray(records)&&new Set(records.filter(r=>r?.moyamoya?.participated===true).map(r=>r.date)).size>=5?['moyamoya-cushion']:[];
+ const keepsakes=[...new Set([...collectionIds(room.keepsakes),...earnedKeepsakes(progress,feed,bowling),...battleReward])];
  if(selection&&selection!=='none'&&!keepsakes.includes(selection))throw Error('この思い出は、これから。');
  const displayedKeepsake=selection??(room.displayedKeepsake==='none'?'none':keepsakes.includes(room.displayedKeepsake as KeepsakeId)?room.displayedKeepsake:keepsakes[0]??'none');
  const next={...room,keepsakes,displayedKeepsake};

@@ -1,10 +1,12 @@
 import React,{useId} from 'react';
+import {Image} from 'react-native';
 import Svg,{Defs,Ellipse,Path,Rect,Circle,LinearGradient,RadialGradient,Stop,G} from 'react-native-svg';
 import type {KeepsakeId} from '@/utils/companionCollection';
 /** Matte ceramic, stitched fabric and pale wood share the room's lighting. */
 export function KeepsakeArt({id,size=100}:{id:KeepsakeId;size?:number}){
  const uid=useId().replace(/[^a-zA-Z0-9]/g,'');
  const paint=(name:string)=>`url(#${uid}${name})`;
+ if(id==='moyamoya-cushion')return <Image source={require('@/assets/moyamoya/cushion.webp')} style={{width:size,height:size}} resizeMode="contain"/>;
  return <Svg width={size} height={size} viewBox="0 0 120 120" accessible={false}>
   <Defs>
    <LinearGradient id={uid+'fabric'} x1="0" y1="0" x2=".8" y2="1"><Stop offset="0" stopColor="#E7D6F2"/><Stop offset=".5" stopColor="#C8B0DF"/><Stop offset="1" stopColor="#967CAB"/></LinearGradient>

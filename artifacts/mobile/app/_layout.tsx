@@ -1,3 +1,4 @@
+import {BattleMusicProvider} from '@/contexts/BattleMusicContext';
 import {instrumentAuthStartup,instrumentTokenCache} from '@/utils/authStartupDiagnostics';
 import {needsNativeEntry} from '@/utils/entryRoute';
 import {AuthStartupGate} from '@/components/AuthStartupFeedback';
@@ -99,6 +100,7 @@ function RootLayoutNav() {
         <Stack.Screen name="shop" options={{ headerShown: false, animation: 'none' }} />
         <Stack.Screen name="bowling" options={{ headerShown: false, animation: 'none' }} />
         <Stack.Screen name="bank" options={{ headerShown: false, animation: 'none' }} />
+        <Stack.Screen name="moyamoya-battle" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="monthly-report" options={{ headerShown: false, animation: 'slide_from_right' }} />
       </Stack>
     </>
@@ -111,8 +113,8 @@ function AppContent() {
     <AppProvider key={storageEpoch}>
       <RecordPromptProvider><ItemProvider>
         <GestureHandlerRootView style={styles.root}>
-          <SceneTransitionProvider><VillageMusicProvider><CommunityProvider><ConnectedDailyAds><RootLayoutNav />
-          <StartupLoadingOverlay /></ConnectedDailyAds></CommunityProvider></VillageMusicProvider></SceneTransitionProvider>
+          <SceneTransitionProvider><VillageMusicProvider><BattleMusicProvider><CommunityProvider><ConnectedDailyAds><RootLayoutNav />
+          <StartupLoadingOverlay /></ConnectedDailyAds></CommunityProvider></BattleMusicProvider></VillageMusicProvider></SceneTransitionProvider>
         </GestureHandlerRootView>
       </ItemProvider></RecordPromptProvider>
     </AppProvider>

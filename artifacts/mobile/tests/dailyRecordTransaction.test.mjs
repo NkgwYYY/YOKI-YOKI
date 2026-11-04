@@ -1,3 +1,4 @@
+import * as moyamoya from '../utils/moyamoya.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
@@ -12,6 +13,7 @@ const code=ts.transpileModule(fs.readFileSync(new URL('../utils/dailyRecordTrans
 }).outputText;
 const exports={};
 new Function('require','exports',code)(name=>{
+  if(name==='./moyamoya.ts')return moyamoya;
   if(name==='./lightEnergy')return energy;
   if(name==='./happiness')return happiness;
   throw Error('Unexpected dependency: '+name);

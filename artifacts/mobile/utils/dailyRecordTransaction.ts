@@ -1,3 +1,4 @@
+import {recordMoyamoya} from './moyamoya.ts';
 import type { DailyRecord, FeedState, RecordExtras, UnlockedBadge, UserProgress } from '../contexts/AppContext';
 import type { StorageEntry } from './recoverableStorage';
 import { grantHappiness } from './happiness';
@@ -42,11 +43,13 @@ export function prepareDailyRecord(
     exercise: input.extras?.exercise, meal: input.extras?.meal, social: input.extras?.social,
     win: input.extras?.win?.trim() || undefined, activities: input.extras?.activities,
     ...(!isNew && records[index].fatigue !== undefined ? {fatigue: records[index].fatigue} : {}),
+    ...(!isNew && records[index].moyamoya ? {moyamoya:records[index].moyamoya} : {}),
     ...(!isNew && records[index].worry !== undefined ? {worry: records[index].worry} : {}),
   };
   // Legacy diary saves omit these keys; explicit undefined from the new editor clears them.
   if (input.extras && Object.prototype.hasOwnProperty.call(input.extras, 'fatigue')) record.fatigue = input.extras.fatigue;
   if (input.extras && Object.prototype.hasOwnProperty.call(input.extras, 'worry')) record.worry = input.extras.worry;
+  if (input.extras?.moyamoya) record.moyamoya = recordMoyamoya(isNew?undefined:records[index].moyamoya,input.extras.moyamoya,`m_${now.getTime()}_${Math.random().toString(36).slice(2)}`);
   const nextRecords = isNew ? [...records, record] : records.map((r, i) => i === index ? record : r);
   const nextProgress = isNew ? {
     ...progress,

@@ -174,6 +174,11 @@ if not egg_capture:
     progress['evolution'] = {'version':1,'stage':'odango','declined':[],'usedFree':['egg'],
         'revision':0,'changedAt':0,'wallet':{'evolution':0,'regression':0,'receipts':[]}}
 
+if os.environ.get('YOKI_QA_MOYAMOYA') == '1':
+    feed['wardrobe'] = {'version': 1, 'owned': ['panda'], 'equipped': 'panda', 'changedAt': 1}
+    for record in synthetic_records[:4]:
+        record['moyamoya'] = {'has': True, 'pattern': 'busy', 'memo': '', 'participated': True}
+
 fixture['@mentore/progress_v2'] = progress
 manifest = {}
 for key, value in fixture.items():

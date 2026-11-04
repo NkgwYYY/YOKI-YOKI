@@ -1,3 +1,4 @@
+import {HomeEncounter} from '@/components/moyamoya/HomeEncounter';
 import {YourConditionCard} from '@/components/world/YourConditionCard';
 import {evolutionOffer} from '@/utils/evolutionChoice';
 import {FirstSteps,useFirstSteps} from '@/components/onboarding/FirstSteps';
@@ -66,6 +67,7 @@ export default function HomeScreen() {
   const { progress, growth, currentSatiety, feedState, mascotName, setMascotName, roomCustomization, companionState,
     isLoading, cloudSynced, getTodayRecord, getCompletedCount, getTotalCheckCount, homeCommentPreferences } = useApp();
   const { items, shopState } = useItems();
+  const [battleEncounter,setBattleEncounter]=useState(false);
   const [sceneBusy,setSceneBusy]=useState(false);
   const [worldInteracting,setWorldInteracting]=useState(false);
   const [worldMap,setWorldMap]=useState('home');
@@ -97,7 +99,7 @@ export default function HomeScreen() {
   const [rest, setRest] = useState(0);
   const [food, setFood] = useState<string | null>(null);
   const adPlacement = worldMap==='market' ? 'street' : 'home';
-  const adEnvironment = {...useAdEnvironment(!!sheet || sceneBusy, worldInteracting || !!food), screenActive: active && (worldMap==='home' || worldMap==='market')};
+  const adEnvironment = {...useAdEnvironment(!!sheet || sceneBusy || battleEncounter, worldInteracting || !!food), screenActive: active && (worldMap==='home' || worldMap==='market')};
   const rewardEnvironment = useAdEnvironment(sheet!=='points', !!food);
   const giftAvailable=!!gifts.waiting&&active&&worldMap==='home'&&!sheet&&!sceneBusy&&!food;
   const [speech, setSpeech] = useState('');
@@ -108,6 +110,7 @@ export default function HomeScreen() {
   const nameBusy = useRef(false);
   const nameSession = useRef(0);
   const today = getTodayRecord();
+  const hasBattleInvitation=!!today?.moyamoya?.battle&&['invited','active'].includes(today.moyamoya.battle.status);
   const evolution=evolutionOffer(progress);
   const prompt = useRecordPrompt();
   const invitation = false; // Recording is always optional.
@@ -124,7 +127,7 @@ export default function HomeScreen() {
   const outing=useScenicVisit(giftOwner,letter.date,time.period==='night',!!bathReturn||!!atelier||!!place);
   useEffect(()=>{if(bathReturn||place==='home'){outing.returnHome();router.setParams({place:undefined,bathReturn:undefined});}},[bathReturn,place,outing.returnHome]);
   const openLetter=()=>{letter.markSeen();setSheet('brief');};
-  useEffect(()=>{if(active&&learn!=='1'&&tutorial.ready&&!tutorial.due&&letter.due&&(!place||place==='home')&&!sheet&&!sceneBusy&&!worldInteracting&&!food){letter.markSeen();setSheet('brief');}},[active,learn,tutorial.ready,tutorial.due,letter.due,letter.date,sheet,sceneBusy,worldInteracting,food]);
+  useEffect(()=>{if(active&&learn!=='1'&&tutorial.ready&&!tutorial.due&&letter.due&&!hasBattleInvitation&&(!place||place==='home')&&!sheet&&!sceneBusy&&!worldInteracting&&!food){letter.markSeen();setSheet('brief');}},[active,learn,tutorial.ready,tutorial.due,letter.due,letter.date,sheet,sceneBusy,worldInteracting,food]);
   const close = () => { nameSession.current++; setSheet(null); };
   const saveName = async () => {
     if (nameBusy.current || !name.trim()) return;
@@ -184,7 +187,7 @@ export default function HomeScreen() {
     </View>}
     </>}>
     <WorldHome controlsRequest={controlsRequest} onControlsOpened={()=>setControlsRequest(undefined)} speech={speech||(!sheet&&!worldInteracting&&!food&&worldMap==='home'?'今日は、どんな一日だった？':'')} visitScene={outing.scene} onReturnHome={outing.returnHome} cleanRequest={cleanRequest} onCleaningOpened={()=>setCleanRequest(0)} onInteractingChange={setWorldInteracting} carriedGift={giftAvailable?gifts.waiting?.kind:undefined} welcomeRequest={welcome.request} onWelcomeStarted={id=>{welcome.acknowledge(id);voice.play('welcome');say('おかえり！\n会えてうれしいよ。',7000);}} onMapChange={setWorldMap} key={`${bathReturn??'world'}-${journey??''}-${outing.scene??'home'}`} cleanliness={100} happinessValue={happiness.value} music={music} careInvitation={invitation} onSceneBusy={setSceneBusy} onShop={tab=>router.push(tab==='seeds'?'/shop?tab=seeds':'/shop')} onJob={()=>router.push('/egg-job')} onGarden={()=>router.push('/(tabs)/plant')} initialMap={WORLD_MAPS.find(p=>p.id===place)?.id} customization={roomCustomization} stage={getMascotStage(progress)} growthSize={growth.growthSize}
-      mascotName={mascotName || 'よっきー'} active={active && !sheet} reduceMotion={reduceMotion}
+      mascotName={mascotName || 'よっきー'} active={active && !sheet && !battleEncounter} reduceMotion={reduceMotion}
       period={time.period} daySeed={time.seed} food={food} onInteract={interact}
       onMealFinished={() => {setFood(null); say('ごちそうさま。また一緒に食べようね。');}}
       resting={!!today && today.mood <= 2} reaction={reaction} meal={meal} rest={rest} hints={hints} companion={companionState.extraEggs > 0}
@@ -204,6 +207,7 @@ export default function HomeScreen() {
         </Pressable>)}
       </View>
     </View>}
+    <HomeEncounter key={giftOwner} enabled={active&&worldMap==='home'&&!sheet&&!sceneBusy&&!worldInteracting&&!food&&tutorial.ready&&!tutorial.due} onVisible={setBattleEncounter}/>
     {sheet==='points'&&<BottomSheet visible onClose={close} title="YOKIポイント" subtitle="ごはんや、お部屋のお買い物に使えます">
       <Text style={s.chatText}>{feedState.points} pt</Text>
       <DailyAdRewardButton placement={adPlacement} environment={rewardEnvironment}/>

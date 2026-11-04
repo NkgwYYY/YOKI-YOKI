@@ -1,0 +1,42 @@
+{
+  "composition": "Original music for YOKI YOKI, 2026-11-04",
+  "samples": "None; pulse, triangle and noise synthesized from the source score",
+  "tracks": {
+    "encounter": {
+      "file": "encounter.wav",
+      "seconds": 2.85715625,
+      "loop": false,
+      "events": 33,
+      "peak": 0.68,
+      "rms": 0.198,
+      "edge": [
+        0,
+        0
+      ]
+    },
+    "battle": {
+      "file": "battle.wav",
+      "seconds": 26.66665625,
+      "loop": true,
+      "events": 519,
+      "peak": 0.68,
+      "rms": 0.215,
+      "edge": [
+        0,
+        0
+      ]
+    },
+    "victory": {
+      "file": "victory.wav",
+      "seconds": 5.45453125,
+      "loop": false,
+      "events": 48,
+      "peak": 0.68,
+      "rms": 0.207,
+      "edge": [
+        0,
+        0
+      ]
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import * as moyamoya from '../utils/moyamoya.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import fs from 'node:fs';
@@ -71,7 +72,7 @@ test('daily record and checklist transactions retain wallet rewards without awar
   const dailyCode=ts.transpileModule(fs.readFileSync(new URL('../utils/dailyRecordTransaction.ts',import.meta.url),'utf8'),{
     compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022},
   }).outputText;
-  const daily={};new Function('require','exports',dailyCode)(name=>name==='./happiness'?happiness:energy,daily);
+  const daily={};new Function('require','exports',dailyCode)(name=>name==='./moyamoya.ts'?moyamoya:name==='./happiness'?happiness:energy,daily);
   const f=fixture(),store=f.open();
   await Promise.all([apply(store),store.transaction(values=>daily.prepareDailyRecord(values,
     {today,yesterday:'2026-09-29',mood:4,sleep:0,behaviors:[],notes:'',extras:{sleepRecorded:false}},defaults,5,now))]);

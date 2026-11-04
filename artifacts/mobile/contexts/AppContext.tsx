@@ -1,3 +1,4 @@
+import {prepareMoyamoya,type MoyamoyaInput,type MoyamoyaRecord,type BattleOperation} from '@/utils/moyamoya';
 import {costumeStore} from '@/utils/costumeStore';
 import {COSTUME_PRODUCTS,reconcileCostumePurchases,deliverCostumeSnapshot} from '@/utils/costumePurchases';
 import type {CostumeId} from '@/utils/costumeGeometry';
@@ -105,6 +106,7 @@ export type { LightEnergyState };
 export type { MiniGameState, GameSlot };
 
 export interface DailyRecord {
+  moyamoya?: MoyamoyaRecord;
   id: string;
   date: string;
   mood: number;
@@ -136,6 +138,7 @@ export interface UserProfile {
 }
 
 export interface RecordExtras {
+  moyamoya?: MoyamoyaInput;
   /** Merge only mood against the latest committed daily record. */
   moodOnly?: boolean;
   /** Merge mood/fatigue/worry only against the latest persisted record. */
@@ -288,6 +291,7 @@ interface AppContextType {
   removeChecklistItem: (id: string) => Promise<void>;
   resetChecklistToDefaults: () => Promise<void>;
   saveRecord: (mood: number, sleep: number, behaviors: string[], notes: string, extras?: RecordExtras) => Promise<void>;
+  runMoyamoya: (operation: BattleOperation) => Promise<ReturnType<typeof prepareMoyamoya>["result"]>;
   getTodayRecord: () => DailyRecord | undefined;
   getCompletedCount: () => number;
   getTotalCheckCount: () => number;
@@ -1524,6 +1528,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return {reading:saved.reading,created:saved.created};
   }, [user?.id, isSignedIn, isLoading, cloudSynced, pushDataToCloud]);
 
+  const runMoyamoya = useCallback(async (operation: BattleOperation) => {
+    if (isLoading || storageError || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
+    const owner = user?.id ?? 'guest';
+    const saved = await AsyncStorage.transaction(values => {
+      if (bowlingOwner.current !== owner) throw new Error('Account changed');
+      const battle=prepareMoyamoya(values, operation, getTodayDate(), defaultFeedState, `m_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+      const collection=prepareCollection({...values,...Object.fromEntries(battle.entries)});
+      return {entries:[...battle.entries,...collection.entries],result:{...battle.result,room:collection.result.room}};
+    });
+    if (bowlingOwner.current !== owner) throw new Error('Account changed');
+    setRecords(saved.records);setRoomCustomization(saved.room);
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    void pushDataToCloud().catch(() => {});
+    return saved;
+  }, [user?.id, isSignedIn, isLoading, storageError, cloudSynced, pushDataToCloud]);
+
   const runSmoking = useCallback(async (operation: SmokingOperation) => {
     if (Platform.OS === 'ios') throw new Error('この機能はiOS版では利用できません');
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
@@ -1645,7 +1665,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addChecklistItem,
         removeChecklistItem,
         resetChecklistToDefaults,
-        saveRecord,
+        saveRecord,runMoyamoya,
         getTodayRecord,
         getCompletedCount,
         getTotalCheckCount,
