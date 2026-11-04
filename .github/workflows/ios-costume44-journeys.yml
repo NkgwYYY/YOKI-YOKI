@@ -1,0 +1,69 @@
+name: Costume44 native purchase journeys
+on:
+  push:
+    branches: [qa/costume44-native-journeys-20261104]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: costume44-journeys
+  cancel-in-progress: true
+jobs:
+  purchases:
+    runs-on: macos-26
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    env:
+      CI: 'true'
+      DEVICE_FAMILY: iPhone
+      YOKI_REVIEW_CASE: iPhone
+      YOKI_QA_EGG: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Download the already compiled candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/candidate44"
+          gh run download 41761717083 --repo NkgwYYY/YOKI-YOKI --name yokiyoki-costume44-native --dir "$RUNNER_TEMP/candidate44"
+          test "$(cat "$RUNNER_TEMP/candidate44/source-commit.txt")" = 8626d75e2c24c4c69321ebd8eae1011ea4edb70b
+          ditto -x -k "$RUNNER_TEMP/candidate44/YOKIYOKI-simulator.zip" "$RUNNER_TEMP/candidate44"
+          echo "YOKI_LOCAL_SIM_APP=$RUNNER_TEMP/candidate44/YOKIYOKI.app" >> "$GITHUB_ENV"
+      - name: Prepare standalone StoreKit UI tests
+        run: |
+          gem install xcodeproj --version 1.27.0 --no-document
+          ruby scripts/create-costume-xctest.rb "$RUNNER_TEMP/yoki-costume-tests"
+      - name: Verify purchases and capture review screens
+        id: journey
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python3 scripts/prepare-ios-review.py
+          YOKI_TEST_UDID=$(cat review-results/iPhoneEgg/device-id.txt)
+          xcodebuild -project "$RUNNER_TEMP/yoki-costume-tests/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -sdk iphonesimulator -destination "platform=iOS Simulator,id=$YOKI_TEST_UDID" -destination-timeout 120 -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhoneEgg/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO '-only-testing:YokiReviewUITests/CostumeReleaseJourney' test > review-results/iPhoneEgg/xctest.log 2>&1 || { tail -80 review-results/iPhoneEgg/xctest.log; exit 1; }
+      - name: Export screenshots and test evidence
+        if: always()
+        run: |
+          if [ -d review-results/iPhoneEgg/native.xcresult ]; then
+            xcrun xcresulttool export attachments --path review-results/iPhoneEgg/native.xcresult --output-path review-results/iPhoneEgg/attachments
+            xcrun xcresulttool get test-results summary --path review-results/iPhoneEgg/native.xcresult > review-results/iPhoneEgg/summary.json
+          fi
+          python3 scripts/finish-ios-review.py iPhoneEgg
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: costume44-native-purchase-evidence
+          retention-days: 7
+          path: |
+            artifacts/mobile/review-results/
+            !artifacts/mobile/review-results/**/native.xcresult/**
+      - name: Require actual purchase test success
+        if: always()
+        env:
+          JOURNEY_RESULT: ${{ steps.journey.outcome }}
+        run: test "$JOURNEY_RESULT" = success
