@@ -12,6 +12,7 @@ else:
     targets=[v for k,v in data.items() if isinstance(v,dict) and 'TestBundlePath' in v]
 if len(targets)!=1: raise SystemExit('Unexpected UI test target count')
 t=targets[0]
+t['UseUITargetAppProvidedByTests']=False
 t['UITargetAppPath']=os.environ['YOKI_LOCAL_SIM_APP']
 t['UITargetAppBundleIdentifier']='app.replit.yokiyoki--'
 t['TestLanguage']='ja';t['TestRegion']='JP'

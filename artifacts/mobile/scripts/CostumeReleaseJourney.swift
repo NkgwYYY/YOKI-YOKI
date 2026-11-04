@@ -5,7 +5,7 @@ import StoreKitTest
 // test service is isolated to the disposable simulator; no real purchases.
 @MainActor
 final class CostumeReleaseJourney: XCTestCase {
-    private let app = XCUIApplication(bundleIdentifier: "app.replit.yokiyoki--")
+    private let app = XCUIApplication()
     private var store: SKTestSession!
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -206,5 +206,21 @@ final class CostumeReleaseJourney: XCTestCase {
         XCTAssertEqual(balance(), before - 500)
         XCTAssertEqual(element("wardrobe-action-dog").label, "着る", "Restore must retain point purchases")
         capture("store-restored-and-point-purchase-retained")
+        tap(element("wardrobe-action-panda"))
+        tap(element("wardrobe-buy-confirm"))
+        until("Point purchase must unlock panda") {
+            self.element("wardrobe-action-panda").label == "着る"
+        }
+        tap(element("wardrobe-action-panda"))
+        until("Panda must be equipped") {
+            self.element("wardrobe-selected-name").label.contains("パンダ")
+        }
+        capture("panda-equipped-preview")
+        tap(element("wardrobe-back"))
+        visible(element("home-daily-record"))
+        capture("panda-home-face")
+        app.terminate()
+        launchGuestHome()
+        capture("panda-home-after-relaunch")
     }
 }
