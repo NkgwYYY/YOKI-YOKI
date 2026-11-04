@@ -1,0 +1,96 @@
+{
+  "status": "PARTIALLY_CREATED_PENDING_AVAILABILITY_AND_REVIEW",
+  "products": [
+    {
+      "product_id": "yokiyoki.costume.dog",
+      "type": "NON_CONSUMABLE",
+      "base_territory": "JPN",
+      "base_price_jpy": "50",
+      "localizations": {
+        "ja-JP": {
+          "name": "いぬの着ぐるみ",
+          "description": "相棒が着られるいぬの着ぐるみ。すべての成長段階で使えます。"
+        },
+        "en-US": {
+          "name": "Dog Costume",
+          "description": "A dog costume for every companion stage."
+        }
+      },
+      "review_notes": "Home → … menu → 着ぐるみ. Select an unowned costume, then choose the App Store price button. The alternative 500-point button is not an IAP. Non-consumable, restored using 購入を復元. Purchases unlock the same costume across all growth stages. No subscription.",
+      "app_store_connect_id": "6830432588",
+      "registration_status": "CREATED_PRICE_JPY_50_SAVED_LOCALIZATION_SAVE_UNVERIFIED"
+    },
+    {
+      "product_id": "yokiyoki.costume.cat",
+      "type": "NON_CONSUMABLE",
+      "base_territory": "JPN",
+      "base_price_jpy": "50",
+      "localizations": {
+        "ja-JP": {
+          "name": "ねこの着ぐるみ",
+          "description": "相棒が着られるねこの着ぐるみ。すべての成長段階で使えます。"
+        },
+        "en-US": {
+          "name": "Cat Costume",
+          "description": "A cat costume for every companion stage."
+        }
+      },
+      "review_notes": "Home → … menu → 着ぐるみ. Select an unowned costume, then choose the App Store price button. The alternative 500-point button is not an IAP. Non-consumable, restored using 購入を復元. Purchases unlock the same costume across all growth stages. No subscription.",
+      "registration_status": "NOT_CREATED"
+    },
+    {
+      "product_id": "yokiyoki.costume.rabbit",
+      "type": "NON_CONSUMABLE",
+      "base_territory": "JPN",
+      "base_price_jpy": "50",
+      "localizations": {
+        "ja-JP": {
+          "name": "うさぎの着ぐるみ",
+          "description": "相棒が着られるうさぎの着ぐるみ。すべての成長段階で使えます。"
+        },
+        "en-US": {
+          "name": "Rabbit Costume",
+          "description": "A rabbit costume for every companion stage."
+        }
+      },
+      "review_notes": "Home → … menu → 着ぐるみ. Select an unowned costume, then choose the App Store price button. The alternative 500-point button is not an IAP. Non-consumable, restored using 購入を復元. Purchases unlock the same costume across all growth stages. No subscription.",
+      "registration_status": "NOT_CREATED"
+    },
+    {
+      "product_id": "yokiyoki.costume.frog",
+      "type": "NON_CONSUMABLE",
+      "base_territory": "JPN",
+      "base_price_jpy": "50",
+      "localizations": {
+        "ja-JP": {
+          "name": "かえるの着ぐるみ",
+          "description": "相棒が着られるかえるの着ぐるみ。すべての成長段階で使えます。"
+        },
+        "en-US": {
+          "name": "Frog Costume",
+          "description": "A frog costume for every companion stage."
+        }
+      },
+      "review_notes": "Home → … menu → 着ぐるみ. Select an unowned costume, then choose the App Store price button. The alternative 500-point button is not an IAP. Non-consumable, restored using 購入を復元. Purchases unlock the same costume across all growth stages. No subscription.",
+      "registration_status": "NOT_CREATED"
+    },
+    {
+      "product_id": "yokiyoki.costume.panda",
+      "type": "NON_CONSUMABLE",
+      "base_territory": "JPN",
+      "base_price_jpy": "50",
+      "localizations": {
+        "ja-JP": {
+          "name": "パンダの着ぐるみ",
+          "description": "相棒が着られるパンダの着ぐるみ。すべての成長段階で使えます。"
+        },
+        "en-US": {
+          "name": "Panda Costume",
+          "description": "A panda costume for every companion stage."
+        }
+      },
+      "review_notes": "Home → … menu → 着ぐるみ. Select an unowned costume, then choose the App Store price button. The alternative 500-point button is not an IAP. Non-consumable, restored using 購入を復元. Purchases unlock the same costume across all growth stages. No subscription.",
+      "registration_status": "NOT_CREATED"
+    }
+  ]
+}

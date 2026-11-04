@@ -154,3 +154,9 @@ overrides:
   proxy-addr: "2.0.8"
   # Preserve the Expo-compatible RN version while patching its devtools dependency.
   shell-quote: "1.11.0"
+
+allowBuilds:
+  bcrypt: set this to true or false
+  browser-tabs-lock: set this to true or false
+  core-js: set this to true or false
+  esbuild: set this to true or false

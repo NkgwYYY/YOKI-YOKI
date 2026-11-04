@@ -1,3 +1,5 @@
+import {StoneShop} from '@/components/StoneShop';
+import {CostumeShop} from '@/components/CostumeShop';
 import {RoomStylePreview} from '@/components/room/RoomStylePreview';
 import {FeltBackground,FeltDecoration} from '@/components/ui/Felt';
 import {FeedModal} from '@/components/FeedModal';
@@ -21,7 +23,7 @@ import { getMascotStage } from '@/utils/mascotUtils';
 import {useVillageMusic} from '@/contexts/VillageMusicContext';
 import {WorldPill} from '@/components/world/WorldPill';
 
-type ShopGenre = 'seeds' | 'furniture' | 'flower' | 'cleaning' | 'wear' | 'decor';
+type ShopGenre = 'stones' | 'costumes' | 'seeds' | 'furniture' | 'flower' | 'cleaning' | 'wear' | 'decor';
 type ItemPlacement = { x: number; y: number; scale: number };
 const DEFAULT_PLACEMENT: ItemPlacement = { x: 0, y: 0, scale: 1 };
 const clampPlacement = ({ x, y, scale }: ItemPlacement): ItemPlacement => ({
@@ -35,7 +37,7 @@ const touchDistance = (touches: readonly { pageX: number; pageY: number }[]) => 
 };
 const tabs: { id: ShopGenre; label: string }[] = [
   {id:'furniture',label:'家具'}, {id:'flower',label:'花'}, {id:'decor',label:'置物'},
-  {id:'wear',label:'身につける'}, {id:'cleaning',label:'おもちゃ'},
+  {id:'stones',label:'進化の石'}, {id:'costumes',label:'着ぐるみ'}, {id:'wear',label:'身につける'}, {id:'cleaning',label:'おもちゃ'},
 ];
 const genreOf = (id:string,category:ItemCategory) => homewaresGenre({id,category});
 
@@ -75,7 +77,7 @@ export default function ShopScreen() {
   const [foodOpen,setFoodOpen]=useState(false);
   const ownedTools=readHousekeeping(feedState.housekeeping,Date.now()).owned;
   const { items, shopState, loading, error, catalogOnline, refreshItems, buyItem, equipItem, updateItemPlacement } = useItems();
-  const [tab, setTab] = useState<ShopGenre>('furniture'); const [busy, setBusy] = useState<string | null>(null);
+  const [tab, setTab] = useState<ShopGenre>(()=>tabs.some(t=>t.id===initialTab)?initialTab as ShopGenre:'furniture'); const [busy, setBusy] = useState<string | null>(null);
   const actionBusy = useRef(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [customizing, setCustomizing] = useState<Item | null>(null);
@@ -224,8 +226,8 @@ export default function ShopScreen() {
     <Pressable testID="shop-open-atelier" accessibilityRole="button" style={s.customButton} onPress={()=>router.replace('/?place=home&atelier=furniture')}><Text style={s.customText}>部屋の模様替えへ　›</Text></Pressable>
     <WorldPill label="ごはんを選ぶ" icon="coffee" onPress={()=>setFoodOpen(true)}/>{foodOpen&&<FeedModal visible onClose={()=>setFoodOpen(false)} onFed={()=>setFoodOpen(false)}/>}
     <View style={s.tabs} accessibilityRole="tablist">{tabs.filter(x=>x.id!=='seeds'||gardenUnlocked(feedState)).map(x => <Pressable accessibilityRole="tab" accessibilityState={{ selected: tab === x.id }} aria-selected={tab === x.id} accessibilityLabel={x.label} key={x.id} onPress={() => setTab(x.id)} style={[s.tab, tab === x.id && s.tabOn]}><Text style={[s.tabText, tab === x.id && s.tabTextOn]}>{x.label}</Text></Pressable>)}</View>
-    {tab!=='seeds'&&tab!=='cleaning'&&error && <View><Text style={s.error}>{error}</Text><Pressable accessibilityRole="button" onPress={refreshItems} style={s.resetButton}><Text style={s.resetText}>お店に再接続する</Text></Pressable></View>}
-    {tab==='seeds'?<SeedShop/>:(tab==='furniture'||tab==='flower') ? (tab==='furniture'?ROOM_FURNITURE:ROOM_FLOWERS).map(item=>{
+    {tab!=='stones'&&tab!=='costumes'&&tab!=='seeds'&&tab!=='cleaning'&&error && <View><Text style={s.error}>{error}</Text><Pressable accessibilityRole="button" onPress={refreshItems} style={s.resetButton}><Text style={s.resetText}>お店に再接続する</Text></Pressable></View>}
+    {tab==='stones'?<StoneShop/>:tab==='costumes'?<CostumeShop/>:tab==='seeds'?<SeedShop/>:(tab==='furniture'||tab==='flower') ? (tab==='furniture'?ROOM_FURNITURE:ROOM_FLOWERS).map(item=>{
       const owned=(tab==='furniture'?roomCustomization.ownedFurniture:roomCustomization.ownedFlowers).some(id=>id===item.id);
       const insufficient=!owned&&feedState.points<item.cost;
       return <View key={item.id} testID={`shop-room-${item.id}`} style={[s.card,stackCards&&s.cardStack]}><View style={s.preview}><RoomItemPreview kind={tab} id={item.id}/></View><View style={s.info}><Text style={s.name}>{item.name}</Text><Text style={s.cost}>{owned?'購入済み':`${item.cost} YOKIポイント`}</Text><Pressable testID={`shop-buy-room-${item.id}`} accessibilityRole="button" disabled={!!busy||insufficient} style={[s.button,insufficient&&s.buttonOn]} onPress={async()=>{if(owned){router.replace(`/?place=home&atelier=${tab}`);return;}if(actionBusy.current)return;actionBusy.current=true;setBusy(item.id);setActionError(null);try{const result=await buyRoomItem(tab,item.id,item.cost);if(!result.success)throw Error('ポイントが足りません');}catch(e){setActionError(e instanceof Error?e.message:'保存できませんでした');}finally{actionBusy.current=false;setBusy(null);}}}><Text style={s.buttonText}>{busy===item.id?'保存中…':owned?'模様替えで選ぶ':insufficient?'ポイントが足りません':`${item.cost} pt で購入`}</Text></Pressable></View></View>;

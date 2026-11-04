@@ -11,13 +11,13 @@ const bounds=d=>{
   const pairs=[...d.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map(m=>[+m[1],+m[2]]);
   return {width:Math.max(...pairs.map(p=>p[0]))-Math.min(...pairs.map(p=>p[0])),height:Math.max(...pairs.map(p=>p[1]))-Math.min(...pairs.map(p=>p[1])),bottom:Math.max(...pairs.map(p=>p[1]))};
 };
-test('mofumofu keeps downturned corners in its usual and relaxed face',()=>{
+test('mofumofu preserves its usual mouth and lifts the corners for a smile',()=>{
  for(const happy of [false,true]){
   const mouth=projectOdango(0,0,0,0,happy).mouth;
   const points=[...mouth.matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)].map(m=>[+m[1],+m[2]]);
   const middle=points[Math.floor(points.length/2)];
-  assert.ok(points[0][1]>middle[1]+1,'left corner sits lower than the middle');
-  assert.ok(points.at(-1)[1]>middle[1]+1,'right corner sits lower than the middle');
+  assert.ok(happy?points[0][1]<middle[1]-1:points[0][1]>middle[1]+1,'left corner follows expression');
+  assert.ok(happy?points.at(-1)[1]<middle[1]-1:points.at(-1)[1]>middle[1]+1,'right corner follows expression');
  }
 });
 test('odango keeps original broad proportions, furry rear and surface-bound face',()=>{

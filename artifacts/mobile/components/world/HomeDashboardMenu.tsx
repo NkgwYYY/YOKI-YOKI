@@ -1,3 +1,4 @@
+import {useRouter} from 'expo-router';
 import React,{useState} from 'react';
 import {Pressable,StyleSheet,Text,View} from 'react-native';
 import {BottomSheet} from '@/components/ui/BottomSheet';
@@ -6,6 +7,7 @@ import {ConditionFace} from '@/components/record/ConditionFace';
 import {CONDITION_LABELS} from '@/utils/conditionTrends';
 type Props={onClose:()=>void;onRecord:()=>void;onPlay:()=>void;onShop:()=>void;onAtelier:()=>void;onFriends:()=>void;onGrowth:()=>void;onHints:()=>void;onGuide:()=>void;mood?:number;children:React.ReactNode};
 export function HomeDashboardMenu(p:Props){
+ const router=useRouter();
  const [settings,setSettings]=useState(false);
  const cards:{id:string;label:string;caption:string;icon:IconName;color:string;edge:string;run:()=>void}[]=[
   {id:'world-map-open',label:'あそぶ',caption:'ミニゲーム・占い',icon:'play',color:'#EDE6F2',edge:'#D2BFDF',run:p.onPlay},
@@ -21,6 +23,7 @@ export function HomeDashboardMenu(p:Props){
    </Pressable>)}</View>
    <Text style={s.section}>ふりかえる・整える</Text>
    {([
+    ['home-menu-wardrobe','着ぐるみ','shopping-bag',()=>{p.onClose();router.push('/wardrobe');}],
     ['home-menu-growth','相棒の成長と思い出','heart',p.onGrowth],
     ['home-menu-hints','自分のヒント帳','bookmark',p.onHints],
     ['home-menu-settings','お世話・アカウント・設定','sliders',()=>setSettings(true)],

@@ -1,3 +1,9 @@
+import {costumeStore} from '@/utils/costumeStore';
+import {COSTUME_PRODUCTS,reconcileCostumePurchases,deliverCostumeSnapshot} from '@/utils/costumePurchases';
+import type {CostumeId} from '@/utils/costumeGeometry';
+import {stoneStore} from '@/utils/stoneStore';
+import {deliverStone} from '@/utils/stoneDelivery';
+import {changeCostume,mergeWardrobes,readWardrobe,type CostumeAction,type Wardrobe} from '@/utils/wardrobe';
 import { readChatHistory } from '@/utils/conversationStorageClient';
 import {APP_STORAGE_KEYS as KEYS} from '@/utils/appStorageKeys';
 import {accountDataStore} from '@/utils/accountDataStore';
@@ -7,7 +13,7 @@ import {retainWorldAccess,mergeWorldAccess,type WorldAccess} from '@/utils/world
 import {retireBank} from '@/utils/cozyMigration';
 import {collectionIds,knownKeepsake,prepareCollection,type KeepsakeId} from '@/utils/companionCollection';
 import {advanceVisit,mergeVisitGrowth,readVisitGrowth,type VisitGrowth} from '@/utils/visitGrowth';
-import {evolutionFor,evolutionForCloud,mergeEvolution,chooseEvolution,type EvolutionChoice,type EvolutionAction} from '@/utils/evolutionChoice';
+import {evolutionFor,evolutionForCloud,mergeEvolution,chooseEvolution,creditStone,STONE_PRODUCTS,type StoneKind,type EvolutionChoice,type EvolutionAction} from '@/utils/evolutionChoice';
 import {prepareGarden,type VegetableGarden,type GardenOperation} from '@/utils/vegetableGarden';
 import {storyFinished,prepareVillageStory,type VillageStoryState,type StoryOperation} from '@/utils/villageStories';
 import {prepareCharacterGifts,type CharacterGiftState,type CharacterGiftOperation} from '@/utils/characterGifts';
@@ -177,6 +183,7 @@ export interface UnlockedBadge {
 }
 
 export interface FeedState {
+  wardrobe?:Wardrobe;
   communityBonuses?: string[];
   vegetableGarden?: VegetableGarden;
   villageStories?: VillageStoryState;
@@ -313,7 +320,11 @@ interface AppContextType {
   /** 家具や花を選択する(購入済みアイテムのみ) */
   selectKeepsake: (id: KeepsakeId | 'none') => Promise<void>;
   selectRoomItem: (kind: RoomItemKind, id: RoomFurniture | RoomFlower) => Promise<boolean>;
-  placeRoomItem:(kind:RoomItemKind,id:string,position:import('@/utils/roomPlacement').RoomItemPosition)=>Promise<boolean>;
+  buyStone:(kind:StoneKind)=>Promise<'purchased'|'cancelled'|'pending'>;
+  runCostume:(action:CostumeAction)=>Promise<void>;
+  buyCostume:(id:CostumeId)=>Promise<'purchased'|'cancelled'|'pending'>;
+  restoreCostumes:()=>Promise<number>;
+  placeRoomItem:(kind:RoomItemKind|'decor',id:string,position:import('@/utils/roomPlacement').RoomItemPosition)=>Promise<boolean>;
   /** 家具や花をポイントで購入する */
   buyRoomItem: (kind: RoomItemKind, id: RoomFurniture | RoomFlower, cost: number) => Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' | 'invalid' }>;
   companionState: CompanionState;
@@ -766,7 +777,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if(cloudData[KEYS.FEED_STATE]||localData[KEYS.FEED_STATE]){
       const cloud=cloudData[KEYS.FEED_STATE] as FeedState|undefined,local=localData[KEYS.FEED_STATE] as FeedState|undefined;
       const selected=(cloud??local)!;
-      merged[KEYS.FEED_STATE]={...selected,eggJob:mergeEggJob(cloud?.eggJob,local?.eggJob)};
+      merged[KEYS.FEED_STATE]={...selected,wardrobe:mergeWardrobes(cloud?.wardrobe,local?.wardrobe),eggJob:mergeEggJob(cloud?.eggJob,local?.eggJob)};
     }
     if(cloudData[KEYS.ROOM_CUSTOMIZATION]||localData[KEYS.ROOM_CUSTOMIZATION]){
       const cloud=(cloudData[KEYS.ROOM_CUSTOMIZATION]??{}) as RoomCustomization;
@@ -1283,7 +1294,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return saved.success;
   }, [runRoomOperation]);
 
-  const placeRoomItem=useCallback(async(kind:RoomItemKind,id:string,position:import('@/utils/roomPlacement').RoomItemPosition)=>{
+  const placeRoomItem=useCallback(async(kind:RoomItemKind|'decor',id:string,position:import('@/utils/roomPlacement').RoomItemPosition)=>{
     const saved=await runRoomOperation({kind:'place',category:kind,id,position});
     return saved.success;
   },[runRoomOperation]);
@@ -1321,7 +1332,73 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     check();setProgress(next);void pushDataToCloud().catch(()=>{});
   },[rewardSessionToken,user?.id,isLoading,storageError,isSignedIn,cloudSynced,pushDataToCloud]);
-  const runEvolution=useCallback((action:EvolutionAction)=>mutateEvolution(current=>{if(action.kind==='evolution'||action.kind==='regression')throw Error('進化の石・退化の石は近日公開予定です。');return chooseEvolution(current,action);}),[mutateEvolution]);
+  const runEvolution=useCallback((action:EvolutionAction)=>mutateEvolution(current=>{return chooseEvolution(current,action);}),[mutateEvolution]);
+
+  const recoverStones=useCallback(async()=>{
+    if(!stoneStore||isLoading||storageError||(isSignedIn&&!cloudSynced))return;
+    const owner=user?.id??'guest',token=rewardSessionToken,current=()=>rewardSession.current.token===token&&bowlingOwner.current===owner;
+    for(const receipt of await stoneStore.unfinished(owner))await deliverStone(receipt,current,r=>mutateEvolution(p=>creditStone(p,r.productId,r.transactionId),current),id=>stoneStore!.finish(id,owner));
+  },[user?.id,rewardSessionToken,isLoading,storageError,isSignedIn,cloudSynced,mutateEvolution]);
+  const buyStone=useCallback(async(kind:StoneKind)=>{
+    if(!stoneStore||isLoading||storageError||(isSignedIn&&!cloudSynced))throw Error('購入の準備ができていません。');
+    const owner=user?.id??'guest',token=rewardSessionToken,current=()=>rewardSession.current.token===token&&bowlingOwner.current===owner;
+    const result=await stoneStore.purchase(STONE_PRODUCTS[kind],owner);
+    if(result.status==='purchased'){
+      if(!result.productId||!result.transactionId)throw Error('購入情報を確認できません。');
+      await deliverStone({productId:result.productId,transactionId:result.transactionId},current,r=>mutateEvolution(p=>creditStone(p,r.productId,r.transactionId),current),id=>stoneStore!.finish(id,owner));
+    }
+    return result.status;
+  },[user?.id,rewardSessionToken,isLoading,storageError,isSignedIn,cloudSynced,mutateEvolution]);
+  useEffect(()=>{void recoverStones().catch(()=>{});const sub=stoneStore?.addListener('transactionsChanged',()=>{void recoverStones().catch(()=>{});});const active=AppState.addEventListener('change',state=>{if(state==='active')void recoverStones().catch(()=>{});});return()=>{sub?.remove();active.remove();};},[recoverStones]);
+
+  const mutateWardrobe=useCallback(async(operation:(feed:FeedState)=>FeedState,isCurrent:()=>boolean=()=>true)=>{
+    const token=rewardSessionToken,owner=user?.id??'guest';
+    const check=()=>{if(isLoading||storageError||(isSignedIn&&(!cloudSynced||!user))||bowlingOwner.current!==owner||rewardSession.current.token!==token||!isCurrent())throw Error('保存の準備ができていません。');};
+    check();const saved=await AsyncStorage.transaction(values=>{check();const current:FeedState=values[KEYS.FEED_STATE]?JSON.parse(values[KEYS.FEED_STATE]!):defaultFeedState;const next=operation(current);return {entries:next===current?[]:[[KEYS.FEED_STATE,JSON.stringify(next)] as [string,string]],result:next};});
+    check();feedStateRef.current=saved;setFeedState(saved);void pushDataToCloud().catch(()=>{});
+  },[rewardSessionToken,user?.id,isLoading,storageError,isSignedIn,cloudSynced,pushDataToCloud]);
+  const costumePaymentLock=useRef(false),costumeRecoveryQueue=useRef<Promise<unknown>>(Promise.resolve());
+  const runCostume=useCallback(async(action:CostumeAction)=>{
+    if(action.kind==='buy'&&costumePaymentLock.current)throw Error('購入処理が終わるまでお待ちください。');
+    await mutateWardrobe(feed=>changeCostume(feed,action));
+  },[mutateWardrobe]);
+  const recoverCostumes=useCallback(()=>{
+    const owner=user?.id??'guest',token=rewardSessionToken,current=()=>rewardSession.current.token===token&&bowlingOwner.current===owner;
+    const work=async()=>{
+      if(!costumeStore||isLoading||storageError||(isSignedIn&&!cloudSynced)||!current())throw Error('購入の準備ができていません。');
+      const snapshot=await costumeStore.snapshot();
+      await deliverCostumeSnapshot(snapshot,current,products=>mutateWardrobe(feed=>reconcileCostumePurchases(feed,products),current),id=>costumeStore!.finish(id));
+      return snapshot.products.length;
+    };
+    const result=costumeRecoveryQueue.current.then(work,work);
+    costumeRecoveryQueue.current=result.catch(()=>{});
+    return result;
+  },[user?.id,rewardSessionToken,isLoading,storageError,isSignedIn,cloudSynced,mutateWardrobe]);
+  const buyCostume=useCallback(async(id:CostumeId)=>{
+    if(!costumeStore||costumePaymentLock.current||isLoading||storageError||(isSignedIn&&!cloudSynced)||!COSTUME_PRODUCTS[id])throw Error('購入の準備ができていません。');
+    if(readWardrobe(feedStateRef.current.wardrobe).owned.includes(id))return 'purchased' as const;
+    const owner=user?.id??'guest',token=rewardSessionToken;
+    costumePaymentLock.current=true;
+    try{
+      const result=await costumeStore.purchase(COSTUME_PRODUCTS[id]);
+      if(rewardSession.current.token!==token||bowlingOwner.current!==owner)throw Error('利用者が変わりました。購入の受け取りは次回に再開します。');
+      if(result.status==='purchased'){
+        await recoverCostumes();
+        if(!readWardrobe(feedStateRef.current.wardrobe).owned.includes(id))throw Error('購入の反映を確認しています。再起動または「購入を復元」をお試しください。');
+      }
+      return result.status;
+    }finally{costumePaymentLock.current=false;}
+  },[user?.id,rewardSessionToken,isLoading,storageError,isSignedIn,cloudSynced,recoverCostumes]);
+  const restoreCostumes=useCallback(async()=>{
+    if(!costumeStore)throw Error('iPhoneアプリで復元できます。');
+    await costumeStore.sync();return recoverCostumes();
+  },[recoverCostumes]);
+  useEffect(()=>{
+    void recoverCostumes().catch(()=>{});
+    const sub=costumeStore?.addListener('transactionsChanged',()=>{void recoverCostumes().catch(()=>{});});
+    const active=AppState.addEventListener('change',state=>{if(state==='active')void recoverCostumes().catch(()=>{});});
+    return()=>{sub?.remove();active.remove();};
+  },[recoverCostumes]);
 
   const runEggJob = useCallback(async (operation: EggJobOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
@@ -1594,7 +1671,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setStarterFurnishing,
         selectKeepsake,
         selectRoomItem,
-        placeRoomItem,
+        placeRoomItem,runCostume,buyStone,buyCostume,restoreCostumes,
         buyRoomItem,
         companionState,
         buyEggCompanion,

@@ -63,12 +63,13 @@ export function prepareChecklist(values: Record<string, string | null>, operatio
       || !Array.isArray(badges) || badges.some(b => !b || typeof b.id !== 'string')
       || ![rewards.item, rewards.fullDay].every(n => Number.isFinite(n) && n >= 0)) throw new Error('保存済みの報酬を確認できません');
     const firstCheck = operation.checked && !earned.has(operation.id);
+    const pointsEligible=firstCheck&&earned.size<5;
     if (firstCheck) earned.add(operation.id);
     checked.items = checked.items.map(i => i.id === operation.id ? { ...i, checked: operation.checked, xpEarned: earned.has(i.id) } : i);
     const allChecked = checked.items.length > 0 && checked.items.every(i => i.checked);
     const fullDay = operation.checked && allChecked && !checked.bonusEarned;
     checked.bonusEarned ||= fullDay;
-    feed = { ...feed, points: feed.points + (firstCheck ? rewards.item : 0) + (fullDay ? rewards.fullDay : 0) };
+    feed = { ...feed, points: feed.points + (pointsEligible ? rewards.item : 0) + (fullDay ? rewards.fullDay : 0) };
     const settled = applyElapsedEnergy(energy, today, now);
     energy = firstCheck ? applyEnergyGain(settled, GAIN_CHECK_ITEM, today) : settled;
     if (fullDay) energy = applyEnergyGain(energy, GAIN_FULL_DAY_BONUS, today);

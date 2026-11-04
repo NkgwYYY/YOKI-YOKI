@@ -1,13 +1,13 @@
-export type RoomItemPosition={x:number;y:number;updatedAt?:number};
+export type RoomItemPosition={x:number;y:number;scale?:number;updatedAt?:number};
 export type RoomItemPositions=Record<string,RoomItemPosition>;
-const KEYS=['furniture:sofa','furniture:vanity','furniture:bookshelf','flower:pink','flower:violet','flower:rainbow'];
-export const roomPositionKey=(kind:'furniture'|'flower',id:string)=>`${kind}:${id}`;
+const KEYS=['furniture:sofa','furniture:vanity','furniture:bookshelf','flower:pink','flower:violet','flower:rainbow',...['cushion','picture-book','plant','plush','small-pet'].map(id=>`decor:catalog-decor-${id}`)];
+export const roomPositionKey=(kind:'furniture'|'flower'|'decor',id:string)=>`${kind}:${id}`;
 /** Positions use the shared room floor coordinates, independent of device pixels. */
 export function roomItemPosition(value:unknown):RoomItemPosition|null{
  if(!value||typeof value!=='object')return null;
  const p=value as RoomItemPosition;
  if(!Number.isFinite(p.x)||!Number.isFinite(p.y))return null;
- return {x:Math.max(0,Math.min(1,p.x)),y:Math.max(.45,Math.min(.96,p.y)),updatedAt:Number.isFinite(p.updatedAt)?Math.max(0,p.updatedAt!):0};
+ return {x:Math.max(0,Math.min(1,p.x)),y:Math.max(.425,Math.min(.96,p.y)),scale:Number.isFinite(p.scale)?Math.max(.55,Math.min(1.45,p.scale!)):1,updatedAt:Number.isFinite(p.updatedAt)?Math.max(0,p.updatedAt!):0};
 }
 export function readRoomPositions(value:unknown):RoomItemPositions{
  if(!value||typeof value!=='object')return {};

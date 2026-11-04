@@ -57,7 +57,7 @@ function hull(points:Point3[]) {
   for(let i=sorted.length-1;i>=0;i--){const p=sorted[i];while(hi.length>1&&cross(hi[hi.length-2],hi[hi.length-1],p)<=0)hi.pop();hi.push(p);}
   lo.pop();hi.pop();return lo.concat(hi);
 }
-export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeometry>,rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
+export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeometry>,rx:number,ry:number,rz:number,blink=0,happy:boolean|number=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
   'worklet';
   const model=geometry.model,r=model.radius,f=model.face;
   // Compute the basis once, rather than trigonometry per fibre/feature.
@@ -106,7 +106,7 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
   const eyeHeight=Math.max(.5,f.eyeHeight*(1-shut));
   let mouth='';let connected=false;
   for(let i=0;i<=20;i++){
-    const half=model===ODANGO_MODEL?6.8:5.4,curve=model===ODANGO_MODEL?(happy?-1.6:-2.2):(happy?1:.48)*1.8,x=-half+i*half/10,y=f.mouthY+curve*(1-(x/half)**2),p=surface(model,x,y);
+    const half=model===ODANGO_MODEL?6.8:5.4,curve=model===ODANGO_MODEL?(-2.2+3.8*Number(happy)):(.48+.52*Number(happy))*1.8,x=-half+i*half/10,y=f.mouthY+curve*(1-(x/half)**2),p=surface(model,x,y);
     if(normal(p)>0){const q=rot(p);mouth+=`${connected?' L':' M'}${(50+q.x).toFixed(2)} ${(originY+q.y).toFixed(2)}`;connected=true;}else connected=false;
   }
   const fur=['','',''];
@@ -138,11 +138,11 @@ export function projectEvolvedVolume(geometry:ReturnType<typeof createVolumeGeom
     ...cigaretteProjection(surface(model,7.1,f.mouthY),rx,ry,rz,originY,smoking&&normal(surface(model,7.1,f.mouthY))>0),
   };
 }
-export function projectOdango(rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
+export function projectOdango(rx:number,ry:number,rz:number,blink=0,happy:boolean|number=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
   'worklet';
   return projectEvolvedVolume(ODANGO_GEOMETRY,rx,ry,rz,blink,happy,sleepy,mouthOpen,chew,smoking);
 }
-export function projectEvolved(stage:keyof typeof GEOMETRIES,rx:number,ry:number,rz:number,blink=0,happy=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
+export function projectEvolved(stage:keyof typeof GEOMETRIES,rx:number,ry:number,rz:number,blink=0,happy:boolean|number=false,sleepy=false,mouthOpen=0,chew=0,smoking=false) {
   'worklet';
   return projectEvolvedVolume(GEOMETRIES[stage],rx,ry,rz,blink,happy,sleepy,mouthOpen,chew,smoking);
 }

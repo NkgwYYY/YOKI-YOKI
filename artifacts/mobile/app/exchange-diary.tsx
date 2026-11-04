@@ -131,7 +131,7 @@ function DiaryNotebook(){
   <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={[s.content,{paddingBottom:Math.max(insets.bottom,20)+20}]}>
    <View style={s.intro}><Text style={s.eyebrow}>YOKI YOKI — EXCHANGE DIARY</Text><Text style={s.title}>{name}と、あなたのノート</Text></View>
    <View testID="diary-room-vignette" style={s.roomVignette} accessible={false}>
-    <Image source={require('@/assets/images/world/nook-eye-day.webp')} resizeMode="cover" style={StyleSheet.absoluteFill}/>
+    <Image source={require('@/assets/images/room/diary-open.png')} resizeMode="cover" style={StyleSheet.absoluteFill}/>
     <View style={s.vignetteShade}/><View style={s.vignetteMascot}><StaticMascot stage={stage} mood="happy" size={90}/></View>
     <View style={s.vignetteNote}><Icon name="feather" size={16} color="#735580"/><Text style={s.vignetteText}>ひとことだけでも、大丈夫。</Text></View>
    </View>

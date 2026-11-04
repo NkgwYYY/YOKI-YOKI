@@ -28,8 +28,8 @@ export function evolutionOffer(progress:Source){
  const days=readVisitGrowth(progress.visits)?.totalVisits??0;
  const declined=choice.declined.includes(choice.stage),used=choice.usedFree.includes(choice.stage);
  return {choice,next,previous,days,remaining:next?Math.max(0,next.days-days):0,
-  free:!!next&&days>=next.days&&!declined&&!used,
-  stone:!!next&&(days>=next.days||declined||used),declined};
+  free:!!next&&days>=next.days&&!declined,
+  stone:!!next&&declined,declined};
 }
 export type EvolutionAction={kind:'free'|'decline'|'evolution'|'regression';stage:MascotStage;revision:number};
 export function chooseEvolution<T extends Source>(progress:T,action:EvolutionAction,now=Date.now()):T&{evolution:EvolutionChoice}{

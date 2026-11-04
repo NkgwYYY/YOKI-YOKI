@@ -1,3 +1,5 @@
+import {useApp} from '@/contexts/AppContext';
+import {readWardrobe} from '@/utils/wardrobe';
 import {residentTrackingPose,type SpeechAnchor} from '@/utils/residentSpeech';
 import {homeArtPoint,homeLogicalPoint} from '@/utils/homeGeometry';
 import {StaticSmokingAccessory} from './CigaretteFeatures';
@@ -5,7 +7,7 @@ import {ResidentDust} from './ResidentDust';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { cancelAnimation, Easing, ReduceMotion, runOnJS, useAnimatedReaction, useAnimatedStyle, useFrameCallback, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { cancelAnimation, Easing, ReduceMotion, runOnJS, useAnimatedReaction, useDerivedValue,useAnimatedStyle, useFrameCallback, useSharedValue, withDelay, withRepeat, withSequence, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { StaticMascot } from '@/components/Mascot';
 import type { ResidentInteraction, ResidentItem } from '@/components/room/RoomResident';
@@ -56,13 +58,23 @@ const RENDERER_DIAGNOSTICS=Platform.OS!=='web'&&process.env.EXPO_PUBLIC_RENDERER
 
 /** Scene-sized art, one motion owner, no React state or layout update on animation frames. */
 export function WorldResident(p: Props) {
+  const {feedState}=useApp();
+  const costume=readWardrobe(feedState.wardrobe).equipped;
   const {width, height, active, reduceMotion, footY: y, holding, map, zoom, cameraTouch, stage, daySeed} = p;
   const x = p.footX;
   const {steering,experience,food}=p;
   const [manual,setManual]=useState(false);
   const [manualRevision,setManualRevision]=useState(0);
   const [welcoming,setWelcoming]=useState(false);
+  const [idleSmile,setIdleSmile]=useState(false);
+  useEffect(()=>{
+    setIdleSmile(false);if(!active||reduceMotion||stage!=='odango')return;
+    let timer:ReturnType<typeof setTimeout>;
+    const schedule=()=>{timer=setTimeout(()=>{setIdleSmile(true);timer=setTimeout(()=>{setIdleSmile(false);schedule();},2400);},21000+(Math.abs(daySeed)%7)*1000);};
+    schedule();return()=>clearTimeout(timer);
+  },[active,reduceMotion,stage,daySeed]);
   const [rendererState,setRendererState]=useState<ResidentRendererState>('loading');
+  const rendererReady=stage==='egg'||!hasResidentVolume(stage)||rendererState!=='loading';
   const welcomeRunning=useSharedValue(0),welcomeStartedAt=useSharedValue(-1);
   const welcomeX=useSharedValue(0),welcomeY=useSharedValue(0);
   const welcomeFromX=useSharedValue(0),welcomeFromY=useSharedValue(0);
@@ -78,6 +90,7 @@ export function WorldResident(p: Props) {
   const available = useSharedValue(active);
   const rolling=useSharedValue(0),vx=useSharedValue(0),vy=useSharedValue(0),rollAge=useSharedValue(0);
   const rx=useSharedValue(0),ry=useSharedValue(0),rz=useSharedValue(0),idleTime=useSharedValue(0);
+  const flip=useSharedValue(0),displayRx=useDerivedValue(()=>rx.value-flip.value*Math.PI*2);
   const [rollingLabel,setRollingLabel]=useState(false);
   const idleAllowed=useSharedValue(false);
   const strokeVX=useSharedValue(0),strokeVY=useSharedValue(0),strokeAt=useSharedValue(0);
@@ -108,7 +121,7 @@ export function WorldResident(p: Props) {
   useEffect(()=>{stopWelcome();},[p.rest]);
   useEffect(()=>{
     const id=p.welcomeRequest??0;
-    if(!id||id===welcomed.current||!active||width<=0||p.riding||experience||food||p.smoking||p.bowlingBusy||p.destination||interacting||manual)return;
+    if(!id||id===welcomed.current||!rendererReady||!active||width<=0||p.riding||experience||food||p.smoking||p.bowlingBusy||p.destination||interacting||manual)return;
     // Wait until scene artwork and the platform motion preference have settled.
     const timer=setTimeout(()=>{
       if(!latest.current.active||holding.value||cameraTouch.value)return;
@@ -123,7 +136,7 @@ export function WorldResident(p: Props) {
       latest.current.onWelcomeStarted?.(id);
     },750);
     return()=>clearTimeout(timer);
-  },[p.welcomeRequest,active,width,map,p.riding,experience,food,p.smoking,p.bowlingBusy,p.destination,interacting,manual]);
+  },[p.welcomeRequest,rendererReady,active,width,map,p.riding,experience,food,p.smoking,p.bowlingBusy,p.destination,interacting,manual]);
   useEffect(()=>{
     if(!active||p.riding||experience||food||p.smoking||p.bowlingBusy||p.destination||interacting||manual)stopWelcome();
   },[active,p.riding,experience,food,p.smoking,p.bowlingBusy,p.destination,interacting,manual]);
@@ -245,13 +258,12 @@ export function WorldResident(p: Props) {
     if(!experience&&!food&&Math.hypot(steering.value.x,steering.value.y)>.05){const next=steerStep(map,{x:x.value,y:y.value},steering.value,dt,height/width);x.value=p.riding?Math.max(.40,Math.min(.65,next.x)):next.x;y.value=p.riding?Math.max(.44,Math.min(.55,next.y)):next.y;walking.value=1;idleTime.value=0;return;}
     if(reduceMotion||experience||food)return;
     if(!rolling.value){
-      if(idleAllowed.value&&!walking.value&&!holding.value){idleTime.value+=dt;if(idleTime.value>16&&isMapGround(map,{x:x.value,y:y.value}))launchRoll(.24*Math.cos(daySeed),.19,true);}
+      if(idleAllowed.value&&!walking.value&&!holding.value){idleTime.value+=dt;if(idleTime.value>24&&isMapGround(map,{x:x.value,y:y.value}))launchRoll(.24*Math.cos(daySeed),.19,true);}
       return;
     }
     const next=rollStep({x:x.value,y:y.value,vx:vx.value,vy:vy.value,hit:false},dt,height/width,map);
     const radius=size*(stage!=='egg'?.43:.33)/width;
-    if(stage!=='egg')ry.value+=(next.x-x.value)/radius;
-    else rz.value+=(next.x-x.value)/radius;
+    rz.value+=(next.x-x.value)/radius;
     rx.value-=(next.y-y.value)*(height/width)/radius;
     x.value=next.x;y.value=next.y;vx.value=next.vx;vy.value=next.vy;rollAge.value+=dt;
     if(next.hit)jelly.value=withSequence(withTiming(.7,{duration:60}),withSpring(0,SOFT));
@@ -372,6 +384,11 @@ export function WorldResident(p: Props) {
       finishTouch();
       if (success && petDistance.value > 20) runOnJS(notify)('pet');
     });
+  const somersault=()=>{
+    'worklet';if(reduceMotion||rolling.value||holding.value||flip.value!==0)return;
+    stopWelcome();idleTime.value=0;flip.value=withTiming(1,{duration:1400},finished=>{if(finished)flip.value=0;});runOnJS(notify)('greet');
+  };
+  const doubleTap=Gesture.Tap().enabled(active&&!p.riding&&!experience&&!food&&!p.bowlingBusy).numberOfTaps(2).maxDelay(260).maxDistance(10).onEnd((_e,success)=>{if(success)somersault();});
   const tap = Gesture.Tap().enabled(active&&!p.riding&&!experience&&!food&&!p.bowlingBusy).maxDuration(240).maxDistance(10).onEnd((_event, success) => {
     if (!success || !available.value) return;
     stopWelcome();finishTouch(); runOnJS(notify)('greet');
@@ -385,7 +402,7 @@ export function WorldResident(p: Props) {
     cancelAnimation(lift);cancelAnimation(jelly);holding.value=0;touchMode.value=0;lift.value=0;jelly.value=0;lean.value=0;
     runOnJS(setInteracting)(false);
   });
-  const gesture = Gesture.Race(hold, stroke, tap);
+  const gesture = Gesture.Race(hold, stroke, Gesture.Exclusive(doubleTap,tap));
   const rootStyle = useAnimatedStyle(() => {
     if(p.viewFlight){
       const {from,to,progress}=p.viewFlight,t=progress.value;
@@ -426,7 +443,7 @@ export function WorldResident(p: Props) {
     const sy=(stage==='egg'?1-jelly.value*.17-breath.value*.014+mealY:Math.min(1,soft.y+mealY))*stride.scaleY;
     return {transform: [
       {translateX:mealMove*size*.12},
-      {translateY: (p.riding?-size*.12:0) + lift.value + (1 - sy) * size * 0.42 - stride.lift * size},
+      {translateY: -Math.sin(Math.PI*flip.value)*size*.55+(p.riding?-size*.12:0) + lift.value + (1 - sy) * size * 0.42 - stride.lift * size},
       {rotate: `${lean.value + mealMove*8 + stride.roll + (volumetric?0:rz.value*180/Math.PI)}deg`},
       {scaleX: ((stage==='egg'?1+jelly.value*.14+breath.value*.011:soft.x)+(reduceMotion?0:meal.chew*.025))*stride.scaleX}, {scaleY: sy},
     ]};
@@ -436,7 +453,7 @@ export function WorldResident(p: Props) {
     const air = Math.min(1, Math.abs(lift.value) / (size * 0.55));
     return {opacity: (1 - air * 0.65)*stride.shadowOpacity, transform: [{scaleX: worldResidentScale(y.value) * (1 + air * 0.45)*stride.shadowScale}, {scaleY: (1 + air * 0.3)*stride.shadowScale}]};
   });
-  const mood: MascotMood = welcoming?'happy':touchMood ?? (interacting || pose === 'eating' ? 'happy' : p.resting || pose === 'sleeping' ? 'sleepy' : p.happinessValue>=75?'happy':p.happinessValue<=30?'tired':'normal');
+  const mood: MascotMood = welcoming?'happy':touchMood ?? (interacting || pose === 'eating' ? 'happy' : p.resting || pose === 'sleeping' ? 'sleepy' : stage==='odango'?(idleSmile?'happy':'normal'):p.happinessValue>=75?'happy':p.happinessValue<=30?'tired':'normal');
   useEffect(() => {
     blink.value = 0;
     if (!active || reduceMotion || mood === 'sleepy') return;
@@ -458,7 +475,7 @@ export function WorldResident(p: Props) {
       accessibilityActions={[{name: 'activate', label: 'ごあいさつ'}, {name: 'pet', label: 'なでる'}, {name: 'talk', label: 'お話しする'}, ...(!p.closeUp?[{name:'roll',label:'ころがす'}]:[])]}
       onAccessibilityAction={e => {if(!active || experience || food||p.bowlingBusy)return; e.nativeEvent.actionName === 'roll' ? launchRoll(.6,.3) : e.nativeEvent.actionName === 'talk' ? p.onChat() : acknowledge(e.nativeEvent.actionName === 'pet' ? 'pet' : 'greet');}}
       onAccessibilityTap={() => acknowledge('greet')} tabIndex={active && !experience && !food ? 0 : -1}
-      {...(Platform.OS === 'web' ? {onKeyDown: (e: React.KeyboardEvent) => {if(e.key==='ArrowRight'&&!reduceMotion){e.preventDefault();launchRoll(.6,.3);}else if (e.key === 'Enter' || e.key === ' ') {e.preventDefault(); acknowledge('greet');}}} : {})}>
+      {...(Platform.OS === 'web' ? {onKeyDown: (e: React.KeyboardEvent) => {if(e.key==='ArrowUp'&&!reduceMotion){e.preventDefault();somersault();}else if(e.key==='ArrowRight'&&!reduceMotion){e.preventDefault();launchRoll(.6,.3);}else if (e.key === 'Enter' || e.key === ' ') {e.preventDefault(); acknowledge('greet');}}} : {})}>
       <Animated.View pointerEvents="none" testID="resident-contact-shadow" style={[s.shadow, {height: size * 0.3}, shadow]}>
         <Svg width="100%" height="100%" viewBox="0 0 100 30">
           <Defs><RadialGradient id="residentGround"><Stop offset="0" stopColor="#34251A" stopOpacity="0.52"/><Stop offset="0.45" stopColor="#493525" stopOpacity="0.22"/><Stop offset="1" stopColor="#493525" stopOpacity="0"/></RadialGradient></Defs>
@@ -469,7 +486,7 @@ export function WorldResident(p: Props) {
       <Animated.View pointerEvents="none" style={perspective}>
         <Animated.View testID="resident-body" style={body}>
           {p.effect && <Image source={{uri: p.effect.uri}} resizeMode="contain" style={{position: 'absolute', width: size * p.effect.scale * 1.3, height: size * p.effect.scale * 1.3, left: -size * 0.15 + p.effect.x, top: -size * 0.15 + p.effect.y}}/>}
-          {hasResidentVolume(p.stage)?<VolumeResident stage={p.stage} size={size} displaySize={p.viewFlight?Math.max(p.viewFlight.from.size,p.viewFlight.to.size):p.closeUp?.size} rx={rx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} smoking={p.smoking} active={active} reduceMotion={reduceMotion} mealProgress={pose==='eating'?mealProgress:undefined} onRendererStateChange={RENDERER_DIAGNOSTICS?setRendererState:undefined}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
+          {hasResidentVolume(p.stage)?<VolumeResident costume={costume} stage={p.stage} size={size} displaySize={p.viewFlight?Math.max(p.viewFlight.from.size,p.viewFlight.to.size):p.closeUp?.size} rx={displayRx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} smoking={p.smoking} active={active} reduceMotion={reduceMotion} mealProgress={pose==='eating'?mealProgress:undefined} onRendererStateChange={setRendererState}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
           {p.smoking&&!volumetric&&<StaticSmokingAccessory size={size} active={active} reduceMotion={reduceMotion}/>}
           <ResidentDust value={p.cleanliness} size={size}/>
           {!volumetric&&<View style={[StyleSheet.absoluteFill, {opacity: p.period === 'night' ? 0.18 : 0.13}]} >

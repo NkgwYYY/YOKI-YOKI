@@ -1,0 +1,65 @@
+name: Costume and records native candidate
+on:
+  push:
+    branches: [release/costume-records44-native-20261104]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: costume44-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsueW9raS15b2tpLnJlcGxpdC5hcHAk
+      EXPO_PUBLIC_CLERK_PROXY_URL: https://yoki-yoki.replit.app/api/__clerk
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Install frozen workspace dependencies
+        working-directory: .
+        run: |
+          npm install --global pnpm@10.11.0
+          pnpm install --frozen-lockfile
+      - name: Check candidate source
+        run: |
+          pnpm typecheck
+          node --experimental-strip-types --test tests/costumePurchases.test.mjs tests/residentStartup.test.mjs tests/evolvedVolume.test.mjs tests/recovery42.test.mjs
+          node scripts/build-native-resident.mjs --check
+          pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/yoki-ios-export" --max-workers 2
+      - name: Generate native project
+        run: |
+          pnpm exec expo prebuild --platform ios --no-install
+          cd ios
+          pod install
+      - name: Compile complete Release simulator app
+        run: |
+          mkdir -p native44-results
+          xcodebuild -version > native44-results/xcode-version.txt
+          xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/yoki-derived" -jobs 2 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build > native44-results/xcodebuild.log 2>&1 || { tail -100 native44-results/xcodebuild.log; exit 1; }
+          app="$RUNNER_TEMP/yoki-derived/Build/Products/Release-iphonesimulator/YOKIYOKI.app"
+          test -f "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c Print "$app/Info.plist" > native44-results/app-info.txt
+          codesign -dvv "$app" > native44-results/signature.txt 2>&1
+          shasum -a 256 modules/yoki-stones/ios/*.swift utils/nativeResidentBundle.ts > native44-results/source-hashes.txt
+          printf '%s\n' "$GITHUB_SHA" > native44-results/source-commit.txt
+          ditto -c -k --sequesterRsrc --keepParent "$app" native44-results/YOKIYOKI-simulator.zip
+      - name: Preserve build and diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: yokiyoki-costume44-native
+          retention-days: 7
+          path: artifacts/mobile/native44-results/

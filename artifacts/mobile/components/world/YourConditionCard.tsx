@@ -9,6 +9,7 @@ import {CONDITION_TITLES,conditionLabel,conditionValue,type ConditionKey} from '
 export function YourConditionCard({compact=false}:{compact?:boolean}){
  const {getTodayRecord}=useApp(),router=useRouter(),record=getTodayRecord();
  const mood=conditionValue(record,'mood');
+ if(mood!==null)return null;
  const headline=mood===null?'今日は、どんな調子？':`気分は「${conditionLabel(record,'mood')}」。`;
  return <View testID="home-your-condition" style={[s.card,compact&&s.compact]}>
   <View style={s.top}><Text style={s.eyebrow}>いまのあなた</Text><Pressable testID="home-your-trends" accessibilityRole="button" accessibilityLabel="自分の調子の推移を見る" onPress={()=>router.navigate('/(tabs)/condition')} style={s.trends}><Icon name="bar-chart-2" size={13} color="#826595"/><Text style={s.trendsText}>推移を見る</Text><Icon name="chevron-right" size={12} color="#826595"/></Pressable></View>

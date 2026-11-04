@@ -18,11 +18,11 @@ type Placement={x:number;y:number;scale:number};
 export function homeFurnishingFrame(kind:'furniture'|'flower'|'decor',id:string,width:number,height:number,placement:Placement={x:0,y:0,scale:1},safe={left:8,right:width-8,bottom:height*(width>height?.83:.89)},position?:RoomItemPosition){
  const wide=width>height;
  const spec=kind==='furniture'?FURNITURE[id as keyof typeof FURNITURE]:kind==='flower'?{x:.80,y:.71,width:.13,aspect:.94}:DECOR[id]??{x:.73,y:.80,width:.15,aspect:1};
- const scale=Math.max(.55,Math.min(1.45,placement.scale)),w=width*spec.width*(wide?.62:1)*scale,h=w/spec.aspect;
+ const scale=Math.max(.55,Math.min(1.45,position?.scale??placement.scale)),w=width*spec.width*(wide?.62:1)*scale,h=w/spec.aspect;
  const foot=homeArtPoint(position??{x:spec.x,y:spec.y},wide);
- const left=Math.max(safe.left,Math.min(safe.right-w,foot.x*width-w/2+placement.x));
- const bottom=Math.max(height*.55+h/2,Math.min(safe.bottom,foot.y*height+placement.y));
- return {left,top:bottom-h,width:w,height:h,zIndex:Math.round((position?.y??spec.y)*1000)};
+ const left=Math.max(safe.left,Math.min(safe.right-w,foot.x*width-w/2+(position?0:placement.x)));
+ const bottom=Math.max(homeArtPoint({x:.5,y:.425},wide).y*height,Math.min(safe.bottom,foot.y*height+(position?0:placement.y)));
+ return {left,top:bottom-h,width:w,height:h,scale,zIndex:Math.round((position?.y??spec.y)*1000)};
 }
 
 /** Convert a finger's screen delta into the room, keeping its feet above the dock. */
@@ -32,6 +32,6 @@ export function dragHomeFurnishing(item:{left:number;top:number;width:number;hei
  const sx=(x:number)=>room.width/2+(x-room.left-room.width/2-camera.panX)/z;
  const sy=(y:number)=>room.height/2+(y-room.top-room.height/2-camera.panY)/z;
  const minX=Math.max(safe.left,sx(12)),maxX=Math.min(safe.right,sx(viewport.width-12))-item.width;
- const minY=Math.max(room.height*.55-item.height/2,sy(safeTop)),maxY=Math.min(safe.bottom,sy(safeBottom))-item.height;
+ const minY=Math.max(homeArtPoint({x:.5,y:.425},room.width>room.height).y*room.height-item.height,sy(Math.min(safeTop,24))-item.height),maxY=Math.min(safe.bottom,sy(safeBottom))-item.height;
  return {left:Math.max(Math.min(minX,maxX),Math.min(maxX,item.left+delta.x/z)),top:Math.max(Math.min(minY,maxY),Math.min(maxY,item.top+delta.y/z))};
 }

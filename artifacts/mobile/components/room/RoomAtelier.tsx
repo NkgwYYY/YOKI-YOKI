@@ -49,7 +49,7 @@ export function RoomAtelier({onClose,initialCategory='furniture'}:{onClose:()=>v
      {row('none','置かない',!shopState.equipped.decor,null,async()=>{await equipItem('decor',null);setMessage('置物をしまいました。');})}
      {decorations.map(item=>row(item.id,item.name,shopState.equipped.decor===item.id,<Image source={roomDecorSource(item.id,resolveItemAssetUrl(item.assetUrl))} resizeMode="contain" style={{width:60,height:60}}/>,async()=>{await equipItem('decor',item.id);setMessage('置物を飾りました。');}))}
      {!decorations.length&&<Text style={s.help}>ぬいぐるみや観葉植物も、ここからお部屋に飾れます。</Text>}
-     {selectedDecor&&<View style={s.controls}><Text style={s.help}>「{selectedDecor.name}」の位置と大きさ</Text><View style={s.controlRow}>{([{label:'←',name:'置物を左へ',x:-12,y:0},{label:'↑',name:'置物を上へ',x:0,y:-12},{label:'↓',name:'置物を下へ',x:0,y:12},{label:'→',name:'置物を右へ',x:12,y:0}]).map(b=><Pressable key={b.label} accessibilityRole="button" accessibilityLabel={b.name} disabled={busy} onPress={()=>void act(()=>adjustDecor(b.x,b.y))} style={s.control}><Text style={s.controlText}>{b.label}</Text></Pressable>)}</View><View style={s.controlRow}>{[-.1,.1].map(ds=><Pressable key={ds} accessibilityRole="button" disabled={busy} onPress={()=>void act(()=>adjustDecor(0,0,ds))} style={s.control}><Text style={s.controlText}>{ds<0?'− 小さく':'＋ 大きく'}</Text></Pressable>)}</View><Text style={s.help}>閉じると、お部屋全体で確認できます。</Text></View>}
+     {selectedDecor&&<Text style={s.help}>HOMEで置物をタップすると、ドラッグで移動・2本指で大きさを変えられます。</Text>}
    </>}
    {tab==='cleaning'&&<>
      <Text style={s.help}>ロボットに乗って、お部屋をころころ。好きなときに、一緒に遊べるよ。</Text>

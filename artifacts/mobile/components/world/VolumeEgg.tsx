@@ -1,3 +1,5 @@
+import {CostumeSurface} from './CostumeSurface';
+import type {CostumeId} from '@/utils/costumeGeometry';
 import React,{useId} from 'react';
 import Svg,{Defs,Path,RadialGradient,Stop} from 'react-native-svg';
 import Animated,{useAnimatedProps,useDerivedValue,type SharedValue} from 'react-native-reanimated';
@@ -13,7 +15,7 @@ function Feature({projection,part,fill,stroke,width}: {projection:SharedValue<Pr
 }
 /** The original egg's rounded silhouette, crack, eyes and blush, modeled in 3D.
  * Other evolved art keeps its original renderer until a matching model exists. */
-export function VolumeEgg({size,rx,ry,rz,blink,mood,night=false,mealProgress,smoking=false,active=true,reduceMotion=false}: {size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean}) {
+export function VolumeEgg({costume,size,rx,ry,rz,blink,mood,night=false,mealProgress,smoking=false,active=true,reduceMotion=false}: {costume?:CostumeId|null;size:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean}) {
   const id=useId().replace(/[^a-zA-Z0-9]/g,'');
   const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectEgg(rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew,smoking);});
   return <Svg testID="resident-volume" width={size} height={size} viewBox="0 0 100 100" accessible={false}>
@@ -35,5 +37,6 @@ export function VolumeEgg({size,rx,ry,rz,blink,mood,night=false,mealProgress,smo
     <Feature projection={projection} part="mouth" fill="none" stroke="#141A13" width={1.7}/>
     <Feature projection={projection} part="openMouth" fill="#61433D" stroke="#332A24" width={.6}/>
     {smoking&&<CigaretteFeatures projection={projection} active={active} reduceMotion={reduceMotion}/>}
+    {costume&&<CostumeSurface stage="egg" costume={costume} rx={rx} ry={ry} rz={rz} night={night}/>}
   </Svg>;
 }

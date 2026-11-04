@@ -1,3 +1,6 @@
+import {CostumeSurface} from './CostumeSurface';
+import type {CostumeId} from '@/utils/costumeGeometry';
+import {useResidentSmile} from '@/hooks/useResidentSmile';
 import React,{useId} from 'react';
 import Svg,{ClipPath,Defs,G,Image,Path,Pattern,RadialGradient,LinearGradient,Stop} from 'react-native-svg';
 import Animated,{useAnimatedProps,useDerivedValue,type SharedValue} from 'react-native-reanimated';
@@ -8,16 +11,17 @@ import type {MascotMood} from '@/utils/mascotUtils';
 import {ODANGO_COAT_URI} from '@/utils/odangoCoat';
 const APath=Animated.createAnimatedComponent(Path);
 export type ResidentRendererState='loading'|'ready'|'failed';
-export type VolumeEvolvedProps={size:number;displaySize?:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean;stage:'odango'|'stage3'|'stage4';onRendererStateChange?:(state:ResidentRendererState)=>void};
+export type VolumeEvolvedProps={costume?:CostumeId|null;size:number;displaySize?:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean;stage:'odango'|'stage3'|'stage4';onRendererStateChange?:(state:ResidentRendererState)=>void};
 type Projection=ReturnType<typeof projectOdango>;
 function Feature({projection,part,fill,stroke,width,opacity=1}: {projection:SharedValue<Projection>;part:keyof Projection;fill:string;stroke?:string;width?:number;opacity?:number}) {
   const props=useAnimatedProps(()=>({d:projection.value[part]||'M 0 0',opacity:projection.value[part]?opacity:0}));
   return <APath animatedProps={props} fill={fill} stroke={stroke} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round"/>;
 }
 /** Broad, furry odango, with face attached to its surface rather than a billboard. */
-export function VolumeEvolvedFallback({stage,size,rx,ry,rz,blink,mood,night=false,mealProgress,smoking=false,active=true,reduceMotion=false}: VolumeEvolvedProps) {
+export function VolumeEvolvedFallback({stage,costume,size,rx,ry,rz,blink,mood,night=false,mealProgress,smoking=false,active=true,reduceMotion=false}: VolumeEvolvedProps) {
+  const smile=useResidentSmile(mood,reduceMotion);
   const id=useId().replace(/[^a-zA-Z0-9]/g,'');
-  const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectEvolved(stage,rx.value,ry.value,rz.value,blink.value,mood==='happy'||mood==='excited',mood==='sleepy',meal.open,meal.chew,smoking);});
+  const projection=useDerivedValue(()=>{const meal=mealSample(mealProgress?.value??0);return projectEvolved(stage,rx.value,ry.value,rz.value,blink.value,smile.value,mood==='sleepy',meal.open,meal.chew,smoking);});
   return <Svg testID={`resident-volume-${stage}-fallback`} width={size} height={size} viewBox="0 0 100 100" accessible={false}>
     <Defs>
       <LinearGradient id={`${id}rainbow`} x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#FFD4DD"/><Stop offset={0.28} stopColor="#FFF0AC"/><Stop offset={0.52} stopColor="#CAE9C4"/><Stop offset={0.75} stopColor="#BDCFE8"/><Stop offset="1" stopColor="#D6B4DC"/></LinearGradient>
@@ -47,6 +51,7 @@ export function VolumeEvolvedFallback({stage,size,rx,ry,rz,blink,mood,night=fals
     <Feature projection={projection} part="openMouth" fill="#61433D" stroke="#332A24" width={.6}/>
     {stage!=='odango'&&<><Feature projection={projection} part="stem" fill="none" stroke="#8AB449" width={1.5}/><Feature projection={projection} part="leftLeaf" fill="#ABC986" stroke="#91B273" width={.5}/><Feature projection={projection} part="rightLeaf" fill="#BED69A" stroke="#91B273" width={.5}/></>}
     {smoking&&<CigaretteFeatures projection={projection} active={active} reduceMotion={reduceMotion}/>}
+    {costume&&<CostumeSurface stage={stage} costume={costume} rx={rx} ry={ry} rz={rz} night={night}/>}
   </Svg>;
 }
 

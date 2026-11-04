@@ -27,8 +27,8 @@ const validDate=(v:unknown)=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&
 const count=(v:unknown)=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=0;
 
 export type EggGrade='raw'|'good'|'perfect'|'hard';
-export type EggShift={id:string;startedAt:number;targetMs:number;difficulty?:EggDifficultyId;recipe?:EggRecipeId;round?:number;date?:string};
-export type EggReceipt={id:string;grade:EggGrade;earned:number;elapsed:number;targetMs?:number;difficulty?:EggDifficultyId;recipe?:EggRecipeId;round?:number;date?:string};
+export type EggShift={id:string;startedAt:number;targetMs:number;difficulty?:EggDifficultyId;recipe?:EggRecipeId;round?:number;date?:string;rewardVersion?:2};
+export type EggReceipt={id:string;grade:EggGrade;earned:number;elapsed:number;targetMs?:number;difficulty?:EggDifficultyId;recipe?:EggRecipeId;round?:number;date?:string;rewardVersion?:2};
 export type EggJobState={active:EggShift|null;receipts:EggReceipt[];challenge?:EggChallenge};
 export type EggJobOperation={kind:'start';id:string;recipe?:EggRecipeId}|{kind:'finish';id:string;finishedAt?:number};
 export type EggJobResult={state:EggJobState;receipt:EggReceipt|null;newlyGranted:boolean};
@@ -75,7 +75,7 @@ export function prepareEggJob(values:Record<string,string|null>,op:EggJobOperati
       const round=day.successes,seed=orderSeed(op.id),rules=eggRules('master',round);
       const order=EGG_RECIPES.find(r=>r.id===op.recipe)??EGG_RECIPES[(seed>>>8)%EGG_RECIPES.length];
       const targetMs=(order.targetMs+(seed>>>16)%241-120)*rules.limitMs/EGG_JOB_LIMIT_MS;
-      state.active={id:op.id,startedAt:now+EGG_JOB_READY_MS,targetMs,difficulty:'master',recipe:order.id,round,date:today};changed=true;
+      state.active={id:op.id,startedAt:now+EGG_JOB_READY_MS,targetMs,difficulty:'master',recipe:order.id,round,date:today,rewardVersion:2};changed=true;
     }
   }else{
     if(state.active?.id!==op.id)throw new Error('この仕事は完了しています');
@@ -85,7 +85,8 @@ export function prepareEggJob(values:Record<string,string|null>,op:EggJobOperati
     if(elapsed<0)throw new Error('まだ調理が始まっていません');
     const pot=state.active;
     const scored=pot.date&&pot.date<today?{grade:'hard' as const,earned:0}:eggGrade(elapsed,pot.targetMs,pot.difficulty,pot.round);
-    receipt={id:op.id,elapsed,targetMs:pot.targetMs,difficulty:pot.difficulty,recipe:pot.recipe,round:pot.round,date:pot.date,...scored};
+    const earned=pot.rewardVersion===2?(pot.round??0)>=6?0:scored.grade==='perfect'?10:scored.grade==='good'?4:0:scored.earned;
+    receipt={id:op.id,elapsed,targetMs:pot.targetMs,difficulty:pot.difficulty,recipe:pot.recipe,round:pot.round,date:pot.date,...scored,earned,...(pot.rewardVersion?{rewardVersion:pot.rewardVersion}:{})};
     if(pot.date){
       const day=eggDay(state,pot.date);if(!day||day.endedAt!==null||day.successes!==pot.round)throw Error('今日の仕事の状態を確認できません');
       if(scored.earned>0){day.successes++;if(scored.grade==='perfect')day.perfect++;state.challenge!.best=Math.max(state.challenge!.best,day.successes);}

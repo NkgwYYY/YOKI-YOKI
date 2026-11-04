@@ -39,7 +39,9 @@ export default function HomeBathScreen(){
  const scale=Math.max(window.width/3,window.height/2);
  const frame=wide?{width:3*scale,height:2*scale,left:(window.width-3*scale)/2,top:(window.height-2*scale)*.38}:fitWorld(window.width,window.height);
  const size=wide?Math.min(frame.width*.285,window.height*.29):frame.width*.36;
- const restPoint={...BATH_REST,y:BATH_REST.y-(compact?36/frame.height:0)};
+ const [panelHeight,setPanelHeight]=useState(compact?148:190);
+ const panelTop=window.height-getTabBarHeight('',insets.bottom)-(compact?12:26)-panelHeight;
+ const restPoint={...BATH_REST,y:Math.min(BATH_REST.y-(compact?36/frame.height:0),(panelTop-frame.top-size*.35-12)/frame.height)};
  const x=useSharedValue(restPoint.x),y=useSharedValue(restPoint.y),start=useSharedValue(restPoint),lift=useSharedValue(0),wave=useSharedValue(0),soak=useSharedValue(0);
  const drop=(px:number,py:number)=>{if(exiting||completedToday)return;const next=bathDrop({x:px,y:py},water);if(!next.bathing)next.point.y=restPoint.y;setHolding(false);setBathing(next.bathing);x.value=withTiming(next.point.x,{duration:reduceMotion?0:350});y.value=withTiming(next.point.y,{duration:reduceMotion?0:480});lift.value=withTiming(0,{duration:220});soak.value=withTiming(next.bathing?1:0,{duration:400});if(!next.bathing)setMessage('');};
  const pickup=()=>{setHolding(true);setBathing(false);};
@@ -70,8 +72,14 @@ export default function HomeBathScreen(){
  const body=useAnimatedStyle(()=>({left:x.value*frame.width-size/2,top:y.value*frame.height-size*.70-(compact&&rinsed?32:0),transform:[{translateY:-lift.value*12-step.value*4},{scale:1+lift.value*.06}]}));
  const blackout=useAnimatedStyle(()=>({opacity:fade.value}));
  const goHome=useCallback(()=>{returned.current=true;router.replace({pathname:'/(tabs)',params:{place:'home',bathReturn:String(Date.now())}});},[router]);
+ useEffect(()=>{
+  if(!rinsed||!active)return;
+  if(!reduceMotion){step.value=withSequence(withTiming(3,{duration:180}),withTiming(0,{duration:200}),withTiming(2,{duration:160}),withTiming(0,{duration:200}));x.value=withDelay(850,withTiming(1.15,{duration:850}));}
+  const timer=setTimeout(goHome,reduceMotion?700:1950);return()=>clearTimeout(timer);
+ },[rinsed,active,reduceMotion,goHome]);
+ useEffect(()=>{if(active){returned.current=false;exitStarted.current=false;setExiting(false);setRinsed(false);setBathGain(null);wash.reset();x.value=restPoint.x;y.value=restPoint.y;fade.value=0;}},[active]);
  useEffect(()=>()=>{cancelAnimation(fade);cancelAnimation(step);},[fade,step]);
- useEffect(()=>{if(!holding){cancelAnimation(y);y.value=bathing?water.y:restPoint.y;}},[wide,compact,frame.height]);
+ useEffect(()=>{if(!holding){cancelAnimation(y);y.value=bathing?water.y:restPoint.y;}},[wide,compact,frame.height,restPoint.y]);
  const crop=useAnimatedStyle(()=>({height:size*(1-soak.value*.29)}));
  const ripple=useAnimatedStyle(()=>({opacity:soak.value*(.38-wave.value*.25),transform:[{scaleX:1+wave.value*.9},{scaleY:1+wave.value*.35}]}));
  useEffect(()=>{if(active&&!reduceMotion)wave.value=withRepeat(withSequence(withTiming(1,{duration:2400}),withTiming(0,{duration:0})),-1);return()=>cancelAnimation(wave);},[active,reduceMotion]);
@@ -97,9 +105,9 @@ export default function HomeBathScreen(){
   </View>
   <LinearGradient pointerEvents="none" colors={['#14101ED9','transparent']} style={s.shade}/>
   <View style={[s.header,{top:insets.top+22}]}><View><Text style={s.kicker}>HOME / BATH</Text><Text style={s.title}>おうちのおふろ</Text><Text style={[s.hint,{textAlign:'left',marginTop:8}]}>洗って、すすいで、ふわふわに。</Text></View><WorldPill compact label="BGM" icon={music.enabled?'volume-2':'volume-x'} onPress={music.toggle}/></View>
-  <View pointerEvents="box-none" style={[s.caption,{bottom:getTabBarHeight('',insets.bottom)+(compact?12:26)},wide&&window.height<600&&{left:window.width*.70,right:12,gap:5}]}>
-   <View testID="bath-feedback" style={{width:wide?'100%':Math.min(window.width-40,390),padding:compact?10:14,borderRadius:22,backgroundColor:'#FFFDF2',borderWidth:1,borderColor:'#D8CCB2',gap:compact?5:9,alignItems:'center'}}>
-    <FeltDecoration radius={22}/>
+  <View pointerEvents="box-none" style={[s.caption,{zIndex:100,bottom:getTabBarHeight('',insets.bottom)+(compact?12:26)},wide&&window.height<600&&{left:window.width*.70,right:12,gap:5}]}>
+   <View testID="bath-feedback" onLayout={e=>setPanelHeight(e.nativeEvent.layout.height)} style={{width:wide?'100%':Math.min(window.width-40,390),padding:compact?10:14,borderRadius:22,backgroundColor:'#FFFDF2B8',borderWidth:1,borderColor:'#D8CCB2',gap:compact?5:9,alignItems:'center'}}>
+
     {(!compact||wash.saved)&&<Text style={{fontSize:11,fontWeight:'700',color:'#526B59'}}>{rinsed?'3 / 3　できあがり':wash.saved?'2 / 3　お湯ですすぐ':'1 / 3　タオルで洗う'}</Text>}
     <Text testID="home-bath-message" accessibilityLiveRegion="polite" style={{fontSize:rinsed?21:compact?14:16,fontWeight:'700',color:'#293F36',textAlign:'center'}}>{rinsed?'ふわふわになった！':wash.saving?'洗った状態を保存中…':wash.saved?(bathing?'あわを流しています…':'全体を洗えたよ。次はすすごう。'):washing?'からだ全体を、左右になぞってね':holding?'お湯の上で離してね':bathing?message:'タオルを選ぶと洗えるよ'}</Text>
     {rinsed?<><Text style={{fontSize:12,color:'#526B59',textAlign:'center'}}>{bathGain?`${mascotName||'よっきー'}の幸福 ＋${bathGain}`:'今日の幸福ボーナスは受け取り済み'}</Text><View style={{flexDirection:'row',gap:8}}><WorldPill testID="bath-wash-again" label="もう一度洗う" icon="refresh-cw" onPress={()=>{wash.reset();setRinsed(false);setBathGain(null);setTool('towel');}}/><WorldPill testID="bath-go-home" label="おうちに帰る" icon="home" onPress={goHome}/></View></>:

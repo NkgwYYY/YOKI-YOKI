@@ -18,6 +18,7 @@ export type BowlingResult = {
   missionComplete?: boolean;
 };
 export type BowlingReceipt = BowlingInput & {
+  rewardVersion?:2;
   id: string;
   date: string;
   pins: number;
@@ -255,7 +256,7 @@ export function readBowlingState(raw: unknown): BowlingState {
       !Number.isInteger(receipt.pins) ||
       receipt.pins < 0 ||
       receipt.pins > 10 ||
-      receipt.earned !== bowlingReward(receipt.pins,receipt.rulesVersion?receipt.mission:undefined).earned ||
+      receipt.earned !== bowlingReward(receipt.pins,receipt.rulesVersion?receipt.mission:undefined).earned/(receipt.rewardVersion===2?5:1) ||
       (receipt.rulesVersion && (receipt.mission!==dailyBowlingMission(date)||receipt.pins>BOWLING_MISSIONS[receipt.mission!]?.pins||receipt.missionComplete!==bowlingReward(receipt.pins,receipt.mission).missionComplete))
     )
       throw new Error("ボウリングの記録を確認できません");
@@ -317,7 +318,7 @@ export function prepareBowlingPlay(
     id,
     date: today,
     pins: result.pins,
-    earned: result.earned,
+    earned: result.earned/5,rewardVersion:2,
     ...(acceptedInput.rulesVersion?{missionComplete:result.missionComplete}:{}),
   };
   const key = Array.from({length:BOWLING_DAILY_LIMIT},(_,i)=>i===0?today:`${today}#${i+1}`).find(key=>!state.plays[key])!;
@@ -328,7 +329,7 @@ export function prepareBowlingPlay(
         .slice(-160),
     ),
   };
-  const nextFeed = { ...feed, points: feed.points + result.earned };
+  const nextFeed = { ...feed, points: feed.points + receipt.earned };
   return {
     entries: [
       [BOWLING_KEY, JSON.stringify(next)],
