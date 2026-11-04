@@ -41,6 +41,18 @@ security import "$YOKI_SIGNING_DIR/certificate.p12" -P "$YOKI_DISTRIBUTION_P12_P
 security set-key-partition-list -S apple-tool:,apple: -k "$YOKI_TEMP_KEYCHAIN_PASSWORD" "$YOKI_KEYCHAIN_PATH" >/dev/null
 security list-keychains -d user -s "$YOKI_KEYCHAIN_PATH" "$HOME/Library/Keychains/login.keychain-db"
 unset YOKI_DISTRIBUTION_P12_BASE64 YOKI_DISTRIBUTION_P12_PASSWORD YOKI_PROVISIONING_PROFILE_BASE64
+export YOKI_KEYCHAIN_PATH
+YOKI_SIGNING_IDENTITY=$(python3 - <<'PYIDENTITY'
+import hashlib, os, pathlib, plistlib, re, subprocess
+profile=plistlib.loads((pathlib.Path(os.environ['YOKI_SIGNING_DIR'])/'profile.plist').read_bytes())
+allowed={hashlib.sha1(cert).hexdigest().upper() for cert in profile['DeveloperCertificates']}
+identities=subprocess.check_output(['security','find-identity','-v','-p','codesigning',os.environ['YOKI_KEYCHAIN_PATH']],text=True)
+matches=allowed.intersection(re.findall(r'\b[A-F0-9]{40}\b',identities))
+assert len(matches)==1, 'Exactly one valid identity must match the distribution profile'
+print(matches.pop())
+PYIDENTITY
+)
+export YOKI_SIGNING_IDENTITY
 ruby - <<'RUBY'
 require 'xcodeproj'
 p = Xcodeproj::Project.open('ios/YOKIYOKI.xcodeproj')
@@ -49,14 +61,14 @@ raise 'Application target missing' unless t
 t.build_configurations.each do |c|
   c.build_settings['DEVELOPMENT_TEAM'] = '9C784EZR52'
   c.build_settings['CODE_SIGN_STYLE'] = 'Manual'
-  c.build_settings['CODE_SIGN_IDENTITY'] = 'Apple Distribution'
+  c.build_settings['CODE_SIGN_IDENTITY'] = ENV.fetch('YOKI_SIGNING_IDENTITY')
   c.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ENV.fetch('YOKI_PROFILE_UUID')
 end
 p.save
 RUBY
 python3 - <<'PY'
 import os,plistlib,pathlib
-options={'method':'app-store-connect','teamID':'9C784EZR52','signingStyle':'manual','signingCertificate':'Apple Distribution','provisioningProfiles':{'app.replit.yokiyoki--':os.environ['YOKI_PROFILE_UUID']},'manageAppVersionAndBuildNumber':False,'uploadSymbols':True}
+options={'method':'app-store-connect','teamID':'9C784EZR52','signingStyle':'manual','signingCertificate':os.environ['YOKI_SIGNING_IDENTITY'],'provisioningProfiles':{'app.replit.yokiyoki--':os.environ['YOKI_PROFILE_UUID']},'manageAppVersionAndBuildNumber':False,'uploadSymbols':True}
 (pathlib.Path(os.environ['YOKI_SIGNING_DIR'])/'ExportOptions.plist').write_bytes(plistlib.dumps(options))
 PY
 xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/YOKIYOKI.xcarchive" -derivedDataPath "$RUNNER_TEMP/yoki-device-derived" -jobs 2 archive > release44-results/archive.log 2>&1 || { tail -100 release44-results/archive.log; exit 1; }
