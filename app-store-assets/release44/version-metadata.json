@@ -1,11 +1,12 @@
 {
   "version": "1.2.1",
-  "build_number": "PENDING_LATEST_BUILD_VERIFICATION",
-  "status": "DRAFT_NOT_SAVED_TO_APP_STORE_CONNECT",
+  "build_number": "44",
+  "status": "WHATS_NEW_JA_EN_AND_REVIEW_NOTES_SAVED_BUILD_PENDING",
   "ja-JP": {
     "whatsNew": "・着ぐるみの模様と、キャラクターの体に沿った表示を調整しました。\n・着ぐるみを500ポイント、またはアプリ内購入で選べるようにしました。購入の復元にも対応しています。\n・今日の便りの表示を整理しました。\n・きろく画面の色分けと文字の見やすさを改善しました。"
   },
   "en-US": {
     "whatsNew": "Improved costume details and fit, added an optional in-app purchase with purchase restoration alongside the 500-point option, simplified the daily check-in, and improved readability of the records screen."
-  }
+  },
+  "verified_latest_uploaded_build": "43"
 }
