@@ -61,7 +61,7 @@ options={'method':'app-store-connect','teamID':'9C784EZR52','signingStyle':'manu
 PY
 xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/YOKIYOKI.xcarchive" -derivedDataPath "$RUNNER_TEMP/yoki-device-derived" -jobs 2 archive > release45-results/archive.log 2>&1 || { tail -100 release45-results/archive.log; exit 1; }
 YOKI_ARCHIVED_APP="$RUNNER_TEMP/YOKIYOKI.xcarchive/Products/Applications/YOKIYOKI.app"
-test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$YOKI_ARCHIVED_APP/Info.plist")" = 1.2.1
+test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$YOKI_ARCHIVED_APP/Info.plist")" = 1.2.2
 test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$YOKI_ARCHIVED_APP/Info.plist")" = 45
 if find "$YOKI_ARCHIVED_APP" -iname '*.storekit' -print -quit | read -r unexpected; then
   echo 'Refusing to export an app containing a StoreKit test configuration.'; exit 1

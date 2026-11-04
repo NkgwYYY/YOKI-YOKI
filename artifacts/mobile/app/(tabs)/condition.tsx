@@ -1,4 +1,4 @@
-import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Platform,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {useFocusEffect,useRouter} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -19,28 +19,16 @@ const METRIC_STYLE={
 } as const;
 export default function ConditionScreen(){const auth=useAuth();return <ConditionNotebook key={auth.user?.id??'guest'}/>;}
 function ConditionNotebook(){
- const {records,getTodayRecord,saveRecord,isLoading,storageError,cloudSynced}=useApp(),auth=useAuth();
+ const {records,isLoading,storageError,cloudSynced}=useApp(),auth=useAuth();
  const router=useRouter(),insets=useSafeAreaInsets();
  const [today,setToday]=useState(getTodayDate),[period,setPeriod]=useState(7),[selected,setSelected]=useState(today);
- const [editing,setEditing]=useState(false),[history,setHistory]=useState(false);
- const [mood,setMood]=useState<number>(),[fatigue,setFatigue]=useState<number>(),[worry,setWorry]=useState<number>();
- const [busy,setBusy]=useState(false),[error,setError]=useState('');
- const lock=useRef(false),alive=useRef(true),editDay=useRef(today);
- useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
+ const [history,setHistory]=useState(false);
  useFocusEffect(useCallback(()=>{const update=()=>setToday(getTodayDate());update();const timer=setInterval(update,30000);return()=>clearInterval(timer);},[]));
  useEffect(()=>setSelected(today),[today,period]);
  const days=useMemo(()=>conditionDays(records,today,period),[records,today,period]);
  const current=records.find(r=>r.date===today),summary=conditionSummary(current),chosen=days.find(d=>d.date===selected);
  const ready=!isLoading&&!storageError&&!auth.isLoading&&(!auth.isSignedIn||cloudSynced);
- const openEditor=()=>{const r=getTodayRecord();setMood(conditionValue(r,'mood')??undefined);setFatigue(conditionValue(r,'fatigue')??undefined);setWorry(conditionValue(r,'worry')??undefined);setError('');editDay.current=getTodayDate();setEditing(true);};
- const save=async()=>{
-  if(lock.current||!ready||!mood)return;
-  if(editDay.current!==getTodayDate()){setError('日付が変わりました。閉じてから、今日の記録を開き直してください。');return;}
-  lock.current=true;setBusy(true);setError('');
-  try{await saveRecord(mood,0,[],'',{conditionOnly:true,sleepRecorded:false,fatigue,worry});if(alive.current){setEditing(false);setSelected(today);}}
-  catch{if(alive.current)setError('保存できませんでした。入力内容はこのまま、もう一度お試しください。');}
-  finally{lock.current=false;if(alive.current)setBusy(false);}
- };
+ const openEditor=()=>router.push('/check-in');
  const step=(delta:number)=>{const index=days.findIndex(d=>d.date===selected);setSelected(days[Math.max(0,Math.min(days.length-1,index+delta))].date);};
  return <View testID="condition-screen" style={s.root}>
   <ScrollView contentContainerStyle={[s.content,{paddingTop:(Platform.OS==='web'?18:insets.top)+14,paddingBottom:getTabBarHeight(Platform.OS,insets.bottom)+28}]} showsVerticalScrollIndicator={false}>
@@ -66,22 +54,11 @@ function ConditionNotebook(){
    <Link label="相棒の成長と思い出" testID="condition-growth" onPress={()=>router.navigate('/(tabs)/growth')}/>
    <Text style={s.footer}>空白の日・項目は未記録のまま表示します。{ '\n' }よいところ・気になるところは、選んだ回答をもとに表示しています。</Text>
   </ScrollView>
-  {editing&&<BottomSheet visible onClose={()=>{if(!lock.current)setEditing(false);}} title="いまのようすを記録" subtitle={formatDateJP(editDay.current)} maxHeightRatio={.94}>
-   <Text style={s.question}>いまの気分は？</Text><View style={s.options}>{[1,2,3,4,5].map(value=><Pressable key={value} testID={`condition-mood-${value}`} disabled={busy} accessibilityRole="button" accessibilityLabel={`気分：${CONDITION_LABELS.mood[value]}`} accessibilityState={{selected:mood===value}} onPress={()=>setMood(value)} style={[s.moodOption,mood===value&&s.optionSelected]}><Text style={s.optionText}>{CONDITION_LABELS.mood[value]}</Text></Pressable>)}</View>
-   <Scale title="からだの疲れはどれくらい？" field="fatigue" value={fatigue} onChange={setFatigue} disabled={busy}/>
-   <Scale title="心配ごとはどれくらいある？" field="worry" value={worry} onChange={setWorry} disabled={busy}/>
-   <Text style={s.small}>気分だけでも記録できます。日記や過ごし方の記録はそのまま残ります。</Text>
-   {!!error&&<Text accessibilityRole="alert" style={s.error}>{error}</Text>}
-   <Pressable testID="condition-save" accessibilityRole="button" disabled={busy||!mood||!ready} onPress={()=>void save()} style={[s.primary,(busy||!mood||!ready)&&s.disabled]}><Text style={s.primaryText}>{busy?'保存しています…':'この内容で記録する'}</Text></Pressable>
-  </BottomSheet>}
   {history&&<BottomSheet visible onClose={()=>setHistory(false)} title="日ごとの記録" subtitle={period===7?'最近1週間':'最近1か月'} maxHeightRatio={.94}>{[...days].reverse().map(day=><View key={day.date} style={s.historyRow}><Text style={s.sectionTitle}>{formatDateJP(day.date)}</Text>{KEYS.map(key=><Text key={key} style={s.historyValue}>{CONDITION_TITLES[key]}：{conditionLabel(day.record,key)}</Text>)}</View>)}</BottomSheet>}
  </View>;
 }
 function shortDate(date:string){const [,m,d]=date.split('-');return `${Number(m)}/${Number(d)}`;}
 function Link({label,testID,onPress}:{label:string;testID:string;onPress:()=>void}){return <Pressable testID={testID} accessibilityRole="button" onPress={onPress} style={s.link}><Text style={s.linkText}>{label}</Text><Icon name="chevron-right" size={18} color="#82708D"/></Pressable>;}
-function Scale({title,field,value,onChange,disabled}:{title:string;field:'fatigue'|'worry';value:number|undefined;onChange:(value:number|undefined)=>void;disabled:boolean}){
- return <View style={{gap:10}}><Text style={s.question}>{title}</Text><View style={s.options}>{[1,2,3].map(v=><Pressable key={v} testID={`condition-${field}-${v}`} disabled={disabled} accessibilityRole="button" accessibilityState={{selected:value===v}} onPress={()=>onChange(v)} style={[s.scaleOption,value===v&&s.optionSelected]}><Text style={s.optionText}>{CONDITION_LABELS[field][v]}</Text></Pressable>)}</View><Pressable testID={`condition-${field}-skip`} disabled={disabled} accessibilityRole="button" accessibilityState={{selected:value===undefined}} onPress={()=>onChange(undefined)} style={s.skip}><Text style={s.small}>{value===undefined?'未記録にする ✓':'未記録にする'}</Text></Pressable></View>;
-}
 function ConditionChart({days,metric,selected,onSelect}:{days:ReturnType<typeof conditionDays>;metric:ConditionKey;selected:string;onSelect:(date:string)=>void}){
  const theme=METRIC_STYLE[metric];
  const [width,setWidth]=useState(260),left=58,right=12,top=10,bottom=92,max=metric==='mood'?5:3;

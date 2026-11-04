@@ -136,7 +136,15 @@ final class MoyamoyaReleaseJourney: XCTestCase {
 
 
     private func checkIn(_ pattern: String?) {
-        tap(element("home-daily-record"))
+        // The diary tab is not the condition check-in. The home card disappears
+        // after today's first save; subsequent edits use the record tab.
+        if element("home-condition-record").exists {
+            tap(element("home-condition-record"))
+        } else {
+            tap(element("home-condition"))
+            tap(element("condition-edit"))
+        }
+        visible(element("check-in-screen"))
         tap(element("check-in-mood-3")); tap(element("check-in-next"))
         tap(element("check-in-fatigue-2")); tap(element("check-in-next"))
         tap(element("check-in-worry-2")); tap(element("check-in-next"))
