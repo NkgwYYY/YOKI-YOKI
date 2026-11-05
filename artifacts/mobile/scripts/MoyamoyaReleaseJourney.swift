@@ -112,6 +112,10 @@ final class MoyamoyaReleaseJourney: XCTestCase {
             self.element("home-daily-record").exists || self.element("welcome-guest").exists
         }
         if element("home-daily-record").exists {
+            // The daily letter may appear on a new local day after relaunch.
+            // Dismiss the visible app control before touching the covered dock.
+            let meetResident = text("よっきーに会いに行く")
+            if meetResident.waitForExistence(timeout: 4) { tap(meetResident) }
             // The shared dock is also present on diary, chat and growth tabs.
             tap(element("home-tab"))
             requireResidentRenderer()
