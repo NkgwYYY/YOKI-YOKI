@@ -28,5 +28,5 @@ export function useRoomActivity() {
   const [focused, setFocused] = useState(false);
   useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
   const { active, reduceMotion } = useAppActivity();
-  return { active: focused && active, reduceMotion };
+  return { active: focused && active, focused, reduceMotion };
 }

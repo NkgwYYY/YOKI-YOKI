@@ -1,3 +1,4 @@
+import {acquireFullscreenAd} from './fullscreenAdLock';
 import { AppState, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import type { PurchasesPackage } from 'react-native-purchases';
@@ -26,10 +27,10 @@ export function prepareAds() {
 function reportSafely(operation: () => unknown) {
   try { void Promise.resolve(operation()).catch(() => {}); } catch {}
 }
-let presenting = false;
 export async function showRewardedAd(session: AdSession, event: (name: string, duration?: number) => void, paid?: (estimate: RevenueEstimate) => void, current: () => boolean = () => true): Promise<boolean> {
-  if (!current() || !canShowRewardedAd() || presenting) throw Error('いまは広告を用意できません。');
-  presenting = true;
+  if (!current() || !canShowRewardedAd()) throw Error('いまは広告を用意できません。');
+  const release = acquireFullscreenAd();
+  if (!release) throw Error('いまは広告を用意できません。');
   try {
     const sdk = await prepareAds();
     if (!current()) throw Error('利用者が変わりました。');
@@ -97,7 +98,7 @@ export async function showRewardedAd(session: AdSession, event: (name: string, d
         finish(Error('いまは広告を用意できません。時間をおいてお試しください。'));
       }
     });
-  } finally { presenting = false; }
+  } finally { release(); }
 }
 export async function adPrivacyOptions() {
   if (!canShowRewardedAd() && !canShowBannerAd()) return;

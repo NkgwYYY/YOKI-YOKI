@@ -1,0 +1,95 @@
+name: YOKI YOKI 46 native regression
+on:
+  push:
+    branches: [release/battleads46-distribution-20261105]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: battleads46-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_BATTLE_ADS_TEST_MODE: 'true'
+      EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsueW9raS15b2tpLnJlcGxpdC5hcHAk
+      EXPO_PUBLIC_CLERK_PROXY_URL: https://yoki-yoki.replit.app/api/__clerk
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Install frozen workspace dependencies
+        working-directory: .
+        run: |
+          npm install --global pnpm@10.11.0
+          pnpm install --frozen-lockfile
+      - name: Check candidate source
+        run: |
+          pnpm typecheck
+          node --experimental-strip-types --test tests/costumePurchases.test.mjs tests/residentStartup.test.mjs tests/evolvedVolume.test.mjs tests/recovery42.test.mjs tests/moyamoya.test.mjs tests/dailyRecordTransaction.test.mjs tests/checklistTransaction.test.mjs tests/exchangeDiary.test.mjs tests/companionCollection.test.mjs tests/battleInterstitial.test.mjs tests/commerceNativeAds.test.mjs tests/dailyAdsIntegration.test.mjs
+          node scripts/build-native-resident.mjs --check
+          pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/yoki-ios-export" --max-workers 2
+      - name: Generate native project
+        run: |
+          pnpm exec expo prebuild --platform ios --no-install
+          cd ios
+          pod install
+      - name: Compile complete Release simulator app
+        run: |
+          mkdir -p native46-results
+          xcodebuild -version > native46-results/xcode-version.txt
+          xcodebuild -workspace ios/YOKIYOKI.xcworkspace -scheme YOKIYOKI -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/yoki-derived" -jobs 2 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- build > native46-results/xcodebuild.log 2>&1 || { tail -100 native46-results/xcodebuild.log; exit 1; }
+          app="$RUNNER_TEMP/yoki-derived/Build/Products/Release-iphonesimulator/YOKIYOKI.app"
+          test -f "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c Print "$app/Info.plist" > native46-results/app-info.txt
+          codesign -dvv "$app" > native46-results/signature.txt 2>&1
+          shasum -a 256 modules/yoki-stones/ios/*.swift utils/nativeResidentBundle.ts > native46-results/source-hashes.txt
+          printf '%s\n' "$GITHUB_SHA" > native46-results/source-commit.txt
+          ditto -c -k --sequesterRsrc --keepParent "$app" native46-results/YOKIYOKI-simulator.zip
+      - name: Install native journey runner
+        run: |
+          echo "YOKI_LOCAL_SIM_APP=$RUNNER_TEMP/yoki-derived/Build/Products/Release-iphonesimulator/YOKIYOKI.app" >> "$GITHUB_ENV"
+          gem install xcodeproj --version 1.27.0 --no-document
+          ruby scripts/create-moyamoya-xctest.rb "$RUNNER_TEMP/yoki-review-xctest"
+      - name: Prepare isolated simulator
+        env:
+          DEVICE_FAMILY: iPhone
+          YOKI_QA_EGG: '0'
+          YOKI_QA_MOYAMOYA: '1'
+        run: python3 scripts/prepare-ios-review.py
+      - name: Exercise record, decline, loss, retry, victory, music and reward persistence
+        id: journeys
+        continue-on-error: true
+        run: |
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -sdk iphonesimulator -destination "platform=iOS Simulator,id=$YOKI_SIMULATOR_UDID" -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO '-only-testing:YokiReviewUITests/MoyamoyaReleaseJourney' test > review-results/iPhone/xctest.log 2>&1 || { tail -100 review-results/iPhone/xctest.log; exit 1; }
+      - name: Export native test evidence
+        if: always()
+        run: |
+          if [ -d review-results/iPhone/native.xcresult ]; then
+            xcrun xcresulttool export attachments --path review-results/iPhone/native.xcresult --output-path native46-results/attachments || true
+            xcrun xcresulttool get test-results summary --path review-results/iPhone/native.xcresult > native46-results/test-summary.json || true
+          fi
+          cp review-results/iPhone/xctest.log native46-results/ 2>/dev/null || true
+      - name: Preserve build and diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: yokiyoki-battleads46-native
+          retention-days: 7
+          path: artifacts/mobile/native46-results/
+      - name: Require successful native journey
+        if: always()
+        env:
+          OUTCOME: ${{ steps.journeys.outcome }}
+        run: test "$OUTCOME" = success

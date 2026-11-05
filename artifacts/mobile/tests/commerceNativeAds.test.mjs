@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
+import {acquireFullscreenAd} from '../utils/community/fullscreenAdLock.ts';
 
 const source=ts.transpileModule(readFileSync(new URL('../utils/community/commerce.native.ts',import.meta.url),'utf8'),
   {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
@@ -18,6 +19,7 @@ function fixture({rewarded=true}={}) {
   const config={yokiAdsConfigured:{ios:true},yokiRewardedIosUnit:rewarded?'test-unit':undefined,yokiBannerIosUnit:'banner-unit'};
   const exports={};
   new Function('require','exports','process','__DEV__','setTimeout','clearTimeout',source)(name=>{
+    if(name==='./fullscreenAdLock')return {acquireFullscreenAd};
     if(name==='react-native')return{AppState:{currentState:'active'},Platform:{OS:'ios'}};
     if(name==='expo-constants')return{__esModule:true,default:{appOwnership:'standalone',expoConfig:{extra:config}}};
     if(name==='react-native-google-mobile-ads')return sdk;

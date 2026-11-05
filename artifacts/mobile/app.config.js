@@ -10,6 +10,9 @@ module.exports = ({ config }) => {
     extra: {
       ...config.extra,
       yokiAdsConfigured: configured,
+      yokiInterstitialIosUnit: bannerId(process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS ?? 'ca-app-pub-7462386033661667/7074489781'),
+      yokiInterstitialAndroidUnit: bannerId(process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID),
+      yokiBattleAdsTestMode: process.env.EXPO_PUBLIC_BATTLE_ADS_TEST_MODE === 'true',
       yokiRewardedIosUnit: process.env.EXPO_PUBLIC_ADMOB_REWARDED_IOS ?? 'ca-app-pub-7462386033661667/5206949357',
       // Banner units must be provisioned separately from rewarded units.
       yokiBannerIosUnit: bannerId(process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS ?? 'ca-app-pub-7462386033661667/1745376179'),

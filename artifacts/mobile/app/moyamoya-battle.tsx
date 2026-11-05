@@ -5,22 +5,29 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {useApp} from '@/contexts/AppContext';
 import {useAuth} from '@/contexts/AuthContext';
-import {useBattleTrack} from '@/contexts/BattleMusicContext';
+import {useBattleTrack,useBattleAudio} from '@/contexts/BattleMusicContext';
 import {useRoomActivity} from '@/components/room/useRoomActivity';
 import {Enemy} from '@/components/moyamoya/Enemy';
 import {BattleCompanion} from '@/components/moyamoya/BattleCompanion';
 import {BattleSoundControl} from '@/components/moyamoya/BattleSoundControl';
 import {battleChoices,type BattleTurn,type Encounter} from '@/utils/moyamoya';
 import {ACTIONS,BATTLES,getPattern} from '@/utils/moyamoyaContent';
+import {useDailyRewardService} from '@/contexts/DailyAdsContext';
+import {canShowBattleInterstitial,createBattleInterstitial} from '@/utils/community/battleInterstitial';
 import {Icon} from '@/components/ui/Icon';
 
 export default function BattleScreen(){const auth=useAuth();return <Battle key={auth.user?.id??'guest'}/>;}
 function Battle(){
  const app=useApp(),auth=useAuth(),router=useRouter(),insets=useSafeAreaInsets(),window=useWindowDimensions();
- const {id}=useLocalSearchParams<{id:string}>(),{active,reduceMotion}=useRoomActivity();
+ const {id}=useLocalSearchParams<{id:string}>(),{active,focused,reduceMotion}=useRoomActivity();
  const record=app.getTodayRecord(),saved=record?.moyamoya?.battle;
  const valid=saved?.id===id?saved:undefined;
  const [shown,setShown]=useState<Encounter|undefined>(valid),[feedback,setFeedback]=useState<BattleTurn>(),[result,setResult]=useState(valid?.status==='won'||valid?.status==='lost');
+ const {snapshot:ads}=useDailyRewardService(),audio=useBattleAudio();
+ const [leaving,setLeaving]=useState(false),exitLock=useRef(false);
+ const ad=useRef<ReturnType<typeof createBattleInterstitial>|null>(null);
+ const adAllowed=ads.ready&&ads.rewardedAvailable&&!ads.removePassiveAds&&ads.phase==='idle'&&canShowBattleInterstitial();
+ const adCurrent=useRef({id,active,adAllowed});adCurrent.current={id,active,adAllowed};
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[target,setTarget]=useState<'hero'|'enemy'|null>(null);
  const lock=useRef(false),alive=useRef(true),beam=useRef(new Animated.Value(0)).current,hit=useRef(new Animated.Value(0)).current;
  const animation=useRef<Animated.CompositeAnimation|null>(null),resolveAnimation=useRef<(()=>void)|null>(null);
@@ -28,8 +35,18 @@ function Battle(){
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;animation.current?.stop();resolveAnimation.current?.();};},[]);
  useEffect(()=>{if(!lock.current){setShown(valid);if(valid?.status==='won'||valid?.status==='lost')setResult(true);}},[valid]);
  useEffect(()=>{if(!active){animation.current?.stop();resolveAnimation.current?.();}},[active]);
- useBattleTrack(result?(shown?.status==='won'?'victory':null):'battle',active&&ready&&!!valid);
- const home=()=>router.replace('/(tabs)?place=home');
+ useBattleTrack(result?(shown?.status==='won'?'victory':null):'battle',active&&ready&&!!valid&&!leaving);
+ useEffect(()=>{
+  if(!ready||!valid||!focused||!adAllowed)return;
+  const session=createBattleInterstitial(valid.id,()=>alive.current&&adCurrent.current.id===valid.id&&adCurrent.current.active&&adCurrent.current.adAllowed,audio.acquirePause);
+  ad.current=session;void session.preload();
+  return()=>{if(ad.current===session)ad.current=null;session.dispose();};
+ },[id,ready,!!valid,focused,adAllowed,audio.acquirePause]);
+ const home=async()=>{
+  if(exitLock.current||lock.current)return;exitLock.current=true;setLeaving(true);
+  try{if(result&&(shown?.status==='won'||shown?.status==='lost'))await ad.current?.showIfReady();}
+  finally{if(alive.current)router.replace('/(tabs)?place=home');}
+ };
  const animate=async(good:boolean)=>{
   setTarget(good?'enemy':'hero');beam.setValue(0);hit.setValue(0);
   if(reduceMotion||!active)return;
@@ -59,7 +76,7 @@ function Battle(){
   catch(e){if(alive.current)setError(e instanceof Error?e.message:'再開できませんでした。');}
   finally{lock.current=false;if(alive.current)setBusy(false);}
  };
- const button=(label:string,onPress:()=>void,testID:string,secondary=false)=><Pressable testID={testID} accessibilityRole="button" disabled={busy||!ready} onPress={onPress} style={[s.button,secondary&&s.secondary,(busy||!ready)&&{opacity:.5}]}><Text style={[s.buttonText,secondary&&{color:'#795989'}]}>{label}</Text></Pressable>;
+ const button=(label:string,onPress:()=>void,testID:string,secondary=false)=><Pressable testID={testID} accessibilityRole="button" disabled={busy||leaving||!ready} onPress={onPress} style={[s.button,secondary&&s.secondary,(busy||leaving||!ready)&&{opacity:.5}]}><Text style={[s.buttonText,secondary&&{color:'#795989'}]}>{label}</Text></Pressable>;
  if(!ready||!valid||!shown||valid.id!==shown.id)return <View style={[s.root,{padding:30,paddingTop:insets.top+30,justifyContent:'center',gap:20}]}><Text style={s.title}>{!ready?'記録を準備しています…':'今日のバトルは終了しました。'}</Text><Pressable accessibilityRole="button" onPress={home} style={s.button}><Text style={s.buttonText}>おうちに戻る</Text></Pressable></View>;
  const p=getPattern(shown.pattern)!,won=shown.status==='won',finished=won||shown.status==='lost';
  const stageHeight=Math.max(285,Math.min(360,window.height*.40));
@@ -67,7 +84,7 @@ function Battle(){
  const flash=hit.interpolate({inputRange:[-1,0,1],outputRange:[.38,1,.38]});
  const days=new Set(app.records.filter(r=>r.moyamoya?.participated).map(r=>r.date)).size;
  return <View testID="moyamoya-battle-screen" style={s.root}><ScrollView contentContainerStyle={{paddingTop:insets.top+8,paddingBottom:insets.bottom+24}} showsVerticalScrollIndicator={false}>
-  <View style={s.header}><Pressable testID="battle-home" accessibilityRole="button" accessibilityLabel="おうちに戻る。バトルの続きは保存されます" disabled={busy} onPress={home} style={s.back}><Icon name="chevron-left" size={23} color="#715184"/></Pressable><View style={{flex:1}}><Text style={s.eyebrow}>YOKI YOKI</Text><Text style={s.heading}>モヤモヤバトル</Text></View><BattleSoundControl/></View>
+  <View style={s.header}><Pressable testID="battle-home" accessibilityRole="button" accessibilityLabel="おうちに戻る。バトルの続きは保存されます" disabled={busy||leaving} onPress={home} style={s.back}><Icon name="chevron-left" size={23} color="#715184"/></Pressable><View style={{flex:1}}><Text style={s.eyebrow}>YOKI YOKI</Text><Text style={s.heading}>モヤモヤバトル</Text></View><BattleSoundControl/></View>
   <View style={s.link}><Text style={s.linkTitle}>今日の記録：{p.short}</Text>{!!record?.moyamoya?.memo&&<Text numberOfLines={2} style={s.memo}>{record.moyamoya.memo}</Text>}</View>
   <View style={[s.arena,{height:stageHeight}]}>
    <Image source={require('@/assets/moyamoya/garden.png')} style={StyleSheet.absoluteFill} resizeMode="cover"/>
@@ -84,10 +101,10 @@ function Battle(){
     <View style={s.stamps}><Text style={s.linkTitle}>バトルに参加した日　{Math.min(days,5)} / 5</Text><Text style={s.stampText}>{[0,1,2,3,4].map(i=>i<days?'★':'☆').join('  ')}</Text><Text style={s.memo}>{days>=5?'モヤモヤ雲のクッションを「思い出」に追加したよ。':'合計5日参加すると、お部屋に飾れるクッションがもらえるよ。連続でなくても大丈夫。'}</Text></View>
     {won&&shown.turns.filter(t=>t.good).map(t=><View key={t.actionId} style={s.tip}><Text style={s.linkTitle}>{ACTIONS[p.id][t.actionId]?.title??t.title}</Text><Text style={s.description}>{ACTIONS[p.id][t.actionId]?.feedback??t.feedback}</Text></View>)}
     {!won&&button('もう一度戦う（HPを全回復）',()=>void retry(),'battle-retry')}
-    {button('おうちに戻る',home,'battle-result-home',!won)}
+    {button(leaving?'おうちに戻っています…':'おうちに戻る',()=>void home(),'battle-result-home',!won)}
    </>:feedback?<View testID="battle-feedback" style={{gap:14}}><Text accessibilityLiveRegion="polite" style={s.eyebrow}>{feedback.good?`${p.name}に1ダメージ！`:`${app.mascotName||'よっきー'}に1ダメージ`}</Text><Text style={s.title}>{feedback.good?'こんなふうに試してみよう':'別の方法も考えてみよう。'}</Text><Text style={s.description}>{feedback.feedback}</Text>{button(finished?'結果を見る':'次のターンへ',()=>{setFeedback(undefined);if(finished)setResult(true);},'battle-next')}</View>:<>
     <Text style={s.eyebrow}>{busy?'こうげき！':`${shown.turns.length+1}ターン目`}</Text><Text style={s.memo}>場面の例</Text><Text style={s.question}>{BATTLES[p.id].scenes[shown.enemyHp<2?1:0]}</Text>
-    <View style={s.choices}>{battleChoices(shown).map((choice,i)=><Pressable key={choice.id} testID={`battle-choice-${choice.id}`} accessibilityRole="button" disabled={busy} onPress={()=>void choose(choice.id)} style={({pressed})=>[s.choice,pressed&&{backgroundColor:'#E8D9F2'},busy&&{opacity:.5}]}><Text style={s.number}>{i+1}</Text><Text style={s.choiceText}>{choice.title}</Text></Pressable>)}</View>
+    <View style={s.choices}>{battleChoices(shown).map((choice,i)=><Pressable key={choice.id} testID={`battle-choice-${choice.id}`} accessibilityRole="button" disabled={busy||leaving} onPress={()=>void choose(choice.id)} style={({pressed})=>[s.choice,pressed&&{backgroundColor:'#E8D9F2'},busy&&{opacity:.5}]}><Text style={s.number}>{i+1}</Text><Text style={s.choiceText}>{choice.title}</Text></Pressable>)}</View>
     <Text style={s.footnote}>役立つ対処法を選ぶと、敵のHPが1減ります。敵のHPを0にすると勝ち。こちらのHPが0になったら、休むか再挑戦できます。</Text>
    </>}
    {!!error&&<Text testID="battle-error" accessibilityRole="alert" style={s.error}>{error}</Text>}
