@@ -3,11 +3,10 @@ import {YourConditionCard} from '@/components/world/YourConditionCard';
 import {evolutionOffer} from '@/utils/evolutionChoice';
 import {FirstSteps,useFirstSteps} from '@/components/onboarding/FirstSteps';
 import {HomeDashboardMenu} from '@/components/world/HomeDashboardMenu';
-import {hasMoodForDay} from '@/utils/firstSteps';
+import {hasCompletedDailyCheckin} from '@/utils/firstSteps';
 import {nextHomeAssist} from '@/utils/homeAssist';
 import {useScenicVisit} from '@/components/world/useScenicVisit';
-import {DailyLetter,useDailyLetter} from '@/components/daily/DailyLetter';
-import {QuickAffirmationRecord} from '@/components/record/QuickAffirmationRecord';
+import {DailyLetter,useDailyCheckinPrompt} from '@/components/daily/DailyLetter';
 import {PersonalInsightPreview} from '@/components/insights/PersonalInsightPreview';
 import {CompanionCollection} from '@/components/collection/CompanionCollection';
 import {StableSceneViewport} from '@/components/world/StableSceneViewport';
@@ -51,7 +50,7 @@ import { isRecordPromptDue } from '@/utils/recordPrompt';
 import { useDailyBath } from '@/components/world/useDailyBath';
 
 const HINT_KEY = '@yoki/world_hints_v3';
-type Sheet = 'collection' | 'points' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'brief' | 'mood' | 'gift' | 'tutorial' | null;
+type Sheet = 'collection' | 'points' | 'feed' | 'chat' | 'menu' | 'atelier' | 'name' | 'happiness' | 'brief' | 'gift' | 'tutorial' | null;
 export default function HomeScreen() {
   const router = useRouter();
   const navigation=useNavigation<{setParams:(params:{learn:string})=>void}>();
@@ -65,7 +64,7 @@ export default function HomeScreen() {
   const { active, reduceMotion } = useRoomActivity();
   const time = useWorldTime(active);
   const { progress, growth, currentSatiety, feedState, mascotName, setMascotName, roomCustomization, companionState,
-    isLoading, cloudSynced, getTodayRecord, getCompletedCount, getTotalCheckCount, homeCommentPreferences } = useApp();
+    isLoading, storageError, cloudSynced, getTodayRecord, getCompletedCount, getTotalCheckCount, homeCommentPreferences } = useApp();
   const { items, shopState } = useItems();
   const [battleEncounter,setBattleEncounter]=useState(false);
   const [sceneBusy,setSceneBusy]=useState(false);
@@ -114,20 +113,27 @@ export default function HomeScreen() {
   const evolution=evolutionOffer(progress);
   const prompt = useRecordPrompt();
   const invitation = false; // Recording is always optional.
-  const letter=useDailyLetter(giftOwner,active);
-  useEffect(()=>{if(learn==='1'){letter.markSeen();setSheet('tutorial');navigation.setParams({learn:'0'});}},[learn]);
-  const needsMood=!isLoading&&hasMoodForDay(today,letter.date)===false;
-  const assistScope=JSON.stringify([giftOwner,letter.date]);
+  const checkinPrompt=useDailyCheckinPrompt(giftOwner,active);
+  useEffect(()=>{if(learn==='1'){checkinPrompt.markSeen();setSheet('tutorial');navigation.setParams({learn:'0'});}},[learn]);
+  const checkinComplete=hasCompletedDailyCheckin(today,checkinPrompt.date);
+  const checkinReady=!isLoading&&!storageError&&!auth.isLoading&&(!auth.isSignedIn||cloudSynced);
+  const assistScope=JSON.stringify([giftOwner,checkinPrompt.date]);
   const [assistVisit,setAssistVisit]=useState({scope:'',quiet:false,fed:false});
   const sameAssistVisit=assistVisit.scope===assistScope;
   const assist=active&&!isLoading&&!auth.isLoading&&(!auth.isSignedIn||cloudSynced)&&tutorial.ready&&!tutorial.due&&!sheet&&!sceneBusy&&!worldInteracting&&!food&&worldMap==='home'&&!(sameAssistVisit&&assistVisit.quiet)
-    ?nextHomeAssist({date:letter.date,record:today,diary:feedState.exchangeDiary,satiety:currentSatiety,fedThisVisit:sameAssistVisit&&assistVisit.fed}):null;
+    ?nextHomeAssist({date:checkinPrompt.date,record:today,diary:feedState.exchangeDiary,satiety:currentSatiety,fedThisVisit:sameAssistVisit&&assistVisit.fed}):null;
   const dismissAssist=()=>setAssistVisit({scope:assistScope,quiet:true,fed:sameAssistVisit&&assistVisit.fed});
-  useEffect(()=>{if(active&&tutorial.ready&&tutorial.due&&!sheet&&!sceneBusy&&!worldInteracting&&!food){letter.markSeen();setSheet('tutorial');}},[active,tutorial.ready,tutorial.due,sheet,sceneBusy,worldInteracting,food]);
-  const outing=useScenicVisit(giftOwner,letter.date,time.period==='night',!!bathReturn||!!atelier||!!place);
+  useEffect(()=>{if(active&&tutorial.ready&&tutorial.due&&!sheet&&!sceneBusy&&!worldInteracting&&!food){checkinPrompt.markSeen();setSheet('tutorial');}},[active,tutorial.ready,tutorial.due,sheet,sceneBusy,worldInteracting,food]);
+  const outing=useScenicVisit(giftOwner,checkinPrompt.date,time.period==='night',!!bathReturn||!!atelier||!!place);
   useEffect(()=>{if(bathReturn||place==='home'){outing.returnHome();router.setParams({place:undefined,bathReturn:undefined});}},[bathReturn,place,outing.returnHome]);
-  const openLetter=()=>{letter.markSeen();setSheet('brief');};
-  useEffect(()=>{if(active&&learn!=='1'&&tutorial.ready&&!tutorial.due&&letter.due&&!hasBattleInvitation&&(!place||place==='home')&&!sheet&&!sceneBusy&&!worldInteracting&&!food){letter.markSeen();setSheet('brief');}},[active,learn,tutorial.ready,tutorial.due,letter.due,letter.date,sheet,sceneBusy,worldInteracting,food]);
+  const openLetter=()=>setSheet('brief');
+  useEffect(()=>{
+    if(active&&checkinReady&&learn!=='1'&&tutorial.ready&&!tutorial.due&&checkinPrompt.due&&!hasBattleInvitation&&worldMap==='home'&&(!place||place==='home')&&!sheet&&!sceneBusy&&!worldInteracting&&!food){
+      // Consume before navigating so saving, skipping and coming back cannot reopen it.
+      checkinPrompt.markSeen();
+      if(!checkinComplete)router.push('/check-in');
+    }
+  },[active,checkinReady,checkinComplete,learn,tutorial.ready,tutorial.due,checkinPrompt.due,checkinPrompt.date,hasBattleInvitation,worldMap,place,sheet,sceneBusy,worldInteracting,food]);
   const close = () => { nameSession.current++; setSheet(null); };
   const saveName = async () => {
     if (nameBusy.current || !name.trim()) return;
@@ -215,9 +221,8 @@ export default function HomeScreen() {
       <WorldPill label="ごはんを選ぶ" icon="coffee" onPress={()=>openFeed()}/>
     </BottomSheet>}
     {sheet==='gift'&&openedGift?.owner===giftOwner&&<GiftPresentation key={openedGift.gift.id+giftOwner} gift={openedGift.gift} onClose={close} onReceive={async id=>{const saved=await runCharacterGifts({kind:'receive',id});if(!saved.received)throw Error('Gift missing');voice.play('happy');return saved.received;}} onList={()=>{close();router.push('/gifts');}}/>}
-    {sheet==='brief'&&<DailyLetter date={letter.date} onClose={close} onGrowth={()=>{close();router.push('/(tabs)/growth');}}/>}
-    {sheet==='tutorial'&&<FirstSteps key={giftOwner} onFinish={async record=>{const owner=giftOwner;await tutorial.finish();if(currentOwner.current!==owner)return;letter.markSeen();setSheet(null);if(record)router.push('/check-in');}}/>}
-    {sheet==='mood'&&<BottomSheet visible title="今日の気持ち" onClose={close}><QuickAffirmationRecord/><Button variant="ghost" label="日記も書く" onPress={()=>{close();router.push('/exchange-diary');}}/></BottomSheet>}
+    {sheet==='brief'&&<DailyLetter date={checkinPrompt.date} onClose={close} onGrowth={()=>{close();router.push('/(tabs)/growth');}}/>}
+    {sheet==='tutorial'&&<FirstSteps key={giftOwner} onFinish={async record=>{const owner=giftOwner;await tutorial.finish();if(currentOwner.current!==owner)return;checkinPrompt.markSeen();setSheet(null);if(record)router.push('/check-in');}}/>}
     {sheet === 'happiness' && <BottomSheet visible onClose={close} title="うれしい気持ち" subtitle="会いに来てくれることが、いちばんうれしい。">
       <Text style={s.chatText}>幸福度 {happiness.value}%</Text>
       <Text testID="happiness-decay-guide" style={{color:'#7F6D5D',fontSize:13,lineHeight:22}}>幸福度は、アプリを閉じている間も1時間に1ずつ下がります。24時間以上会わないと、その先は1時間に2ずつ。会いに来ると1日1回、24回復します。毎日少し会えれば保ちやすく、2日空くと大きく下がります。ごはんや日記、おふろでも回復するよ。</Text>
@@ -243,9 +248,9 @@ export default function HomeScreen() {
       {menuRow('star', 'この子の進化', () => {close();router.push('/evolution');}, 'home-evolution', '好きな姿を、自分で選ぶ')}
       {menuRow('layers', 'お部屋の視点を変える', ()=>openSceneControls('view'), 'home-view-toggle')}
       {menuRow(music.enabled?'volume-2':'volume-x',`BGM：${music.enabled?'オン':'オフ'}`,music.toggle,'world-bgm-toggle')}
-      {menuRow('smile', '今日の気分を残す', ()=>setSheet('mood'), 'home-quick-mood')}
+      {menuRow('smile', 'いまのようすを記録', ()=>{checkinPrompt.markSeen();close();router.push('/check-in');}, 'home-quick-mood')}
       {menuRow('mail', '今日の便り', openLetter)}
-      {menuRow('help-circle', 'はじめての使い方', () => {letter.markSeen();setSheet('tutorial');})}
+      {menuRow('help-circle', 'はじめての使い方', () => {checkinPrompt.markSeen();setSheet('tutorial');})}
       {menuRow('gift', '思い出・飾りもの', () => setSheet('collection'))}
       {menuRow('gift', 'この子からの贈りもの', () => { close(); router.push('/gifts'); })}
       {menuRow('book-open', '交換日記', () => { close(); router.push('/exchange-diary'); }, 'home-menu-diary')}

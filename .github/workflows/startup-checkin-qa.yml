@@ -1,0 +1,48 @@
+name: Startup four-step check-in verification
+on:
+  push:
+    branches: [fix/startup-checkin-20261106]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: startup-checkin-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      TZ: Asia/Tokyo
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: Install frozen dependencies
+        working-directory: .
+        run: |
+          npm install --global pnpm@10.11.0
+          pnpm install --frozen-lockfile --ignore-scripts
+      - name: Check types and record/battle regressions
+        run: |
+          pnpm typecheck
+          node --test tests/firstSteps.test.mjs tests/dailyCheckin.test.mjs tests/dailyRecordTransaction.test.mjs tests/moyamoya.test.mjs
+      - name: Export the changed app for browser and iOS
+        run: |
+          pnpm exec expo export --platform web --output-dir "$RUNNER_TEMP/checkin-web"
+          pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/checkin-ios"
+      - name: Install browser test runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/checkin-browser" --no-save --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/checkin-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Verify startup, four steps, save, skip and repeat prevention
+        run: |
+          YOKI_QA_EXPORT="$RUNNER_TEMP/checkin-web" YOKI_QA_PLAYWRIGHT="$RUNNER_TEMP/checkin-browser/node_modules/playwright" node tests/startupCheckin.browser.cjs
