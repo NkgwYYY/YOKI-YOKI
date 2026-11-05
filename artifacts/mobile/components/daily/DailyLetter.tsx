@@ -4,7 +4,7 @@ import {AppState,StyleSheet,Text,View} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useApp} from '@/contexts/AppContext';
 import {getTodayDate} from '@/utils/dateUtils';
-import {dailyLetterKey} from '@/utils/personalGrowth';
+import {dailyCheckinPromptKey} from '@/utils/firstSteps';
 import {BottomSheet} from '@/components/ui/BottomSheet';
 import {Icon} from '@/components/ui/Icon';
 import {Button} from '@/components/ui/Button';
@@ -12,11 +12,10 @@ import {colors} from '@/constants/theme';
 import {CheckinDashboard,checkinStyles as cs} from './CheckinDashboard';
 import {dailyCheckin} from '@/utils/dailyCheckin';
 import {useRouter} from 'expo-router';
-import {QuickAffirmationRecord} from '@/components/record/QuickAffirmationRecord';
 
-export function useDailyLetter(owner:string,active:boolean){
+export function useDailyCheckinPrompt(owner:string,active:boolean){
  const [date,setDate]=useState(getTodayDate),[dueKey,setDueKey]=useState<string|null>(null);
- const key=dailyLetterKey(owner,date),seen=useRef(new Set<string>());
+ const key=dailyCheckinPromptKey(owner,date),seen=useRef(new Set<string>());
  useEffect(()=>{if(!active)return;const update=()=>setDate(getTodayDate());update();const timer=setInterval(update,30000),subscription=AppState.addEventListener('change',s=>{if(s==='active')update();});return()=>{clearInterval(timer);subscription.remove();};},[active]);
  useEffect(()=>{let alive=true;setDueKey(null);if(!seen.current.has(key))AsyncStorage.getItem(key).then(value=>{if(alive&&!value)setDueKey(key);}).catch(()=>{if(alive)setDueKey(key);});return()=>{alive=false;};},[key]);
  const markSeen=()=>{seen.current.add(key);setDueKey(null);void AsyncStorage.setItem(key,'seen').catch(()=>{});};
@@ -28,7 +27,7 @@ export function DailyLetter({date,onClose,onGrowth}:{date:string;onClose:()=>voi
  const router=useRouter();
  return <BottomSheet visible title="今日の便り" subtitle={`${Number(date.slice(5,7))}月${Number(date.slice(8,10))}日 · 気分と生活の振り返り`} onClose={onClose} maxHeightRatio={.94} footer={<Button label={`${mascotName||'よっきー'}に会いに行く`} onPress={onClose} fullWidth/>}>
   <CheckinDashboard data={data}/>
-  <QuickAffirmationRecord/>
+  <Button testID="daily-letter-check-in" label="いまのようすを記録" onPress={()=>{onClose();router.push('/check-in');}} fullWidth/>
   <View style={[cs.card,{backgroundColor:'#EAF4EF',borderColor:'#A7C8BA'}]}><Text style={cs.helper}>今日できること</Text><Text style={cs.heading}>{data.action.title}</Text><Text style={cs.copy}>{data.action.detail}</Text>
    {data.action.kind==='rest'?<Button label="この子とひと休みする" onPress={onClose}/>:data.action.kind==='sleep'||data.action.kind==='diary'?<Button label={data.action.kind==='sleep'?'睡眠も記録する':'日記を開く'} variant="outline" onPress={()=>{onClose();router.push('/exchange-diary');}}/>:null}
   </View>
