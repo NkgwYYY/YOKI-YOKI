@@ -33,7 +33,7 @@ let browser,page;
   await page.goto(base);return {context,errors};
  }
  async function homeWithoutPrompt(){
-  await page.getByTestId('world-map-open').waitFor();
+  await page.getByTestId('home-more-menu').waitFor();
   await page.waitForFunction(d=>localStorage.getItem('@yoki/daily-check-in/v1/guest/'+d)==='seen',date);
   assert.equal(await page.getByTestId('check-in-screen').count(),0);
   assert.equal(await page.getByRole('heading',{name:'今日の便り',exact:true}).count(),0);
