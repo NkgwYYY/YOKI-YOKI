@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: startup-checkin-${{ github.ref }}
+  group: startup-checkin-${{ github.sha }}
   cancel-in-progress: false
 jobs:
   verify:
@@ -40,9 +40,15 @@ jobs:
           pnpm exec expo export --platform web --output-dir "$RUNNER_TEMP/checkin-web"
           pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/checkin-ios"
       - name: Install browser test runner
+        timeout-minutes: 3
         run: |
-          npm install --prefix "$RUNNER_TEMP/checkin-browser" --no-save --ignore-scripts playwright@1.62.1
-          node "$RUNNER_TEMP/checkin-browser/node_modules/playwright/cli.js" install --with-deps chromium
+          npm install --prefix "$RUNNER_TEMP/checkin-browser" --no-save --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=30000 playwright@1.62.1
+          TEST_BROWSER=$(command -v google-chrome || command -v chromium || true)
+          if [ -n "$TEST_BROWSER" ]; then
+            echo "YOKI_QA_BROWSER=$TEST_BROWSER" >> "$GITHUB_ENV"
+          else
+            node "$RUNNER_TEMP/checkin-browser/node_modules/playwright/cli.js" install chromium
+          fi
       - name: Verify startup, four steps, save, skip and repeat prevention
         run: |
           YOKI_QA_EXPORT="$RUNNER_TEMP/checkin-web" YOKI_QA_PLAYWRIGHT="$RUNNER_TEMP/checkin-browser/node_modules/playwright" node tests/startupCheckin.browser.cjs
