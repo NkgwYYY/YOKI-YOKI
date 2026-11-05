@@ -33,7 +33,7 @@ let browser,page;
   await page.goto(base);return {context,errors};
  }
  async function homeWithoutPrompt(){
-  await page.getByTestId('home-more-menu').waitFor();
+  await page.getByRole('button',{name:'部屋のメニュー',exact:true}).waitFor();
   await page.waitForFunction(d=>localStorage.getItem('@yoki/daily-check-in/v1/guest/'+d)==='seen',date);
   assert.equal(await page.getByTestId('check-in-screen').count(),0);
   assert.equal(await page.getByRole('heading',{name:'今日の便り',exact:true}).count(),0);
@@ -54,7 +54,7 @@ let browser,page;
   assert.equal(records.length,1);assert.equal(record.mood,4);assert.equal(record.fatigue,2);assert.equal(record.worry,3);assert.equal(record.moyamoya.has,has);assert.equal(record.notes,'保存済みの日記');assert.equal(record.sleep,7);
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),200);
   await page.reload();await homeWithoutPrompt();
-  await page.getByTestId('home-more-menu').click();await page.getByRole('button',{name:'今日の便り',exact:true}).click();
+  await page.getByRole('button',{name:'部屋のメニュー',exact:true}).click();await page.getByRole('button',{name:'今日の便り',exact:true}).click();
   assert.equal(await page.getByTestId('quick-mood-3').count(),0);
   await page.getByTestId('daily-letter-check-in').click();await page.getByTestId('check-in-screen').waitFor();
   assert.deepEqual(errors,[]);await context.close();console.log(`PASS ${width}x${height}: automatic four-step entry, save, home/battle, preserved diary/points, no repeated prompt, manual entry`);
