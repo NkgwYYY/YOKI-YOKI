@@ -55,3 +55,11 @@ test('cap is three per rolling day, with spacing and persistent encounter dedupl
  assert.equal(reserveBattleAd(h,'d',now+600_000),null);
  assert.equal(reserveBattleAd(h,'d',now+86_400_001).length,3);
 });
+
+test('screen cleanup during an SDK modal holds music and lock until native close',async()=>{
+ const f=fixture();await f.session.preload();f.events.get('loaded')();let done=false;
+ const p=f.session.showIfReady().then(()=>done=true);await tick();f.session.dispose();
+ assert.equal(done,false);assert.equal(f.stats().releases,0);assert.equal(acquireFullscreenAd(),null);
+ f.events.get('closed')();await p;assert.equal(f.stats().releases,1);
+ const release=acquireFullscreenAd();assert.ok(release);release();
+});

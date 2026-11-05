@@ -14,19 +14,22 @@ export type TransitionDeps = {
   timeoutMs?: number;
 };
 export function createInterstitialSession(deps: TransitionDeps) {
-  let dead=false, used=false, loaded=false, started=false, ad:TransitionAd|undefined;
+  let dead=false, cancelled=false, showing=false, used=false, loaded=false, started=false, ad:TransitionAd|undefined;
   let loadedAt=0, release:(()=>void)|undefined, pause:AdPause|undefined;
   let resolveShow:(()=>void)|undefined;
   let timer:ReturnType<typeof setTimeout>|undefined;
   const off:(()=>void)[]=[];
-  const dispose=()=>{
+  const finish=()=>{
     if(dead)return;dead=true;loaded=false;
     if(timer)clearTimeout(timer);
     off.splice(0).forEach(fn=>{try{fn();}catch{}});
     try{pause?.release();}catch{};release?.();release=undefined;
     resolveShow?.();resolveShow=undefined;
   };
-  const current=()=>!dead&&deps.current();
+  // Navigation/eligibility changes cannot dismiss the SDK modal. Keep its audio
+  // lease until native close/error, even when its React screen is unmounted.
+  const dispose=()=>{cancelled=true;if(!showing)finish();};
+  const current=()=>!dead&&!cancelled&&deps.current();
   const preload=async()=>{
     if(started||!current())return;started=true;
     try{
@@ -34,7 +37,7 @@ export function createInterstitialSession(deps: TransitionDeps) {
       if(!current())return;
       ad=prepared;
       off.push(ad.on('loaded',()=>{if(!dead&&!used){loaded=true;loadedAt=Date.now();if(timer)clearTimeout(timer);}}));
-      off.push(ad.on('closed',dispose),ad.on('error',dispose));
+      off.push(ad.on('closed',finish),ad.on('error',finish));
       timer=setTimeout(dispose,20_000);
       ad.load();
     }catch{dispose();}
@@ -55,9 +58,10 @@ export function createInterstitialSession(deps: TransitionDeps) {
           pause=deps.pause();await pause.ready;
           if(!current()){dispose();return;}
           if(timer)clearTimeout(timer);
-          timer=setTimeout(dispose,180_000);
+          timer=setTimeout(finish,180_000);
+          showing=true;
           await ad!.show();
-        }catch{dispose();}
+        }catch{finish();}
       })();
     });
   };
