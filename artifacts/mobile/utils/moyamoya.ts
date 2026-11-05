@@ -24,7 +24,7 @@ export function recordMoyamoya(previous:MoyamoyaRecord|undefined,input:MoyamoyaI
 export function battleChoices(e:Encounter) {
   const pattern=getPattern(e.pattern); if(!pattern)return [];
   const used=new Set(e.turns.map(t=>t.actionId));
-  const good=pattern.actions.filter(id=>!used.has(id)).slice(0,2).map(id=>({id,...ACTIONS[id],good:true}));
+  const good=pattern.actions.filter(id=>!used.has(id)).slice(0,2).map(id=>({id,...ACTIONS[pattern.id][id],good:true}));
   const poor=BATTLES[pattern.id].bad.filter(a=>!used.has(a.id));
   const all=[good[0],poor[0],poor[1],good[1]].filter((v):v is NonNullable<typeof v>=>!!v);
   const offset=e.turns.length%Math.max(1,all.length);

@@ -41,7 +41,7 @@ function InsightsNotebook({ context }: { context: ReturnType<typeof usePersonalI
   };
   return <View testID="personal-insights-screen" style={s.root}>
     <View style={[s.nav, { paddingTop: (Platform.OS === 'web' ? 16 : insets.top) + 6 }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="歩みに戻る" onPress={() => router.navigate('/(tabs)/growth')} style={s.iconButton}><Icon name="chevron-left" size={22} color="#674F70" /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="戻る" onPress={() => router.navigate('/(tabs)/growth')} style={s.iconButton}><Icon name="chevron-left" size={22} color="#674F70" /></Pressable>
       <Text style={s.navTitle}>元気な日の傾向</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="自分のヒント帳を開く" onPress={() => router.push('/hints')} style={s.iconButton}><Icon name="bookmark" size={22} color="#674F70" /></Pressable>
     </View>

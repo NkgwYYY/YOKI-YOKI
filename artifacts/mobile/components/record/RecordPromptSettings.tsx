@@ -15,7 +15,7 @@ export function RecordPromptSettings() {
   };
   return <View testID="record-prompt-settings" style={s.card}>
     <Text style={s.title}>一日をふりかえる時間</Text>
-    <Text style={s.copy}>この時刻を過ぎてホームを開くと、まだ記録していない日に大きくご案内します。短いひとことだけでも、休む日があっても大丈夫。</Text>
+    <Text style={s.copy}>設定した時刻を過ぎておうちを開くと、その日の記録がまだない場合にお知らせします。ひとことだけでも、書かずに休んでも大丈夫。</Text>
     <View style={s.row}><Text style={s.label}>ホームでお知らせ</Text><Switch accessibilityLabel="記録の時間のお知らせ" value={enabled} disabled={!ready||busy} onValueChange={value=>{setEnabled(value);setMessage('');}}/></View>
     <View style={s.row}><Text style={s.label}>毎日</Text><TextInput testID="record-prompt-time" accessibilityLabel="記録する時刻（24時間表示）" value={ready?time:''} onChangeText={value=>{setTime(value);setMessage('');}} editable={ready&&!busy} maxLength={5} placeholder={ready?'20:00':'…'} autoCapitalize="none" style={s.input}/><Text style={s.copy}>端末の時刻</Text></View>
     <Pressable testID="record-prompt-save" accessibilityRole="button" disabled={!ready||busy} onPress={submit} style={[s.button,(!ready||busy)&&{opacity:.5}]}><Text style={s.buttonText}>{busy?'保存中…':'時間を保存'}</Text></Pressable>

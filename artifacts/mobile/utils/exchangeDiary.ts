@@ -54,7 +54,7 @@ export function makeDiaryLetter(date:string,feed:FeedState):DiaryLetter{
 }
 export function diaryReply(mood:number,date:string,text:string){
  const variant=Math.abs(serial(date))%3;
- const opening=text.trim()?['今日のことを分けてくれて、ありがとう。','あなたのページ、ゆっくり読んだよ。','言葉にして届けてくれて、ありがとう。'][variant]:'今日の気分、受け取ったよ。言葉が出ない日も、この一ページは残しておこうね。';
+ const opening=text.trim()?['今日のことを聞かせてくれて、ありがとう。','あなたのページ、ゆっくり読んだよ。','言葉にして届けてくれて、ありがとう。'][variant]:'今日の気分、受け取ったよ。言葉が出ない日も、この一ページは残しておこうね。';
  const endings:Record<number,readonly string[]>={
   1:['いまは無理に明るくしなくていいよ。ここでは、そのままでいてね。','つらい気持ちのままでも大丈夫。今日は少し、ひと休みしよう。','今日はうまくまとめなくてもいいよ。一緒に静かに過ごそう。'],
   2:['しんどい日は、いつもよりゆっくりの歩幅でいこう。','今夜は少し、肩の力を抜ける時間があるといいな。','今日はここで、一息ついていってね。'],

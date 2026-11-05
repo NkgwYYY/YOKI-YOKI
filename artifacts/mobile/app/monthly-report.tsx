@@ -135,9 +135,9 @@ export default function MonthlyReportScreen() {
       <View style={[styles.statsRow, stackStats && styles.statsStack]}>
         <Stat value={`${report.recordedDays}日`} label="記録した日" />
         <View style={stackStats ? styles.statDividerHorizontal : styles.statDivider} />
-        <Stat value={report.mostMoodLabel} label="よく残した気持ち" compact />
+        <Stat value={report.mostMoodLabel} label="よく記録した気分" compact />
         <View style={stackStats ? styles.statDividerHorizontal : styles.statDivider} />
-        <Stat value={`${report.longestStreak}日`} label="続けて残した日" />
+        <Stat value={`${report.longestStreak}日`} label="最長の連続記録" />
       </View>
 
       <View style={styles.reportFooter}>

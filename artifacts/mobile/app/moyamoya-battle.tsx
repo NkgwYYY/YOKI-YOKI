@@ -11,7 +11,7 @@ import {Enemy} from '@/components/moyamoya/Enemy';
 import {BattleCompanion} from '@/components/moyamoya/BattleCompanion';
 import {BattleSoundControl} from '@/components/moyamoya/BattleSoundControl';
 import {battleChoices,type BattleTurn,type Encounter} from '@/utils/moyamoya';
-import {BATTLES,getPattern} from '@/utils/moyamoyaContent';
+import {ACTIONS,BATTLES,getPattern} from '@/utils/moyamoyaContent';
 import {Icon} from '@/components/ui/Icon';
 
 export default function BattleScreen(){const auth=useAuth();return <Battle key={auth.user?.id??'guest'}/>;}
@@ -79,16 +79,16 @@ function Battle(){
    {target&&!reduceMotion&&<Animated.View pointerEvents="none" style={[s.beam,{backgroundColor:target==='enemy'?'#FFF2AD':'#CBA7EA',opacity:beam,transform:[{rotate:'-28deg'},{scaleX:beam}]}]}/>}
   </View>
   <View style={s.panel}>
-   {result?<><Text style={s.eyebrow}>{won?'VICTORY!':'ひと休みしよう'}</Text><Text accessibilityRole="header" style={s.title}>{won?`${p.name}をたおした！`:'今回は負けちゃった。'}</Text><Text style={s.description}>{won?'対処法を2つ見つけたね。気持ちが変わらない日も、ここまでで大丈夫。':'考え方を選び直せるよ。休んでも、よっきーやポイントは減らないよ。'}</Text>
+   {result?<><Text style={s.eyebrow}>{won?'VICTORY!':'ひと休みしよう'}</Text><Text accessibilityRole="header" style={s.title}>{won?`${p.name}をたおした！`:'今回は負けちゃった。'}</Text><Text style={s.description}>{won?'試せそうな対処法が2つ見つかったね。すぐに気持ちが変わらなくても大丈夫だよ。':'もう一度、別の対処法を選んで挑戦できるよ。今日は終わりにしても、ポイントは減らないよ。'}</Text>
     {won&&<View style={s.reward}><Icon name="star" size={26} color="#B28D43"/><Text style={s.rewardText}>{shown.awarded?`＋${shown.awarded} YOKIポイント`:'今日の10ポイントは受け取り済み'}</Text></View>}
-    <View style={s.stamps}><Text style={s.linkTitle}>向き合った日　{Math.min(days,5)} / 5</Text><Text style={s.stampText}>{[0,1,2,3,4].map(i=>i<days?'★':'☆').join('  ')}</Text><Text style={s.memo}>{days>=5?'モヤモヤ雲のクッションを「思い出」に追加したよ。':'5日参加すると、お部屋に飾れるクッションがもらえるよ。'}</Text></View>
-    {won&&shown.turns.filter(t=>t.good).map(t=><View key={t.actionId} style={s.tip}><Text style={s.linkTitle}>{t.title}</Text><Text style={s.description}>{t.feedback}</Text></View>)}
-    {!won&&button('もう一度、戦う（HP 2で再開）',()=>void retry(),'battle-retry')}
+    <View style={s.stamps}><Text style={s.linkTitle}>バトルに参加した日　{Math.min(days,5)} / 5</Text><Text style={s.stampText}>{[0,1,2,3,4].map(i=>i<days?'★':'☆').join('  ')}</Text><Text style={s.memo}>{days>=5?'モヤモヤ雲のクッションを「思い出」に追加したよ。':'合計5日参加すると、お部屋に飾れるクッションがもらえるよ。連続でなくても大丈夫。'}</Text></View>
+    {won&&shown.turns.filter(t=>t.good).map(t=><View key={t.actionId} style={s.tip}><Text style={s.linkTitle}>{ACTIONS[p.id][t.actionId]?.title??t.title}</Text><Text style={s.description}>{ACTIONS[p.id][t.actionId]?.feedback??t.feedback}</Text></View>)}
+    {!won&&button('もう一度戦う（HPを全回復）',()=>void retry(),'battle-retry')}
     {button('おうちに戻る',home,'battle-result-home',!won)}
-   </>:feedback?<View testID="battle-feedback" style={{gap:14}}><Text accessibilityLiveRegion="polite" style={s.eyebrow}>{feedback.good?`${p.name}に1ダメージ！`:`${app.mascotName||'よっきー'}に1ダメージ`}</Text><Text style={s.title}>{feedback.good?'その一手、いい感じ！':'別の方法も考えてみよう。'}</Text><Text style={s.description}>{feedback.feedback}</Text>{button(finished?'結果を見る':'次の一手へ',()=>{setFeedback(undefined);if(finished)setResult(true);},'battle-next')}</View>:<>
-    <Text style={s.eyebrow}>{busy?'こうげき！':`どうする？　${shown.turns.length+1}ターン目`}</Text><Text style={s.question}>{BATTLES[p.id].scenes[shown.enemyHp<2?1:0]}</Text>
+   </>:feedback?<View testID="battle-feedback" style={{gap:14}}><Text accessibilityLiveRegion="polite" style={s.eyebrow}>{feedback.good?`${p.name}に1ダメージ！`:`${app.mascotName||'よっきー'}に1ダメージ`}</Text><Text style={s.title}>{feedback.good?'こんなふうに試してみよう':'別の方法も考えてみよう。'}</Text><Text style={s.description}>{feedback.feedback}</Text>{button(finished?'結果を見る':'次のターンへ',()=>{setFeedback(undefined);if(finished)setResult(true);},'battle-next')}</View>:<>
+    <Text style={s.eyebrow}>{busy?'こうげき！':`どうする？　${shown.turns.length+1}ターン目`}</Text><Text style={s.memo}>たとえば、こんなとき。あなたならどうする？</Text><Text style={s.question}>{BATTLES[p.id].scenes[shown.enemyHp<2?1:0]}</Text>
     <View style={s.choices}>{battleChoices(shown).map((choice,i)=><Pressable key={choice.id} testID={`battle-choice-${choice.id}`} accessibilityRole="button" disabled={busy} onPress={()=>void choose(choice.id)} style={({pressed})=>[s.choice,pressed&&{backgroundColor:'#E8D9F2'},busy&&{opacity:.5}]}><Text style={s.number}>{i+1}</Text><Text style={s.choiceText}>{choice.title}</Text></Pressable>)}</View>
-    <Text style={s.footnote}>対処法を選んで、2回ダメージを与えたら勝ち。自分が2回受けるとひと休みです。</Text>
+    <Text style={s.footnote}>役立つ対処法を選ぶと、敵のHPが1減ります。敵のHPを0にすると勝ち。こちらのHPが0になったら、休むか再挑戦できます。</Text>
    </>}
    {!!error&&<Text testID="battle-error" accessibilityRole="alert" style={s.error}>{error}</Text>}
   </View>
