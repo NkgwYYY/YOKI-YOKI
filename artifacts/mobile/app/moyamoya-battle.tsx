@@ -86,7 +86,7 @@ function Battle(){
     {!won&&button('もう一度戦う（HPを全回復）',()=>void retry(),'battle-retry')}
     {button('おうちに戻る',home,'battle-result-home',!won)}
    </>:feedback?<View testID="battle-feedback" style={{gap:14}}><Text accessibilityLiveRegion="polite" style={s.eyebrow}>{feedback.good?`${p.name}に1ダメージ！`:`${app.mascotName||'よっきー'}に1ダメージ`}</Text><Text style={s.title}>{feedback.good?'こんなふうに試してみよう':'別の方法も考えてみよう。'}</Text><Text style={s.description}>{feedback.feedback}</Text>{button(finished?'結果を見る':'次のターンへ',()=>{setFeedback(undefined);if(finished)setResult(true);},'battle-next')}</View>:<>
-    <Text style={s.eyebrow}>{busy?'こうげき！':`どうする？　${shown.turns.length+1}ターン目`}</Text><Text style={s.memo}>たとえば、こんなとき。あなたならどうする？</Text><Text style={s.question}>{BATTLES[p.id].scenes[shown.enemyHp<2?1:0]}</Text>
+    <Text style={s.eyebrow}>{busy?'こうげき！':`${shown.turns.length+1}ターン目`}</Text><Text style={s.memo}>場面の例</Text><Text style={s.question}>{BATTLES[p.id].scenes[shown.enemyHp<2?1:0]}</Text>
     <View style={s.choices}>{battleChoices(shown).map((choice,i)=><Pressable key={choice.id} testID={`battle-choice-${choice.id}`} accessibilityRole="button" disabled={busy} onPress={()=>void choose(choice.id)} style={({pressed})=>[s.choice,pressed&&{backgroundColor:'#E8D9F2'},busy&&{opacity:.5}]}><Text style={s.number}>{i+1}</Text><Text style={s.choiceText}>{choice.title}</Text></Pressable>)}</View>
     <Text style={s.footnote}>役立つ対処法を選ぶと、敵のHPが1減ります。敵のHPを0にすると勝ち。こちらのHPが0になったら、休むか再挑戦できます。</Text>
    </>}

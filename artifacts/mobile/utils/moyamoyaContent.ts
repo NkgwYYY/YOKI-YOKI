@@ -176,8 +176,8 @@ export const ACTIONS: Record<PatternId,Record<string,{title:string;feedback:stri
 export const BATTLES: Record<PatternId,{scenes:string[];bad:{id:string;title:string;feedback:string;good:boolean}[]}> = {
   "loop": {
     "scenes": [
-      "前に失敗したことを何度も思い出して、「また失敗するかも」と心配になっている。",
-      "まだ心配が残るとき、ほかにできそうなことは？"
+      "前の失敗を思い出すと、「また失敗するかも」と不安になる。\nこんなとき、どうする？",
+      "「また失敗するかも」という不安が、まだ頭から離れない。\nほかに、どんな方法を試してみる？"
     ],
     "bad": [
       {
@@ -196,8 +196,8 @@ export const BATTLES: Record<PatternId,{scenes:string[];bad:{id:string;title:str
   },
   "future": {
     "scenes": [
-      "明日の予定がうまくいくか心配で、悪い結果ばかり考えてしまう。",
-      "明日のことは、まだわからない。今できそうなことは？"
+      "明日は大事な予定がある。「うまくいかなかったらどうしよう」と心配で落ち着かない。\nこんなとき、どうする？",
+      "明日のことが気になって、落ち着かない。\n今できることの中から、ほかにどれを試してみる？"
     ],
     "bad": [
       {
@@ -216,8 +216,8 @@ export const BATTLES: Record<PatternId,{scenes:string[];bad:{id:string;title:str
   },
   "busy": {
     "scenes": [
-      "やることが多くて、何から始めればいいかわからない。",
-      "まだ作業がいくつも残っている。無理なく進めるには、どうする？"
+      "やることが多くて、何から手をつければいいのかわからない。\nこんなとき、どうする？",
+      "残っている作業を全部今日中に終わらせようとして、焦ってしまう。\n負担を減らすには、どんな方法がよさそう？"
     ],
     "bad": [
       {
@@ -236,8 +236,8 @@ export const BATTLES: Record<PatternId,{scenes:string[];bad:{id:string;title:str
   },
   "people": {
     "scenes": [
-      "送ったメッセージへの返事が短くて、「嫌われたのかな」と不安になった。",
-      "返事が短かった理由は、まだわからない。ほかにできそうなことは？"
+      "友達からの返事がいつもより短くて、「嫌われたのかな」と不安になった。\nこんなとき、どうする？",
+      "返事が短かった理由がわからず、まだ気になっている。\nほかに、どんな方法を試してみる？"
     ],
     "bad": [
       {
@@ -256,8 +256,8 @@ export const BATTLES: Record<PatternId,{scenes:string[];bad:{id:string;title:str
   },
   "self": {
     "scenes": [
-      "失敗をして、「自分は何をやってもだめだ」と感じている。",
-      "失敗したことばかり気になる。自分を責め続けないために、どうする？"
+      "ミスをして、「自分は何をやってもだめだ」と落ち込んでいる。\nこんなとき、どうする？",
+      "うまくいかなかったことばかり思い出して、自分を責めてしまう。\nほかに、どんな方法を試してみる？"
     ],
     "bad": [
       {
@@ -276,8 +276,8 @@ export const BATTLES: Record<PatternId,{scenes:string[];bad:{id:string;title:str
   },
   "anger": {
     "scenes": [
-      "相手にきつい言い方をされて、イライラしている。すぐに言い返したくなった。",
-      "まだイライラしている。相手に気持ちを伝える前に、どうする？"
+      "相手にきつい言い方をされて、腹が立った。思わず言い返したくなっている。\nこんなとき、どうする？",
+      "相手の言い方に、まだ腹が立っている。\n返事をする前に、何ができる？"
     ],
     "bad": [
       {
