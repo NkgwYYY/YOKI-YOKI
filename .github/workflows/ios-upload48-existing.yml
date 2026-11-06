@@ -1,0 +1,195 @@
+name: YOKI YOKI - Upload existing build 48
+run-name: Upload YOKI YOKI 1.2.4 (48) to Apple - no rebuild
+'on':
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: yokiyoki-upload-existing-build48
+  cancel-in-progress: false
+jobs:
+  upload:
+    name: Upload existing IPA to Apple
+    if: github.repository == 'NkgwYYY/YOKI-YOKI' && github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Download and verify original build 48
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          umask 077
+          work="$RUNNER_TEMP/yoki-upload48"
+          mkdir -p "$work"
+          curl --fail --silent --show-error --location --retry 2 --max-time 300 \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --output "$work/build48.zip" \
+            "https://api.github.com/repos/NkgwYYY/YOKI-YOKI/actions/artifacts/13460219874/zip"
+          python3 - <<'PYCODE'
+          import hashlib, io, os, plistlib, zipfile
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'yoki-upload48'
+          archive = (root / 'build48.zip').read_bytes()
+          if hashlib.sha256(archive).hexdigest() != '300c95174402b610c3f800e1b3bbdf1c17ec9bf09425e7ac3327db83d658efbd':
+              raise SystemExit('Archive checksum mismatch. Nothing uploaded.')
+          with zipfile.ZipFile(io.BytesIO(archive)) as z:
+              ipa = z.read('export/YOKIYOKI.ipa')
+          if hashlib.sha256(ipa).hexdigest() != '054c376ad85a0d1ddc05bf538da2e26ddaa2aca0265cfcc2b65390e9ac58bd9a':
+              raise SystemExit('IPA checksum mismatch. Nothing uploaded.')
+          with zipfile.ZipFile(io.BytesIO(ipa)) as z:
+              infos = [n for n in z.namelist() if n.startswith('Payload/') and n.count('/') == 2 and n.endswith('.app/Info.plist')]
+              if len(infos) != 1:
+                  raise SystemExit('Expected exactly one main app Info.plist.')
+              info = plistlib.loads(z.read(infos[0]))
+          expected = {'CFBundleIdentifier': 'app.replit.yokiyoki--', 'CFBundleShortVersionString': '1.2.4', 'CFBundleVersion': '48'}
+          if any(info.get(k) != v for k, v in expected.items()):
+              raise SystemExit('Wrong application, version or build number. Nothing uploaded.')
+          (root / 'YOKIYOKI.ipa').write_bytes(ipa)
+          print('Verified original signed IPA: YOKI YOKI 1.2.4 (48). No rebuild or re-signing.')
+          PYCODE
+      - name: Check Apple authentication and prevent duplicate upload
+        id: preflight
+        env:
+          YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+          YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+          YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - <<'PYCODE'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+          import time
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          # Credentials are runner environment variables; never print their values.
+          key_id = os.environ.get('YOKI_ASC_KEY_ID', '').strip()
+          issuer = os.environ.get('YOKI_ASC_ISSUER_ID', '').strip()
+          pem = os.environ.get('YOKI_ASC_PRIVATE_KEY', '').replace('\r\n', '\n').strip() + '\n'
+          if not re.fullmatch(r'[A-Z0-9]{10}', key_id):
+              raise SystemExit('YOKI_ASC_KEY_ID must be the new key ID, not the filename.')
+          if not re.fullmatch(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}', issuer):
+              raise SystemExit('YOKI_ASC_ISSUER_ID is not a valid Issuer ID.')
+          if not pem.startswith('-----BEGIN PRIVATE KEY-----\n') or not pem.rstrip().endswith('-----END PRIVATE KEY-----'):
+              raise SystemExit('YOKI_ASC_PRIVATE_KEY must contain the complete .p8 text, including its BEGIN/END lines.')
+          key_dir = Path(os.environ['RUNNER_TEMP']) / 'yoki-upload48' / 'private_keys'
+          key_dir.mkdir(parents=True, exist_ok=True)
+          key_dir.chmod(0o700)
+          key_file = key_dir / ('AuthKey_' + key_id + '.p8')
+          key_file.write_text(pem, encoding='utf-8')
+          key_file.chmod(0o600)
+          check = subprocess.run(['openssl', 'pkey', '-in', str(key_file), '-check', '-noout'], capture_output=True)
+          if check.returncode:
+              raise SystemExit('The private key could not be read. Check the full .p8 text in GitHub Secrets.')
+
+          def b64(data):
+              return base64.urlsafe_b64encode(data).rstrip(b'=')
+
+          now = int(time.time())
+          header = {'alg': 'ES256', 'kid': key_id, 'typ': 'JWT'}
+          claims = {'iss': issuer, 'iat': now - 10, 'exp': now + 600, 'aud': 'appstoreconnect-v1'}
+          message = b64(json.dumps(header, separators=(',', ':')).encode()) + b'.' + b64(json.dumps(claims, separators=(',', ':')).encode())
+          result = subprocess.run(['openssl', 'dgst', '-sha256', '-sign', str(key_file)], input=message, capture_output=True)
+          if result.returncode:
+              raise SystemExit('Could not sign the Apple authentication token.')
+          der = result.stdout
+
+          def tlv(data, position, tag):
+              if position >= len(data) or data[position] != tag:
+                  raise ValueError('Unexpected signature encoding')
+              position += 1
+              length = data[position]
+              position += 1
+              if length & 0x80:
+                  count = length & 0x7f
+                  length = int.from_bytes(data[position:position + count], 'big')
+                  position += count
+              end = position + length
+              if end > len(data):
+                  raise ValueError('Incomplete signature')
+              return data[position:end], end
+
+          sequence, end = tlv(der, 0, 0x30)
+          if end != len(der):
+              raise SystemExit('Unexpected signature trailing bytes.')
+          r, offset = tlv(sequence, 0, 0x02)
+          s, end = tlv(sequence, offset, 0x02)
+          if end != len(sequence):
+              raise SystemExit('Unexpected signature sequence.')
+          raw = int.from_bytes(r, 'big').to_bytes(32, 'big') + int.from_bytes(s, 'big').to_bytes(32, 'big')
+          token = (message + b'.' + b64(raw)).decode()
+          # Mask the generated token before any tool could log it. Never persist it.
+          print('::add-mask::' + token)
+          query = urllib.parse.urlencode({'filter[app]': '6808389457', 'filter[version]': '48', 'include': 'preReleaseVersion', 'limit': '200'})
+          request = urllib.request.Request('https://api.appstoreconnect.apple.com/v1/builds?' + query,
+              headers={'Authorization': 'Bearer ' + token, 'Accept': 'application/json'})
+          try:
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  data = json.load(response)
+          except urllib.error.HTTPError as exc:
+              raise SystemExit('Apple preflight failed (HTTP ' + str(exc.code) + '). No IPA was uploaded. Check the key role and all three Secrets.')
+          except urllib.error.URLError:
+              raise SystemExit('Apple could not be reached. No IPA was uploaded.')
+          versions = {v['id']: v['attributes']['version'] for v in data.get('included', []) if v.get('type') == 'preReleaseVersions'}
+          found = []
+          for build in data.get('data', []):
+              rel = build.get('relationships', {}).get('preReleaseVersion', {}).get('data') or {}
+              version = versions.get(rel.get('id'))
+              if version != '1.2.4':
+                  raise SystemExit('Build number 48 exists with another or unknown version. Stop instead of re-uploading.')
+              found.append(build)
+          if len(found) > 1:
+              raise SystemExit('Multiple build 48 records found. Stop for manual inspection.')
+          if found:
+              state = found[0]['attributes'].get('processingState', 'UNKNOWN')
+              if state in ('FAILED', 'INVALID'):
+                  raise SystemExit('Apple already has build 48 with processing state ' + state + '. No duplicate upload attempted.')
+              print('Apple already has YOKI YOKI 1.2.4 (48); processing state: ' + state + '. Skipping duplicate upload.')
+          else:
+              print('Apple authentication succeeded. Build 48 not found; safe to attempt the first upload.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('already_uploaded=' + ('true' if found else 'false') + '\n')
+          PYCODE
+      - name: Upload the existing signed IPA to Apple
+        if: steps.preflight.outputs.already_uploaded != 'true'
+        env:
+          YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+          YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/yoki-upload48"
+          key_id="$(printf '%s' "$YOKI_ASC_KEY_ID" | tr -d '[:space:]')"
+          issuer_id="$(printf '%s' "$YOKI_ASC_ISSUER_ID" | tr -d '[:space:]')"
+          # Original signed IPA only: no EAS, rebuild, certificate import or source checkout.
+          xcrun altool --upload-app --file "$PWD/YOKIYOKI.ipa" --type ios \
+            --apiKey "$key_id" --apiIssuer "$issuer_id"
+          echo 'Apple upload tool finished successfully. Apple processing / TestFlight / review must be checked separately.'
+      - name: Record upload result (not review submission)
+        run: |
+          set -euo pipefail
+          {
+            echo '## YOKI YOKI 1.2.4 (48): upload-only'
+            echo ''
+            echo 'The original signed IPA from run 42121579880 was verified. No rebuild, re-signing, or EAS build usage.'
+            echo ''
+            echo 'The Apple upload tool completed successfully, or the exact build already existed and duplicate upload was skipped.'
+            echo ''
+            echo 'Next: App Store Connect > YOKI YOKI > TestFlight > iOS > 1.2.4 (48).'
+            echo 'Apple processing, tester assignment, App Review submission, and public release are separate steps and are not performed by this workflow.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary private key and IPA
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/yoki-upload48"
