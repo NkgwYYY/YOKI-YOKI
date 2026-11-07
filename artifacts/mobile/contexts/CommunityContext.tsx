@@ -4,7 +4,7 @@ import * as Crypto from 'expo-crypto';
 import { useApp } from './AppContext';
 import { useAuth } from './AuthContext';
 import { getMascotStage } from '@/utils/mascotUtils';
-import { communityConfig, createCommunityClient, type CommunityClient, type CommunityConfig, type BonusStatus } from '@/utils/community/api';
+import { communityConfig, communityBonusStatus, createCommunityClient, type CommunityClient, type CommunityConfig } from '@/utils/community/api';
 import { createBonusCollector } from '@/utils/community/collectBonus';
 import type { CollectedBonus } from '@/utils/community/dailyAds';
 import {FRIEND_VISITS_RELEASED} from '@/utils/community/release';
@@ -21,7 +21,7 @@ export function CommunityProvider({ children }: { children: React.ReactNode }) {
   const collect = useMemo(() => createBonusCollector({
     current: () => current.current === client,
     ready: () => latest.current.ready,
-    status: () => client.call<BonusStatus & {pending?: import('@/utils/community/dailyAds').PendingBonus[]}>('/bonus'),
+    status: () => communityBonusStatus(client),
     grant: (claim, isCurrent) => latest.current.receiveCommunityBonus(claim, isCurrent),
     acknowledge: id => client.call(`/bonus/${id}/ack`, 'POST'),
   }), [client]);

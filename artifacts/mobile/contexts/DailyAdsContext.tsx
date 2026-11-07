@@ -7,7 +7,8 @@ import {useCommunity} from './CommunityContext';
 import {useVillageMusic} from './VillageMusicContext';
 import {DailyAdProvider, type DailyAdBinding} from '@/components/ads/DailyAdPlacements';
 import {CommunityBanner} from '@/components/ads/CommunityBanner';
-import {createDailyAds, type Reservation} from '@/utils/community/dailyAds';
+import {createDailyAds} from '@/utils/community/dailyAds';
+import {reserveCommunityBonus} from '@/utils/community/api';
 import {adPrivacyOptions, canBuyPass, canShowBannerAd, canShowRewardedAd, showRewardedAd} from '@/utils/community/commerce';
 
 const Context = createContext<ReturnType<typeof createDailyAds> | null>(null);
@@ -29,7 +30,7 @@ export function ConnectedDailyAds({children}: {children: React.ReactNode}) {
     },
     collect: () => latest.current.community.collect(),
     pass: async () => (await client.call<{active: boolean}>('/pass')).active === true,
-    reserve: (receipt, mode) => client.call<Reservation>('/bonus/reserve', 'POST', {receipt, mode, rewardPolicy: 'daily10'}),
+    reserve: (receipt, mode) => reserveCommunityBonus(client, receipt, mode),
     present: reservation => latest.current.music.withPaused(() => showRewardedAd(reservation,
       latest.current.community.metric,
       estimate => { void client.call(`/bonus/${reservation.id}/revenue`, 'POST', estimate).catch(() => {}); },

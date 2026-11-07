@@ -35,7 +35,7 @@ jobs:
         run: |
           pnpm typecheck
           node scripts/build-native-resident.mjs --check
-          node --test tests/residentStartup.test.mjs tests/odangoGeometry.test.mjs tests/firstSteps.test.mjs tests/dailyCheckin.test.mjs tests/dailyRecordTransaction.test.mjs tests/moyamoya*.test.mjs tests/dailyAd*.test.mjs tests/communityBonus.test.mjs tests/nativeRewardedLifecycle.test.mjs tests/rewardAvailability.test.mjs tests/battleInterstitial.test.mjs
+          node --test tests/residentStartup.test.mjs tests/odangoGeometry.test.mjs tests/firstSteps.test.mjs tests/dailyCheckin.test.mjs tests/dailyRecordTransaction.test.mjs tests/moyamoya*.test.mjs tests/dailyAd*.test.mjs tests/dailyRewardPolicyTransport.test.mjs tests/communityBonus.test.mjs tests/nativeRewardedLifecycle.test.mjs tests/rewardAvailability.test.mjs tests/battleInterstitial.test.mjs
       - name: Export browser and iOS bundles
         run: |
           pnpm exec expo export --platform web --output-dir "$RUNNER_TEMP/yoki-web"

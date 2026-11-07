@@ -32,9 +32,12 @@ function Battle(){
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[target,setTarget]=useState<'hero'|'enemy'|null>(null);
  const lock=useRef(false),alive=useRef(true),beam=useRef(new Animated.Value(0)).current,hit=useRef(new Animated.Value(0)).current;
  const animation=useRef<Animated.CompositeAnimation|null>(null),resolveAnimation=useRef<(()=>void)|null>(null);
+ // Saving HP can finish the battle before its local attack/feedback presentation ends.
+ // Keep that feedback visible until Next, while a freshly mounted finished save opens its result.
+ const pendingFeedback=useRef<string|null>(null);
  const ready=!app.isLoading&&!app.storageError&&!auth.isLoading&&(!auth.isSignedIn||app.cloudSynced);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;animation.current?.stop();resolveAnimation.current?.();};},[]);
- useEffect(()=>{if(!lock.current){setShown(valid);if(valid?.status==='won'||valid?.status==='lost')setResult(true);}},[valid]);
+ useEffect(()=>{if(!lock.current){setShown(valid);if(valid&&(valid.status==='won'||valid.status==='lost')&&pendingFeedback.current!==valid.id)setResult(true);}},[valid]);
  useEffect(()=>{if(!active){animation.current?.stop();resolveAnimation.current?.();}},[active]);
  useBattleTrack(result?(shown?.status==='won'?'victory':null):'battle',active&&ready&&!!valid&&!leaving);
  useEffect(()=>{
@@ -62,18 +65,19 @@ function Battle(){
  };
  const choose=async(actionId:string)=>{
   if(!ready||!shown||lock.current||shown.status!=='active')return;
-  lock.current=true;setBusy(true);setError('');
+  lock.current=true;pendingFeedback.current=shown.id;setBusy(true);setError('');
   try{
    const next=await app.runMoyamoya({kind:'turn',id:shown.id,expectedTurn:shown.turns.length,actionId});
    if(!alive.current)return;
    if(next.turn){void Haptics.impactAsync(next.turn.good?Haptics.ImpactFeedbackStyle.Light:Haptics.ImpactFeedbackStyle.Medium).catch(()=>{});await animate(next.turn.good);}
-   if(alive.current){setShown(next.encounter);setFeedback(next.turn);setTarget(null);}
-  }catch(e){if(alive.current)setError(e instanceof Error?e.message:'保存できませんでした。もう一度お試しください。');}
+   if(!next.turn)pendingFeedback.current=null;
+   if(alive.current){setShown(next.encounter);setFeedback(next.turn);setResult(!next.turn&&(next.encounter.status==='won'||next.encounter.status==='lost'));setTarget(null);}
+  }catch(e){pendingFeedback.current=null;if(alive.current)setError(e instanceof Error?e.message:'保存できませんでした。もう一度お試しください。');}
   finally{lock.current=false;if(alive.current)setBusy(false);}
  };
  const retry=async()=>{
   if(!shown||lock.current)return;lock.current=true;setBusy(true);setError('');
-  try{const next=await app.runMoyamoya({kind:'retry',id:shown.id});if(alive.current){setShown(next.encounter);setFeedback(undefined);setResult(false);router.setParams({id:next.encounter.id});}}
+  try{const next=await app.runMoyamoya({kind:'retry',id:shown.id});if(alive.current){pendingFeedback.current=null;setShown(next.encounter);setFeedback(undefined);setResult(false);router.setParams({id:next.encounter.id});}}
   catch(e){if(alive.current)setError(e instanceof Error?e.message:'再開できませんでした。');}
   finally{lock.current=false;if(alive.current)setBusy(false);}
  };
@@ -103,7 +107,7 @@ function Battle(){
     {won&&shown.turns.filter(t=>t.good).map(t=><View key={t.actionId} style={s.tip}><Text style={s.linkTitle}>{t.title}</Text><Text style={s.description}>{t.feedback}</Text></View>)}
     {!won&&button('もう一度戦う（HPを全回復）',()=>void retry(),'battle-retry')}
     {button(leaving?'おうちに戻っています…':'おうちに戻る',()=>void home(),'battle-result-home',!won)}
-   </>:feedback?<View testID="battle-feedback" style={{gap:14}}><Text accessibilityLiveRegion="polite" style={s.eyebrow}>{feedback.good?`${p.name}に1ダメージ！`:`${app.mascotName||'よっきー'}に1ダメージ`}</Text><Text style={s.title}>{feedback.good?'こんなふうに試してみよう':'別の方法も考えてみよう。'}</Text><Text style={s.description}>{feedback.feedback}</Text>{button(finished?'結果を見る':'次のターンへ',()=>{setFeedback(undefined);if(finished)setResult(true);},'battle-next')}</View>:<>
+   </>:feedback?<View testID="battle-feedback" style={{gap:14}}><Text accessibilityLiveRegion="polite" style={s.eyebrow}>{feedback.good?`${p.name}に1ダメージ！`:`${app.mascotName||'よっきー'}に1ダメージ`}</Text><Text style={s.title}>{feedback.good?'こんなふうに試してみよう':'別の方法も考えてみよう。'}</Text><Text style={s.description}>{feedback.feedback}</Text>{button(finished?'結果を見る':'次のターンへ',()=>{pendingFeedback.current=null;setFeedback(undefined);if(finished)setResult(true);},'battle-next')}</View>:<>
     <Text style={s.eyebrow}>{busy?'こうげき！':`${shown.turns.length+1}ターン目`}</Text><Text testID="battle-scenario-title" style={s.memo}>{battleScenario(shown)?.title??'場面の例'}</Text><Text testID="battle-question" style={s.question}>{battleScene(shown)}</Text>
     <View style={s.choices}>{battleChoices(shown).map((choice,i)=><Pressable key={choice.id} testID={`battle-choice-${choice.id}`} accessibilityRole="button" disabled={busy||leaving} onPress={()=>void choose(choice.id)} style={({pressed})=>[s.choice,pressed&&{backgroundColor:'#E8D9F2'},busy&&{opacity:.5}]}><Text style={s.number}>{i+1}</Text><Text style={s.choiceText}>{choice.title}</Text></Pressable>)}</View>
     <Text style={s.footnote}>この場面の対処法に沿う選択で、敵のHPが1減ります。気持ちや人柄の採点ではありません。こちらのHPが0になったら、休むか再挑戦できます。</Text>
