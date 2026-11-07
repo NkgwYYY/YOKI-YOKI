@@ -1,15 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
 import {createOdangoGeometry} from '../utils/odangoFur.ts';
+import {productionGeometry} from './fixtures/productionGeometry48.ts';
 
-// Baselines captured from the original production geometry before startup
-// allocation optimisation. Exact vertex buffers keep every angle/strand intact.
-for(const [fur,length,hash] of [
- [false,82944,'496b06d86cb669ab6284857f91af491ba7313acb90bc0099dfd8c53973c02421'],
- [true,3888000,'8fb1c8be43903d9acb25635f4d6b25a00c1f9d4b4c76ecfc571de5ebac4ceb1f'],
+// A frozen production implementation preserves a meaningful byte-exact baseline
+// without assuming identical transcendental rounding across ARM/macOS and Linux.
+for(const [fur,length] of [
+ [false,82944],
+ [true,3888000],
 ])test(`optimised ${fur?'fur':'body'} upload preserves the production model exactly`,()=>{
  const data=createOdangoGeometry(fur);
  assert.equal(data.length,length);
- assert.equal(createHash('sha256').update(Buffer.from(data.buffer)).digest('hex'),hash);
+ const original=productionGeometry(fur);
+ assert.ok(Buffer.from(data.buffer).equals(Buffer.from(original.buffer)),
+   'Every upload byte must match the original production geometry on this runtime');
 });

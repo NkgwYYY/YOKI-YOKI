@@ -93,7 +93,7 @@ for build in data.get('data', []):
     rel = build.get('relationships', {}).get('preReleaseVersion', {}).get('data') or {}
     version = versions.get(rel.get('id'))
     if version != '1.2.5':
-        raise SystemExit('Build number 48 exists with another or unknown version. Stop instead of re-uploading.')
+        raise SystemExit('Build number 49 exists with another or unknown version. Stop instead of re-uploading.')
     found.append(build)
 if len(found) > 1:
     raise SystemExit('Multiple build 49 records found. Stop for manual inspection.')
@@ -101,8 +101,8 @@ if found:
     state = found[0]['attributes'].get('processingState', 'UNKNOWN')
     if state in ('FAILED', 'INVALID'):
         raise SystemExit('Apple already has build 49 with processing state ' + state + '. No duplicate upload attempted.')
-    print('Apple already has YOKI YOKI 1.2.5 (48); processing state: ' + state + '. Skipping duplicate upload.')
+    print('Apple already has YOKI YOKI 1.2.5 (49); processing state: ' + state + '. Skipping duplicate upload.')
 else:
-    print('Apple authentication succeeded. Build 48 not found; safe to attempt the first upload.')
+    print('Apple authentication succeeded. Build 49 not found; safe to attempt the first upload.')
 with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
     output.write('already_uploaded=' + ('true' if found else 'false') + '\n')
