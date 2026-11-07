@@ -40,7 +40,7 @@ test('calendar is attached to the back wall, never repositioned onto the rug',()
   const f=fitHomeOverview(w,h),o=homeWallObjects(f.width,f.height,w>h);
   for(const p of Object.values(o)){
    assert.ok(p.width>=44&&p.height>=44);
-   assert.ok(p.top>=f.height*.28&&p.top+p.height<f.height*.56,'calendar hangs above the floor');
+   assert.ok(p.top>=f.height*.15&&p.top+p.height<f.height*.56,'calendar hangs above the floor');
    assert.ok(f.left+p.left>=0&&f.left+p.left+p.width<=w,'calendar remains visible without panning');
   }
  }

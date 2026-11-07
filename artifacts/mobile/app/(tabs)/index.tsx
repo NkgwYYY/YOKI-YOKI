@@ -1,4 +1,5 @@
 import {HomeEncounter} from '@/components/moyamoya/HomeEncounter';
+import {HomeBattleButton} from '@/components/moyamoya/HomeBattleButton';
 import {YourConditionCard} from '@/components/world/YourConditionCard';
 import {evolutionOffer} from '@/utils/evolutionChoice';
 import {FirstSteps,useFirstSteps} from '@/components/onboarding/FirstSteps';
@@ -204,6 +205,7 @@ export default function HomeScreen() {
       onChat={chat} onRest={restTogether} onAlbum={() => router.push('/memories')} />
     </StableSceneViewport>
     {worldMap==='home'&&!sceneBusy&&<View testID="home-care-footer" pointerEvents="box-none" style={[s.footer,{bottom:Math.max(tabHeight,adRailHeight)+12}]}>
+      <HomeBattleButton key={giftOwner} enabled={active&&!sheet&&!battleEncounter&&!worldInteracting&&!food&&tutorial.ready&&!tutorial.due}/>
       <View testID="home-action-dock" style={s.quickActions}>
         {([
           {id:'room-meal',label:'ごはん',name:'ごはんを選ぶ',icon:'coffee',kind:'feed',run:()=>openFeed()},
@@ -297,7 +299,7 @@ const s = StyleSheet.create({
   greeting:{fontSize:25,lineHeight:33,color:'#4C365C',fontWeight:'600'},
   subtitle:{fontSize:10,color:'#695474',lineHeight:16},
   headerTools: { flexDirection: 'row', gap: 5 }, iconButton: { width: 44, height: 44, borderRadius: 18, backgroundColor: '#223D367A', alignItems: 'center', justifyContent: 'center' },
-  footer: {position:'absolute',left:12,right:12,alignItems:'center'},
+  footer: {position:'absolute',left:12,right:12,alignItems:'center',gap:10},
   roomNotice:{position:'absolute',left:20,right:20,alignItems:'center'},
   noticePill:{maxWidth:360,minHeight:44,paddingHorizontal:14,paddingVertical:8,borderRadius:16,backgroundColor:'#FFF8EAEF',flexDirection:'row',alignItems:'center',gap:8},
   noticeText:{color:'#685869',fontSize:12,lineHeight:18,flexShrink:1,textAlign:'center'},

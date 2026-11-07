@@ -13,7 +13,9 @@ export function HomeEncounter({enabled,onVisible}:{enabled:boolean;onVisible:(vi
  const app=useApp(),auth=useAuth(),router=useRouter();
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),lock=useRef(false),alive=useRef(true);
  const encounter=app.getTodayRecord()?.moyamoya?.battle;
- const visible=enabled&&!app.isLoading&&!app.storageError&&!auth.isLoading&&(!auth.isSignedIn||app.cloudSynced)&&!!encounter&&['invited','active'].includes(encounter.status);
+ // New check-ins keep the immediate encounter. Returning from an active or
+ // deferred battle leaves a quiet home button instead of reopening this sheet.
+ const visible=enabled&&!app.isLoading&&!app.storageError&&!auth.isLoading&&(!auth.isSignedIn||app.cloudSynced)&&!!encounter&&encounter.status==='invited';
  useEffect(()=>{onVisible(visible);return()=>onVisible(false);},[visible,onVisible]);
  useEffect(()=>{alive.current=true;return()=>{alive.current=false;};},[]);
  useBattleTrack('encounter',visible);

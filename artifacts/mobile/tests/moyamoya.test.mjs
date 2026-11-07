@@ -23,9 +23,15 @@ test('two poor choices lose without taking points; retry resets HP and choices',
  assert.equal(s.encounter.status,'lost');assert.equal(s.encounter.heroHp,0);assert.equal(s.feed.points,100);
  s=await run(store,{kind:'retry',id:s.encounter.id});assert.equal(s.encounter.id,'retry-id');assert.equal(s.encounter.heroHp,2);assert.equal(s.encounter.enemyHp,2);assert.equal(s.encounter.turns.length,0);
 });
-test('decline remains finished after restart and cannot be attacked',async()=>{
- const f=fixture();let s=await run(f.open(),{kind:'decline',id:'battle1'});s=await run(f.open(),{kind:'start',id:'battle1'});assert.equal(s.encounter.status,'declined');
- s=await run(f.open(),{kind:'turn',id:'battle1',expectedTurn:0,actionId:'separate'});assert.equal(s.encounter.turns.length,0);assert.equal(s.feed.points,100);assert.equal(s.stampDays,0);
+test('deferred encounter stays quiet until explicit resume; HP and chosen turns survive restart',async()=>{
+ const f=fixture();let s=await run(f.open(),{kind:'start',id:'battle1'});s=await turn(f.open(),s.encounter);
+ const before=structuredClone(s.encounter);s=await run(f.open(),{kind:'decline',id:'battle1'});
+ const ignored=await run(f.open(),{kind:'turn',id:'battle1',expectedTurn:1,actionId:'separate'});
+ assert.equal(ignored.encounter.status,'declined');assert.deepEqual(ignored.encounter.turns,before.turns);assert.equal(ignored.feed.points,100);
+ s=await run(f.open(),{kind:'start',id:'battle1'});
+ assert.equal(s.encounter.status,'active');assert.equal(s.encounter.enemyHp,before.enemyHp);assert.deepEqual(s.encounter.turns,before.turns);assert.equal(s.encounter.scenarioId,before.scenarioId);
+ s=await turn(f.open(),s.encounter);assert.equal(s.encounter.status,'won');assert.equal(s.feed.points,110);
+ s=await run(f.open(),{kind:'start',id:'battle1'});assert.equal(s.encounter.status,'won');assert.equal(s.feed.points,110);
 });
 test('concurrent taps apply one turn and retain another wallet transaction',async()=>{
  const f=fixture(),store=f.open();const s=await run(store,{kind:'start',id:'battle1'});const op={kind:'turn',id:'battle1',expectedTurn:0,actionId:battleChoices(s.encounter).find(c=>c.good).id};

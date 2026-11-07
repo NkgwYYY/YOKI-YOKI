@@ -1,3 +1,4 @@
+import {HomeCloset} from './HomeCloset';
 import {HomeFurnishings,FURNISHING_NAMES,type FurnishingSelection} from '@/components/room/HomeFurnishings';
 import type {RoomItemPosition} from '@/utils/roomPlacement';
 import {ResidentSpeech} from './ResidentSpeech';
@@ -453,6 +454,7 @@ export function WorldHome(props: Props) {
       {props.period === 'dusk' && map!=='tobacco' && map!=='home' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: '#B5646028'}]} />}
       <GestureDetector gesture={groundGesture}><View testID="world-ground" accessible={false} style={StyleSheet.absoluteFill}/></GestureDetector>
       <WorldAmbient active={active} reduceMotion={props.reduceMotion} night={night} />
+      {map==='home'&&!eyeLevel&&!homeZoomed&&!scenic&&<HomeCloset width={width} height={height} wide={bounds.width>bounds.height} disabled={!active||!!furnishingSelection||!!props.food||!!cleanTool||riding}/>}
       {map==='home'&&!eyeLevel&&<>{props.background && <View pointerEvents="none" style={{position: 'absolute', left: width * 0.276, top: height * 0.244, width: width * 0.072, height: height * 0.065, borderRadius: 14, opacity: 0.55, overflow: 'hidden'}}><Image source={{uri: props.background}} resizeMode="cover" style={s.art} /></View>}
       {starterIsPlaced(props.customization.starterFurnishings,'bookcase')&&hotspot('album', '思い出の本棚', .46, bounds.width>bounds.height?.36:.33, props.onAlbum)}
       {starterIsPlaced(props.customization.starterFurnishings,'bed')&&hotspot('bed', 'ベッドでひと休み', bounds.width>bounds.height?.70:.77, bounds.width>bounds.height?.43:.355, props.onRest)}
@@ -511,6 +513,7 @@ export function WorldHome(props: Props) {
       {away&&<WorldPill compact icon="sliders" label="景色の見かた" disabled={!active||bowlingBusy} onPress={()=>setViewOpen(true)} />}</View>
     </View>}
 
+    {map==='home'&&(eyeLevel||homeZoomed)&&!scenic&&<View style={{position:'absolute',top:stageTop+12,left:16}}><HomeCloset compact width={width} height={height} wide={false} disabled={!active||!!props.food||!!furnishingSelection}/></View>}
     {props.visitScene&&<View testID="scenic-visit" pointerEvents="box-none" style={{position:'absolute',top:insets.top+169,left:20,right:20,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={{color:'#FFFDF4',fontWeight:'700',fontSize:15,textShadowColor:'#253E35',textShadowRadius:4}}>{VISIT_NAMES[props.visitScene]}</Text><WorldPill testID="scenic-return-home" label="おうちに帰る" icon="home" onPress={()=>props.onReturnHome?.()} disabled={!active||!!props.food}/></View>}
     {eyeLevel&&closeUp&&<View testID="home-eye-level" pointerEvents="box-none" style={{position:'absolute',top:props.feedAssist?Math.min(closeUp.footY+frame.top-(bounds.width>bounds.height?42:20),bounds.height-dockBottom-182):closeUp.footY+frame.top-(bounds.width>bounds.height?42:20),left:props.feedAssist&&bounds.width>bounds.height?bounds.width*.5:20,right:20,flexDirection:'row',gap:12,justifyContent:bounds.width>bounds.height?'flex-start':'space-between'}}><View>{active&&props.feedAssist&&<View style={{position:'absolute',top:'100%',left:0,width:Math.min(bounds.width-40,280),marginTop:12}}><HomeAssistBubble above assist={props.feedAssist} onPress={()=>props.onFeed()} onDismiss={()=>props.onDismissAssist?.()}/></View>}<WorldPill compact testID="eye-feed" label="ごはんを選ぶ" icon="coffee" disabled={!active||!!props.food} onPress={()=>props.onFeed()}/></View><WorldPill compact testID="eye-rest" label="ひと休み" icon="moon" disabled={!active||!!props.food} onPress={props.onRest}/></View>}
     {map!=='home'&&<View pointerEvents="none" style={[s.sceneTitle,{top:insets.top+(tight?115:165)}]}><Text style={[s.sceneName,{fontSize:13}]}>{WORLD_MAPS.find(p=>p.id===map)?.name}</Text></View>}

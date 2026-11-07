@@ -50,8 +50,8 @@ export function homeCamera(mode:HomeView,frame:HomeFrame,viewport:{width:number;
   const follow=x<margin?margin-x:x>viewport.width-margin?viewport.width-margin-x:0;
   return {...free,panX:free.panX+Math.max(viewport.width-frame.left-frame.width,Math.min(-frame.left,follow))};
 }
-/** Blank blue wall between the arched window and the bookcase in the room art. */
+/** Calendar hangs above the bookcase, leaving the left wall for the closet. */
 export function homeWallObjects(width:number,height:number,wide:boolean){
-  const w=Math.min(wide?64:80,Math.max(52,Math.min(width*(wide?.075:.11),height*(wide?.115:.14))));
-  return {calendar:{left:width*(wide?.33:.23),top:height*(wide?.35:.29),width:w,height:w*1.27}};
+  const w=Math.min(wide?64:80,Math.max(44,Math.min(width*(wide?.075:.105),height*(wide?.115:.14))));
+  return {calendar:{left:width*(wide?.33:.47),top:height*(wide?.35:.16),width:w,height:w*1.27}};
 }

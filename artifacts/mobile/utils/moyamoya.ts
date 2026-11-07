@@ -67,7 +67,9 @@ export function prepareMoyamoya(values:Record<string,string|null>,operation:Batt
   if(!m?.has||!e||!getPattern(e.pattern))throw Error('今日のバトルを開き直してください。');
   if(![0,1,2].includes(e.heroHp)||![0,1,2].includes(e.enemyHp)||!Array.isArray(e.turns))throw Error('バトルの記録を確認できません');
   let turn:BattleTurn|undefined,awarded=0;
-  if(operation.kind==='start'&&e.status==='invited') e.status='active';
+  // The home button explicitly resumes today's saved encounter, including one
+  // deferred with "今日はやめとく". Never reset its HP, choices or reward receipt.
+  if(operation.kind==='start'&&['invited','declined'].includes(e.status)) e.status='active';
   if(operation.kind==='decline'&&['invited','active'].includes(e.status))e.status='declined';
   if(operation.kind==='retry'&&e.status==='lost'){
     const index=nextScenarioIndex(e.pattern,records.map(r=>r.moyamoya));
