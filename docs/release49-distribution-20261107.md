@@ -18,7 +18,9 @@ The user authorized server publication and continued application distribution.
 - Prepared version 1.2.5 ID: `cf77efbc-8e9e-4ac6-b61a-b965510296c0`.
 - Japanese and English release notes and updated review notes saved through the authenticated App Store Connect UI. Existing contact/reviewer fields retained.
 - Three screenshots inherited for each of Japanese and English, verified in read-only API inspection run `42373897743`.
+- Build 49 selected and saved on version 1.2.5 in App Store Connect.
 - Release setting: `AFTER_APPROVAL`.
+- Build 49 processed successfully at Apple; build ID `57d4ec28-6b2e-45a5-8c6d-500dfe9f0594`. The TestFlight UI confirmed group Team (Expo), two existing testers, and 90-day availability.
 - Existing internal TestFlight group: `255b6676-7deb-484a-898e-1ac35e613b5e` / Team (Expo). No new testers or invites should be created.
 - Existing ASC key can read and upload but POST /appStoreVersions returned 403. Do not retry that operation with this key or broaden its permissions. App Store version creation and metadata edits were completed in the authenticated UI instead.
 
@@ -31,6 +33,16 @@ The user authorized server publication and continued application distribution.
 - Verified live GET /api/community/config?rewardPolicy=daily10: rewardPolicy daily10, bonusPoints 10, dailyLimit 3. Legacy GET without policy: rewardPolicy legacy30, bonusPoints 30, dailyLimit 3. Both also returned passBonusPoints 30 and supportedRewardPolicies legacy30/daily10.
 - The required production server gate is now satisfied. The client safely disables the new entry if the server lacks the contract.
 
-## Remaining verification
+## Final verified state
 
-Confirm signed IPA upload, Apple processing VALID, TestFlight group linkage, live server daily10, selected build 49 on version 1.2.5, and submitted review state. Real iPhone startup timing and a real rewarded-ad/SSV transaction have not been measured during this session.
+- Production server publication succeeded and both daily10/legacy30 configurations were verified directly.
+- Signed IPA uploaded with no errors in run 42372639242.
+- Apple completed processing of build 49, and the TestFlight UI confirmed its existing Team (Expo) group with two testers.
+- Build 49 was selected and saved on App Store version 1.2.5.
+- The first Add for Review attempt returned an Apple unexpected error. The submission list showed no new draft; one retry succeeded without duplication.
+- The single item 1.2.5 (49) was submitted. At approximately 13:01 UTC, App Store Connect explicitly displayed “1項目が提出されました” and “1.2.5 審査待ち”. The draft count became zero.
+- App Store public release remains subject to Apple approval, with AFTER_APPROVAL automatic release enabled.
+- Verified UI: https://appstoreconnect.apple.com/apps/6808389457/distribution/ios/version/inflight
+- Verified TestFlight: https://appstoreconnect.apple.com/teams/98460b43-ca15-46a2-84e6-af6411166812/apps/6808389457/testflight/ios
+
+Real iPhone startup timing and a real rewarded-ad/SSV transaction have not been measured during this session. Screenshot capture of the final state timed out twice; the status above is based on the successful fresh accessibility observations, not a saved screenshot.
