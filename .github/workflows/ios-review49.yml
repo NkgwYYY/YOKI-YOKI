@@ -1,0 +1,28 @@
+name: YOKI YOKI 1.2.5 Apple release management
+'on':
+  push:
+    branches: [release/review49-appstore-20261107]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: yokiyoki-review49
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Inspect existing Apple release metadata without credentials or contacts
+        working-directory: artifacts/mobile
+        env:
+          YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+          YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+          YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+        run: python3 scripts/apple-review49.py
+      - name: Remove temporary Apple key
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/yoki-upload49"
