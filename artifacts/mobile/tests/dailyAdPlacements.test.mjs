@@ -36,8 +36,8 @@ const model = (placement = 'home', snapshot = state(), env = environment()) => d
 const deferred = () => {let resolve, reject; const promise = new Promise((res, rej) => {resolve = res; reject = rej;}); return {promise, resolve, reject};};
 const verified = {status: 'verified', receiptId: 'ssv-receipt-1', points: 30};
 
-test('policy retains 30pt and one shared three-view daily allowance', () => {
-  assert.equal(DAILY_AD_POINTS, 30); assert.equal(DAILY_AD_LIMIT, 3);
+test('new policy grants 10pt and retains one shared three-view daily allowance', () => {
+  assert.equal(DAILY_AD_POINTS, 10); assert.equal(DAILY_AD_LIMIT, 3);
   for (const placement of ['home', 'street', 'meal', 'egg-job']) {
     assert.equal(model(placement, state({remaining: 1})).remaining, 1);
     assert.match(model(placement).rewardDetail, /全画面で共通/);
@@ -254,4 +254,10 @@ test('late rejection after a deadline is handled and eventually releases the SDK
   assert.equal(result.status, 'pending'); assert.equal(gate.isBusy(), true);
   wait.reject(Error('late close error')); await new Promise(resolve => setImmediate(resolve));
   assert.equal(gate.isBusy(), false);
+});
+
+test('reward copy uses the actual verified amount, including older pending rewards',()=>{
+  assert.match(dailyAdResultMessage({...verified,points:10}),/＋10pt/);
+  assert.match(dailyAdResultMessage({...verified,points:30}),/＋30pt/);
+  assert.match(model('home',state({rewardPoints:10})).rewardLabel,/＋10pt/);
 });

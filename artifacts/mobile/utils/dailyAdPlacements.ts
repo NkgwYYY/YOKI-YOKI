@@ -1,5 +1,6 @@
 /** Placement-only extension. The existing ad service owns consent, SSV and rewards. */
-export const DAILY_AD_POINTS = 30;
+export const DAILY_AD_POINTS = 10;
+export type DailyAdPoints = 10 | 30;
 export const DAILY_AD_LIMIT = 3;
 export const BANNER_WIDTH = 320;
 export const BANNER_HEIGHT = 50;
@@ -17,6 +18,8 @@ export type DailyAdSnapshot = Readonly<{
   /** Null until the authoritative shared quota has loaded. */
   remaining: number | null;
   rewardedAvailable: boolean;
+  /** New daily policy is 10pt; 30pt remains valid for older pending claims and passes. */
+  rewardPoints?: DailyAdPoints;
   bannerAvailable: boolean;
   /** An ad-free pass removes passive ads, not optional user-requested rewards. */
   removePassiveAds: boolean;
@@ -38,7 +41,7 @@ export type DailyAdEnvironment = Readonly<{
 
 export const DISCONNECTED_DAILY_ADS: DailyAdSnapshot = Object.freeze({
   sessionKey: '', revision: '', ready: false, remaining: null,
-  rewardedAvailable: false, bannerAvailable: false,
+  rewardedAvailable: false, rewardPoints: DAILY_AD_POINTS, bannerAvailable: false,
   removePassiveAds: false, phase: 'idle',
 });
 
@@ -51,16 +54,17 @@ export function isDailyAdPlacement(value: unknown): value is DailyAdPlacement {
 export function readDailyAdSnapshot(raw: unknown): DailyAdSnapshot {
   try {
     if (!raw || typeof raw !== 'object') return DISCONNECTED_DAILY_ADS;
-    const {sessionKey, revision, ready, remaining, rewardedAvailable, bannerAvailable,
+    const {sessionKey, revision, ready, remaining, rewardedAvailable, bannerAvailable, rewardPoints = DAILY_AD_POINTS,
       removePassiveAds, phase} = raw as Partial<DailyAdSnapshot>;
     if (typeof sessionKey !== 'string' || typeof revision !== 'string' ||
       typeof ready !== 'boolean' || typeof rewardedAvailable !== 'boolean' ||
       typeof bannerAvailable !== 'boolean' || typeof removePassiveAds !== 'boolean' ||
+      (rewardPoints !== 10 && rewardPoints !== 30) ||
       !['idle', 'loading', 'playing', 'verifying'].includes(phase ?? '') ||
       !(remaining === null || (typeof remaining === 'number' && Number.isInteger(remaining) &&
         remaining >= 0 && remaining <= DAILY_AD_LIMIT)) ||
       (ready && (!sessionKey.trim() || !revision.trim()))) return DISCONNECTED_DAILY_ADS;
-    return Object.freeze({sessionKey, revision, ready, remaining, rewardedAvailable,
+    return Object.freeze({sessionKey, revision, ready, remaining, rewardedAvailable, rewardPoints,
       bannerAvailable, removePassiveAds, phase: phase as DailyAdPhase});
   } catch {
     // A broken SDK adapter/getter must not take down the care screen.
@@ -107,14 +111,14 @@ export function dailyAdPresentation(
     reward,
     canWatch: reward && canWatchDailyAd(snapshot),
     remaining,
-    rewardLabel: remaining === 0 ? '今日の広告特典は受け取り済み' : `広告を見て＋${DAILY_AD_POINTS}pt`,
+    rewardLabel: remaining === 0 ? '今日の広告特典は受け取り済み' : `広告を見て＋${snapshot.rewardPoints ?? DAILY_AD_POINTS}pt`,
     rewardDetail: `1日${DAILY_AD_LIMIT}回・全画面で共通${remaining === null ? '' : `　あと${remaining}回`}`,
     railHeight: banner ? BANNER_RAIL_HEIGHT : 0,
   };
 }
 
 export type DailyAdResult =
-  | {status: 'verified'; receiptId: string; points: typeof DAILY_AD_POINTS}
+  | {status: 'verified'; receiptId: string; points: DailyAdPoints}
   | {status: 'closed' | 'unavailable' | 'pending' | 'busy' | 'session-changed' | 'error'};
 
 export interface DailyRewardBinding {
@@ -149,7 +153,7 @@ export function createDailyRewardGate(waitMs = 120_000) {
           if (readDailyAdSnapshot(binding.getSnapshot()).sessionKey !== before.sessionKey) return {status: 'session-changed'};
           if (!result || typeof result !== 'object') return {status: 'error'};
           if (result.status === 'verified') {
-            if (result.points !== DAILY_AD_POINTS || typeof result.receiptId !== 'string' ||
+            if ((result.points !== 10 && result.points !== 30) || typeof result.receiptId !== 'string' ||
                 result.receiptId.trim().length === 0 || result.receiptId.length > 512) return {status: 'error'};
             return result;
           }
@@ -180,7 +184,7 @@ export function createDailyRewardGate(waitMs = 120_000) {
 
 export function dailyAdResultMessage(result: DailyAdResult): string {
   switch (result.status) {
-    case 'verified': return `＋${DAILY_AD_POINTS}ptを受け取りました。`;
+    case 'verified': return `＋${result.points}ptを受け取りました。`;
     case 'closed': return '視聴は中止しました。広告なしでも、そのまま遊べます。';
     case 'unavailable': return 'いまは広告を用意できません。そのまま遊べます。';
     case 'pending': return '受け取りを確認中です。もう一度広告を見る必要はありません。';

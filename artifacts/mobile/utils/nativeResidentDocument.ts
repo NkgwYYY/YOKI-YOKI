@@ -1,9 +1,11 @@
 import {NATIVE_RESIDENT_SCRIPT,NATIVE_ODANGO_COAT} from './nativeResidentBundle.ts';
-import type {EvolvedForm} from './evolved3d';
+import type {EvolvedForm,EvolvedPose} from './evolved3d';
+export type ResidentInitialState={pose:EvolvedPose;active:boolean;reduceMotion:boolean;size:number};
 const json=(value:unknown)=>JSON.stringify(value).replace(/</g,'\\u003c');
 /** Only local character art runs here. Readiness means the original coat and
- * the current pose have both been painted, including inactive previews. */
-export function nativeResidentDocument(form:EvolvedForm){
+ * the current pose have both been painted, including inactive previews. The
+ * initial pose is local so first paint does not wait for a native bridge round trip. */
+export function nativeResidentDocument(form:EvolvedForm,initial?:ResidentInitialState){
  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}canvas{display:block;width:100%;height:100%}</style></head><body><canvas id="resident" width="384" height="384"></canvas><script>
  ${NATIVE_RESIDENT_SCRIPT}
  const notify=type=>window.ReactNativeWebView?.postMessage(JSON.stringify({type}));
@@ -46,6 +48,8 @@ export function nativeResidentDocument(form:EvolvedForm){
    if(!ready){firstFrame();return;}
    if(data.reduceMotion||!active){shown={...target};draw();stop();}
    else resume();
+   // onLoadEnd can recover a readiness event lost during WebView startup.
+   if(data.confirmReady)notify('ready');
   }catch{fail();}
  };
  window.addEventListener('message',receive);document.addEventListener('message',receive);
@@ -54,8 +58,10 @@ export function nativeResidentDocument(form:EvolvedForm){
   if(form==='odango'){
    texture=new Image();texture.onload=()=>{materialReady=true;firstFrame();};texture.onerror=fail;texture.src=${json(NATIVE_ODANGO_COAT)};
   }
-  // Native supplies rotation, expression, costume and final size before reveal.
+  // Native can send a fresher pose while texture decoding is in progress.
   notify('loaded');
+  const initial=${json(initial??null)};
+  if(initial)receive({data:JSON.stringify({type:'pose',...initial})});
  }catch{fail();}
  </script></body></html>`;
 }

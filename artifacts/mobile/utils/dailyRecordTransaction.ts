@@ -49,7 +49,7 @@ export function prepareDailyRecord(
   // Legacy diary saves omit these keys; explicit undefined from the new editor clears them.
   if (input.extras && Object.prototype.hasOwnProperty.call(input.extras, 'fatigue')) record.fatigue = input.extras.fatigue;
   if (input.extras && Object.prototype.hasOwnProperty.call(input.extras, 'worry')) record.worry = input.extras.worry;
-  if (input.extras?.moyamoya) record.moyamoya = recordMoyamoya(isNew?undefined:records[index].moyamoya,input.extras.moyamoya,`m_${now.getTime()}_${Math.random().toString(36).slice(2)}`);
+  if (input.extras?.moyamoya) record.moyamoya = recordMoyamoya(isNew?undefined:records[index].moyamoya,input.extras.moyamoya,`m_${now.getTime()}_${Math.random().toString(36).slice(2)}`,records.map(r=>r.moyamoya));
   const nextRecords = isNew ? [...records, record] : records.map((r, i) => i === index ? record : r);
   const nextProgress = isNew ? {
     ...progress,

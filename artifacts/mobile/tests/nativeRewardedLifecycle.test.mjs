@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
+import {acquireFullscreenAd} from '../utils/community/fullscreenAdLock.ts';
 
 // Execute the production native adapter with a deterministic SDK/event fixture.
 // No network, live creatives, native hardware, or real rewards are used here.
@@ -39,6 +40,7 @@ function fixture() {
   }}};
   const exports = {};
   new Function('require', 'exports', '__DEV__', 'process', 'setTimeout', 'clearTimeout', code)(name => {
+    if (name === './fullscreenAdLock') return {acquireFullscreenAd};
     if (name === 'react-native') return {AppState: app, Platform: {OS: 'ios'}};
     if (name === 'expo-constants') return {__esModule: true, default: {appOwnership: 'standalone', expoConfig: {extra: {
       yokiRewardedIosUnit: 'fixture-unit', yokiAdsConfigured: {ios: true},

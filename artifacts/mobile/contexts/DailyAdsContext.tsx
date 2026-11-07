@@ -24,12 +24,12 @@ export function ConnectedDailyAds({children}: {children: React.ReactNode}) {
       const {app: a, community: c, user: u} = latest.current;
       const adult = ['20代','30代','40代','50代','60代','70代以上'].includes(a.profile?.ageRange ?? '');
       const ready = !!c.config?.enabled && !a.isLoading && !a.storageError && !a.isCloudSyncing && (!u || a.cloudSynced);
-      return {ready, rewarded: !!c.config?.ads && adult && canShowRewardedAd(),
+      return {ready, rewarded: !!c.config?.ads && c.config?.rewardPolicy === 'daily10' && c.config?.bonusPoints === 10 && adult && canShowRewardedAd(), rewardPoints: 10,
         banner: !!c.config?.ads && adult && canShowBannerAd(), pass: canBuyPass()};
     },
     collect: () => latest.current.community.collect(),
     pass: async () => (await client.call<{active: boolean}>('/pass')).active === true,
-    reserve: (receipt, mode) => client.call<Reservation>('/bonus/reserve', 'POST', {receipt, mode}),
+    reserve: (receipt, mode) => client.call<Reservation>('/bonus/reserve', 'POST', {receipt, mode, rewardPolicy: 'daily10'}),
     present: reservation => latest.current.music.withPaused(() => showRewardedAd(reservation,
       latest.current.community.metric,
       estimate => { void client.call(`/bonus/${reservation.id}/revenue`, 'POST', estimate).catch(() => {}); },

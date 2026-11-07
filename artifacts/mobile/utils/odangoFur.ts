@@ -5,9 +5,16 @@ type CoatPose = {rotation:number[]; support:number; origin:number; night:boolean
 const RADIUS=[41,40,38], STRIDE=12, FIBRES=18000;
 const random=(n:number)=>{const v=Math.sin(n*127.1+311.7)*43758.5453123;return v-Math.floor(v);};
 
-function geometry(fur:boolean):Float32Array {
+export function createOdangoGeometry(fur:boolean):Float32Array {
   const count=fur?FIBRES*18:24*48*6,out=new Float32Array(count*STRIDE);let at=0;
-  const vertex=(p:number[],root:number[],direction:number[],t=0,side=0,seed=0)=>{for(const v of [...p,...root,...direction,t,side,seed])out[at++]=v;};
+  // Write directly into the upload buffer. Spreading an array per vertex created
+  // over 324,000 short-lived arrays before the first home-screen frame.
+  const vertex=(p:number[],root:number[],direction:number[],t=0,side=0,seed=0)=>{
+    out[at++]=p[0];out[at++]=p[1];out[at++]=p[2];
+    out[at++]=root[0];out[at++]=root[1];out[at++]=root[2];
+    out[at++]=direction[0];out[at++]=direction[1];out[at++]=direction[2];
+    out[at++]=t;out[at++]=side;out[at++]=seed;
+  };
   if(fur){
     // Curves, grooming and normals are built once, never in a frame or shader.
     // The GPU only rotates the static ribbons and applies floor compression.
@@ -19,7 +26,11 @@ function geometry(fur:boolean):Float32Array {
       const wave=[n[1]*tangent[2]-n[2]*tangent[1],n[2]*tangent[0]-n[0]*tangent[2],n[0]*tangent[1]-n[1]*tangent[0]];
       const lift=.7+seed*1.5,bend=4.1+(seed*19.73%1)*4.4;
       const points=Array.from({length:4},(_,j)=>{const t=j/3;return {p:p.map((v,k)=>v+n[k]*Math.sin(t*Math.PI/2)*lift+tangent[k]*t*t*bend+wave[k]*Math.sin(t*Math.PI*2+seed*Math.PI*2)*.55*t),direction:n.map((v,k)=>v*Math.cos(t*Math.PI/2)*lift*Math.PI/2+tangent[k]*2*Math.max(t,.04)*bend)};});
-      for(let j=0;j<3;j++)for(const [k,edge] of [[j,-1],[j+1,-1],[j,1],[j,1],[j+1,-1],[j+1,1]])vertex(points[k].p,root,points[k].direction,k/3,edge,seed);
+      for(let j=0;j<3;j++){
+        const a=points[j],b=points[j+1],t=j/3,u=(j+1)/3;
+        vertex(a.p,root,a.direction,t,-1,seed);vertex(b.p,root,b.direction,u,-1,seed);vertex(a.p,root,a.direction,t,1,seed);
+        vertex(a.p,root,a.direction,t,1,seed);vertex(b.p,root,b.direction,u,-1,seed);vertex(b.p,root,b.direction,u,1,seed);
+      }
     }
   }else{
     const point=(i:number,j:number)=>{const a=Math.PI*i/24,b=Math.PI*2*j/48;return [Math.sin(a)*Math.cos(b),-Math.cos(a),Math.sin(a)*Math.sin(b)];};
@@ -104,7 +115,7 @@ function initialise(canvas:HTMLCanvasElement,gl:WebGLRenderingContext):GPU {
     gl.attachShader(program,compile(gl.VERTEX_SHADER,VERTEX));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,FRAGMENT));gl.linkProgram(program);
     if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||'Coat link failed');
     const upload=(data:Float32Array)=>{const buffer=gl.createBuffer();if(!buffer)throw new Error('Coat buffer unavailable');buffers.push(buffer);gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);return buffer;};
-    const bodyData=geometry(false),furData=geometry(true),body=upload(bodyData),fur=upload(furData);
+    const bodyData=createOdangoGeometry(false),furData=createOdangoGeometry(true),body=upload(bodyData),fur=upload(furData);
     texture=gl.createTexture();if(!texture)throw new Error('Coat texture unavailable');
     gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([249,250,245,255]));
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);

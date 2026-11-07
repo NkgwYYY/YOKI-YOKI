@@ -131,3 +131,12 @@ test('invalid condition values leave persisted records untouched',async()=>{
  for(const value of [0,4,1.5,NaN])await assert.rejects(save(store,{extras:{conditionOnly:true,fatigue:value}}));
  assert.deepEqual(f.data,before);
 });
+test('new-day check-in advances the source-based battle using prior daily history',async()=>{
+ const f=fixture(),store=f.open(),extras={...input.extras,moyamoya:{has:true,pattern:'anger',memo:''}};
+ const first=await save(store,{extras});const battle=first.records[0].moyamoya.battle;
+ const sameDay=await save(store,{extras});assert.equal(sameDay.records[0].moyamoya.battle.id,battle.id);
+ const nextDay=await save(store,{today:'2026-10-01',yesterday:today,extras});
+ const next=nextDay.records.find(r=>r.date==='2026-10-01').moyamoya.battle;
+ assert.notEqual(next.scenarioId,battle.scenarioId);assert.equal(next.scenarioIndex,battle.scenarioIndex+1);
+ assert.equal(nextDay.feed.points,110);
+});

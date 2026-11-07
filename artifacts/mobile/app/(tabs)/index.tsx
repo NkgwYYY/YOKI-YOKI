@@ -10,7 +10,8 @@ import {DailyLetter,useDailyCheckinPrompt} from '@/components/daily/DailyLetter'
 import {PersonalInsightPreview} from '@/components/insights/PersonalInsightPreview';
 import {CompanionCollection} from '@/components/collection/CompanionCollection';
 import {StableSceneViewport} from '@/components/world/StableSceneViewport';
-import {DailyAdRail, DailyAdRewardButton} from '@/components/ads/DailyAdPlacements';
+import {DailyAdRail} from '@/components/ads/DailyAdPlacements';
+import {PointsRewardPanel} from '@/components/ads/PointsRewardPanel';
 import {useAdEnvironment} from '@/components/ads/useAdEnvironment';
 import {WORLD_MAPS} from '@/utils/worldMaps';
 import {useAuth} from '@/contexts/AuthContext';
@@ -182,7 +183,7 @@ export default function HomeScreen() {
     <StableSceneViewport rail={<View onLayout={event=>setAdRailHeight(event.nativeEvent.layout.height)}><DailyAdRail placement={adPlacement} environment={adEnvironment} bottomInset={tabHeight}/></View>} overlay={<>
     <View pointerEvents="box-none" onLayout={event=>setHeaderHeight(event.nativeEvent.layout.height)} style={[s.header, {top: insets.top + (compact ? 4 : 10)}]}>
       <View pointerEvents="box-none" style={s.brandRow}><View pointerEvents="none" style={s.brandCopy}><Text style={[s.brand,time.period==='night'&&{color:'#F3EAF9'}]}>YOKI YOKI</Text><Text style={[s.greeting,time.period==='night'&&{color:'#FFF9F1'}]}>おかえり。</Text><Text numberOfLines={1} style={[s.subtitle,time.period==='night'&&{color:'#E9DBF1'}]}>{time.dateLabel}</Text></View>
-        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Pressable testID="home-points" accessibilityRole="button" accessibilityLabel={`${feedState.points}ポイント。ポイントの受け取りを開く`} style={s.points} onPress={()=>setSheet('points')}><Icon name="star" size={14} color="#71845D"/><Text style={s.pointsText}>{feedState.points} pt</Text></Pressable><Pressable testID="home-more-menu" accessibilityRole="button" accessibilityLabel="部屋のメニュー" onPress={()=>setSheet('menu')} style={s.moreButton}><Icon name="more-horizontal" size={20} color="#736184"/></Pressable></View>
+        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Pressable testID="home-points" accessibilityRole="button" accessibilityLabel={`${feedState.points}ポイント。ポイントの受け取りを開く`} style={s.points} onPress={()=>setSheet('points')}><Icon name="star" size={14} color="#71845D"/><View style={{alignItems:'center'}}><Text style={s.pointsText}>{feedState.points} pt</Text><Text style={{fontSize:9,lineHeight:13,color:'#7F6D5D'}}>＋ポイント</Text></View></Pressable><Pressable testID="home-more-menu" accessibilityRole="button" accessibilityLabel="部屋のメニュー" onPress={()=>setSheet('menu')} style={s.moreButton}><Icon name="more-horizontal" size={20} color="#736184"/></Pressable></View>
       </View>
       {worldMap==='home'&&!sceneBusy&&<View style={wide?{width:340}:undefined}><YourConditionCard compact={compact||wide}/></View>}
     </View>
@@ -216,7 +217,7 @@ export default function HomeScreen() {
     <HomeEncounter key={giftOwner} enabled={active&&worldMap==='home'&&!sheet&&!sceneBusy&&!worldInteracting&&!food&&tutorial.ready&&!tutorial.due} onVisible={setBattleEncounter}/>
     {sheet==='points'&&<BottomSheet visible onClose={close} title="YOKIポイント" subtitle="ごはんや、お部屋のお買い物に使えます">
       <Text style={s.chatText}>{feedState.points} pt</Text>
-      <DailyAdRewardButton placement={adPlacement} environment={rewardEnvironment}/>
+      <PointsRewardPanel placement={adPlacement} environment={rewardEnvironment} onNavigate={close}/>
       <Text style={{color:'#7F6D5D',fontSize:13,lineHeight:22}}>今日の記録や、たまごバイトでもポイントを集められます。</Text>
       <WorldPill label="ごはんを選ぶ" icon="coffee" onPress={()=>openFeed()}/>
     </BottomSheet>}
@@ -249,6 +250,7 @@ export default function HomeScreen() {
       {menuRow('layers', 'お部屋の視点を変える', ()=>openSceneControls('view'), 'home-view-toggle')}
       {menuRow(music.enabled?'volume-2':'volume-x',`BGM：${music.enabled?'オン':'オフ'}`,music.toggle,'world-bgm-toggle')}
       {menuRow('smile', 'いまのようすを記録', ()=>{checkinPrompt.markSeen();close();router.push('/check-in');}, 'home-quick-mood')}
+      {menuRow('gift', '広告でポイントを受け取る', () => setSheet('points'), 'home-menu-ad-points')}
       {menuRow('mail', '今日の便り', openLetter)}
       {menuRow('help-circle', 'はじめての使い方', () => {checkinPrompt.markSeen();setSheet('tutorial');})}
       {menuRow('gift', '思い出・飾りもの', () => setSheet('collection'))}

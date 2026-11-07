@@ -1,4 +1,5 @@
-// Approved prototype content; ordinary self-care ideas, not diagnosis.
+// Compatibility wording for saved encounters without scenario IDs.
+// New encounters use the source-mapped learning scenarios in moyamoyaScenarios.ts.
 export const PATTERNS = [
   {
     "id": "loop",
@@ -160,8 +161,8 @@ export const ACTIONS: Record<PatternId,Record<string,{title:string;feedback:stri
   },
   "anger": {
     "pause": {
-      "title": "すぐに言い返さず、水を飲んで少し待つ",
-      "feedback": "返事をする前に、水を飲んだり、その場を少し離れたりしてみよう。伝える言葉は、少し落ち着いてから考えても大丈夫。"
+      "title": "すぐに言い返さず、10まで数えて少し待つ",
+      "feedback": "返事をする前に、10まで数えたり、その場を少し離れたりしてみよう。伝える言葉は、少し落ち着いてから考えても大丈夫。"
     },
     "name": {
       "title": "どの言葉が嫌だったのか、短くメモする",

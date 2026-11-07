@@ -10,10 +10,10 @@ import type { VerifiedBonus } from './bonusLedger';
 export type HomeSnapshot = { stage: MascotStage; furniture: RoomFurniture; flower: RoomFlower; robot: boolean };
 export type Friend = { id: string; home: HomeSnapshot; visits_enabled: boolean };
 export type CommunityMe = { id: string; invite_code: string; visits_enabled: boolean; home: HomeSnapshot; friends: Friend[]; visits: { visitor_id: string; greeting: number; created_at: string; home: HomeSnapshot }[]; blocks: { id: string }[] };
-export type CommunityConfig = { enabled: boolean; ads: boolean; passSales: boolean; bonusPoints: number; dailyLimit: number };
+export type CommunityConfig = { enabled: boolean; ads: boolean; passSales: boolean; bonusPoints: number; dailyLimit: number; rewardPolicy?: string };
 export type BonusStatus = { remaining: number; day: string; claims: VerifiedBonus[] };
 export const GREETINGS = ['遊びにきたよ！', 'お部屋、すてきだね。', 'また一緒にのんびりしよう。', '今日もおつかれさま。'] as const;
-export const communityConfig = () => request<CommunityConfig>('/config');
+export const communityConfig = () => request<CommunityConfig>('/config?rewardPolicy=daily10');
 async function request<T>(path: string, token?: string, method = 'GET', body?: unknown): Promise<T> {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 12_000);
   try {
