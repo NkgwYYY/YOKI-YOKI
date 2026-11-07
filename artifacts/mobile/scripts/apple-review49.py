@@ -101,3 +101,98 @@ submissions=items('/v1/apps/'+APP+'/reviewSubmissions?filter[platform]=IOS&limit
 for s in submissions: print('SUBMISSION',s['id'],s['attributes'].get('state'))
 builds=items('/v1/builds?filter[app]='+APP+'&filter[version]=49&include=preReleaseVersion')
 for b in builds:print('BUILD49',b['id'],b['attributes'].get('processingState'),b['attributes'].get('usesNonExemptEncryption'))
+# Release operations target only the inspected app and exact version/build.
+mode=os.environ.get('YOKI_RELEASE_MODE','inspect')
+if mode not in ('inspect','prepare','finish'):raise SystemExit('Unknown release mode')
+if mode=='inspect':raise SystemExit(0)
+previous=next(v for v in versions if v['attributes']['versionString']=='1.2.4')
+current=next((v for v in versions if v['attributes']['versionString']=='1.2.5'),None)
+if not current:
+    other=[v for v in versions if v['attributes'].get('appStoreState') not in ('READY_FOR_SALE','REMOVED_FROM_SALE','DEVELOPER_REMOVED_FROM_SALE')]
+    if other:raise SystemExit('Another editable release exists; no duplicate version created')
+    attrs={'platform':'IOS','versionString':'1.2.5','releaseType':'AFTER_APPROVAL'}
+    if previous['attributes'].get('copyright'):attrs['copyright']=previous['attributes']['copyright']
+    current=api('/v1/appStoreVersions','POST',{'data':{'type':'appStoreVersions','attributes':attrs,'relationships':{'app':rel('apps',APP)}}})['data']
+    print('CREATED_VERSION',current['id'])
+vid=current['id']
+editable=current['attributes'].get('appStoreState') in ('PREPARE_FOR_SUBMISSION','DEVELOPER_REJECTED','REJECTED','METADATA_REJECTED','READY_FOR_REVIEW')
+notes_ja=Path('release-notes/1.2.5-ja.md').read_text().strip()
+notes_en='Improved the character startup display. Added 24 everyday scenarios to the emotional self-care battles, adapted from public expert and health-organization resources with in-app source links. Added a clearer optional rewarded-ad entry: 10 points per completed view, up to three times per day.'
+new_localizations=items('/v1/appStoreVersions/'+vid+'/appStoreVersionLocalizations')
+old_localizations=items('/v1/appStoreVersions/'+previous['id']+'/appStoreVersionLocalizations')
+if {l['attributes']['locale'] for l in new_localizations}!={l['attributes']['locale'] for l in old_localizations}:raise SystemExit('Inherited localization mismatch; stop before review')
+for loc in new_localizations:
+    locale=loc['attributes']['locale']
+    if editable:
+        api('/v1/appStoreVersionLocalizations/'+loc['id'],'PATCH',{'data':{'type':'appStoreVersionLocalizations','id':loc['id'],'attributes':{'whatsNew':notes_ja if locale=='ja' else notes_en}}})
+    sets=items('/v1/appStoreVersionLocalizations/'+loc['id']+'/appScreenshotSets?include=appScreenshots')
+    count=sum(len(s.get('relationships',{}).get('appScreenshots',{}).get('data',[])) for s in sets)
+    if count<3:raise SystemExit('Existing screenshots did not carry over; stop before review')
+    print('PREPARED_LOCALIZATION',locale,'screenshots='+str(count))
+old_detail=api('/v1/appStoreVersions/'+previous['id']+'/appStoreReviewDetail')['data']
+new_detail=api('/v1/appStoreVersions/'+vid+'/appStoreReviewDetail',optional=True).get('data')
+if editable:
+    fields=['contactFirstName','contactLastName','contactPhone','contactEmail','demoAccountRequired','demoAccountName','demoAccountPassword']
+    attrs={k:old_detail['attributes'][k] for k in fields if old_detail['attributes'].get(k) is not None}
+    attrs['notes']=(old_detail['attributes'].get('notes') or '')+'\n\nVersion 1.2.5 (49): optimized initial character rendering; 24 source-attributed self-care battle scenarios including handling irritation toward other people. To view a battle, complete the daily check-in and select an available worry topic. The battle screen includes reference-source links and explains that the material is adapted for everyday self-care. The optional rewarded-ad entry is available from the home point balance/menu for eligible users (age 20+); each server-verified completion grants 10 points, shared daily cap 3. Advertising is optional. No reward is granted solely from a client callback. Existing account and review access instructions above still apply.'
+    if len(attrs['notes'])>4000:raise SystemExit('Review notes exceed Apple limit; preserve existing instructions')
+    if new_detail:
+        api('/v1/appStoreReviewDetails/'+new_detail['id'],'PATCH',{'data':{'type':'appStoreReviewDetails','id':new_detail['id'],'attributes':attrs}})
+    else:
+        api('/v1/appStoreReviewDetails','POST',{'data':{'type':'appStoreReviewDetails','attributes':attrs,'relationships':{'appStoreVersion':rel('appStoreVersions',vid)}}})
+    print('PREPARED_REVIEW_DETAILS (credentials and contacts preserved without logging)')
+if mode=='prepare':
+    print('PREPARED_VERSION',vid)
+    raise SystemExit(0)
+if not builds:
+    raise SystemExit('Build 49 has not arrived at Apple yet; no review submitted')
+if len(builds)!=1:raise SystemExit('Ambiguous build 49')
+build=builds[0]
+bid=build['id']
+prv=api('/v1/builds/'+bid+'/preReleaseVersion')['data']
+if prv['attributes']['version']!='1.2.5' or build['attributes']['version']!='49':raise SystemExit('Version/build mismatch')
+if build['attributes'].get('processingState')!='VALID':raise SystemExit('Apple is still processing build 49')
+if build['attributes'].get('usesNonExemptEncryption') is None:
+    # app.json / ITSAppUsesNonExemptEncryption is already false in the signed app.
+    api('/v1/builds/'+bid,'PATCH',{'data':{'type':'builds','id':bid,'attributes':{'usesNonExemptEncryption':False}}})
+existing_groups=items('/v1/builds/'+bid+'/betaGroups')
+known_group=next((g for g in groups if g['id']=='255b6676-7deb-484a-898e-1ac35e613b5e' and g['attributes'].get('isInternalGroup')),None)
+if not known_group:raise SystemExit('The previously verified internal tester group changed')
+if not any(g['id']==known_group['id'] for g in existing_groups):
+    api('/v1/betaGroups/'+known_group['id']+'/relationships/builds','POST',{'data':[{'type':'builds','id':bid}]})
+verified_groups=items('/v1/builds/'+bid+'/betaGroups')
+if not any(g['id']==known_group['id'] for g in verified_groups):raise SystemExit('TestFlight group attachment not confirmed')
+print('TESTFLIGHT_CONFIRMED',bid,'Team (Expo)')
+if editable:
+    api('/v1/appStoreVersions/'+vid+'/relationships/build','PATCH',rel('builds',bid))
+attached=api('/v1/appStoreVersions/'+vid+'/build')['data']
+if attached['id']!=bid:raise SystemExit('App Store build link mismatch')
+print('BUILD_ATTACHED',vid,bid)
+# The new reward feature must be live before sending Apple to the production server.
+with urllib.request.urlopen('https://yoki-yoki.replit.app/api/community/config?rewardPolicy=daily10',timeout=45) as response:config=json.load(response)
+if config.get('rewardPolicy')!='daily10' or config.get('bonusPoints')!=10 or config.get('dailyLimit')!=3:
+    print('SERVER_NOT_READY: TestFlight distributed and App Store metadata/build prepared; review held until daily10 is live.')
+    raise SystemExit(0)
+print('PRODUCTION_REWARD_POLICY_CONFIRMED daily10 / 10 points / 3 per day')
+active=items('/v1/apps/'+APP+'/reviewSubmissions?filter[platform]=IOS&limit=200')
+selected=None
+for submission in active:
+    state=submission['attributes'].get('state')
+    if state=='COMPLETE':continue
+    review_items=items('/v1/reviewSubmissions/'+submission['id']+'/items?include=appStoreVersion')
+    target=[i for i in review_items if (i.get('relationships',{}).get('appStoreVersion',{}).get('data') or {}).get('id')==vid]
+    if target:
+        if len(review_items)!=1:raise SystemExit('Review contains additional items; do not submit them implicitly')
+        selected=submission
+        break
+    if state in ('WAITING_FOR_REVIEW','IN_REVIEW','UNRESOLVED_ISSUES','CANCELING','COMPLETING'):
+        raise SystemExit('Another active submission exists; no cancellation attempted')
+if not selected:
+    selected=api('/v1/reviewSubmissions','POST',{'data':{'type':'reviewSubmissions','attributes':{'platform':'IOS'},'relationships':{'app':rel('apps',APP)}}})['data']
+    api('/v1/reviewSubmissionItems','POST',{'data':{'type':'reviewSubmissionItems','relationships':{'reviewSubmission':rel('reviewSubmissions',selected['id']),'appStoreVersion':rel('appStoreVersions',vid)}}})
+if selected['attributes'].get('state')=='READY_FOR_REVIEW':
+    selected=api('/v1/reviewSubmissions/'+selected['id'],'PATCH',{'data':{'type':'reviewSubmissions','id':selected['id'],'attributes':{'submitted':True}}})['data']
+confirmed=api('/v1/reviewSubmissions/'+selected['id'])['data']
+release=api('/v1/appStoreVersions/'+vid)['data']
+print('FINAL_REVIEW',confirmed['id'],confirmed['attributes'].get('state'))
+print('FINAL_RELEASE',vid,release['attributes'].get('appStoreState'),release['attributes'].get('releaseType'))
