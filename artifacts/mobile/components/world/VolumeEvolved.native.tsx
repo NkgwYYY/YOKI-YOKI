@@ -18,14 +18,22 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
  const ref=useRef<WebView>(null),latest=useRef(props);latest.current=props;
  const [ready,setReady]=useState(false),[failed,setFailed]=useState(false);
  const lastSent=useSharedValue(-1),lastPose=useSharedValue('');
- const source=useMemo(()=>({html:nativeResidentDocument(stage as EvolvedForm)}),[stage]);
- const send=useCallback((pose:EvolvedPose)=>{
+ // Seed the exact coat, costume, expression and resolution in the local document.
+ // Keep its identity stable while poses change: replacing source would reload WKWebView.
+ const source=useMemo(()=>{
+  const p=latest.current,meal=mealSample(p.mealProgress?.value??0);
+  return {html:nativeResidentDocument(stage as EvolvedForm,{
+   pose:{rx:p.rx.value,ry:p.ry.value,rz:p.rz.value,blink:p.blink.value,costume:p.costume,smile:smile.value,happy:p.mood==='happy'||p.mood==='excited',sleepy:p.mood==='sleepy',night:!!p.night,mouthOpen:meal.open,chew:meal.chew,smoking:!!p.smoking},
+   active:p.active??true,reduceMotion:!!p.reduceMotion,size:p.displaySize??p.size,
+  })};
+ },[stage]);
+ const send=useCallback((pose:EvolvedPose,confirmReady=false)=>{
   const p=latest.current;
-  ref.current?.postMessage(JSON.stringify({type:'pose',pose,active:p.active??true,reduceMotion:!!p.reduceMotion,size:p.displaySize??p.size}));
+  ref.current?.postMessage(JSON.stringify({type:'pose',pose,confirmReady,active:p.active??true,reduceMotion:!!p.reduceMotion,size:p.displaySize??p.size}));
  },[]);
  const sendCurrentPose=useCallback(()=>{
   const p=latest.current,meal=mealSample(p.mealProgress?.value??0);
-  send({rx:p.rx.value,ry:p.ry.value,rz:p.rz.value,blink:p.blink.value,costume:p.costume,smile:smile.value,happy:p.mood==='happy'||p.mood==='excited',sleepy:p.mood==='sleepy',night:!!p.night,mouthOpen:meal.open,chew:meal.chew,smoking:!!p.smoking});
+  send({rx:p.rx.value,ry:p.ry.value,rz:p.rz.value,blink:p.blink.value,costume:p.costume,smile:smile.value,happy:p.mood==='happy'||p.mood==='excited',sleepy:p.mood==='sleepy',night:!!p.night,mouthOpen:meal.open,chew:meal.chew,smoking:!!p.smoking},true);
  },[send,smile]);
  const frames=useFrameCallback(frame=>{
   if(!ready||failed||!active||frame.timestamp-lastSent.value<1000/30)return;
@@ -54,6 +62,7 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
   {!failed&&<View testID={ready?'resident-renderer-ready':'resident-renderer-loading'} style={[StyleSheet.absoluteFill,{opacity:ready?1:0}]}>
    <WebView ref={ref} source={source} originWhitelist={['about:blank']} onShouldStartLoadWithRequest={request=>request.url==='about:blank'}
     onMessage={event=>{try{const m=JSON.parse(event.nativeEvent.data);if(m.type==='loaded')sendCurrentPose();if(m.type==='ready')setReady(true);if(m.type==='failed')setFailed(true);}catch{}}}
+    onLoadEnd={sendCurrentPose}
     onError={()=>setFailed(true)} onContentProcessDidTerminate={()=>{setReady(false);ref.current?.reload();}}
     scrollEnabled={false} bounces={false} javaScriptEnabled domStorageEnabled={false} allowFileAccess={false} mixedContentMode="never"
     style={{backgroundColor:'transparent'}} containerStyle={{backgroundColor:'transparent'}}

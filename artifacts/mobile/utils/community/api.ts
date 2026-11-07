@@ -6,14 +6,20 @@ import { API_BASE } from '@/contexts/AuthContext';
 import type { MascotStage } from '@/utils/mascotUtils';
 import type { RoomFurniture, RoomFlower } from '@/contexts/AppContext';
 import type { VerifiedBonus } from './bonusLedger';
+import type { PendingBonus, Reservation } from './dailyAds';
 
 export type HomeSnapshot = { stage: MascotStage; furniture: RoomFurniture; flower: RoomFlower; robot: boolean };
 export type Friend = { id: string; home: HomeSnapshot; visits_enabled: boolean };
 export type CommunityMe = { id: string; invite_code: string; visits_enabled: boolean; home: HomeSnapshot; friends: Friend[]; visits: { visitor_id: string; greeting: number; created_at: string; home: HomeSnapshot }[]; blocks: { id: string }[] };
-export type CommunityConfig = { enabled: boolean; ads: boolean; passSales: boolean; bonusPoints: number; dailyLimit: number };
-export type BonusStatus = { remaining: number; day: string; claims: VerifiedBonus[] };
+export type CommunityConfig = { enabled: boolean; ads: boolean; passSales: boolean; bonusPoints: number; dailyLimit: number; rewardPolicy?: string };
+export type BonusStatus = { remaining: number; day: string; claims: VerifiedBonus[]; pending?: PendingBonus[] };
 export const GREETINGS = ['遊びにきたよ！', 'お部屋、すてきだね。', 'また一緒にのんびりしよう。', '今日もおつかれさま。'] as const;
-export const communityConfig = () => request<CommunityConfig>('/config');
+export const communityConfig = () => request<CommunityConfig>('/config?rewardPolicy=daily10');
+// Negotiate the same policy on discovery, reservation and recovery. A legacy status
+// request may intentionally omit 10pt claims to protect older installed clients.
+export const communityBonusStatus = (client: CommunityClient) => client.call<BonusStatus>('/bonus?rewardPolicy=daily10');
+export const reserveCommunityBonus = (client: CommunityClient, receipt: string, mode: 'ad' | 'pass') =>
+  client.call<Reservation>('/bonus/reserve', 'POST', {receipt, mode, rewardPolicy: 'daily10'});
 async function request<T>(path: string, token?: string, method = 'GET', body?: unknown): Promise<T> {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 12_000);
   try {

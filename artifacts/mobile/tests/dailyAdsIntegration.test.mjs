@@ -242,3 +242,39 @@ test('a closed reservation past server expiry is discarded before another ad is 
   assert.equal(reserves,2);
 });
 
+test('daily10 reservations display the actual verified amount and retain the shared cap',async()=>{
+  let f;
+  f=fixture({
+    eligibility:()=>({ready:true,rewarded:true,banner:false,pass:false,rewardPoints:10}),
+    reserve:async(receipt,mode)=>{
+      const r={id:randomUUID(),playerId:randomUUID(),mode,state:'reserved',amount:10};
+      f.reservations.set(receipt,r);return r;
+    },
+    collect:async()=>({gained:0,remaining:3-f.credits.size,day:'2026-11-07',confirmedIds:[...f.credits],confirmedAmounts:Object.fromEntries([...f.credits].map(id=>[id,10]))}),
+  });
+  await f.service.refresh();assert.equal(f.service.getSnapshot().rewardPoints,10);
+  for(const place of ['home','meal','street']) {
+    const r=await f.service.watchRewarded(place);assert.equal(r.status,'verified');assert.equal(r.points,10);
+  }
+  assert.equal((await f.service.watchRewarded('home')).status,'unavailable');assert.equal(f.shown(),3);
+});
+test('a daily10 client reports an older verified 30pt reservation without reducing it',async()=>{
+  const f=fixture({eligibility:()=>({ready:true,rewarded:true,banner:false,pass:false,rewardPoints:10}),
+    reserve:async()=>({id:randomUUID(),playerId:randomUUID(),mode:'ad',state:'reserved',amount:30})});
+  const r=await f.service.watchRewarded('home');assert.equal(r.status,'verified');assert.equal(r.points,30);
+});
+test('a daily10 client never shows an ad if the reservation amount is unconfirmed',async()=>{
+  for(const amount of [undefined,5,15,300]){
+    const f=fixture({eligibility:()=>({ready:true,rewarded:true,banner:false,pass:false,rewardPoints:10}),
+      reserve:async()=>({id:randomUUID(),playerId:randomUUID(),mode:'ad',state:'reserved',amount})});
+    assert.equal((await f.service.watchRewarded('home')).status,'error');assert.equal(f.shown(),0);
+  }
+});
+test('a recovered daily10 reward with unknown amount never announces guessed points',async()=>{
+  const id=randomUUID();let credited=false;
+  const f=fixture({eligibility:()=>({ready:true,rewarded:true,banner:false,pass:false,rewardPoints:10}),
+    collect:async()=>({gained:0,remaining:2,day:'2026-11-07',confirmedIds:[],pending:[{id,receipt_id:`daily-home-${randomUUID()}`,expires_at:new Date(Date.now()+60_000).toISOString()}]}),
+    credited:()=>credited});
+  await f.service.refresh();credited=true;
+  const r=await f.service.watchRewarded('home');assert.equal(r.status,'pending');assert.equal(f.shown(),0);
+});

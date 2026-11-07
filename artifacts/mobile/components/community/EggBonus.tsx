@@ -18,6 +18,7 @@ export function EggBonus({receipt, onBusy}: {receipt: EggReceipt; onBusy: (busy:
   useEffect(() => { alive.current = true; return () => { alive.current = false; onBusy(false); }; }, [onBusy]);
   useEffect(() => { setReceived(false); setMessage(''); }, [receipt.id, snapshot.sessionKey]);
   const pass = snapshot.removePassiveAds;
+  const rewardPoints = pass ? 30 : (snapshot.rewardPoints ?? 10);
   if (!config?.enabled || receipt.earned <= 0 || !(snapshot.rewardedAvailable || pass || canBuyPass())) return null;
   const take = async () => {
     if (lock.current) return;
@@ -33,8 +34,8 @@ export function EggBonus({receipt, onBusy}: {receipt: EggReceipt; onBusy: (busy:
   const disabled = received || busy || !snapshot.ready || snapshot.remaining===null || snapshot.remaining===0 || snapshot.phase!=='idle';
   return <View testID="egg-job-bonus" style={s.box}>
     <Text style={s.title}>もうひとつ、おまけ</Text>
-    <Text style={s.copy}>{pass ? 'パスで広告なし。' : '広告の視聴完了で、'}＋30 pt。1日3回・全画面で共通{snapshot.remaining===null?'':`　あと${snapshot.remaining}回`}</Text>
-    <WorldPill label={received?'おまけを受け取りました':busy||snapshot.phase!=='idle'?'おまけを確認しています…':snapshot.remaining===0?'今日のおまけはおしまい':pass?'パスで ＋30 pt を受け取る':'広告を見て ＋30 pt'} icon={received?'check':pass?'gift':'play'} disabled={disabled} onPress={()=>void take()}/>
+    <Text style={s.copy}>{pass ? 'パスで広告なし。' : '広告の視聴完了で、'}＋{rewardPoints} pt。1日3回・全画面で共通{snapshot.remaining===null?'':`　あと${snapshot.remaining}回`}</Text>
+    <WorldPill label={received?'おまけを受け取りました':busy||snapshot.phase!=='idle'?'おまけを確認しています…':snapshot.remaining===0?'今日のおまけはおしまい':pass?`パスで ＋${rewardPoints} pt を受け取る`:`広告を見て ＋${rewardPoints} pt`} icon={received?'check':pass?'gift':'play'} disabled={disabled} onPress={()=>void take()}/>
     <Text style={s.copy}>お給料は受け取り済み。そのまま次の注文にも進めます。</Text>
     {!!message&&<Text accessibilityLiveRegion="polite" style={s.message}>{message}</Text>}
     <View style={s.links}>

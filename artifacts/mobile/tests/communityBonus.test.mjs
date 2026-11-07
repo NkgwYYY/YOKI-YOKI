@@ -18,3 +18,14 @@ test('a malformed reward cannot change the saved balance',()=>{
  assert.throws(()=>prepareVerifiedBonus({}, {id:randomUUID(),receipt_id:'a',amount:3000},{points:12}));
  assert.throws(()=>prepareVerifiedBonus({}, {id:'client-said-watched',receipt_id:'a',amount:30},{points:12}));
 });
+test('10pt claims and old pending 30pt claims are each credited exactly once',()=>{
+ const fallback={points:5}, a={id:randomUUID(),receipt_id:'daily-home-new',amount:10}, b={id:randomUUID(),receipt_id:'daily-home-old',amount:30};
+ const values={};
+ for(const claim of [a,a,b,b]) {
+   const result=prepareVerifiedBonus(values,claim,fallback);
+   for(const [k,v] of result.entries)values[k]=v;
+ }
+ assert.equal(JSON.parse(values[key]).points,45);
+ assert.equal(JSON.parse(values[key]).communityBonuses.length,2);
+ for(const amount of [0,5,15,29,31,'10',NaN]) assert.throws(()=>prepareVerifiedBonus(values,{...a,id:randomUUID(),amount},fallback));
+});

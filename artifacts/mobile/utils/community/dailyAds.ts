@@ -1,12 +1,12 @@
-import { DISCONNECTED_DAILY_ADS, type DailyAdSnapshot, type DailyAdPlacement, type DailyAdResult } from '../dailyAdPlacements';
+import { DISCONNECTED_DAILY_ADS, type DailyAdSnapshot, type DailyAdPlacement, type DailyAdResult, type DailyAdPoints } from '../dailyAdPlacements';
 
-export type PendingBonus = { id: string; receipt_id: string; expires_at: string };
-export type CollectedBonus = { gained: number; remaining: number; day: string; confirmedIds: string[]; pending?: PendingBonus[] };
-export type Reservation = { id: string; playerId: string; mode: 'ad' | 'pass'; state: string; expiresAt?: string };
+export type PendingBonus = { id: string; receipt_id: string; expires_at: string; amount?: DailyAdPoints };
+export type CollectedBonus = { gained: number; remaining: number; day: string; confirmedIds: string[]; confirmedAmounts?: Record<string, DailyAdPoints>; pending?: PendingBonus[] };
+export type Reservation = { id: string; playerId: string; mode: 'ad' | 'pass'; state: string; expiresAt?: string; amount?: DailyAdPoints };
 type Dependencies = {
   sessionKey: string;
   current(): boolean;
-  eligibility(): { ready: boolean; rewarded: boolean; banner: boolean; pass: boolean };
+  eligibility(): { ready: boolean; rewarded: boolean; banner: boolean; pass: boolean; rewardPoints?: DailyAdPoints };
   collect(): Promise<CollectedBonus>;
   pass(): Promise<boolean>;
   reserve(receipt: string, mode: 'ad' | 'pass'): Promise<Reservation>;
@@ -47,7 +47,7 @@ export function createDailyAds(deps: Dependencies) {
         Date.parse(item.expires_at) > now());
       if (saved) {
         pending = {receipt: saved.receipt_id, watched: true, reservation: {
-          id: saved.id, playerId: '', mode: 'ad', state: 'reserved', expiresAt: saved.expires_at,
+          id: saved.id, playerId: '', mode: 'ad', state: 'reserved', expiresAt: saved.expires_at, amount: saved.amount,
         }};
         publish({phase: 'verifying'});
       }
@@ -55,6 +55,12 @@ export function createDailyAds(deps: Dependencies) {
     return result;
   };
   const isConfirmed = (id: string, result: CollectedBonus) => result.confirmedIds.includes(id) || deps.credited(id);
+  const verifiedPoints = (reservation: Reservation, result: CollectedBonus): DailyAdPoints | undefined => {
+    const amount = result.confirmedAmounts?.[reservation.id] ?? reservation.amount;
+    if (amount === 10 || amount === 30) return amount;
+    // Legacy service adapters had a fixed 30pt contract. New policy must never guess.
+    return deps.eligibility().rewardPoints === undefined ? 30 : undefined;
+  };
   const refresh = (): Promise<void> => {
     if (refreshTask) return refreshTask;
     const task = (async () => {
@@ -69,7 +75,7 @@ export function createDailyAds(deps: Dependencies) {
         // sales are disabled, or a store product/key is missing on this device.
         pass = await deps.pass();
         assertCurrent();
-        publish({ready: true, rewardedAvailable: allowed.rewarded,
+        publish({ready: true, rewardedAvailable: allowed.rewarded, rewardPoints: allowed.rewardPoints ?? 30,
           bannerAvailable: allowed.banner && now() >= bannerRetryAt, removePassiveAds: pass});
         if (pending?.reservation && isConfirmed(pending.reservation.id, result) && snapshot.phase === 'verifying') {
           pending = null; publish({phase: 'idle'});
@@ -105,8 +111,11 @@ export function createDailyAds(deps: Dependencies) {
       if (pending && pending.receipt !== receipt && pending.watched) return {status: 'pending'};
       if (pending && pending.receipt !== receipt) pending = null;
       if (pending?.reservation && isConfirmed(pending.reservation.id, result)) {
-        const id = pending.reservation.id; pending = null;
-        return {status: 'verified', receiptId: id, points: 30};
+        const id = pending.reservation.id;
+        const points = verifiedPoints(pending.reservation, result);
+        if (points === undefined) return {status: 'pending'};
+        pending = null;
+        return {status: 'verified', receiptId: id, points};
       }
       if (!pending && result.remaining === 0) return {status: 'unavailable'};
       pending ??= {receipt, watched: false};
@@ -121,6 +130,9 @@ export function createDailyAds(deps: Dependencies) {
       if (!pending.reservation) {
         pending.reservation = await deps.reserve(receipt, claimPass ? 'pass' : 'ad');
         assertCurrent();
+        if (allowed.rewardPoints === 10 && pending.reservation.amount !== 10 && pending.reservation.amount !== 30) {
+          pending = null; throw Error('広告特典を確認できません。');
+        }
       }
       const reservation = pending.reservation;
       if (reservation.mode === 'ad' && reservation.state !== 'earned' && !pending.watched) {
@@ -134,8 +146,10 @@ export function createDailyAds(deps: Dependencies) {
       for (let attempt = 0; attempt < 5; attempt++) {
         result = accept(await deps.collect());
         if (isConfirmed(reservation.id, result)) {
+          const points = verifiedPoints(reservation, result);
+          if (points === undefined) return {status: 'pending'};
           pending = null;
-          return {status: 'verified', receiptId: reservation.id, points: 30};
+          return {status: 'verified', receiptId: reservation.id, points};
         }
         if (attempt < 4) { await deps.pause(1500); assertCurrent(); }
       }

@@ -20,12 +20,16 @@ export function createBonusCollector(deps: {
         !/^\d{4}-\d{2}-\d{2}$/.test(status.day)) throw Error('追加報酬を確認できません。');
       let gained = 0;
       const confirmedIds: string[] = [];
+      const confirmedAmounts: Record<string, 10 | 30> = {};
       for (const claim of status.claims) {
-        check(); gained += await deps.grant(claim, deps.current); check();
+        check();
+        if (claim.amount !== 10 && claim.amount !== 30) throw Error('追加報酬を確認できません。');
+        gained += await deps.grant(claim, deps.current); check();
         confirmedIds.push(claim.id);
+        confirmedAmounts[claim.id] = claim.amount;
         await deps.acknowledge(claim.id); check();
       }
-      return {gained, remaining: status.remaining, day: status.day, confirmedIds,
+      return {gained, remaining: status.remaining, day: status.day, confirmedIds, confirmedAmounts,
         ...(status.pending ? {pending: status.pending} : {})};
     })();
     task = run;
