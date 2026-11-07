@@ -1,11 +1,11 @@
 {
-  "id": "1a1ec529-a819-4f2c-be8f-36c19d363d19",
-  "createdAt": "2026-09-22T22:44:28.989Z",
+  "id": "71d039b1-47a3-4cb5-87c1-4234a6659586",
+  "createdAt": "2026-10-05T00:17:40.051Z",
   "runtimeVersion": "exposdk:54.0.0",
   "launchAsset": {
-    "key": "bundle-1790117068989-1955",
+    "key": "bundle-1791159460051-2182",
     "contentType": "application/javascript",
-    "url": "https://yoki-yoki.replit.app/1790117068989-1955/_expo/static/js/android/bundle.js"
+    "url": "https://yoki-yoki.replit.app/1791159460051-2182/_expo/static/js/android/bundle.js"
   },
   "assets": [],
   "metadata": {},
@@ -24,7 +24,7 @@
         "image": "./assets/images/icon.png",
         "resizeMode": "contain",
         "backgroundColor": "#FAF8FF",
-        "imageUrl": "http://127.0.0.1:38521/assets/./assets/images/icon.png"
+        "imageUrl": "http://127.0.0.1:37261/assets/./assets/images/icon.png"
       },
       "ios": {
         "supportsTablet": false
@@ -77,7 +77,7 @@
           "origin": "https://replit.com/"
         }
       },
-      "iconUrl": "http://127.0.0.1:38521/assets/./assets/images/icon.png",
+      "iconUrl": "http://127.0.0.1:37261/assets/./assets/images/icon.png",
       "hostUri": "yoki-yoki.replit.app/android"
     },
     "expoGo": {
@@ -91,6 +91,6 @@
       },
       "mainModuleName": "node_modules/.pnpm/expo-router@6.0.24_e729a3583b50e92b95fad1f522b008c5/node_modules/expo-router/entry"
     },
-    "scopeKey": "@anonymous/mobile-9ce4e579-7c08-4d8a-a61d-4b2be99cf5be"
+    "scopeKey": "@anonymous/mobile-8d3c6ac9-ef5d-4a91-bb5a-6542beb33b61"
   }
 }

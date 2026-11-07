@@ -67,37 +67,10 @@ export function getMascotMood(
   }
 ): MascotMood {
   const hour = new Date().getHours();
-  const inactivity = extra?.inactivityHours ?? 0;
-  const satiety = extra?.satiety ?? 70;
-  const v = extra?.variance ?? 0;
-
-  // Night time → sleepy
-  if (hour >= 22 || hour < 6) return 'sleepy';
-
-  // Very long absence (24h+) → tired regardless of anything else
-  if (inactivity >= 24) return 'tired';
-
-  // Very hungry → tired
-  if (satiety <= 10) return 'tired';
-
-  // All tasks done AND reasonably full AND not absent too long → excited
-  if (totalCount > 0 && completedCount === totalCount && satiety > 30 && inactivity < 12) return 'excited';
-
-  // Good mood record AND streak going → happy (as long as not starving)
-  if (todayRecord && todayRecord.mood >= 4 && progress.streak >= 3 && satiety > 20) return 'happy';
-
-  // Moderate inactivity (8-24h) or quite hungry → tired
-  if (inactivity >= 8 || satiety <= 25) return 'tired';
-
-  // No record and no streak → tired
-  if (!todayRecord && progress.streak === 0) return 'tired';
-
-  // Grumpy variations — streak exists but no record yet today: 40% chance
-  if (!todayRecord && progress.streak > 0 && v < 0.40) return 'grumpy';
-
-  // Random grumpy: 20% of otherwise-normal sessions
-  if (v < 0.20) return 'grumpy';
-
+  // Absence and low mood are never a punishment. A quiet day means resting together.
+  if (hour >= 22 || hour < 6 || (todayRecord && todayRecord.mood <= 2)) return 'sleepy';
+  if (totalCount > 0 && completedCount === totalCount) return 'excited';
+  if (todayRecord && todayRecord.mood >= 4) return 'happy';
   return 'normal';
 }
 
@@ -156,7 +129,7 @@ export function calcStatus(
   totalCount: number,
   streak: number
 ): StatusParams {
-  const sleep = todayRecord?.sleep ?? 0;
+  const sleep = todayRecord?.sleepRecorded === false ? 7 : todayRecord?.sleep ?? 7;
   const mood = todayRecord?.mood ?? 0;
 
   const vitality = todayRecord

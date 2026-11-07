@@ -9,6 +9,7 @@ import {
   JUDGE_PERFECT_MS, JUDGE_GREAT_MS, JUDGE_GOOD_MS, SCORE_PER,
 } from '@/utils/rhythm/types';
 import { useSongClock } from '@/utils/rhythm/useSongClock';
+import { withinTimingWindow, noteHasExpired } from '@/utils/rhythm/judgment';
 import { border, colors, gameSurface, judgePalette, lanePalette } from '@/constants/theme';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { clamp, measuredOr, useMeasuredSize } from '@/utils/rhythm/geometry';
@@ -143,7 +144,7 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
       setNow(t);
       // 判定猶予を過ぎた未判定ノーツを自動MISS
       for (const n of notesRef.current) {
-        if (!n.judged && t - n.time > JUDGE_GOOD_MS / 1000) applyJudgment(n, 'miss');
+        if (!n.judged && noteHasExpired(n.time, t, JUDGE_GOOD_MS)) applyJudgment(n, 'miss');
       }
       // 全ノーツ終了なら早めに締める
       const allDone = notesRef.current.length > 0 && notesRef.current.every(n => n.judged);
@@ -196,16 +197,16 @@ export function TapBeatGame({ song, chart, onFinish, onQuit }: Props) {
     for (const n of notesRef.current) {
       if (n.judged || n.lane !== lane) continue;
       const diff = Math.abs(n.time - t) * 1000;
-      if (diff <= JUDGE_GOOD_MS && diff < bestDiff) { best = n; bestDiff = diff; }
+      if (withinTimingWindow(diff, JUDGE_GOOD_MS) && diff < bestDiff) { best = n; bestDiff = diff; }
     }
     if (!best) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return; // 空振りはノーカウント (優しさ)
     }
-    if (bestDiff <= JUDGE_PERFECT_MS) {
+    if (withinTimingWindow(bestDiff, JUDGE_PERFECT_MS)) {
       applyJudgment(best, 'perfect');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else if (bestDiff <= JUDGE_GREAT_MS) {
+    } else if (withinTimingWindow(bestDiff, JUDGE_GREAT_MS)) {
       applyJudgment(best, 'great');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } else {

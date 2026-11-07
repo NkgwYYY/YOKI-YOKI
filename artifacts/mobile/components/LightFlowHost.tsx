@@ -8,10 +8,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import { LightFlowEffect } from '@/components/LightFlowEffect';
+import { useAppActivity } from '@/components/room/useRoomActivity';
 
 export function LightFlowHost() {
   const { lightGainEvent } = useApp();
   const router = useRouter();
+  const { active, reduceMotion } = useAppActivity();
   // 表示中に次のイベントが来ても失われないよう、キューで順番に再生する。
   // key に seq を使い、イベントごとに演出を確実に再マウントする
   const [queue, setQueue] = useState<{ amount: number; seq: number }[]>([]);
@@ -25,12 +27,13 @@ export function LightFlowHost() {
   }, [lightGainEvent]);
 
   const current = queue[0];
-  if (!current) return null;
+  if (!current || !active) return null;
   return (
     <LightFlowEffect
       key={current.seq}
       amount={current.amount}
-      onDone={() => setQueue((q) => q.slice(1))}
+      reduceMotion={reduceMotion}
+      onDone={() => setQueue((q) => q[0]?.seq === current.seq ? q.slice(1) : q)}
       onGoPlant={() => router.push('/(tabs)/plant')}
     />
   );

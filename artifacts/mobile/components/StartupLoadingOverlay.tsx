@@ -16,12 +16,17 @@ export function StartupLoadingOverlay() {
   const opacity = useRef(new Animated.Value(1)).current;
   const attempt = useRef(0);
   const minimumTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [visible, setVisible] = useState(true);
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
 
   const load = useCallback(() => {
     const currentAttempt = ++attempt.current;
     if (minimumTimer.current) clearTimeout(minimumTimer.current);
+    if (dismissTimer.current) clearTimeout(dismissTimer.current);
+    dismissTimer.current = null;
+    setReady(false);
     setError(false);
     opacity.setValue(1);
 
@@ -38,15 +43,20 @@ export function StartupLoadingOverlay() {
     ])
       .then(() => {
         if (attempt.current !== currentAttempt) return;
+        // Animation completion is cosmetic, not a prerequisite for using HOME.
+        setReady(true);
+        const dismiss = () => {
+          if (attempt.current !== currentAttempt) return;
+          if (dismissTimer.current) clearTimeout(dismissTimer.current);
+          dismissTimer.current = null;
+          setVisible(false);
+        };
+        dismissTimer.current = setTimeout(dismiss, 500);
         Animated.timing(opacity, {
           toValue: 0,
           duration: 320,
           useNativeDriver: Platform.OS !== 'web',
-        }).start(({ finished }) => {
-          if (finished && attempt.current === currentAttempt) {
-            setVisible(false);
-          }
-        });
+        }).start(dismiss);
       })
       .catch(() => {
         if (attempt.current === currentAttempt) {
@@ -63,6 +73,8 @@ export function StartupLoadingOverlay() {
       attempt.current += 1;
       if (minimumTimer.current) clearTimeout(minimumTimer.current);
       minimumTimer.current = null;
+      if (dismissTimer.current) clearTimeout(dismissTimer.current);
+      dismissTimer.current = null;
       opacity.stopAnimation();
     };
   }, [load, opacity]);
@@ -71,6 +83,9 @@ export function StartupLoadingOverlay() {
 
   return (
     <Animated.View
+      pointerEvents={ready ? 'none' : 'auto'}
+      accessibilityElementsHidden={ready}
+      importantForAccessibility={ready ? 'no-hide-descendants' : 'auto'}
       accessibilityLiveRegion="polite"
       style={[styles.overlay, { opacity }]}
     >

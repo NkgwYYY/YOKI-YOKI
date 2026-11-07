@@ -3,10 +3,10 @@
  * 新キャラ初登場・進化時に AppContext の newEncounters キューから1件ずつ表示する。
  */
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat, withSequence,
-  withTiming, withSpring, withDelay, FadeIn,
+  withTiming, withSpring, withDelay, cancelAnimation,
 } from 'react-native-reanimated';
 import {
   border,
@@ -17,16 +17,19 @@ import {
   space,
   typography,
 } from '@/constants/theme';
+import { CenterDialog } from '@/components/ui/BottomSheet';
+import { useAppActivity } from '@/components/room/useRoomActivity';
 import { Button } from '@/components/ui/Button';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { DEX_PROFILES } from '@/data/characterDex';
 import { DEX_IMAGES } from '@/components/dex/dexAssets';
 
-function Sparkle({ x, y, delay }: { x: number; y: number; delay: number }) {
+function Sparkle({ x, y, delay, animate }: { x: number; y: number; delay: number; animate: boolean }) {
   const op = useSharedValue(0);
   const sc = useSharedValue(0.4);
   useEffect(() => {
+    if (!animate) { op.value = 0.5; sc.value = 1; return; }
     op.value = withDelay(delay, withRepeat(
       withSequence(withTiming(1, { duration: 600 }), withTiming(0.15, { duration: 800 })),
       -1, true,
@@ -35,7 +38,8 @@ function Sparkle({ x, y, delay }: { x: number; y: number; delay: number }) {
       withSequence(withTiming(1.1, { duration: 700 }), withTiming(0.5, { duration: 700 })),
       -1, true,
     ));
-  }, []);
+    return () => { cancelAnimation(op); cancelAnimation(sc); };
+  }, [animate, delay, op, sc]);
   const st = useAnimatedStyle(() => ({ opacity: op.value, transform: [{ scale: sc.value }] }));
   return (
     <Animated.View style={[styles.sparkle, { left: x, top: y }, st]}>
@@ -47,56 +51,51 @@ function Sparkle({ x, y, delay }: { x: number; y: number; delay: number }) {
 export function NewFriendModal() {
   const { newEncounters, dismissNewEncounter } = useApp();
   const charKey = newEncounters[0];
+  const { active, reduceMotion } = useAppActivity();
+  const animate = active && !reduceMotion;
 
   const charScale = useSharedValue(0.3);
   useEffect(() => {
-    if (!charKey) return;
+    if (!charKey || !animate) { charScale.value = 1; return; }
     charScale.value = 0.3;
     charScale.value = withDelay(200, withSpring(1, { damping: 9, stiffness: 120 }));
-  }, [charKey]);
+    return () => cancelAnimation(charScale);
+  }, [charKey, animate, charScale]);
   const charStyle = useAnimatedStyle(() => ({ transform: [{ scale: charScale.value }] }));
 
   if (!charKey) return null;
   const profile = DEX_PROFILES[charKey];
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={dismissNewEncounter}>
-      <View style={styles.overlay}>
-        <Animated.View entering={FadeIn.duration(300)} style={styles.card}>
-          <Sparkle x={24} y={30} delay={0} />
-          <Sparkle x={250} y={50} delay={300} />
-          <Sparkle x={40} y={190} delay={600} />
-          <Sparkle x={240} y={210} delay={150} />
-          <Text style={styles.kicker}>NEW FRIEND</Text>
-          <Text style={styles.title}>新しい仲間が生まれました!</Text>
-          <Animated.View style={[styles.charBox, charStyle]}>
-            <Image source={DEX_IMAGES[charKey]} style={styles.charImg} resizeMode="contain" />
-          </Animated.View>
-          <Text style={styles.name}>{profile.name}</Text>
-          <Text style={styles.quote}>「{profile.quote}」</Text>
-          <Text style={styles.note}>図鑑(成長タブ)に記録されたよ</Text>
-          <Button label="よろしくね！" onPress={dismissNewEncounter} style={styles.btn} />
+    <CenterDialog visible onClose={dismissNewEncounter}>
+      <View testID="new-friend-card" style={styles.card}>
+        <Sparkle x={24} y={30} delay={0} animate={animate} />
+        <Sparkle x={250} y={50} delay={300} animate={animate} />
+        <Sparkle x={40} y={190} delay={600} animate={animate} />
+        <Sparkle x={240} y={210} delay={150} animate={animate} />
+        <Text style={styles.kicker}>NEW FRIEND</Text>
+        <Text accessibilityRole="header" style={styles.title}>新しい仲間が生まれました!</Text>
+        <Animated.View testID="new-friend-character" style={[styles.charBox, charStyle]}>
+          <Image source={DEX_IMAGES[charKey]} style={styles.charImg} resizeMode="contain" />
         </Animated.View>
+        <Text style={styles.name}>{profile.name}</Text>
+        <Text style={styles.quote}>「{profile.quote}」</Text>
+        <Text style={styles.note}>アルバムの図鑑に記録されたよ</Text>
+        <Button label="よろしくね！" onPress={dismissNewEncounter} style={styles.btn} />
       </View>
-    </Modal>
+    </CenterDialog>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: colors.scrim,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: space.xl,
-  },
   card: {
     width: '100%',
     maxWidth: 340,
+    alignSelf: 'center',
     backgroundColor: colors.sheet,
     ...border.hairlineStrong,
     borderRadius: radius.xl,
-    padding: space.xl,
+    padding: space.sm,
     alignItems: 'center',
     overflow: 'hidden',
     ...elevation.overlay,

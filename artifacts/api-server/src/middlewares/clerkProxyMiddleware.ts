@@ -19,12 +19,15 @@
  *   app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
  */
 
-import type { IncomingHttpHeaders } from 'http';
+import type { ClientRequest, IncomingHttpHeaders, IncomingMessage } from 'node:http';
 import type { RequestHandler } from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
 const CLERK_FAPI = 'https://frontend-api.clerk.dev';
 export const CLERK_PROXY_PATH = '/api/__clerk';
+// Bound the complete exchange, including a slowly dripping response body.
+// A socket inactivity timeout alone cannot bound that case.
+const CLERK_PROXY_DEADLINE_MS = 12000;
 
 /**
  * Returns the first effective public hostname for the given request,
@@ -52,6 +55,18 @@ export function getClerkProxyHost(req: {
   return firstHop || req.headers.host?.trim() || undefined;
 }
 
+function getClerkProxyProtocol(headers: IncomingHttpHeaders): 'http' | 'https' {
+  const forwarded = headers['x-forwarded-proto'];
+  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return raw?.split(',')[0]?.trim().toLowerCase() === 'http' ? 'http' : 'https';
+}
+
+type ProxyFlight = {
+  outgoing?: ClientRequest;
+  upstream?: IncomingMessage;
+  fail: (status: 502 | 504) => void;
+};
+
 export function clerkProxyMiddleware(): RequestHandler {
   // Only run proxy in production — Clerk proxying doesn't work for dev instances
   if (process.env.NODE_ENV !== 'production') {
@@ -63,7 +78,8 @@ export function clerkProxyMiddleware(): RequestHandler {
     return (_req, _res, next) => next();
   }
 
-  return createProxyMiddleware({
+  const flights = new WeakMap<IncomingMessage, ProxyFlight>();
+  const proxy = createProxyMiddleware({
     target: CLERK_FAPI,
     changeOrigin: true,
     // Take over the response so it can be re-sent with a Content-Length (see
@@ -73,7 +89,10 @@ export function clerkProxyMiddleware(): RequestHandler {
       path.replace(new RegExp(`^${CLERK_PROXY_PATH}`), ''),
     on: {
       proxyReq: (proxyReq, req) => {
-        const protocol = req.headers['x-forwarded-proto'] || 'https';
+        const flight = flights.get(req);
+        if (!flight) { proxyReq.destroy(); return; }
+        flight.outgoing = proxyReq;
+        const protocol = getClerkProxyProtocol(req.headers);
         const host = getClerkProxyHost(req) || '';
         const proxyUrl = `${protocol}://${host}${CLERK_PROXY_PATH}`;
 
@@ -97,6 +116,9 @@ export function clerkProxyMiddleware(): RequestHandler {
       // Content-Encoding is preserved. Length-known responses (e.g. /npm/*
       // assets) and body-less responses stream through without buffering.
       proxyRes: (proxyRes, req, res) => {
+        const flight = flights.get(req);
+        if (!flight || res.destroyed || res.writableEnded) { proxyRes.destroy(); return; }
+        flight.upstream = proxyRes;
         const headers = { ...proxyRes.headers };
         // Transfer-Encoding/Connection are hop-by-hop (RFC 7230 §6.1).
         delete headers['transfer-encoding'];
@@ -119,7 +141,7 @@ export function clerkProxyMiddleware(): RequestHandler {
           // Headers are already sent, so abort the response if the upstream
           // stream errors mid-pipe (e.g. ECONNRESET) rather than leaving an
           // unhandled 'error' or a hung client.
-          proxyRes.on('error', () => res.destroy());
+          proxyRes.on('error', () => flight.fail(502));
           proxyRes.pipe(res);
           return;
         }
@@ -127,20 +149,57 @@ export function clerkProxyMiddleware(): RequestHandler {
         const chunks: Buffer[] = [];
         proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
         proxyRes.on('end', () => {
+          if (!flights.has(req) || res.destroyed || res.writableEnded) return;
           const body = Buffer.concat(chunks);
           headers['content-length'] = String(body.length);
           res.writeHead(status, headers);
           res.end(body);
         });
-        proxyRes.on('error', () => {
-          if (!res.headersSent) {
-            // Set a length so the empty 502 isn't sent chunked (which the
-            // deployment edge would reject just like the original response).
-            res.writeHead(502, { 'content-length': '0' });
-          }
-          res.end();
-        });
+        proxyRes.on('error', () => flight.fail(502));
       },
+      // Suppress the proxy package's default chunked text response, which also
+      // reflects the request URL/query. Never append it to a partially sent body.
+      error: (_error, req) => flights.get(req)?.fail(502),
     },
-  }) as RequestHandler;
+  });
+
+  return (req, res, next) => {
+    let finished = false;
+    const flight: ProxyFlight = { fail };
+    const deadline = setTimeout(() => fail(504), CLERK_PROXY_DEADLINE_MS);
+    const cleanup = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(deadline);
+      flights.delete(req);
+      req.off('aborted', cancel);
+      res.off('close', cancel);
+      res.off('finish', cleanup);
+    };
+    const abortUpstream = () => {
+      flight.upstream?.destroy();
+      flight.outgoing?.destroy();
+    };
+    const cancel = () => { cleanup(); abortUpstream(); };
+    function fail(status: 502 | 504) {
+      if (finished) return;
+      cleanup();
+      if (res.destroyed || res.writableEnded) { abortUpstream(); return; }
+      if (res.headersSent) { res.destroy(); abortUpstream(); return; }
+      // Flush the length-delimited error before closing the upstream. The
+      // proxy library also destroys the downstream on an upstream stream error.
+      res.once('finish', abortUpstream);
+      res.once('close', abortUpstream);
+      res.writeHead(status, { 'content-length': '0', 'cache-control': 'no-store' });
+      res.end();
+    }
+    flights.set(req, flight);
+    req.once('aborted', cancel);
+    res.once('close', cancel);
+    res.once('finish', cleanup);
+    void proxy(req, res, error => {
+      if (error) fail(502);
+      else { cleanup(); next(); }
+    }).catch(() => fail(502));
+  };
 }

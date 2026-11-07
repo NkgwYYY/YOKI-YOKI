@@ -1,12 +1,15 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   Animated,
+  Platform,
   Pressable,
   type StyleProp,
   type ViewStyle,
   type AccessibilityRole,
+  type AccessibilityState,
 } from 'react-native';
 import { control } from '@/constants/theme';
+import { useReducedMotion } from '@/utils/useReducedMotion';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -44,13 +47,19 @@ export function PressScale({
   accessibilityLabel?: string;
   accessibilityHint?: string;
   accessibilityRole?: AccessibilityRole;
-  accessibilityState?: { disabled?: boolean; selected?: boolean };
+  accessibilityState?: AccessibilityState;
   pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only';
 }) {
   const scale = useRef(new Animated.Value(1)).current;
+  const reduceMotion = useReducedMotion();
+  useEffect(() => {
+    if (reduceMotion || disabled) { scale.stopAnimation(); scale.setValue(1); }
+    return () => scale.stopAnimation();
+  }, [reduceMotion, disabled, scale]);
 
   const spring = useCallback(
     (toValue: number) => {
+      if (reduceMotion || disabled) { scale.stopAnimation(); scale.setValue(1); return; }
       Animated.spring(scale, {
         toValue,
         useNativeDriver: true,
@@ -59,8 +68,36 @@ export function PressScale({
         mass: 0.7,
       }).start();
     },
-    [scale],
+    [scale, reduceMotion, disabled],
   );
+
+  const resolvedAccessibilityState = {
+    ...accessibilityState,
+    disabled: !!disabled || accessibilityState?.disabled === true,
+  };
+
+  // Keep the iOS responder unanimated while release-device hit testing is
+  // being verified. Browser/contract checks do not establish UIKit behavior.
+  if (Platform.OS === 'ios') {
+    return (
+      <Pressable
+        testID={testID}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={delayLongPress}
+        disabled={disabled}
+        hitSlop={hitSlop}
+        pointerEvents={pointerEvents}
+        accessibilityRole={accessibilityRole}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={resolvedAccessibilityState}
+        style={style}
+      >
+        {children}
+      </Pressable>
+    );
+  }
 
   return (
     <AnimatedPressable
@@ -76,7 +113,8 @@ export function PressScale({
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
-      accessibilityState={accessibilityState ?? { disabled: !!disabled }}
+      accessibilityState={resolvedAccessibilityState}
+      {...(Platform.OS === 'web' ? { 'aria-expanded': accessibilityState?.expanded, 'aria-checked': accessibilityState?.checked } : {})}
       style={[style, { transform: [{ scale }] }]}
     >
       {children}
