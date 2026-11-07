@@ -9,15 +9,18 @@ import { LightFlowHost } from '@/components/LightFlowHost';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getTabBarHeight } from '@/utils/tabLayout';
 
 function ClassicTabLayout() {
+  const insets = useSafeAreaInsets();
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: homePalette.navActive,
+        tabBarActiveTintColor: '#F0D6B6',
         tabBarInactiveTintColor: homePalette.navInactive,
         headerShown: false,
         tabBarLabelStyle: typography.micro,
@@ -31,11 +34,11 @@ function ClassicTabLayout() {
           borderTopWidth: 1,
           borderTopColor: homePalette.navBorder,
           elevation: 0,
-          ...(isWeb ? { height: 84 } : {}),
+          height: getTabBarHeight(Platform.OS, insets.bottom),
         },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+            <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           ) : isWeb ? (
             <View style={[StyleSheet.absoluteFill, { backgroundColor: homePalette.navBackground }]} />
           ) : null,
@@ -44,7 +47,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'ホーム',
+          title: '部屋',
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="house" tintColor={color} size={24} />
@@ -56,7 +59,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="record"
         options={{
-          title: '記録',
+          title: '記録', href: null,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="pencil" tintColor={color} size={24} />
@@ -68,7 +71,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="chat"
         options={{
-          title: 'チャット',
+          title: 'チャット', href: null,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="bubble.left.and.bubble.right" tintColor={color} size={24} />
@@ -80,7 +83,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="growth"
         options={{
-          title: '成長',
+          title: 'アルバム',
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="chart.line.uptrend.xyaxis" tintColor={color} size={24} />
@@ -92,7 +95,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="plant"
         options={{
-          title: 'エネルギー',
+          title: 'ひかりの庭',
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="sparkles" tintColor={color} size={24} />
@@ -113,6 +116,8 @@ export default function TabLayout() {
     isCloudSyncing,
     retryCloudSync,
     isLoading: appLoading,
+    storageError,
+    retryStorageRecovery,
   } = useApp();
   const [cloudWaitExpired, setCloudWaitExpired] = useState(false);
   const [retryAttempt, setRetryAttempt] = useState(0);
@@ -135,6 +140,13 @@ export default function TabLayout() {
   // The root navigator stays mounted, but the tabs and their frame-driven home
   // animations must not mount until startup state determines they are allowed.
   if (authLoading || appLoading) return null;
+  if (storageError) return <View style={styles.syncGate}>
+    <Text style={styles.syncTitle}>保存データを確認しています</Text>
+    <Text accessibilityRole="alert" style={styles.syncMessage}>{storageError}</Text>
+    <Pressable accessibilityRole="button" onPress={retryStorageRecovery} style={styles.retryButton}>
+      <Text style={styles.retryButtonText}>もう一度読み込む</Text>
+    </Pressable>
+  </View>;
   if (!isSignedIn && !profile) return <Redirect href="/onboarding" />;
   if (isSignedIn && !profile && !cloudSynced && !cloudWaitExpired) return null;
   if (isSignedIn && !profile && !cloudSynced) {
@@ -173,10 +185,10 @@ export default function TabLayout() {
         <>
           {/* 新キャラ初登場・進化時の「新しい仲間が生まれました!」演出(どのタブでも表示) */}
           <NewFriendModal />
-          {/* 記録・チェック・ゲームで光を獲得した瞬間の循環演出(どのタブでも表示) */}
-          <LightFlowHost />
         </>
       ) : null}
+      {/* Native Animated feedback is available on iOS as well as Android/Web. */}
+      <LightFlowHost />
     </>
   );
 }

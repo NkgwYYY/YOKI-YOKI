@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { border, colors, control, radius, space, typography } from '@/constants/theme';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Icon, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
+import { useAppActivity } from '@/components/room/useRoomActivity';
 import { Mascot, StaticMascot } from '@/components/Mascot';
 import { getMascotStage, getMascotMood } from '@/utils/mascotUtils';
 import { FOOD_ITEMS, FoodItem, RARITY_COLORS, FoodRarity } from '@/data/foodItems';
@@ -13,6 +13,7 @@ import { BerryIcon, AppleIcon, CandyIcon, CakeFoodIcon, RamenIcon, SpecialFoodIc
 interface FeedModalProps {
   visible: boolean;
   onClose: () => void;
+  onFed?: () => void;
 }
 
 function getFoodIllustration(id: string) {
@@ -27,25 +28,24 @@ function getFoodIllustration(id: string) {
   }
 }
 
-function FoodCard({ food, canAfford, onFeed }: { food: FoodItem; canAfford: boolean; onFeed: (id: string) => void; }) {
+function FoodCard({ food, canAfford, saving, reduceMotion, onFeed }: { food: FoodItem; canAfford: boolean; saving: boolean; reduceMotion: boolean; onFeed: (id: string) => void; }) {
   const rarityColor = RARITY_COLORS[food.rarity as FoodRarity];
-
-  const handlePress = () => {
-    if (!canAfford) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      return;
-    }
-    onFeed(food.id);
-  };
+  const disabled = !canAfford || saving;
+  const handlePress = () => { if (!disabled) onFeed(food.id); };
 
   return (
     <View>
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${food.name}、${food.cost}ポイント、満腹度プラス${food.satietyGain}`}
+        accessibilityHint={!canAfford ? 'ポイントが足りません' : 'このごはんをあげる'}
+        accessibilityState={{ disabled, busy: saving }}
+        disabled={disabled}
         style={({ pressed }) => [
           cardStyles.card,
           { borderColor: rarityColor.border },
           !canAfford && cardStyles.cardLocked,
-          pressed && cardStyles.cardPressed,
+          pressed && !reduceMotion && cardStyles.cardPressed,
         ]}
         onPress={handlePress}
       >
@@ -104,7 +104,7 @@ function FeedToast({ message, visible }: { message: string; visible: boolean }) 
   if (!visible) return null;
   return (
     <View style={toastStyles.toast}>
-      <Text style={toastStyles.text}>{message}</Text>
+      <Text accessibilityLiveRegion="polite" style={toastStyles.text}>{message}</Text>
     </View>
   );
 }
@@ -114,9 +114,11 @@ const toastStyles = StyleSheet.create({
   text: { ...typography.calloutStrong, color: colors.primaryForeground },
 });
 
-export function FeedModal({ visible, onClose }: FeedModalProps) {
+export function FeedModal({ visible, onClose, onFed }: FeedModalProps) {
   const { feedState, currentSatiety, feedMascot, progress, getTodayRecord, getCompletedCount, getTotalCheckCount } = useApp();
 
+  const { active, reduceMotion } = useAppActivity();
+  const [saving, setSaving] = useState(false);
   const todayRecord = getTodayRecord();
   const completedCount = getCompletedCount();
   const totalCount = getTotalCheckCount();
@@ -126,28 +128,44 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
   const [isEating, setIsEating] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '' });
 
+  const feeding = useRef(false);
+  const mounted = useRef(true);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; timers.current.forEach(clearTimeout); };
+  }, []);
   const handleFeed = async (foodId: string) => {
-    const result = await feedMascot(foodId);
-    if (result.success) {
-      setIsEating(true);
-      setTimeout(() => setIsEating(false), 800);
-    }
-    setToast({ visible: true, message: result.message });
-    setTimeout(() => setToast({ visible: false, message: '' }), 2200);
+    if (feeding.current) return;
+    feeding.current = true;
+    setSaving(true);
+    try {
+      const result = await feedMascot(foodId);
+      if (!mounted.current) return;
+      if (result.success) {
+        if (onFed) { onFed(); return; }
+        setIsEating(true);
+        timers.current.push(setTimeout(() => setIsEating(false), 800));
+      }
+      setToast({ visible: true, message: result.message });
+      timers.current.push(setTimeout(() => setToast({ visible: false, message: '' }), 2200));
+    } catch {
+      if (mounted.current) setToast({ visible: true, message: 'ごはんを保存できませんでした。もう一度お試しください。' });
+    } finally { feeding.current = false; if (mounted.current) setSaving(false); }
   };
 
-  const satietyColor = currentSatiety >= 70 ? colors.success : currentSatiety >= 40 ? colors.warning : colors.danger;
-  const hungerLabel = currentSatiety >= 80 ? 'お腹いっぱい' : currentSatiety >= 60 ? 'まあまあかな' : currentSatiety >= 40 ? 'すこし空腹だよ' : currentSatiety >= 20 ? 'お腹すいた〜！' : 'ぺこぺこだよ';
+  const satietyColor = colors.primary;
+  const hungerLabel = currentSatiety >= 80 ? 'ごちそうさま' : 'おやつでひと休みしよう';
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="ごはんをあげる" subtitle="YOKIポイントで元気回復" maxHeightRatio={0.88} contentStyle={modalStyles.content}>
+    <BottomSheet visible={visible} onClose={onClose} title="ごはんをあげる" subtitle="一緒に、ほっとする時間" maxHeightRatio={0.88} contentStyle={modalStyles.content}>
       <View style={modalStyles.pointsBadge}>
         <Icon name="star" size={iconSize.sm} color={colors.primary} />
         <Text style={modalStyles.pointsText}>{feedState.points} pt</Text>
       </View>
 
       <View style={modalStyles.mascotRow}>
-        {Platform.OS === 'ios' ? (
+        {Platform.OS === 'ios' || reduceMotion || !active ? (
           <StaticMascot stage={mascotStage} mood={isEating ? 'excited' : mascotMood} size={80} />
         ) : (
           <Mascot stage={mascotStage} mood={isEating ? 'excited' : mascotMood} size={80} isEating={isEating} />
@@ -164,10 +182,11 @@ export function FeedModal({ visible, onClose }: FeedModalProps) {
         </View>
       </View>
 
+      {saving && <Text accessibilityLiveRegion="polite">ごはんを保存しています…</Text>}
       <View style={modalStyles.grid}>
         {FOOD_ITEMS.map((food) => (
           <View key={food.id} style={modalStyles.gridItem}>
-            <FoodCard food={food} canAfford={feedState.points >= food.cost} onFeed={handleFeed} />
+            <FoodCard food={food} canAfford={feedState.points >= food.cost} saving={saving} reduceMotion={reduceMotion} onFeed={handleFeed} />
           </View>
         ))}
       </View>

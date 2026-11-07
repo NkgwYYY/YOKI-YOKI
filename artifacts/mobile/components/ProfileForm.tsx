@@ -73,7 +73,8 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
   }: { label: string; selected: boolean; onPress: () => void }) => (
     <PressScale
       onPress={onPress}
-      accessibilityState={{ selected }}
+      disabled={submitting}
+      accessibilityState={{ selected, disabled: !!submitting }}
       style={[styles.chip, selected && styles.chipSelected]}
     >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
@@ -88,6 +89,8 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
 
         <Text style={styles.label}>ニックネーム *</Text>
         <TextInput
+          accessibilityLabel="ニックネーム（必須）"
+          editable={!submitting}
           value={nickname}
           onChangeText={setNickname}
           maxLength={20}
@@ -147,6 +150,8 @@ export function ProfileForm({ initial, submitLabel, onSubmit, submitting }: Prop
 
         <Text style={styles.label}>職業</Text>
         <TextInput
+          accessibilityLabel="職業（任意）"
+          editable={!submitting}
           value={occupation}
           onChangeText={setOccupation}
           maxLength={30}

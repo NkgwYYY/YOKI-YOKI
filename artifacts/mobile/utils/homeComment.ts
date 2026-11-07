@@ -95,7 +95,7 @@ function buildRecordContext(record: DailyRecord | undefined, completed: number, 
   const lines: string[] = [];
   if (record) {
     lines.push(`今日の気分: ${moodLabel(record.mood)}`);
-    lines.push(`睡眠: ${record.sleep}時間`);
+    if (record.sleepRecorded !== false) lines.push(`睡眠: ${record.sleep}時間`);
     if (record.behaviors.length) lines.push(`今日したこと: ${record.behaviors.slice(0, 4).join('、')}`);
     if (record.win?.trim()) lines.push(`今日の小さな成功: ${record.win.trim().slice(0, 80)}`);
   }
@@ -142,7 +142,7 @@ function fallbackComment(
       ? 'きょうもおつかれさま。今夜はのんびりしよ'
       : '今日はゆっくりペースでいこ';
   }
-  if (record && record.sleep < 6) {
+  if (record && record.sleepRecorded !== false && record.sleep < 6) {
     return timeOfDay === 'night'
       ? '眠い日は早めにひと休みしよ'
       : '眠い日は、ひと息つきながらいこ';

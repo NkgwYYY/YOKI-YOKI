@@ -61,9 +61,11 @@ export function buildMonthlyReport(records: DailyRecord[], monthKey: string): Mo
   for (const record of monthRecords) {
     const day = Number(record.date.slice(8, 10));
     recordsByDay[day] = record;
-    counts[record.mood] = (counts[record.mood] ?? 0) + 1;
   }
   const uniqueRecords = Object.values(recordsByDay);
+  for (const record of uniqueRecords) {
+    counts[record.mood] = (counts[record.mood] ?? 0) + 1;
+  }
   const mostMood = uniqueRecords.length
     ? Number(Object.entries(counts).sort((a, b) => Number(b[1]) - Number(a[1]) || Number(b[0]) - Number(a[0]))[0][0])
     : null;

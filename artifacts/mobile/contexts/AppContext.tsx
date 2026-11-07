@@ -1,17 +1,17 @@
+import { mergeEncounterHistory } from '@/utils/mergeEncounters';
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { balanceStorage as AsyncStorage } from '@/utils/balanceStorage';
+import { claimGardenReward } from '@/utils/gardenReward';
+import { prepareItemPurchase } from '@/utils/itemPurchase';
+import { prepareRhythmReward } from '@/utils/rhythmReward';
+import { prepareDailyRecord } from '@/utils/dailyRecordTransaction';
+import { prepareChecklist, type ChecklistOperation } from '@/utils/checklistTransaction';
+import { prepareRoomOperation, COMPANION_PRICE, type RoomOperation } from '@/utils/roomPurchase';
 import * as Haptics from 'expo-haptics';
 import { DEFAULT_CHECKLIST_ITEMS, ChecklistItemDef, ChecklistCategory } from '@/data/defaultChecklist';
 import { BADGE_DEFINITIONS } from '@/data/badges';
 import { getTodayDate, getYesterdayDate } from '@/utils/dateUtils';
-import {
-  calculateLevel,
-  calculateMentalMuscle,
-  XP_FOR_CHECKLIST_ITEM,
-  XP_FOR_MOOD_RECORD,
-  XP_FULL_DAY_BONUS,
-} from '@/utils/gameLogic';
 import {
   FOOD_ITEMS,
   FP_PER_CHECKLIST_ITEM,
@@ -39,12 +39,6 @@ import {
   createLightEnergyState,
   resolveLightEnergyState,
   applyElapsedEnergy,
-  applyEnergyGain,
-  GAIN_CHECK_ITEM,
-  GAIN_FULL_DAY_BONUS,
-  GAIN_MOOD_RECORD,
-  GAIN_DIARY,
-  EnergyGain,
 } from '@/utils/lightEnergy';
 import {
   PowerPlantState,
@@ -82,6 +76,8 @@ export interface DailyRecord {
   date: string;
   mood: number;
   sleep: number;
+  /** false for a basic mood-only entry; missing means an existing detailed record. */
+  sleepRecorded?: boolean;
   behaviors: string[];
   notes: string;
   // Life-condition extras (optional; added later, older records won't have them)
@@ -105,6 +101,7 @@ export interface UserProfile {
 }
 
 export interface RecordExtras {
+  sleepRecorded?: boolean;
   exercise?: number;
   meal?: number;
   social?: number;
@@ -122,6 +119,8 @@ export interface CheckedState {
   date: string;
   items: CheckedItem[];
   bonusEarned: boolean;
+  /** Daily receipts retained even when a checked item is removed or the list is reset. */
+  earnedItemIds?: string[];
 }
 
 export interface UserProgress {
@@ -159,7 +158,7 @@ export interface CompanionState {
   extraEggs: number;
 }
 
-export const EGG_COMPANION_COST = 1000;
+export const EGG_COMPANION_COST = COMPANION_PRICE;
 
 const KEYS = {
   PROGRESS: '@mentore/progress_v2',
@@ -210,6 +209,7 @@ interface AppContextType {
   syncFeedPoints: (points: number) => Promise<void>;
   /** 端末側ポイントを不足チェック付きで減算する */
   spendFeedPoints: (points: number) => Promise<boolean>;
+  purchaseGuestItem: (itemId: string, cost: number) => Promise<ReturnType<typeof prepareItemPurchase>['result']>;
   currentSatiety: number;
   inactivityHours: number;
   miniGameState: MiniGameState;
@@ -234,9 +234,12 @@ interface AppContextType {
   getTotalCheckCount: () => number;
   setMascotName: (name: string) => Promise<void>;
   feedMascot: (foodId: string) => Promise<{ success: boolean; message: string; newSatiety: number }>;
-  completeMiniGame: (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => Promise<void>;
+  completeMiniGame: (slot: GameSlot, reward: { fp: number; stars?: number }, playId: string) => Promise<number>;
   /** キャラクターのエネルギー(元気・光の力・チャージ量)の現在の状態 */
   lightEnergy: LightEnergyState;
+  storageError: string | null;
+  retryStorageRecovery: () => Promise<void>;
+  receiveGardenReward: () => Promise<{ received: number }>;
   /** 直近の「ユーザー操作による」光エネルギー獲得イベント(循環演出用)。
    *  クラウド同期・読込では発火しない。seq は毎回増える識別子 */
   lightGainEvent: { amount: number; seq: number } | null;
@@ -329,6 +332,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // マスコットは進化しても同一個体なので characterId は固定 'mascot'
   const [growth, setGrowth] = useState<GrowthRecord>(() => createGrowthRecord('mascot'));
   const [lightEnergy, setLightEnergy] = useState<LightEnergyState>(() => createLightEnergyState(getTodayDate()));
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const feedStateRef = useRef<FeedState>(defaultFeedState);
   // 非同期処理の並走でも付与が失われないよう、最新値を ref でも保持する
   const lightEnergyRef = useRef(lightEnergy);
   useEffect(() => { lightEnergyRef.current = lightEnergy; }, [lightEnergy]);
@@ -344,32 +349,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [roomCustomization, setRoomCustomization] = useState<RoomCustomization>(defaultRoomCustomization);
   const [companionState, setCompanionState] = useState<CompanionState>(defaultCompanionState);
 
-  /** 時間経過ぶんの自然なエネルギーチャージを精算する。読込・復帰・定期更新のすべてで共通利用する */
-  const settleElapsedEnergy = useCallback(() => {
-    const next = applyElapsedEnergy(lightEnergyRef.current, getTodayDate());
-    if (next === lightEnergyRef.current) return next;
-    lightEnergyRef.current = next;
-    setLightEnergy(next);
-    AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next)).catch(() => {});
-    return next;
+  type Balances = { energy: LightEnergyState; plant: PowerPlantState; feed: FeedState };
+  const updateBalances = useCallback(async <T,>(change: (state: Balances) => { state: Balances; result: T }): Promise<T> => {
+    const saved = await AsyncStorage.transaction(values => {
+      const parse = (key: string) => values[key] === null ? null : JSON.parse(values[key]!);
+      const state: Balances = {
+        energy: resolveLightEnergyState(parse(KEYS.LIGHT_ENERGY), getTodayDate()),
+        plant: resolvePowerPlantState(parse(KEYS.POWER_PLANT)),
+        feed: parse(KEYS.FEED_STATE) ?? defaultFeedState,
+      };
+      const next = change(state);
+      const entries: [string, string][] = [
+        [KEYS.LIGHT_ENERGY, JSON.stringify(next.state.energy)],
+        [KEYS.POWER_PLANT, JSON.stringify(next.state.plant)],
+        [KEYS.FEED_STATE, JSON.stringify(next.state.feed)],
+      ];
+      return { entries: entries.filter(([key, value]) => values[key] !== value), result: next };
+    });
+    lightEnergyRef.current = saved.state.energy; setLightEnergy(saved.state.energy);
+    powerPlantRef.current = saved.state.plant; setPowerPlant(saved.state.plant);
+    feedStateRef.current = saved.state.feed; setFeedState(saved.state.feed);
+    return saved.result;
   }, []);
+
+  /** 時間経過ぶんの自然なエネルギーチャージを精算する。読込・復帰・定期更新のすべてで共通利用する */
+  const settleElapsedEnergy = useCallback(() => updateBalances(state => {
+    const energy = applyElapsedEnergy(state.energy, getTodayDate());
+    return { state: { ...state, energy }, result: energy };
+  }), [updateBalances]);
 
   // アプリを開いたまま日付が変わっても日次値(元気・光の力・今日のエネルギー)が
   // 前日のまま表示されないよう、1分ごとに日付ロールオーバーとチャージを精算する
   useEffect(() => {
     const timer = setInterval(() => {
-      settleElapsedEnergy();
+      if (!isLoading) settleElapsedEnergy().catch(() => {});
     }, 60_000);
     return () => clearInterval(timer);
-  }, [settleElapsedEnergy]);
+  }, [settleElapsedEnergy, isLoading]);
 
   // バックグラウンドから戻った瞬間にも、閉じていた時間のチャージ分を反映する
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') settleElapsedEnergy();
+      if (state === 'active' && !isLoading) settleElapsedEnergy().catch(() => {});
     });
     return () => subscription.remove();
-  }, [settleElapsedEnergy]);
+  }, [settleElapsedEnergy, isLoading]);
 
   // ユーザー操作による獲得イベント(循環演出はこれだけを根拠に発火する。
   // クラウドpullや読込による数値変動では発火しない)
@@ -409,24 +433,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [flushGainEvent]);
 
-  /** 光エネルギー獲得(獲得ルールは utils/lightEnergy.ts に集約)。flag 指定時は1日1回のみ */
-  const gainLightEnergy = useCallback(
-    async (gain: EnergyGain, flag?: keyof LightEnergyState['flags']) => {
-      const today = getTodayDate();
-      const settled = settleElapsedEnergy();
-      const next = applyEnergyGain(settled, gain, today, flag);
-      if (next === settled) return;
-      // 付与量は totalEnergy の差分で求める(todayEnergy は深夜のロールオーバーで
-      // リセットされるため、日付またぎ直後の付与でも正しい量になる)
-      const gained = next.totalEnergy - settled.totalEnergy;
-      lightEnergyRef.current = next;
-      setLightEnergy(next);
-      if (gained > 0) queueGainEvent(gained);
-      await AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(next));
-    },
-    [settleElapsedEnergy]
-  );
-
   // ── 出会い記録の最新化: レベル(=進化段階)が変わるたびに図鑑へ登録する ──
   // ロード完了前(defaultProgress)や、ログイン済みでクラウド取得が終わる前は
   // 誤登録・偽の「新しい仲間」演出につながるためスキップする
@@ -461,35 +467,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (plantBusyRef.current) return { converted: 0, gained: 0 };
     plantBusyRef.current = true;
     try {
-      const energy = lightEnergyRef.current;
-      const converted = Math.floor(energy.storedEnergy);
-      if (converted <= 0) return { converted: 0, gained: 0 };
-      const gained = converted * ECO_POINTS_PER_ENERGY;
-
-      const nextEnergy = { ...energy, storedEnergy: energy.storedEnergy - converted };
-      lightEnergyRef.current = nextEnergy;
-      setLightEnergy(nextEnergy);
-
-      const nextPlant: PowerPlantState = {
-        ...powerPlantRef.current,
-        ecoPoints: powerPlantRef.current.ecoPoints + gained,
-        totalSold: powerPlantRef.current.totalSold + converted,
-        sellCount: powerPlantRef.current.sellCount + 1,
-      };
-      powerPlantRef.current = nextPlant;
-      setPowerPlant(nextPlant);
-
-      await Promise.all([
-        AsyncStorage.setItem(KEYS.LIGHT_ENERGY, JSON.stringify(nextEnergy)),
-        AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant)),
-      ]);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const result = await updateBalances(state => {
+        const converted = Math.floor(state.energy.storedEnergy);
+        const gained = converted * ECO_POINTS_PER_ENERGY;
+        if (converted <= 0) return { state, result: { converted: 0, gained: 0 } };
+        return { state: { ...state,
+          energy: { ...state.energy, storedEnergy: state.energy.storedEnergy - converted },
+          plant: { ...state.plant, ecoPoints: state.plant.ecoPoints + gained,
+            totalSold: state.plant.totalSold + converted, sellCount: state.plant.sellCount + 1 },
+        }, result: { converted, gained } };
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
-      return { converted, gained };
+      return result;
     } finally {
       plantBusyRef.current = false;
     }
-  }, []);
+  }, [updateBalances]);
+
+  /** One recoverable transaction from stored light/legacy eco points to food points. */
+  const receiveGardenReward = useCallback(async () => {
+    if (plantBusyRef.current) return { received: 0 };
+    plantBusyRef.current = true;
+    try {
+      const result = await updateBalances(state => claimGardenReward(state, ECO_POINTS_PER_ENERGY));
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      pushDataToCloud();
+      return result;
+    } finally { plantBusyRef.current = false; }
+  }, [updateBalances]);
 
   const sellEnergy = useCallback(async (): Promise<{ sold: number; gained: number }> => {
     const { converted, gained } = await convertStoredEnergy();
@@ -501,48 +507,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (plantBusyRef.current) return { reason: 'not_enough' };
     plantBusyRef.current = true;
     try {
-      const plant = powerPlantRef.current;
-      const item = nextTownItem(plant);
-      if (!item) return { reason: 'no_more' };
-      if (plant.ecoPoints < item.cost) return { reason: 'not_enough' };
-
-      const nextPlant: PowerPlantState = {
-        ...plant,
-        ecoPoints: plant.ecoPoints - item.cost,
-        townBuilt: plant.townBuilt + 1,
-      };
-      powerPlantRef.current = nextPlant;
-      setPowerPlant(nextPlant);
-      await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const result = await updateBalances<{ built?: TownItem; reason?: 'no_more' | 'not_enough' }>(state => {
+        const item = nextTownItem(state.plant);
+        if (!item) return { state, result: { reason: 'no_more' } };
+        if (state.plant.ecoPoints < item.cost) return { state, result: { reason: 'not_enough' } };
+        return { state: { ...state, plant: { ...state.plant,
+          ecoPoints: state.plant.ecoPoints - item.cost, townBuilt: state.plant.townBuilt + 1,
+        } }, result: { built: item } };
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
-      return { built: item };
+      return result;
     } finally {
       plantBusyRef.current = false;
     }
-  }, []);
+  }, [updateBalances]);
 
   /** 交換待ちポイント(旧エコポイント)をYOKIポイントに受け取る(1:1) */
   const exchangeEcoPoints = useCallback(async (amount: number): Promise<{ exchanged: number }> => {
     if (plantBusyRef.current) return { exchanged: 0 };
     plantBusyRef.current = true;
     try {
-      const plant = powerPlantRef.current;
-      const exchanged = Math.min(Math.floor(amount), plant.ecoPoints);
-      if (exchanged <= 0) return { exchanged: 0 };
-
-      const nextPlant: PowerPlantState = { ...plant, ecoPoints: plant.ecoPoints - exchanged };
-      powerPlantRef.current = nextPlant;
-      setPowerPlant(nextPlant);
-      await AsyncStorage.setItem(KEYS.POWER_PLANT, JSON.stringify(nextPlant));
-      await mutateFeedPoints(exchanged);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const result = await updateBalances(state => {
+        const exchanged = Number.isFinite(amount) ? Math.min(Math.max(0, Math.floor(amount)), state.plant.ecoPoints) : 0;
+        return { state: { ...state,
+          plant: { ...state.plant, ecoPoints: state.plant.ecoPoints - exchanged },
+          feed: { ...state.feed, points: state.feed.points + exchanged },
+        }, result: { exchanged } };
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       pushDataToCloud();
-      return { exchanged };
+      return result;
     } finally {
       plantBusyRef.current = false;
     }
-  }, []);
+  }, [updateBalances]);
 
   const currentSatiety = computeCurrentSatiety(feedState);
 
@@ -611,7 +610,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // data fills missing values; append-only histories and progress are merged below.
     const merged: Record<string, unknown> = { ...localData, ...cloudData };
     // Keep both sides of append-only histories and use the most progressed state.
-    for (const key of [KEYS.RECORDS, KEYS.BADGES, KEYS.ENCOUNTERS]) {
+    for (const key of [KEYS.RECORDS, KEYS.BADGES]) {
       const cloud = Array.isArray(cloudData[key]) ? cloudData[key] : [];
       const local = Array.isArray(localData[key]) ? localData[key] : [];
       const byId = new Map<string, unknown>();
@@ -621,6 +620,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
       merged[key] = [...byId.values()];
     }
+    merged[KEYS.ENCOUNTERS] = mergeEncounterHistory(cloudData[KEYS.ENCOUNTERS], localData[KEYS.ENCOUNTERS]);
     if (cloudData[KEYS.PROGRESS] || localData[KEYS.PROGRESS]) {
       const cloud = (cloudData[KEYS.PROGRESS] ?? {}) as UserProgress;
       const local = (localData[KEYS.PROGRESS] ?? {}) as UserProgress;
@@ -722,6 +722,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = async () => {
     try {
+      await AsyncStorage.recover();
       const [progressStr, recordsStr, checkedStr, legacyCustomStr, checklistStr, badgesStr, nameStr, feedStr, lastOpenedStr, miniGameStr, profileStr, growthStr, energyStr, plantStr, encountersStr, roomStr, companionStr, homeCommentPreferencesStr] =
         await Promise.all([
           AsyncStorage.getItem(KEYS.PROGRESS),
@@ -799,16 +800,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const ownedFlowers = Array.isArray(parsed.ownedFlowers)
           ? parsed.ownedFlowers.filter((v): v is RoomFlower => ['pink', 'violet', 'rainbow'].includes(v))
           : [];
-        // The first room version showed a sofa and flower before purchase.
-        // Treat those starter-only values as empty so the room follows the
-        // purchase rule introduced with the shared points wallet.
-        const migratedFurniture = ownedFurniture.filter((id) => id !== 'sofa' || ownedFurniture.length > 1);
-        const migratedFlowers = ownedFlowers.filter((id) => id !== 'pink' || ownedFlowers.length > 1);
+        // A single saved sofa/rose may be a legitimate purchase. Without a
+        // versioned receipt we cannot infer starter ownership and remove it.
         const resolved: RoomCustomization = {
-          furniture: migratedFurniture.includes(parsed.furniture as RoomFurniture) ? parsed.furniture as RoomFurniture : 'none',
-          flower: migratedFlowers.includes(parsed.flower as RoomFlower) ? parsed.flower as RoomFlower : 'none',
-          ownedFurniture: Array.from(new Set(migratedFurniture)) as RoomFurniture[],
-          ownedFlowers: Array.from(new Set(migratedFlowers)) as RoomFlower[],
+          furniture: ownedFurniture.includes(parsed.furniture as RoomFurniture) ? parsed.furniture as RoomFurniture : 'none',
+          flower: ownedFlowers.includes(parsed.flower as RoomFlower) ? parsed.flower as RoomFlower : 'none',
+          ownedFurniture: Array.from(new Set(ownedFurniture)) as RoomFurniture[],
+          ownedFlowers: Array.from(new Set(ownedFlowers)) as RoomFlower[],
         };
         setRoomCustomization(resolved);
         await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(resolved));
@@ -885,8 +883,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCheckedState(fresh);
         await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
       }
+      setStorageError(null);
     } catch {
-      // use defaults on error
+      setStorageError('保存データを読み込めませんでした。データを保ったまま、もう一度読み込みます。');
     } finally {
       setIsLoading(false);
     }
@@ -916,28 +915,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // YOKIポイントの同時更新(交換・購入・報酬)で残高が上書きされないよう、
-  // 常に最新値を保持する ref を正とする
-  const feedStateRef = useRef<FeedState>(defaultFeedState);
-
-  const saveFeedState = async (next: FeedState) => {
-    feedStateRef.current = next;
-    setFeedState(next);
-    await AsyncStorage.setItem(KEYS.FEED_STATE, JSON.stringify(next));
-  };
-
+  // Point changes read the latest persisted balance inside the serialized transaction.
   const syncFeedPoints = useCallback(async (points: number) => {
     if (!Number.isFinite(points) || points < 0) return;
-    const next = { ...feedStateRef.current, points };
-    await saveFeedState(next);
-  }, []);
+    await updateBalances(state => ({ state: { ...state, feed: { ...state.feed, points } }, result: undefined }));
+  }, [updateBalances]);
 
-  /** ポイント増減は必ずこの関数経由(ref ベースで直列に適用) */
+  /** Point increments/debits use the same journal/queue as garden receipt. */
   const mutateFeedPoints = async (delta: number): Promise<FeedState> => {
-    const cur = feedStateRef.current;
-    const next: FeedState = { ...cur, points: Math.max(0, cur.points + delta) };
-    await saveFeedState(next);
-    return next;
+    return updateBalances(state => {
+      if (state.feed.points + delta < 0) throw new Error('YOKIポイントが足りません');
+      const feed = { ...state.feed, points: state.feed.points + delta };
+      return { state: { ...state, feed }, result: feed };
+    });
   };
 
   const spendFeedPoints = useCallback(async (points: number): Promise<boolean> => {
@@ -947,244 +937,96 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [pushDataToCloud]);
 
+  const purchaseGuestItem = useCallback(async (itemId: string, cost: number) => {
+    const saved = await AsyncStorage.transaction(values => prepareItemPurchase(values, itemId, cost, defaultFeedState));
+    feedStateRef.current = saved.feed;
+    setFeedState(saved.feed);
+    pushDataToCloud();
+    return saved;
+  }, [pushDataToCloud]);
+
   const feedMascot = useCallback(
     async (foodId: string): Promise<{ success: boolean; message: string; newSatiety: number }> => {
       const food = FOOD_ITEMS.find((f) => f.id === foodId);
       if (!food) return { success: false, message: 'Unknown food', newSatiety: currentSatiety };
       // 残高チェック・減算は常に最新の ref を正とする(交換・報酬付与との競合対策)
-      const cur = feedStateRef.current;
-      if (cur.points < food.cost) {
-        return { success: false, message: 'YOKIポイントが足りないよ！', newSatiety: currentSatiety };
-      }
-
-      const baseSatiety = computeCurrentSatiety(cur);
-      const newSatiety = Math.min(100, baseSatiety + food.satietyGain);
-      const next: FeedState = {
-        points: cur.points - food.cost,
-        lastFeedTime: new Date().toISOString(),
-        satietyAtFeed: newSatiety,
-      };
-      await saveFeedState(next);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      return { success: true, message: `${food.name}をあげたよ！`, newSatiety };
+      const result = await updateBalances(state => {
+        const baseSatiety = computeCurrentSatiety(state.feed);
+        if (state.feed.points < food.cost) return { state, result: { success: false, message: 'YOKIポイントが足りないよ！', newSatiety: baseSatiety } };
+        const newSatiety = Math.min(100, baseSatiety + food.satietyGain);
+        return { state: { ...state, feed: {
+          points: state.feed.points - food.cost,
+          lastFeedTime: new Date().toISOString(), satietyAtFeed: newSatiety,
+        } }, result: { success: true, message: `${food.name}をあげたよ！`, newSatiety } };
+      });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      return result;
     },
-    [currentSatiety]
+    [currentSatiety, updateBalances]
   );
 
-  const checkAndUnlockBadges = useCallback(
-    async (currentBadges: UnlockedBadge[], newProgress: UserProgress, newRecords: DailyRecord[], allChecked: boolean) => {
-      const unlocked = new Set(currentBadges.map((b) => b.id));
-      const updated = [...currentBadges];
-      let newest: string | null = null;
-      const now = new Date().toISOString();
+  const runChecklist = useCallback(async (operation: ChecklistOperation) => {
+    const saved = await AsyncStorage.transaction(values => prepareChecklist(values, operation, getTodayDate(),
+      { items: DEFAULT_CHECKLIST_ITEMS, progress: defaultProgress, feed: defaultFeedState },
+      { item: FP_PER_CHECKLIST_ITEM, fullDay: FP_PER_FULL_DAY_BONUS }));
+    setChecklistItems(saved.items);
+    setCheckedState(saved.checked);
+    if (operation.kind === 'check') {
+      setProgress(saved.progress);
+      feedStateRef.current = saved.feed; setFeedState(saved.feed);
+      lightEnergyRef.current = saved.energy; setLightEnergy(saved.energy);
+      setUnlockedBadges(saved.badges);
+      if (saved.newestBadge) setNewlyUnlockedBadge(saved.newestBadge);
+      if (saved.gainedEnergy > 0) queueGainEvent(saved.gainedEnergy);
+      if (operation.checked) await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
+    void pushDataToCloud().catch(() => {});
+  }, [queueGainEvent, pushDataToCloud]);
 
-      const unlock = (id: string) => {
-        if (!unlocked.has(id)) {
-          unlocked.add(id);
-          updated.push({ id, unlockedAt: now });
-          newest = id;
-        }
-      };
+  const toggleCheckItem = useCallback(async (id: string) => {
+    const current = checkedState.items.find(item => item.id === id);
+    if (!current) return;
+    // Keep the requested target on retry even if a prior write recovered meanwhile.
+    await runChecklist({ kind: 'check', id, checked: !(checkedState.date === getTodayDate() && current.checked) });
+  }, [checkedState, runChecklist]);
 
-      if (newRecords.length >= 1) unlock('firstStep');
-      if (newProgress.streak >= 3) unlock('streak3');
-      if (newProgress.streak >= 7) unlock('streak7');
-      if (newProgress.streak >= 30) unlock('streak30');
-      if (newRecords.length >= 7) unlock('moodLogger7');
-      if (newProgress.level >= 5) unlock('levelUp5');
-      if (allChecked) unlock('checkMaster');
+  const pendingChecklistAdd = useRef<{ text: string; category: ChecklistCategory; id: string } | null>(null);
+  const addChecklistItem = useCallback(async (text: string, category: ChecklistCategory) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    if (!pendingChecklistAdd.current || pendingChecklistAdd.current.text !== trimmed || pendingChecklistAdd.current.category !== category) {
+      pendingChecklistAdd.current = { text: trimmed, category, id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` };
+    }
+    const pending = pendingChecklistAdd.current;
+    await runChecklist({ kind: 'add', item: { ...pending, isDefault: false } });
+    if (pendingChecklistAdd.current === pending) pendingChecklistAdd.current = null;
+  }, [runChecklist]);
 
-      if (newest) {
-        setNewlyUnlockedBadge(newest);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+  const removeChecklistItem = useCallback(async (id: string) => {
+    await runChecklist({ kind: 'remove', id });
+  }, [runChecklist]);
 
-      setUnlockedBadges(updated);
-      await AsyncStorage.setItem(KEYS.BADGES, JSON.stringify(updated));
-    },
-    []
-  );
-
-  const toggleCheckItem = useCallback(
-    async (id: string) => {
-      const currentItem = checkedState.items.find((i) => i.id === id);
-      if (!currentItem) return;
-
-      const wasChecked = currentItem.checked;
-      const nowChecked = !wasChecked;
-
-      let xpGain = 0;
-      if (nowChecked && !currentItem.xpEarned) xpGain = XP_FOR_CHECKLIST_ITEM;
-
-      const newItems = checkedState.items.map((i) =>
-        i.id === id ? { ...i, checked: nowChecked, xpEarned: nowChecked ? true : i.xpEarned } : i
-      );
-
-      const allDefaultChecked = newItems.every((i) => i.checked);
-
-      let bonusXp = 0;
-      let newBonusEarned = checkedState.bonusEarned;
-      if (allDefaultChecked && !checkedState.bonusEarned) {
-        bonusXp = XP_FULL_DAY_BONUS;
-        newBonusEarned = true;
-      }
-
-      const newState: CheckedState = { ...checkedState, items: newItems, bonusEarned: newBonusEarned };
-
-      const totalXpGain = xpGain + bonusXp;
-      const newExp = progress.experience + totalXpGain;
-      const newProgress: UserProgress = {
-        ...progress,
-        experience: newExp,
-        level: calculateLevel(newExp),
-        mentalMuscle: calculateMentalMuscle(newExp),
-      };
-
-      setCheckedState(newState);
-      if (totalXpGain > 0) {
-        setProgress(newProgress);
-        await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
-      }
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newState));
-
-      if (nowChecked && !currentItem.xpEarned) {
-        let fpGain = FP_PER_CHECKLIST_ITEM;
-        if (allDefaultChecked && !checkedState.bonusEarned) fpGain += FP_PER_FULL_DAY_BONUS;
-        await mutateFeedPoints(fpGain);
-
-        // 光エネルギー: チェック1件(初回のみ) + 全達成ボーナス
-        await gainLightEnergy(GAIN_CHECK_ITEM);
-        if (allDefaultChecked && !checkedState.bonusEarned) {
-          await gainLightEnergy(GAIN_FULL_DAY_BONUS);
-        }
-      }
-
-      if (nowChecked) await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      const allChecked = newItems.every((i) => i.checked);
-      await checkAndUnlockBadges(unlockedBadges, newProgress, records, allChecked);
-
-      // Sync to cloud (fire-and-forget)
-      pushDataToCloud();
-    },
-    [checkedState, progress, unlockedBadges, records, feedState, checkAndUnlockBadges, pushDataToCloud, gainLightEnergy]
-  );
-
-  const addChecklistItem = useCallback(
-    async (text: string, category: ChecklistCategory) => {
-      const id = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-      const newItem: ChecklistItemDef = { id, text, category, isDefault: false };
-      const newItems = [...checklistItems, newItem];
-      const newChecked: CheckedState = {
-        ...checkedState,
-        items: [...checkedState.items, { id, checked: false, xpEarned: false }],
-      };
-      setChecklistItems(newItems);
-      setCheckedState(newChecked);
-      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(newItems));
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newChecked));
-      pushDataToCloud();
-    },
-    [checklistItems, checkedState, pushDataToCloud]
-  );
-
-  const removeChecklistItem = useCallback(
-    async (id: string) => {
-      const newItems = checklistItems.filter(i => i.id !== id);
-      const newChecked: CheckedState = {
-        ...checkedState,
-        items: checkedState.items.filter(i => i.id !== id),
-      };
-      setChecklistItems(newItems);
-      setCheckedState(newChecked);
-      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(newItems));
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(newChecked));
-      pushDataToCloud();
-    },
-    [checklistItems, checkedState, pushDataToCloud]
-  );
-
-  const resetChecklistToDefaults = useCallback(
-    async () => {
-      const fresh = buildFreshCheckedState(DEFAULT_CHECKLIST_ITEMS);
-      setChecklistItems(DEFAULT_CHECKLIST_ITEMS);
-      setCheckedState(fresh);
-      await AsyncStorage.setItem(KEYS.CHECKLIST_ITEMS, JSON.stringify(DEFAULT_CHECKLIST_ITEMS));
-      await AsyncStorage.setItem(KEYS.CHECKED_STATE, JSON.stringify(fresh));
-      pushDataToCloud();
-    },
-    [checkedState, pushDataToCloud]
-  );
+  const resetChecklistToDefaults = useCallback(async () => {
+    await runChecklist({ kind: 'reset' });
+  }, [runChecklist]);
 
   const saveRecord = useCallback(
     async (mood: number, sleep: number, behaviors: string[], notes: string, extras?: RecordExtras) => {
-      const today = getTodayDate();
-      const yesterday = getYesterdayDate();
-      const existingIndex = records.findIndex((r) => r.date === today);
-      const isNew = existingIndex === -1;
-
-      const record: DailyRecord = {
-        id: isNew ? `r_${Date.now()}` : records[existingIndex].id,
-        date: today,
-        mood,
-        sleep,
-        behaviors,
-        notes,
-        exercise: extras?.exercise,
-        meal: extras?.meal,
-        social: extras?.social,
-        win: extras?.win?.trim() || undefined,
-        activities: extras?.activities,
-      };
-
-      const newRecords = isNew
-        ? [...records, record]
-        : records.map((r, i) => (i === existingIndex ? record : r));
-
-      let newProgress = { ...progress };
-      if (isNew) {
-        const newStreak =
-          progress.lastRecordDate === yesterday
-            ? progress.streak + 1
-            : progress.lastRecordDate === today
-            ? progress.streak
-            : 1;
-        const newTotalDays = progress.totalDays + 1;
-        const newExp = progress.experience + XP_FOR_MOOD_RECORD;
-        newProgress = {
-          ...progress,
-          experience: newExp,
-          level: calculateLevel(newExp),
-          mentalMuscle: calculateMentalMuscle(newExp),
-          streak: newStreak,
-          totalDays: newTotalDays,
-          lastRecordDate: today,
-        };
-      }
-
-      setRecords(newRecords);
-      setProgress(newProgress);
-      await AsyncStorage.setItem(KEYS.RECORDS, JSON.stringify(newRecords));
-      await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
-
-      if (isNew) {
-        await mutateFeedPoints(FP_PER_MOOD_RECORD);
-      }
-
-      // 光エネルギー: 気分・生活の記録(1日1回) + 日記を書いた(1日1回)
-      await gainLightEnergy(GAIN_MOOD_RECORD, 'mood');
-      if (notes.trim().length > 0 || (extras?.win?.trim()?.length ?? 0) > 0) {
-        await gainLightEnergy(GAIN_DIARY, 'diary');
-      }
-
-      const allChecked = checkedState.items.every((i) => i.checked);
-      await checkAndUnlockBadges(unlockedBadges, newProgress, newRecords, allChecked);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-      // Sync to cloud (fire-and-forget)
-      pushDataToCloud();
+      const saved = await AsyncStorage.transaction(values => prepareDailyRecord(values, {
+        today: getTodayDate(), yesterday: getYesterdayDate(), mood, sleep, behaviors, notes, extras,
+      }, { progress: defaultProgress, feed: defaultFeedState }, FP_PER_MOOD_RECORD));
+      // Publish only the committed snapshot; retry first recovers any interrupted write.
+      setRecords(saved.records);
+      setProgress(saved.progress);
+      feedStateRef.current = saved.feed; setFeedState(saved.feed);
+      lightEnergyRef.current = saved.energy; setLightEnergy(saved.energy);
+      setUnlockedBadges(saved.badges);
+      if (saved.newestBadge) setNewlyUnlockedBadge(saved.newestBadge);
+      if (saved.gainedEnergy > 0) queueGainEvent(saved.gainedEnergy);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      void pushDataToCloud().catch(() => {});
     },
-    [records, progress, unlockedBadges, checkedState, feedState, checkAndUnlockBadges, pushDataToCloud, gainLightEnergy]
+    [queueGainEvent, pushDataToCloud]
   );
 
   const getTodayRecord = useCallback((): DailyRecord | undefined => {
@@ -1197,9 +1039,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const clearNewBadge = useCallback(() => setNewlyUnlockedBadge(null), []);
 
   const saveProfile = useCallback(async (p: UserProfile) => {
-    setProfile(p);
     await AsyncStorage.setItem(KEYS.PROFILE, JSON.stringify(p));
-    pushDataToCloud();
+    setProfile(p);
+    void pushDataToCloud().catch(() => {});
   }, [pushDataToCloud]);
 
   const saveHomeCommentPreferences = useCallback(async (preferences: HomeCommentPreferences) => {
@@ -1207,121 +1049,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const commentInputsChanged =
       resolved.frequency !== homeCommentPreferences.frequency ||
       resolved.includeRecentChat !== homeCommentPreferences.includeRecentChat;
-    setHomeCommentPreferences(resolved);
-    await AsyncStorage.setItem(KEYS.HOME_COMMENT_PREFERENCES, JSON.stringify(resolved));
     if (commentInputsChanged) await clearHomeCommentCache();
-    pushDataToCloud();
+    await AsyncStorage.setItem(KEYS.HOME_COMMENT_PREFERENCES, JSON.stringify(resolved));
+    setHomeCommentPreferences(resolved);
+    void pushDataToCloud().catch(() => {});
   }, [homeCommentPreferences, pushDataToCloud]);
 
   const setMascotName = useCallback(async (name: string) => {
-    setMascotNameState(name);
     await AsyncStorage.setItem(KEYS.MASCOT_NAME, name);
-    pushDataToCloud();
+    setMascotNameState(name);
+    void pushDataToCloud().catch(() => {});
   }, [pushDataToCloud]);
 
-  const shopBusyRef = useRef(false);
+  const runRoomOperation = useCallback(async (operation: RoomOperation) => {
+    const saved = await AsyncStorage.transaction(values => prepareRoomOperation(values, operation, defaultFeedState));
+    // Publish recovered snapshots even when the retry finds an existing receipt.
+    feedStateRef.current = saved.feed;
+    setFeedState(saved.feed);
+    setRoomCustomization(saved.room);
+    setCompanionState(saved.companions);
+    if (saved.success) {
+      if (saved.newlyPurchased) await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      void pushDataToCloud().catch(() => {});
+    }
+    return saved;
+  }, [pushDataToCloud]);
 
   const selectRoomItem = useCallback(async (kind: RoomItemKind, id: RoomFurniture | RoomFlower): Promise<boolean> => {
-    const current = roomCustomization;
-    if (kind === 'furniture') {
-      if (id !== 'none' && (!['sofa', 'vanity', 'bookshelf'].includes(id) || !current.ownedFurniture.includes(id as RoomFurniture))) return false;
-      const next = { ...current, furniture: id as RoomFurniture };
-      setRoomCustomization(next);
-      await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
-      pushDataToCloud();
-      return true;
-    }
-    if (id !== 'none' && (!['pink', 'violet', 'rainbow'].includes(id) || !current.ownedFlowers.includes(id as RoomFlower))) return false;
-    const next = { ...current, flower: id as RoomFlower };
-    setRoomCustomization(next);
-    await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
-    pushDataToCloud();
-    return true;
-  }, [roomCustomization, pushDataToCloud]);
+    const saved = await runRoomOperation({ kind: 'select', category: kind, id });
+    return saved.success;
+  }, [runRoomOperation]);
 
-  const buyRoomItem = useCallback(async (
-    kind: RoomItemKind,
-    id: RoomFurniture | RoomFlower,
-    cost: number,
-  ): Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' | 'invalid' }> => {
-    if (shopBusyRef.current) return { success: false, reason: 'not_enough' };
-    const validFurniture = ['none', 'sofa', 'vanity', 'bookshelf'].includes(id);
-    const validFlower = ['none', 'pink', 'violet', 'rainbow'].includes(id);
-    if ((kind === 'furniture' && !validFurniture) || (kind === 'flower' && !validFlower)) {
-      return { success: false, reason: 'invalid' };
-    }
-    const current = roomCustomization;
-    if (id === 'none') return { success: false, reason: 'invalid' };
-    const owned = kind === 'furniture' ? current.ownedFurniture.includes(id as RoomFurniture) : current.ownedFlowers.includes(id as RoomFlower);
-    if (owned) return { success: false, reason: 'already_owned' };
-    if (feedStateRef.current.points < cost) return { success: false, reason: 'not_enough' };
+  const buyRoomItem = useCallback(async (kind: RoomItemKind, id: RoomFurniture | RoomFlower, cost: number) => {
+    const saved = await runRoomOperation({ kind: 'buy', category: kind, id, cost });
+    return { success: saved.success, reason: saved.reason };
+  }, [runRoomOperation]);
 
-    shopBusyRef.current = true;
-    try {
-      await mutateFeedPoints(-cost);
-      const next: RoomCustomization = kind === 'furniture'
-        ? { ...current, furniture: id as RoomFurniture, ownedFurniture: [...current.ownedFurniture, id as RoomFurniture] }
-        : { ...current, flower: id as RoomFlower, ownedFlowers: [...current.ownedFlowers, id as RoomFlower] };
-      setRoomCustomization(next);
-      await AsyncStorage.setItem(KEYS.ROOM_CUSTOMIZATION, JSON.stringify(next));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      pushDataToCloud();
-      return { success: true };
-    } finally {
-      shopBusyRef.current = false;
-    }
-  }, [roomCustomization, pushDataToCloud]);
+  const buyEggCompanion = useCallback(async (): Promise<{ success: boolean; reason?: 'not_enough' }> => {
+    const saved = await runRoomOperation({ kind: 'companion' });
+    return { success: saved.success, reason: saved.success ? undefined : 'not_enough' };
+  }, [runRoomOperation]);
 
-  const buyEggCompanion = useCallback(async (): Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' }> => {
-    if (shopBusyRef.current) return { success: false, reason: 'not_enough' };
-    if (companionState.extraEggs >= 1) return { success: false, reason: 'already_owned' };
-    if (feedStateRef.current.points < EGG_COMPANION_COST) return { success: false, reason: 'not_enough' };
-
-    shopBusyRef.current = true;
-    try {
-      await mutateFeedPoints(-EGG_COMPANION_COST);
-      const next = { extraEggs: 1 };
-      setCompanionState(next);
-      await AsyncStorage.setItem(KEYS.COMPANIONS, JSON.stringify(next));
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      pushDataToCloud();
-      return { success: true };
-    } finally {
-      shopBusyRef.current = false;
-    }
-  }, [companionState, pushDataToCloud]);
-
-  // completeMiniGame の同時多重呼び出し(再レンダー前の連打)でも二重付与しないための同期ガード
-  const completingSlotsRef = useRef<Set<GameSlot>>(new Set());
-
-  const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp?: number; xp?: number; stars?: number }) => {
-    // スロット上限に達していたら加算も報酬付与もしない (二重付与・上限回避の防止)
-    if ((miniGameState[slot] || 0) >= MAX_PLAYS_PER_SLOT) return;
-    if (completingSlotsRef.current.has(slot)) return;
-    completingSlotsRef.current.add(slot);
-    try {
-    // Mark slot as done
-    const next: MiniGameState = { ...miniGameState, [slot]: (miniGameState[slot] || 0) + 1 };
-    setMiniGameState(next);
-    await AsyncStorage.setItem(KEYS.MINI_GAME, JSON.stringify(next));
-
-    // Apply FP reward
-    if (reward.fp) {
-      await mutateFeedPoints(reward.fp);
-    }
-
-    // Apply XP reward
-    if (reward.xp) {
-      const newExp = progress.experience + reward.xp;
-      const newProgress: UserProgress = {
-        ...progress,
-        experience: newExp,
-        level: calculateLevel(newExp),
-        mentalMuscle: calculateMentalMuscle(newExp),
-      };
-      setProgress(newProgress);
-      await AsyncStorage.setItem(KEYS.PROGRESS, JSON.stringify(newProgress));
-    }
+  const completeMiniGame = useCallback(async (slot: GameSlot, reward: { fp: number; stars?: number }, playId: string) => {
+    const saved = await AsyncStorage.transaction(values => prepareRhythmReward(values, playId, slot, reward.fp, getTodayDate(), defaultFeedState, MAX_PLAYS_PER_SLOT));
+    setMiniGameState(saved.game);
+    feedStateRef.current = saved.feed; setFeedState(saved.feed);
+    if (!saved.newlyGranted) return saved.earned;
 
     // メンタルケア連携: 音楽と楽しく過ごした記録として、ごく僅かな成長ボーナス
     // (1回では見えない +0.03%。Level/Evolution とは独立、時間ベース成長にも影響しない)
@@ -1333,12 +1106,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // ミニゲームはYOKIポイントだけを生む(光エネルギーは日々の記録から生まれる)
 
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     pushDataToCloud();
-    } finally {
-      completingSlotsRef.current.delete(slot);
-    }
-  }, [miniGameState, feedState, progress, pushDataToCloud]);
+    return saved.earned;
+  }, [pushDataToCloud]);
 
   return (
     <AppContext.Provider
@@ -1354,6 +1125,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         feedState,
         syncFeedPoints,
         spendFeedPoints,
+        purchaseGuestItem,
         currentSatiety,
         inactivityHours,
         miniGameState,
@@ -1380,6 +1152,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         growth,
         markGrowthSeen,
         lightEnergy,
+        storageError,
+        retryStorageRecovery: loadAll,
+        receiveGardenReward,
         lightGainEvent,
         holdLightFlow,
         powerPlant,

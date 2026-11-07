@@ -23,6 +23,7 @@ interface RecordSummary {
   date: string;
   mood: number;
   sleep: number;
+  sleepRecorded?: boolean;
   behaviors: string[];
   notes?: string;
   exercise?: number; // 1-3
@@ -47,8 +48,8 @@ function computeFacts(records: RecordSummary[]): string {
   const sorted = [...records].sort((a, b) => a.date.localeCompare(b.date));
 
   // 1) Sleep vs mood
-  const highSleep = sorted.filter((r) => r.sleep >= 7).map((r) => r.mood);
-  const lowSleep = sorted.filter((r) => r.sleep < 6).map((r) => r.mood);
+  const highSleep = sorted.filter((r) => r.sleepRecorded !== false && r.sleep >= 7).map((r) => r.mood);
+  const lowSleep = sorted.filter((r) => r.sleepRecorded !== false && r.sleep < 6).map((r) => r.mood);
   if (highSleep.length >= 3 && lowSleep.length >= 3) {
     lines.push(`睡眠7h以上の日の平均気分=${fmt(avg(highSleep))}、6h未満の日=${fmt(avg(lowSleep))}（気分は1-5）`);
   }
@@ -89,7 +90,7 @@ function computeFacts(records: RecordSummary[]): string {
     const early = sorted.slice(0, third);
     const late = sorted.slice(-third);
     lines.push(
-      `長期変化: 記録前期(${early[0].date}〜)の平均気分=${fmt(avg(early.map((r) => r.mood)))}・平均睡眠=${fmt(avg(early.map((r) => r.sleep)))}h → 直近期(${late[0].date}〜)の平均気分=${fmt(avg(late.map((r) => r.mood)))}・平均睡眠=${fmt(avg(late.map((r) => r.sleep)))}h`,
+      `長期変化: 記録前期(${early[0].date}〜)の平均気分=${fmt(avg(early.map((r) => r.mood)))}・平均睡眠=${fmt(avg(early.filter(r => r.sleepRecorded !== false).map((r) => r.sleep)))}h → 直近期(${late[0].date}〜)の平均気分=${fmt(avg(late.map((r) => r.mood)))}・平均睡眠=${fmt(avg(late.filter(r => r.sleepRecorded !== false).map((r) => r.sleep)))}h`,
     );
   }
 
@@ -155,6 +156,7 @@ insightRouter.post("/insight", requireAuth, async (req: AuthRequest, res) => {
         date: String(r.date).slice(0, 10),
         mood: Math.min(5, Math.max(1, Number(r.mood) || 3)),
         sleep: Math.min(24, Math.max(0, Number(r.sleep) || 0)),
+        sleepRecorded: r.sleepRecorded !== false,
         behaviors: Array.isArray(r.behaviors)
           ? r.behaviors.slice(0, 20).map((b) => String(b).slice(0, 30))
           : [],
@@ -170,7 +172,7 @@ insightRouter.post("/insight", requireAuth, async (req: AuthRequest, res) => {
       .map((r) => {
         const notes = (r.notes ?? "").slice(0, 80);
         const parts = [
-          `${r.date}: 気分${r.mood}/5, 睡眠${r.sleep}h`,
+          `${r.date}: 気分${r.mood}/5, 睡眠${r.sleepRecorded === false ? '未入力' : `${r.sleep}h`}`,
           r.exercise ? `運動${scaleLabel(r.exercise)}` : "",
           r.meal ? `食事${scaleLabel(r.meal)}` : "",
           r.social ? `人間関係${scaleLabel(r.social)}` : "",

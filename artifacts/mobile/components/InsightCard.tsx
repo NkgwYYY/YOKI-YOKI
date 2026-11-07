@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, radius, space, typography } from '@/constants/theme';
@@ -8,22 +8,15 @@ import { Icon, IconBadge, iconSize } from '@/components/ui/Icon';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { profileToContext } from '@/utils/profileContext';
+import { getTodayDate } from '@/utils/dateUtils';
+import { readInsights, type Insight } from '@/utils/insightData';
 
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}/api`;
 const STORAGE_KEY = '@mentore/insight_v1';
 
-interface Insight {
-  title: string;
-  body: string;
-}
-
 interface CachedInsight {
   date: string;
   insights: Insight[];
-}
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 export function InsightCard() {
@@ -33,25 +26,55 @@ export function InsightCard() {
   const [insights, setInsights] = useState<Insight[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [cacheFailed, setCacheFailed] = useState(false);
+  const busy = useRef(false);
+  const requested = useRef(false);
+  const mounted = useRef(true);
+  const pendingCache = useRef<CachedInsight | null>(null);
+
+  const saveCache = async () => {
+    if (!pendingCache.current) return;
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(pendingCache.current));
+      if (mounted.current) setCacheFailed(false);
+    } catch { if (mounted.current) setCacheFailed(true); }
+  };
+
+  const retryCache = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    setLoading(true);
+    try { await saveCache(); }
+    finally {
+      busy.current = false;
+      if (mounted.current) setLoading(false);
+    }
+  };
 
   // Restore today's cached insights
   useEffect(() => {
+    mounted.current = true;
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (!raw) return;
         const cached = JSON.parse(raw) as CachedInsight;
-        if (cached.date === todayStr() && cached.insights?.length) {
-          setInsights(cached.insights);
+        const valid = readInsights(cached?.insights);
+        if (mounted.current && !requested.current && cached?.date === getTodayDate() && valid) {
+          setInsights(valid);
         }
       } catch {}
     })();
+    return () => { mounted.current = false; };
   }, []);
 
   const generate = async () => {
-    if (loading) return;
+    if (busy.current) return;
+    busy.current = true;
+    requested.current = true;
     setLoading(true);
     setError(false);
+    setCacheFailed(false);
     try {
       const payload = {
         mascotName,
@@ -60,6 +83,7 @@ export function InsightCard() {
           date: r.date,
           mood: r.mood,
           sleep: r.sleep,
+          sleepRecorded: r.sleepRecorded,
           behaviors: r.behaviors,
           notes: r.notes?.slice(0, 80) || undefined,
           exercise: r.exercise,
@@ -89,16 +113,18 @@ export function InsightCard() {
       });
       if (!res.ok) throw new Error('bad status');
       const data = await res.json();
-      if (!data.insights?.length) throw new Error('empty');
-      setInsights(data.insights);
-      await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ date: todayStr(), insights: data.insights } satisfies CachedInsight),
-      );
+      const valid = readInsights(data?.insights);
+      if (!valid) throw new Error('Invalid insights');
+      if (!mounted.current) return;
+      setInsights(valid);
+      // A cache write failure must not discard a valid response or request AI again.
+      pendingCache.current = { date: getTodayDate(), insights: valid };
+      await saveCache();
     } catch {
-      setError(true);
+      if (mounted.current) setError(true);
     } finally {
-      setLoading(false);
+      busy.current = false;
+      if (mounted.current) setLoading(false);
     }
   };
 
@@ -126,6 +152,8 @@ export function InsightCard() {
             </View>
           ))}
           <Text style={styles.note}>明日になると、また新しい発見を探せるよ</Text>
+          {cacheFailed && <Text accessibilityRole="alert" style={styles.errorText}>この結果を端末に保存できませんでした。画面を閉じる前に確認してください。</Text>}
+          {cacheFailed && <Button label="保存をもう一度試す" onPress={retryCache} loading={loading} variant="outline" />}
         </View>
       ) : !hasData ? (
         <Text style={styles.emptyText}>
@@ -140,7 +168,7 @@ export function InsightCard() {
             icon="activity"
           />
           {error && (
-            <Text style={styles.errorText}>
+            <Text accessibilityRole="alert" style={styles.errorText}>
               うまく見つけられなかった…少し待ってもう一度試してね
             </Text>
           )}
