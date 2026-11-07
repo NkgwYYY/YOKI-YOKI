@@ -117,9 +117,18 @@ export function dailyAdPresentation(
   };
 }
 
+export type DailyAdFailure = 'connection' | 'reservation' | 'consent' | 'no-fill' | 'network' | 'timeout' | 'presentation';
+// Only fixed categories cross into the UI. Never expose a server/SDK message,
+// which can contain request URLs, account identifiers or internal SQL details.
+export function dailyAdFailure(error: unknown, fallback: DailyAdFailure): DailyAdFailure {
+  const value = (error as {yokiAdFailure?: unknown} | null)?.yokiAdFailure;
+  return typeof value === 'string' && ['consent', 'no-fill', 'network', 'timeout', 'presentation'].includes(value)
+    ? value as DailyAdFailure : fallback;
+}
 export type DailyAdResult =
   | {status: 'verified'; receiptId: string; points: DailyAdPoints}
-  | {status: 'closed' | 'unavailable' | 'pending' | 'busy' | 'session-changed' | 'error'};
+  | {status: 'error'; reason?: DailyAdFailure}
+  | {status: 'closed' | 'unavailable' | 'pending' | 'busy' | 'session-changed'};
 
 export interface DailyRewardBinding {
   /** Must be the same authoritative source used by the existing egg-job ad. */
@@ -190,7 +199,17 @@ export function dailyAdResultMessage(result: DailyAdResult): string {
     case 'pending': return '受け取りを確認中です。もう一度広告を見る必要はありません。';
     case 'busy': return 'ほかの画面で広告の処理中です。';
     case 'session-changed': return '';
-    case 'error': return '広告の処理を確認できませんでした。通常の操作は続けられます。';
+    case 'error':
+      switch (result.reason) {
+        case 'reservation': return '広告特典の準備に失敗しました。時間をおいて、もう一度お試しください。';
+        case 'connection':
+        case 'network': return '通信できませんでした。接続を確認して、もう一度お試しください。';
+        case 'consent': return '広告のプライバシー設定を確認できませんでした。時間をおいて、もう一度お試しください。';
+        case 'no-fill': return 'いまは配信できる広告がありません。時間をおいて、もう一度お試しください。';
+        case 'timeout': return '広告の読み込みに時間がかかっています。時間をおいて、もう一度お試しください。';
+        case 'presentation': return '広告を開けませんでした。画面に戻ってから、もう一度お試しください。';
+        default: return '広告の処理を確認できませんでした。通常の操作は続けられます。';
+      }
   }
 }
 

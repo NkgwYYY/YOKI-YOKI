@@ -13,11 +13,23 @@ export const canShowRewardedAd = () => nativeBuild && !!unit() && Constants.expo
 export const canBuyPass = () => nativeBuild && !!purchaseKey() && !!process.env.EXPO_PUBLIC_YOKI_PASS_PRODUCT_ID;
 export const canShowBannerAd = () => nativeBuild && !!bannerUnit() && Constants.expoConfig?.extra?.yokiAdsConfigured?.[Platform.OS] === true;
 let preparation: Promise<typeof import('react-native-google-mobile-ads')> | null = null;
+function adFailure(reason: 'consent' | 'no-fill' | 'network' | 'timeout' | 'presentation') {
+  return Object.assign(Error('広告を準備できませんでした。'), {yokiAdFailure: reason});
+}
+function sdkFailure(error: unknown) {
+  const code = (error as {code?: unknown} | null)?.code;
+  if (typeof code === 'string') {
+    if (/(^|\/)no-fill$/.test(code)) return adFailure('no-fill');
+    if (/(^|\/)network-error$/.test(code)) return adFailure('network');
+    if (/(^|\/)timeout$/.test(code)) return adFailure('timeout');
+  }
+  return adFailure('presentation');
+}
 export function prepareAds() {
   return preparation ??= (async () => {
     const sdk = await import('react-native-google-mobile-ads');
-    const consent = await sdk.AdsConsent.gatherConsent();
-    if (!consent.canRequestAds) throw Error('広告は現在利用できません。');
+    const consent = await sdk.AdsConsent.gatherConsent().catch(() => { throw adFailure('consent'); });
+    if (!consent.canRequestAds) throw adFailure('consent');
     await sdk.default().setRequestConfiguration({maxAdContentRating: sdk.MaxAdContentRating.G});
     await sdk.default().initialize();
     return sdk;
@@ -89,8 +101,8 @@ export async function showRewardedAd(session: AdSession, event: (name: string, d
           });
         }));
         off.push(ad.addAdEventListener(sdk.AdEventType.CLOSED, () => finish()));
-        off.push(ad.addAdEventListener(sdk.AdEventType.ERROR, () => finish(Error('いまは広告を用意できません。時間をおいてお試しください。'))));
-        timer = setTimeout(() => { if (!shown) finish(Error('広告の読み込みに時間がかかっています。')); }, 20_000);
+        off.push(ad.addAdEventListener(sdk.AdEventType.ERROR, error => finish(sdkFailure(error))));
+        timer = setTimeout(() => { if (!shown) finish(adFailure('timeout')); }, 20_000);
         ad.load();
       } catch {
         // A rejected Promise executor alone does not detach previously added listeners.

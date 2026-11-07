@@ -113,8 +113,18 @@ for (const scenario of ['background', 'account change']) {
 test('load timeout removes listeners and queued callbacks cannot reopen the creative', async () => {
   const f = fixture(), result = f.start(); await tick(); const ad = f.ads[0];
   f.timeout(); await tick(); assert.equal(result.status, 'rejected'); clean(f, ad);
+  assert.equal(result.error.yokiAdFailure, 'timeout');
   ad.emitQueued('loaded'); assert.equal(ad.showCount, 0);
 });
+
+for (const [code, reason] of [['googleMobileAds/no-fill', 'no-fill'], ['googleMobileAds/network-error', 'network'], ['unknown', 'presentation']]) {
+  test(`SDK ${code} exposes only a fixed failure category and cleans up playback`, async () => {
+    const f = fixture(), result = f.start(); await tick(); const ad = f.ads[0];
+    ad.emit('error', {code, message: 'private SDK response'}); await tick();
+    assert.equal(result.status, 'rejected'); assert.equal(result.error.yokiAdFailure, reason);
+    assert.doesNotMatch(result.error.message, /private SDK response/); clean(f, ad);
+  });
+}
 test('cleanup errors do not strand the result or replay a closed creative', async () => {
   const f = fixture(); f.behavior({cleanupError: true}); const result = f.start(); await tick(); const ad = f.ads[0];
   ad.emit('loaded'); ad.emit('closed'); await tick(); assert.equal(result.value, false); clean(f, ad);

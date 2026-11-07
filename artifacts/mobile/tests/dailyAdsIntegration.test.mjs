@@ -140,6 +140,46 @@ test('SDK errors release the shared presentation lock',async()=>{
   assert.equal((await fixture().service.watchRewarded('home')).status,'verified');
 });
 
+test('a failed reservation never requests an ad, exposes internal errors, or creates local credit; retry succeeds', async () => {
+  let fail = true;
+  const f = fixture();
+  const reserve = f.deps.reserve;
+  f.deps.reserve = async (...args) => {
+    if (fail) throw Error('internal SQL details that must remain private');
+    return reserve(...args);
+  };
+  assert.deepEqual(await f.service.watchRewarded('home'), {status: 'error', reason: 'reservation'});
+  assert.equal(f.shown(), 0); assert.equal(f.credits.size, 0);
+  assert.equal(f.service.getSnapshot().remaining, 3);
+  fail = false;
+  assert.equal((await f.service.watchRewarded('home')).status, 'verified');
+  assert.equal(f.shown(), 1); assert.equal(f.reservations.size, 1);
+});
+
+test('native no-fill stays distinct from reservation failure and can be retried', async () => {
+  const f = fixture({present: async () => {throw Object.assign(Error('SDK private data'), {yokiAdFailure: 'no-fill'});}});
+  assert.deepEqual(await f.service.watchRewarded('home'), {status: 'error', reason: 'no-fill'});
+  assert.equal(f.credits.size, 0);
+  f.deps.present = async () => false;
+  assert.equal((await f.service.watchRewarded('home')).status, 'closed');
+  assert.equal(f.reservations.size, 1);
+});
+
+test('a status outage after completed playback preserves pending verification and does not replay', async () => {
+  let watched = false, offline = true, shows = 0;
+  const f = fixture({
+    present: async () => {watched = true; shows++; return true;},
+    collect: async () => {
+      if (watched && offline) throw Error('offline');
+      return {gained: 0, remaining: 3, day: '2026-11-07', confirmedIds: []};
+    },
+  });
+  assert.equal((await f.service.watchRewarded('home')).status, 'pending');
+  offline = false;
+  assert.equal((await f.service.watchRewarded('home')).status, 'pending');
+  assert.equal(shows, 1); assert.equal(f.credits.size, 0);
+});
+
 test('a pass skips only the egg bonus ad, daily rewards still request an ad',async()=>{
   const f=fixture({eligibility:()=>({ready:true,rewarded:true,banner:true,pass:true}),pass:async()=>true});
   await f.service.refresh();assert.equal(f.service.getSnapshot().removePassiveAds,true);

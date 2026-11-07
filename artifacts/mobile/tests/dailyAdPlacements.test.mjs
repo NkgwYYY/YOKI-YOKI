@@ -36,6 +36,14 @@ const model = (placement = 'home', snapshot = state(), env = environment()) => d
 const deferred = () => {let resolve, reject; const promise = new Promise((res, rej) => {resolve = res; reject = rej;}); return {promise, resolve, reject};};
 const verified = {status: 'verified', receiptId: 'ssv-receipt-1', points: 30};
 
+test('reward errors distinguish a server reservation from ad no-fill without exposing provider details', () => {
+  const reservation = dailyAdResultMessage({status: 'error', reason: 'reservation'});
+  const noFill = dailyAdResultMessage({status: 'error', reason: 'no-fill'});
+  assert.match(reservation, /特典の準備/); assert.match(noFill, /配信できる広告/);
+  assert.notEqual(reservation, noFill);
+  assert.doesNotMatch(dailyAdResultMessage({status: 'error', reason: 'private details'}), /private details/);
+});
+
 test('new policy grants 10pt and retains one shared three-view daily allowance', () => {
   assert.equal(DAILY_AD_POINTS, 10); assert.equal(DAILY_AD_LIMIT, 3);
   for (const placement of ['home', 'street', 'meal', 'egg-job']) {

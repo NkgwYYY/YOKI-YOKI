@@ -1,4 +1,4 @@
-import { DISCONNECTED_DAILY_ADS, type DailyAdSnapshot, type DailyAdPlacement, type DailyAdResult, type DailyAdPoints } from '../dailyAdPlacements';
+import { DISCONNECTED_DAILY_ADS, dailyAdFailure, type DailyAdFailure, type DailyAdSnapshot, type DailyAdPlacement, type DailyAdResult, type DailyAdPoints } from '../dailyAdPlacements';
 
 export type PendingBonus = { id: string; receipt_id: string; expires_at: string; amount?: DailyAdPoints };
 export type CollectedBonus = { gained: number; remaining: number; day: string; confirmedIds: string[]; confirmedAmounts?: Record<string, DailyAdPoints>; pending?: PendingBonus[] };
@@ -99,6 +99,7 @@ export function createDailyAds(deps: Dependencies) {
     if (placement === 'egg-job' && !/^egg-\d{13}-[a-z0-9]{4,20}$/.test(eggReceipt ?? '')) return {status: 'unavailable'};
     presenting = true;
     publish({phase: 'loading'});
+    let failure: DailyAdFailure = 'connection';
     try {
       // Reconcile first: a different screen/background recovery may have received the SSV.
       let result = accept(await deps.collect());
@@ -128,6 +129,7 @@ export function createDailyAds(deps: Dependencies) {
         pending.watched = false;
       }
       if (!pending.reservation) {
+        failure = 'reservation';
         pending.reservation = await deps.reserve(receipt, claimPass ? 'pass' : 'ad');
         assertCurrent();
         if (allowed.rewardPoints === 10 && pending.reservation.amount !== 10 && pending.reservation.amount !== 30) {
@@ -136,6 +138,7 @@ export function createDailyAds(deps: Dependencies) {
       }
       const reservation = pending.reservation;
       if (reservation.mode === 'ad' && reservation.state !== 'earned' && !pending.watched) {
+        failure = 'presentation';
         publish({phase: 'playing'});
         const completed = await deps.present(reservation);
         assertCurrent();
@@ -154,8 +157,12 @@ export function createDailyAds(deps: Dependencies) {
         if (attempt < 4) { await deps.pause(1500); assertCurrent(); }
       }
       return {status: 'pending'};
-    } catch {
-      return {status: current() ? 'error' : 'session-changed'};
+    } catch (error) {
+      if (!current()) return {status: 'session-changed'};
+      // Once playback completed, a failed status request is still pending SSV.
+      // Retain that reservation and never ask for another viewing or grant locally.
+      if (pending?.watched) return {status: 'pending'};
+      return {status: 'error', reason: dailyAdFailure(error, failure)};
     } finally {
       presenting = false;
       if (current()) {
