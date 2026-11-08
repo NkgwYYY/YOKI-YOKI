@@ -27,8 +27,10 @@ jobs:
         env:
           YOKI_RELEASE_MODE: testflight
         run: python3 scripts/apple-review52.py
-      - name: Prepare only the new room products and exact prices
+      - name: Prepare the seven room product drafts and localizations
         if: always()
+        env:
+          YOKI_PRODUCTS_MODE: metadata
         run: python3 scripts/apple-products53.py
       - name: Remove temporary API keys
         if: always()

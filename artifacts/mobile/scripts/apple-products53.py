@@ -113,6 +113,9 @@ for product in catalog:
         for locale,name,description in [('ja',product['name'],product['description']),('en-US',product['englishName'],product['englishDescription'])]:
             found=next((l for l in localizations if l['attributes']['locale']==locale),None)
             if not found:api('/v2/inAppPurchaseLocalizations','POST',{'data':{'type':'inAppPurchaseLocalizations','attributes':{'locale':locale,'name':name,'description':description},'relationships':{'version':rel('inAppPurchaseVersions',draft['id'])}}})
+    if os.environ.get('YOKI_PRODUCTS_MODE')=='metadata':
+        print('ROOM_METADATA_PREPARED',sku,ident,flush=True)
+        continue
     schedule=api('/v2/inAppPurchases/'+ident+'/iapPriceSchedule',optional=True).get('data')
     if not schedule:
         points=items('/v2/inAppPurchases/'+ident+'/pricePoints?filter[territory]=JPN&limit=8000')
@@ -134,4 +137,4 @@ for product in catalog:
     live=[p for p in verification.get('included',[]) if p['type']=='inAppPurchasePricePoints']
     if not live or any(float(p['attributes']['customerPrice'])!=product['yen'] for p in live):raise SystemExit('Configured Japanese price does not match the app')
     print('ROOM_PRICE_VERIFIED',sku,product['yen'],'JPY',flush=True)
-print('ROOM_PRODUCTS_PREPARED: review screenshots and submission remain separate steps.')
+print('ROOM_METADATA_PREPARED: prices, review screenshots, review notes and submission remain separate steps.' if os.environ.get('YOKI_PRODUCTS_MODE')=='metadata' else 'ROOM_PRODUCTS_PREPARED: review screenshots and submission remain separate steps.')
