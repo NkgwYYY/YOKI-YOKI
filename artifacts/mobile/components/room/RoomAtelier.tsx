@@ -27,7 +27,8 @@ export function RoomAtelier({onClose,initialCategory='furniture'}:{onClose:()=>v
  const decorations=items.filter(item=>homewaresGenre(item)==='decor'&&shopState.inventory.includes(item.id));
  const selectedDecor=decorations.find(item=>item.id===shopState.equipped.decor);
  const row=(id:string,name:string,selected:boolean,art:React.ReactNode,select:()=>Promise<void>)=><Pressable key={id} testID={`atelier-${tab}-${id}`} accessibilityRole="button" accessibilityLabel={`${name}、${selected?'使用中':'選ぶ'}`} accessibilityState={{selected,disabled:busy}} disabled={busy} onPress={()=>void act(select)} style={[s.row,selected&&s.selected]}><View style={s.art}>{art??<Text style={s.empty}>×</Text>}</View><Text style={[s.name,selected&&s.selectedText]}>{name}</Text><Text style={[s.status,selected&&s.selectedText]}>{selected?'使用中':'選ぶ'}</Text></Pressable>;
- const roomOption=(kind:RoomItemKind,id:RoomFurniture|RoomFlower,name:string)=>row(id,name,room[kind]===id,id==='none'?null:<RoomItemPreview kind={kind} id={id}/>,async()=>{if(!await selectRoomItem(kind,id))throw Error('not owned');setMessage('部屋の模様替えをしました。');});
+ const matchingGoods=ownedRoomGoods(readRoomCollection(room.boutique));
+ const roomOption=(kind:RoomItemKind,id:RoomFurniture|RoomFlower,name:string)=>row(id,name,room[kind]===id&&(kind!=='furniture'||id!=='none'||!room.boutique?.goods.length),id==='none'?null:<RoomItemPreview kind={kind} id={id}/>,async()=>{if(!await selectRoomItem(kind,id))throw Error('not owned');if(kind==='furniture'&&id==='none')for(const good of room.boutique?.goods??[])await runRoomBoutique({kind:'good',id:good,placed:false});setMessage('部屋の模様替えをしました。');});
  const adjustDecor=async(dx:number,dy:number,ds=0)=>{if(!selectedDecor)return;const p=shopState.placements[selectedDecor.id]??{x:0,y:0,scale:1};await updateItemPlacement(selectedDecor.id,{x:Math.max(-160,Math.min(160,p.x+dx)),y:Math.max(-160,Math.min(160,p.y+dy)),scale:Math.max(.55,Math.min(1.45,p.scale+ds))});setMessage('置物の位置を保存しました。');};
  return <BottomSheet visible onClose={onClose} title="部屋の模様替え" subtitle="持っているものを、お気に入りの場所へ。" contentStyle={{gap:12}}>
    <View style={s.tabs} accessibilityRole="tablist">{sections.map(section=><Pressable key={section.id} testID={`atelier-tab-${section.id}`} accessibilityRole="tab" accessibilityLabel={section.name} accessibilityState={{selected:tab===section.id}} onPress={()=>{setTab(section.id);setMessage('');}} style={[s.tab,tab===section.id&&s.tabOn]}><Text style={[s.tabText,tab===section.id&&s.tabTextOn]}>{section.name}</Text></Pressable>)}</View>
@@ -45,10 +46,10 @@ export function RoomAtelier({onClose,initialCategory='furniture'}:{onClose:()=>v
      })}
    </>}
    {(tab==='furniture'||tab==='flower')&&<>
-     {tab==='furniture'&&ownedRoomGoods(readRoomCollection(room.boutique)).map(id=>{const placed=room.boutique?.goods.includes(id)??false;return row(id,ROOM_PRODUCTS.find(p=>p.good===id&&p.kind==='furniture')!.name,placed,<Image source={roomGoodArt(id)} resizeMode="contain" style={{width:60,height:60}}/>,async()=>{await runRoomBoutique({kind:'good',id,placed:!placed});setMessage(placed?'家具をしまいました。':'家具を置きました。');});})}
+     {tab==='furniture'&&matchingGoods.map(id=>{const placed=room.boutique?.goods.includes(id)??false;return row(id,ROOM_PRODUCTS.find(p=>p.good===id&&p.kind==='furniture')!.name,placed,<Image source={roomGoodArt(id)} resizeMode="contain" style={{width:60,height:60}}/>,async()=>{await runRoomBoutique({kind:'good',id,placed:!placed});setMessage(placed?'家具をしまいました。':'家具を置きました。');});})}
      {roomOption(tab,'none','置かない')}
      {(tab==='furniture'?ROOM_FURNITURE:ROOM_FLOWERS).filter(item=>(tab==='furniture'?room.ownedFurniture:room.ownedFlowers).some(id=>id===item.id)).map(item=>roomOption(tab,item.id,item.name))}
-     {(tab==='furniture'?room.ownedFurniture:room.ownedFlowers).length===0&&<Text style={s.help}>まだ{tab==='furniture'?'家具':'花'}を持っていません。ショップで、お気に入りを探してみよう。</Text>}
+     {(tab==='furniture'?room.ownedFurniture.length+matchingGoods.length:room.ownedFlowers.length)===0&&<Text style={s.help}>まだ{tab==='furniture'?'家具':'花'}を持っていません。ショップで、お気に入りを探してみよう。</Text>}
    </>}
    {tab==='decor'&&<>
      {row('none','置かない',!shopState.equipped.decor,null,async()=>{await equipItem('decor',null);setMessage('置物をしまいました。');})}

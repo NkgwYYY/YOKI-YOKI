@@ -7,7 +7,7 @@ permissions:
   contents: read
 concurrency:
   group: room-sets53-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   simulator:
     runs-on: macos-26
