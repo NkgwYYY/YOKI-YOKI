@@ -155,6 +155,6 @@ test('one unified save commits condition and life answers, then editing awards n
 });
 test('invalid unified fields cannot mutate the stored record or rewards',async()=>{
  const f=fixture(),store=f.open();await save(store);const before=new Map(f.data);
- for(const extras of [{dayType:'vacation'},{behaviorsRecorded:'yes'},{meal:4}])await assert.rejects(save(store,{extras}));
+ for(const extras of [{dayType:'vacation'},{behaviorsRecorded:'yes'},{includeDetails:true,meal:4}])await assert.rejects(save(store,{extras}));
  assert.deepEqual(f.data,before);
 });

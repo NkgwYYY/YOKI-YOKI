@@ -1,4 +1,4 @@
-import React from 'react';
+import React,{useState} from 'react';
 import {StyleSheet,Text,TextInput,View} from 'react-native';
 import {FeltPressable as Pressable} from '@/components/ui/FeltPressable';
 import Svg,{Circle,Path} from 'react-native-svg';
@@ -10,7 +10,7 @@ const conditions=[{key:'exercise',label:'運動の量',options:['なし','軽め
 
 /** Concrete optional activities, shared by the quick and detailed journal editors. */
 export function DiaryBehaviorTags({value,onChange,disabled=false,compact=false}:{value:string[];onChange:(value:string[])=>void;disabled?:boolean;compact?:boolean}){
- const labels=compact?quickBehaviors:[...new Set([...behaviors,...value])];
+ const labels=compact?[...new Set([...quickBehaviors,...value])]:[...new Set([...behaviors,...value])];
  return <View style={s.tags}>{labels.map(label=><Pressable key={label} testID={`${compact?'diary-quick-behavior':'diary-behavior'}-${label}`} accessibilityRole="checkbox" accessibilityLabel={label} accessibilityState={{checked:value.includes(label)}} disabled={disabled||(!value.includes(label)&&value.length>=30)} onPress={()=>onChange(value.includes(label)?value.filter(v=>v!==label):[...value,label])} style={[s.chip,value.includes(label)&&s.selected]}><Text style={s.text}>{value.includes(label)?'✓ ':''}{label}</Text></Pressable>)}</View>;
 }
 /** Readable expressions instead of relying on color or weather symbols alone. */
@@ -26,17 +26,21 @@ export function DiaryMoodFace({value,size=32}:{value:number;size?:number}){
 }
 
 export function DiaryDetailsEditor({value,onChange,disabled=false}:{value:DiaryDetails;onChange:(value:DiaryDetails)=>void;disabled?:boolean}){
+ const [advanced,setAdvanced]=useState(false);
  const change=(patch:Partial<DiaryDetails>)=>onChange({...value,...patch});
  return <View testID="diary-details-editor" style={s.root}>
   <Text style={s.hint}>答えたいところだけで大丈夫。最後にまとめて保存されます。</Text>
-  <View style={s.row}><Text style={s.label}>昨夜の睡眠</Text><Pressable accessibilityRole="checkbox" accessibilityState={{checked:value.sleepRecorded}} disabled={disabled} onPress={()=>change({sleepRecorded:!value.sleepRecorded,sleep:value.sleepRecorded?value.sleep:value.sleep||7})} style={[s.chip,value.sleepRecorded&&s.selected]}><Text style={s.text}>{value.sleepRecorded?'✓ 睡眠時間を残す':'睡眠時間を残す'}</Text></Pressable></View>
+  <View style={s.row}><Text style={s.label}>昨夜の睡眠</Text><Pressable testID="life-sleep-toggle" accessibilityRole="checkbox" accessibilityState={{checked:value.sleepRecorded}} disabled={disabled} onPress={()=>change({sleepRecorded:!value.sleepRecorded,sleep:value.sleepRecorded?value.sleep:value.sleep||7})} style={[s.chip,value.sleepRecorded&&s.selected]}><Text style={s.text}>{value.sleepRecorded?'✓ 睡眠時間を残す':'睡眠時間を残す'}</Text></Pressable></View>
   {value.sleepRecorded&&<View style={s.sleepRow}><Pressable accessibilityRole="button" accessibilityLabel="睡眠を30分減らす" disabled={disabled||value.sleep<=0} onPress={()=>change({sleep:Math.max(0,value.sleep-.5)})} style={s.step}><Text style={s.label}>−</Text></Pressable><Text testID="diary-sleep-value" style={s.label}>{value.sleep} 時間</Text><Pressable accessibilityRole="button" accessibilityLabel="睡眠を30分増やす" disabled={disabled||value.sleep>=12} onPress={()=>change({sleep:Math.min(12,value.sleep+.5)})} style={s.step}><Text style={s.label}>＋</Text></Pressable></View>}
   <View style={s.group}><Text style={s.label}>今日はどんな日？</Text><View style={s.row}>{([['work','仕事・学校'],['rest','お休み'],['other','その他']] as const).map(([id,label])=><Pressable key={id} testID={'life-day-'+id} accessibilityRole="button" accessibilityState={{selected:value.dayType===id}} disabled={disabled} onPress={()=>change({dayType:value.dayType===id?undefined:id})} style={[s.choice,value.dayType===id&&s.selected]}><Text style={s.text}>{label}</Text></Pressable>)}</View><Text style={s.hint}>選んだ項目をもう一度押すと未記録に戻せます。</Text></View>
-  {conditions.map(c=><View key={c.key} style={s.group}><Text style={s.label}>{c.label}</Text><View style={s.row}>{c.options.map((label,i)=><Pressable key={label} accessibilityRole="button" accessibilityLabel={`${c.label}：${label}`} accessibilityState={{selected:value[c.key]===i+1}} disabled={disabled} onPress={()=>change({[c.key]:value[c.key]===i+1?undefined:i+1})} style={[s.choice,value[c.key]===i+1&&s.selected]}><Text style={s.text}>{label}</Text></Pressable>)}</View></View>)}
-  <Text style={s.label}>今日できたこと</Text><TextInput testID="diary-win" accessibilityLabel="今日できたこと" value={value.win??''} onChangeText={win=>change({win})} editable={!disabled} maxLength={60} placeholder="ごはんを食べた、ゆっくり休めた…" placeholderTextColor="#8F7E8B" style={s.input}/>
-  <Text style={s.label}>今日ここまでの過ごし方</Text><DiaryBehaviorTags value={value.behaviors} disabled={disabled} onChange={behaviors=>change({behaviors,behaviorsRecorded:behaviors.length>0})}/>
+  <Text style={s.label}>今日ここまでの過ごし方</Text><DiaryBehaviorTags compact={!advanced} value={value.behaviors} disabled={disabled} onChange={behaviors=>change({behaviors,behaviorsRecorded:behaviors.length>0})}/>
   <View style={s.row}><Pressable testID="life-behaviors-none" accessibilityRole="checkbox" accessibilityState={{checked:value.behaviorsRecorded===true&&!value.behaviors.length}} disabled={disabled} onPress={()=>change({behaviors:[],behaviorsRecorded:true})} style={[s.chip,value.behaviorsRecorded===true&&!value.behaviors.length&&s.selected]}><Text style={s.text}>当てはまるものはない</Text></Pressable><Pressable testID="life-behaviors-clear" accessibilityRole="button" disabled={disabled} onPress={()=>change({behaviors:[],behaviorsRecorded:false})} style={s.chip}><Text style={s.text}>未記録に戻す</Text></Pressable></View>
-  <Text style={s.label}>ほかに書いておきたいこと</Text><TextInput testID="diary-detail-notes" accessibilityLabel="詳しい記録のメモ" value={value.notes} onChangeText={notes=>change({notes})} editable={!disabled} multiline maxLength={10000} textAlignVertical="top" placeholder="からだの調子や、覚えておきたいことなど。" placeholderTextColor="#8F7E8B" style={[s.input,{minHeight:100}]}/>
+  <Pressable testID="life-advanced-toggle" accessibilityRole="button" accessibilityState={{expanded:advanced}} disabled={disabled} onPress={()=>setAdvanced(v=>!v)} style={s.chip}><Text style={s.text}>{advanced?'詳しい項目を閉じる':'食事・人間関係なども記録する'}</Text></Pressable>
+  {advanced&&<>
+   {conditions.map(c=><View key={c.key} style={s.group}><Text style={s.label}>{c.label}</Text><View style={s.row}>{c.options.map((label,i)=><Pressable key={label} accessibilityRole="button" accessibilityLabel={c.label+'：'+label} accessibilityState={{selected:value[c.key]===i+1}} disabled={disabled} onPress={()=>change({[c.key]:value[c.key]===i+1?undefined:i+1})} style={[s.choice,value[c.key]===i+1&&s.selected]}><Text style={s.text}>{label}</Text></Pressable>)}</View></View>)}
+   <Text style={s.label}>今日できたこと</Text><TextInput testID="diary-win" accessibilityLabel="今日できたこと" value={value.win??''} onChangeText={win=>change({win})} editable={!disabled} maxLength={60} placeholder="ごはんを食べた、ゆっくり休めた…" placeholderTextColor="#8F7E8B" style={s.input}/>
+   <Text style={s.label}>ほかに書いておきたいこと</Text><TextInput testID="diary-detail-notes" accessibilityLabel="詳しい記録のメモ" value={value.notes} onChangeText={notes=>change({notes})} editable={!disabled} multiline maxLength={10000} textAlignVertical="top" placeholder="からだの調子や、覚えておきたいことなど。" placeholderTextColor="#8F7E8B" style={[s.input,{minHeight:100}]}/>
+  </>}
  </View>;
 }
 export function DiaryDetailsSummary({value}:{value:DiaryDetails}){

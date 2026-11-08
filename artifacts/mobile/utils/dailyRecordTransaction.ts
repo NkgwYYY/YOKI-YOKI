@@ -36,10 +36,11 @@ export function prepareDailyRecord(
     || typeof input.notes !== 'string' || input.notes.length > 10000
     || (input.extras?.dayType !== undefined && !['work','rest','other'].includes(input.extras.dayType))
     || (input.extras?.behaviorsRecorded !== undefined && typeof input.extras.behaviorsRecorded !== 'boolean')
-    || [input.extras?.exercise,input.extras?.meal,input.extras?.social].some(v => v !== undefined && (!Number.isInteger(v) || v < 1 || v > 3)))
+    )
     throw new Error('暮らしの記録を確認してください');
   const index = records.findIndex(r => r.date === input.today);
   const isNew = index === -1;
+  if(input.extras?.includeDetails && (['exercise','meal','social'] as const).some(key=>{const v=input.extras?.[key];return v!==undefined&&(!Number.isInteger(v)||v<1||v>3)&&(isNew||records[index][key]!==v);}))throw new Error('暮らしの記録を確認してください');
   if ([input.extras?.fatigue, input.extras?.worry].some(v => v !== undefined && (!Number.isInteger(v) || v < 1 || v > 3))) throw new Error('からだの疲れ・心配ごとの記録を確認してください');
   const record: DailyRecord = (input.extras?.moodOnly || input.extras?.conditionOnly) && !isNew ? {...records[index], mood: input.mood} : {
     id: (isNew ? undefined : records[index].id) ?? `r_${now.getTime()}`,
