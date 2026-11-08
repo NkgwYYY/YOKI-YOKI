@@ -1,3 +1,4 @@
+import {QUICK_ACTIVITIES} from './dailyActivities.ts';
 /** Each calendar day's latest self-reported answers. Missing is never zero. */
 export type LifeRecord = {
  sleep?:number;sleepRecorded?:boolean;dayType?:string;behaviors?:readonly string[];behaviorsRecorded?:boolean;
@@ -5,7 +6,7 @@ export type LifeRecord = {
  notes?:string;win?:string;
 };
 export const DAY_TYPES=[{id:'work',label:'仕事・学校'},{id:'rest',label:'お休み'},{id:'other',label:'その他'}] as const;
-export const CORE_BEHAVIORS=['外に出た','運動した','人と話した','ひとりで休んだ','趣味を楽しんだ','ゆっくり休んだ'] as const;
+export const CORE_BEHAVIORS=QUICK_ACTIVITIES;
 export const LIFE_METRICS={
  sleep:{title:'昨夜の睡眠',max:12,min:0,ink:'#487A70',tint:'#EDF5EF',labels:[] as string[]},
  moyamoya:{title:'モヤモヤ',max:1,min:0,ink:'#9B637E',tint:'#FBEEF4',labels:['ない','ある']},

@@ -13,3 +13,6 @@ The unified check-in owns all structured daily inputs. Diary prose stays separat
 
 ## Verification
 A dedicated GitHub Actions workflow performs type checking, record/diary/reward/missing-value tests, web and iOS JS exports, and browser startup/form/chart scenarios. No native release is triggered by this feature branch. TestFlight build53 separately remains blocked by its native StoreKit price test; it must not be described as distributed.
+
+## Optional activities update
+“今日ここまでの過ごし方” can be left entirely unanswered; no extra confirmation is required. Show six shortcuts initially. “ほかの過ごし方も見る” expands six categories inline (food, time with people, outings/exercise, rest, enjoyment, work/daily life), showing only one category's choices at a time. Closing the chooser keeps selected choices visible. The catalogue has 34 choices including eating a lot, seeing a partner/friend, and busy work/study. Existing saved tags remain visible. Recorded choices feed the same graphs and conservative personal-observation logic; skipped answers stay unknown. The final Moyamoya question and first-login/battle flow are unchanged.

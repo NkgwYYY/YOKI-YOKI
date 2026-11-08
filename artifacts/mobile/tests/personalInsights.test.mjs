@@ -128,3 +128,13 @@ test('work/rest observations use only explicitly answered day types',()=>{
  assert.equal(report.insights[0].evidence.selectedDays,9);
  assert.equal(buildPersonalInsights(rows.map((r,i)=>i%2?{...r,dayType:undefined}:r),today).insights.length,0);
 });
+
+test('optional food and relationship choices participate in observations, while skipped days remain unknown',()=>{
+ for(const label of ['ご飯をたくさん食べた','恋人と会った','友人と会った']){
+  const rows=Array.from({length:20},(_,i)=>record(i,i%2?2:5,i%2?[]:[label],{behaviorsRecorded:true}));
+  const report=buildPersonalInsights(rows,today);
+  assert.ok(report.insights.some(insight=>insight.id==='personal:activity:'+label));
+  const skipped=rows.map((r,i)=>i%2?{...r,behaviorsRecorded:false}:r);
+  assert.equal(buildPersonalInsights(skipped,today).insights.length,0);
+ }
+});

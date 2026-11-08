@@ -9,6 +9,7 @@ function seed(mode){
  if(localStorage.getItem('startup-checkin-qa'))return;
  const date='2026-11-06',now=Date.parse(date+'T03:00:00Z');
  const record={id:'existing',date,mood:3,sleep:7,sleepRecorded:true,notes:'保存済みの日記',behaviors:['散歩']};
+ if(mode==='mood-no-activities')Object.assign(record,{behaviors:[],behaviorsRecorded:false});
  if(mode==='complete')Object.assign(record,{fatigue:1,worry:1,moyamoya:{has:false}});
  const values={
   '@mentore/profile_v1':{nickname:'テスト',ageRange:'回答しない',gender:'回答しない'},
@@ -40,13 +41,26 @@ let browser,page;
   assert.equal(await page.getByRole('heading',{name:'今日の便り',exact:true}).count(),0);
  }
  for(const [width,height,has]of [[390,844,true],[320,568,false]]){
-  const {context,errors}=await open('mood-only',width,height);
+  const {context,errors}=await open(has?'mood-only':'mood-no-activities',width,height);
   await page.getByTestId('check-in-screen').waitFor();
   await page.getByTestId('check-in-mood-4').click();
   await page.getByTestId('check-in-fatigue-2').click();
   await page.getByTestId('check-in-worry-3').click();
   await page.getByTestId('life-day-rest').click();
-  await page.getByTestId('life-behaviors-none').click();
+  assert.equal(await page.getByTestId('life-behavior-categories').count(),0,'extra choices start collapsed');
+  if(has){
+   assert.equal(await page.getByTestId('diary-quick-behavior-散歩').getAttribute('aria-checked'),'true','existing choices remain visible');
+   await page.getByTestId('life-behavior-more').click();
+   await page.getByTestId('diary-behavior-ご飯をたくさん食べた').click();
+   await page.getByTestId('life-behavior-group-people').click();
+   await page.getByTestId('diary-behavior-恋人と会った').click();
+   await page.getByTestId('life-behavior-group-daily').click();
+   await page.getByTestId('diary-behavior-家事をした').click();
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width);
+   await page.getByTestId('life-behavior-more').click();
+   for(const label of ['ご飯をたくさん食べた','恋人と会った','家事をした'])
+    assert.equal(await page.getByTestId('diary-quick-behavior-'+label).getAttribute('aria-checked'),'true','selected choices remain visible after closing categories');
+  }
   await page.getByTestId(has?'moyamoya-yes':'moyamoya-no').click();
   if(has)await page.getByTestId('moyamoya-pattern-loop').click();
   assert.equal(await page.getByTestId('check-in-next').count(),1);
@@ -56,7 +70,7 @@ let browser,page;
   if(has){await page.getByTestId('moyamoya-encounter').waitFor();await page.getByTestId('moyamoya-decline').click();await page.getByTestId('moyamoya-encounter').waitFor({state:'hidden'});}
   await homeWithoutPrompt();
   const records=await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/records_v2'))),record=records.find(r=>r.date===date);
-  assert.equal(records.length,1);assert.equal(record.mood,4);assert.equal(record.fatigue,2);assert.equal(record.worry,3);assert.equal(record.moyamoya.has,has);assert.equal(record.notes,'保存済みの日記');assert.equal(record.sleep,7);assert.equal(record.dayType,'rest');assert.equal(record.behaviorsRecorded,true);assert.deepEqual(record.behaviors,[]);
+  assert.equal(records.length,1);assert.equal(record.mood,4);assert.equal(record.fatigue,2);assert.equal(record.worry,3);assert.equal(record.moyamoya.has,has);assert.equal(record.notes,'保存済みの日記');assert.equal(record.sleep,7);assert.equal(record.dayType,'rest');assert.equal(record.behaviorsRecorded,has);assert.deepEqual(record.behaviors,has?['散歩','ご飯をたくさん食べた','恋人と会った','家事をした']:[]);
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),200);
   await page.reload();await homeWithoutPrompt();
   await page.getByTestId('home-condition').click();
@@ -64,7 +78,8 @@ let browser,page;
   assert.equal(await page.getByTestId('life-selected-sleep').innerText(),'7時間');
   assert.equal(await page.getByTestId('life-selected-moyamoya').innerText(),has?'ある':'ない');
   assert.equal(await page.getByTestId('life-cell-day-type-rest-'+date).getAttribute('aria-label'),date+'、お休み、選択');
-  assert.equal(await page.getByTestId('life-cell-activities-外に出た-'+date).getAttribute('aria-label'),date+'、外に出た、選択なし');
+  assert.equal(await page.getByTestId('life-cell-activities-外に出た-'+date).getAttribute('aria-label'),date+'、外に出た、'+(has?'選択なし':'未記録'));
+  if(has)for(const label of ['ご飯をたくさん食べた','恋人と会った','家事をした'])assert.equal(await page.getByTestId('life-cell-activities-'+label+'-'+date).getAttribute('aria-label'),date+'、'+label+'、選択');
   await page.getByTestId('condition-period-30').click();
   await page.getByRole('button',{name:'前の日の記録',exact:true}).click();
   assert.equal(await page.getByTestId('life-selected-sleep').innerText(),'未記録');
@@ -82,7 +97,7 @@ let browser,page;
   await page.getByTestId('diary-input').fill('今日は落ち着いて過ごせた。');
   await page.getByTestId('diary-send').click();await page.getByTestId('diary-user-page').waitFor();
   const afterDiary=await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/records_v2')).find(r=>r.date==='2026-11-06'));
-  assert.equal(afterDiary.sleep,7);assert.equal(afterDiary.dayType,'rest');assert.equal(afterDiary.behaviorsRecorded,true);assert.equal(afterDiary.moyamoya.has,has);assert.deepEqual(afterDiary.moyamoya,record.moyamoya,'saving diary prose must preserve the existing battle');
+  assert.equal(afterDiary.sleep,7);assert.equal(afterDiary.dayType,'rest');assert.equal(afterDiary.behaviorsRecorded,has);assert.deepEqual(afterDiary.behaviors,record.behaviors);assert.equal(afterDiary.moyamoya.has,has);assert.deepEqual(afterDiary.moyamoya,record.moyamoya,'saving diary prose must preserve the existing battle');
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),200);
   await page.goto(base);await homeWithoutPrompt();
   await page.getByRole('button',{name:'部屋のメニュー',exact:true}).click();await page.getByTestId('home-menu-settings').click();await page.getByRole('button',{name:'今日の便り',exact:true}).click();
