@@ -82,7 +82,7 @@ let browser,page;
   await page.getByTestId('diary-input').fill('今日は落ち着いて過ごせた。');
   await page.getByTestId('diary-send').click();await page.getByTestId('diary-user-page').waitFor();
   const afterDiary=await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/records_v2')).find(r=>r.date==='2026-11-06'));
-  assert.equal(afterDiary.sleep,7);assert.equal(afterDiary.dayType,'rest');assert.equal(afterDiary.behaviorsRecorded,true);assert.equal(afterDiary.moyamoya.has,has);
+  assert.equal(afterDiary.sleep,7);assert.equal(afterDiary.dayType,'rest');assert.equal(afterDiary.behaviorsRecorded,true);assert.equal(afterDiary.moyamoya.has,has);assert.deepEqual(afterDiary.moyamoya,record.moyamoya,'saving diary prose must preserve the existing battle');
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),200);
   await page.goto(base);await homeWithoutPrompt();
   await page.getByRole('button',{name:'部屋のメニュー',exact:true}).click();await page.getByTestId('home-menu-settings').click();await page.getByRole('button',{name:'今日の便り',exact:true}).click();

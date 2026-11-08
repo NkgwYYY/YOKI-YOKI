@@ -103,7 +103,7 @@ export function prepareDiary(values:Record<string,string|null>,op:DiaryOperation
     if(!Array.isArray(records))throw Error('今日の記録を確認できません');
     const r=records.find(r=>r.date===today);
     const d=op.details??diaryDetailsFromRecord(r);
-    record=prepareDailyRecord(values,{today,yesterday,mood:op.mood,sleep:d.sleep,behaviors:d.behaviors,notes:d.notes,extras:{...r,...d}},defaults,foodPoints,new Date(now)).result;
+    record=prepareDailyRecord(values,{today,yesterday,mood:op.mood,sleep:d.sleep,behaviors:d.behaviors,notes:d.notes,extras:{...d}},defaults,foodPoints,new Date(now)).result;
     page.user!.details=diaryDetailsFromRecord(record.records.find(r=>r.date===today));
    }
   }

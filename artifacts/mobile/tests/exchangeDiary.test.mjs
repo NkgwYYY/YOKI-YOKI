@@ -1,3 +1,4 @@
+import {recordMoyamoya} from '../utils/moyamoya.ts';
 import * as moyamoya from '../utils/moyamoya.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -136,4 +137,18 @@ test('a prose-only diary send preserves the canonical unified life answers',asyn
  assert.equal(a.record.records.length,1);assert.equal(a.record.records[0].dayType,'work');assert.equal(a.record.records[0].behaviorsRecorded,true);
  assert.equal(a.record.records[0].sleep,6.5);assert.equal(a.record.records[0].notes,'暮らしのメモ');
  assert.equal(a.page.user.details.dayType,'work');assert.equal(a.feed.points,100);
+});
+
+test('prose saves preserve invited, deferred and finished battles without new enemies or rewards',async()=>{
+ for(const status of ['invited','active','declined','won','lost']){
+  const f=fixture();await f.run(open);
+  const moyamoya=recordMoyamoya(undefined,{has:true,pattern:'loop',memo:'同じモヤモヤ'},'same-battle');
+  moyamoya.battle.status=status;
+  moyamoya.rewardClaimed=status==='won';
+  const source={id:'same-day',date:today,mood:4,sleep:7,sleepRecorded:true,behaviors:[],notes:'',fatigue:2,worry:1,moyamoya};
+  f.data.set(k.records,JSON.stringify([source]));
+  const saved=await f.run({...send,mood:4});
+  assert.deepEqual(saved.record.records[0].moyamoya,moyamoya,status+' must not reopen or advance a scenario');
+  assert.equal(saved.feed.points,100);
+ }
 });
