@@ -7,6 +7,7 @@ import StoreKitTest
 final class RoomReleaseJourney58: XCTestCase {
     private let app = XCUIApplication()
     private var store: SKTestSession!
+    private var selectedProduct: String?
     override func setUpWithError() throws {
         continueAfterFailure = false
         store = try SKTestSession(configurationFileNamed: "VisualProducts55")
@@ -148,9 +149,23 @@ final class RoomReleaseJourney58: XCTestCase {
     private func pick(_ id: String) {
         closeDetail()
         tap(element("shop-product-" + id))
+        selectedProduct = id
     }
     private func preview(_ name: String) {
-        visible(element("shop-fitting-preview").descendants(matching: .any).matching(identifier: "resident-renderer-ready").firstMatch)
+        let ready = element("shop-fitting-preview").descendants(matching: .any)
+            .matching(identifier: "resident-renderer-ready").firstMatch
+        // Cold simulator WebKit can hit the app's existing fallback timeout.
+        // Retain that evidence, reopen once through the real product control,
+        // and still require the real renderer. Never accept fallback as ready.
+        if !ready.waitForExistence(timeout: 15), let id = selectedProduct {
+            let fallback = element("shop-fitting-preview").descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier ENDSWITH %@", "-fallback")).firstMatch
+            if fallback.exists {
+                capture(name + "-cold-renderer-fallback")
+                pick(id)
+            }
+        }
+        visible(ready)
         RunLoop.current.run(until: Date().addingTimeInterval(0.35))
         reveal(element("shop-fitting-preview"))
         capture(name)
