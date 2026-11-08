@@ -1,0 +1,24 @@
+name: Verify YOKI YOKI 1.2.6 (54) internal TestFlight availability
+on:
+  push:
+    branches: [release/verify-testflight54-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Confirm uploaded build, tester group and internal testing state
+        env:
+          YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+          YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+          YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+        run: python3 artifacts/mobile/scripts/verify-testflight54.py
+      - name: Remove temporary Apple key
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/yoki-upload54"
