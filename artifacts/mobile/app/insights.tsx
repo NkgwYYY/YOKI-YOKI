@@ -41,12 +41,12 @@ function InsightsNotebook({ context }: { context: ReturnType<typeof usePersonalI
   };
   return <View testID="personal-insights-screen" style={s.root}>
     <View style={[s.nav, { paddingTop: (Platform.OS === 'web' ? 16 : insets.top) + 6 }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="戻る" onPress={() => router.navigate('/(tabs)/condition')} style={s.iconButton}><Icon name="chevron-left" size={22} color="#674F70" /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="戻る" onPress={() => router.dismissTo('/(tabs)/condition')} style={s.iconButton}><Icon name="chevron-left" size={22} color="#674F70" /></Pressable>
       <Text style={s.navTitle}>きろく</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="自分のヒント帳を開く" onPress={() => router.push('/hints')} style={s.iconButton}><Icon name="bookmark" size={22} color="#674F70" /></Pressable>
     </View>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 28 }]}>
-      <View style={{flexDirection:'row',gap:6,padding:4,borderRadius:18,backgroundColor:'#E9E1EE'}}><Pressable testID="insights-changes-tab" accessibilityRole="tab" accessibilityState={{selected:false}} onPress={()=>router.replace('/(tabs)/condition')} style={{flex:1,minHeight:44,alignItems:'center',justifyContent:'center'}}><Text style={s.body}>変化</Text></Pressable><View accessibilityRole="tab" accessibilityState={{selected:true}} style={{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:'#FFFCF6'}}><Text style={s.body}>気づき</Text></View></View>
+      <View style={{flexDirection:'row',gap:6,padding:4,borderRadius:18,backgroundColor:'#E9E1EE'}}><Pressable testID="insights-changes-tab" accessibilityRole="tab" accessibilityState={{selected:false}} onPress={()=>router.dismissTo('/(tabs)/condition')} style={{flex:1,minHeight:44,alignItems:'center',justifyContent:'center'}}><Text style={s.body}>変化</Text></Pressable><View accessibilityRole="tab" accessibilityState={{selected:true}} style={{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:'#FFFCF6'}}><Text style={s.body}>気づき</Text></View></View>
       <View style={s.intro}>
         <View style={s.portrait}><StaticMascot stage={getMascotStage(progress)} mood="happy" size={92} /></View>
         <Text style={s.eyebrow}>{mascotName}と一緒に振り返ろう</Text>
