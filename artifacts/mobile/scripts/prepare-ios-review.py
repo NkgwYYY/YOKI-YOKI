@@ -19,7 +19,7 @@ root = Path(__file__).resolve().parents[3]
 if os.environ.get('YOKI_LOCAL_SIM_APP'):
     app = Path(os.environ['YOKI_LOCAL_SIM_APP'])
     build = {'build_id': 'source-build-' + os.environ['GITHUB_RUN_ID'],
-             'source_commit': os.environ['GITHUB_SHA']}
+             'source_commit': os.environ.get('YOKI_SIM_SOURCE_COMMIT', os.environ['GITHUB_SHA'])}
 else:
     build = json.loads((root / 'docs/qa/ios-review-simulator.json').read_text())
     url = build['artifact_url']
@@ -61,6 +61,12 @@ runtime_version = lambda value: tuple(int(x) for x in re.findall(r'\d+', value))
 minimum_os = runtime_version(info.get('MinimumOSVersion', '17.0'))
 runtimes = sorted({r for r, _ in choices if runtime_version(r) >= minimum_os},
                   key=runtime_version, reverse=True)
+if os.environ.get('YOKI_QA_STOREKIT') == '1':
+    # iOS 26.5 silently rejects SKTestSession configuration in CLI UI tests
+    # (Apple FB22237318). Use an installed compatible unaffected runtime.
+    # This choice only affects the isolated purchase-test simulator.
+    runtimes = [r for r in runtimes if runtime_version(r) < (26, 3)
+                or runtime_version(r) >= (26, 6)]
 if not runtimes:
     raise SystemExit('No installed simulator runtime meets the app minimum OS')
 # Repeated fresh iPhones on one runtime failed OS data migration before install.

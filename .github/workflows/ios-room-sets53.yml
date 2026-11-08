@@ -66,6 +66,7 @@ jobs:
           DEVICE_FAMILY: iPhone
           YOKI_QA_EGG: '0'
           YOKI_QA_ROOMS: '1'
+          YOKI_QA_STOREKIT: '1'
         run: python3 scripts/prepare-ios-review.py
       - name: Exercise room previews, point exchange, StoreKit purchase and restoration
         id: journeys
@@ -80,6 +81,8 @@ jobs:
             xcrun xcresulttool get test-results summary --path review-results/iPhone/native.xcresult > native53-results/test-summary.json || true
           fi
           cp review-results/iPhone/xctest.log native53-results/ 2>/dev/null || true
+          cp review-results/iPhone/available-runtimes.json native53-results/ 2>/dev/null || true
+          cp review-results/iPhone/environment.json native53-results/ 2>/dev/null || true
       - name: Preserve build and diagnostic evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

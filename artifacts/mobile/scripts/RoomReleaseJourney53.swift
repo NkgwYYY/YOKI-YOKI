@@ -10,6 +10,8 @@ final class RoomReleaseJourney53: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         store = try SKTestSession(configurationFileNamed: "RoomProducts53")
+        store.storefront = "JPN"
+        store.locale = Locale(identifier: "ja_JP")
         store.disableDialogs = true
         store.clearTransactions()
     }
@@ -59,7 +61,9 @@ final class RoomReleaseJourney53: XCTestCase {
             // before asking native hit-testing for an activation point.
             // ScrollView and descendant frames already share screen coordinates;
             // intersecting them with Application.frame breaks iPad compatibility.
-            let viewport = surface.frame.insetBy(dx: 0, dy: 16)
+            // The first control can start at the scroll view's exact top edge.
+            // An invented inset makes a visible button impossible to reveal.
+            let viewport = surface.frame
             if scroller != nil && target.exists && !target.frame.isEmpty {
                 let bounds = target.frame
                 let fits = bounds.height <= viewport.height

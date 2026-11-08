@@ -24,4 +24,7 @@ scheme = Xcodeproj::XCScheme.new
 scheme.add_build_target(target)
 scheme.add_test_target(target)
 scheme.test_action.build_configuration = 'Release'
+scheme.launch_action.xml_element.add_element('StoreKitConfigurationFileReference', {
+  'identifier' => File.expand_path('RoomProducts53.storekit', __dir__)
+})
 scheme.save_as(project.path, 'YokiReviewUITests', true)

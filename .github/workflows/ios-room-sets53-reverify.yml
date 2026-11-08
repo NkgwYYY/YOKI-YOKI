@@ -1,0 +1,209 @@
+name: YOKI YOKI 53 native purchase recheck and distribution
+on:
+  push:
+    branches: [release/room-sets53-verified-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: room-sets53-verified
+  cancel-in-progress: false
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      YOKI_SIM_SOURCE_COMMIT: fa007fc962856cbb4a06c1f4ff35f37696f6dc32
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Require unchanged purchase, scene and persistence implementation
+        run: python3 scripts/verify-room53-native-reuse.py
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: yokiyoki-room-sets53-native
+          run-id: 42435491860
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/mobile/prior-native53
+      - name: Restore the verified Release simulator binary
+        run: |
+          test "$(cat prior-native53/source-commit.txt)" = "$YOKI_SIM_SOURCE_COMMIT"
+          mkdir -p "$RUNNER_TEMP/room53-sim" native53-results
+          ditto -x -k prior-native53/YOKIYOKI-simulator.zip "$RUNNER_TEMP/room53-sim"
+          test -f "$RUNNER_TEMP/room53-sim/YOKIYOKI.app/Info.plist"
+          echo "YOKI_LOCAL_SIM_APP=$RUNNER_TEMP/room53-sim/YOKIYOKI.app" >> "$GITHUB_ENV"
+          cp prior-native53/source-commit.txt native53-results/source-commit.txt
+          printf '%s\n' "$GITHUB_SHA" > native53-results/candidate-source-commit.txt
+          xcodebuild -version > native53-results/xcode-version.txt
+      - name: Install corrected native journey runner
+        run: |
+          gem install xcodeproj --version 1.27.0 --no-document
+          ruby scripts/create-room53-xctest.rb "$RUNNER_TEMP/yoki-review-xctest"
+      - name: Prepare a compatible isolated StoreKit simulator
+        env:
+          DEVICE_FAMILY: iPhone
+          YOKI_QA_EGG: '0'
+          YOKI_QA_ROOMS: '1'
+          YOKI_QA_STOREKIT: '1'
+        run: python3 scripts/prepare-ios-review.py
+      - name: Exercise all product screens, point exchange, native purchase and restore
+        id: journeys
+        continue-on-error: true
+        run: |
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -sdk iphonesimulator -destination "platform=iOS Simulator,id=$YOKI_SIMULATOR_UDID" -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO '-only-testing:YokiReviewUITests/RoomReleaseJourney53' test > review-results/iPhone/xctest.log 2>&1 || { tail -100 review-results/iPhone/xctest.log; exit 1; }
+      - name: Export native evidence and preserve the environment
+        if: always()
+        run: |
+          mkdir -p native53-results
+          if [ -d review-results/iPhone/native.xcresult ]; then
+            xcrun xcresulttool export attachments --path review-results/iPhone/native.xcresult --output-path native53-results/attachments || true
+            xcrun xcresulttool get test-results summary --path review-results/iPhone/native.xcresult > native53-results/test-summary.json || true
+          fi
+          cp review-results/iPhone/xctest.log native53-results/ 2>/dev/null || true
+          cp review-results/iPhone/available-runtimes.json native53-results/ 2>/dev/null || true
+          cp review-results/iPhone/environment.json native53-results/ 2>/dev/null || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: yokiyoki-room-sets53-native-verified
+          retention-days: 7
+          path: artifacts/mobile/native53-results/
+      - name: Require successful native journey
+        if: always()
+        env:
+          OUTCOME: ${{ steps.journeys.outcome }}
+        run: test "$OUTCOME" = success
+
+  archive:
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_BATTLE_ADS_TEST_MODE: 'false'
+      EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsueW9raS15b2tpLnJlcGxpdC5hcHAk
+      EXPO_PUBLIC_CLERK_PROXY_URL: https://yoki-yoki.replit.app/api/__clerk
+      EXPO_PUBLIC_ADS_TEST_MODE: 'false'
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Check Apple access and existing release before building
+      id: preflight
+      env:
+        YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+        YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+        YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+      run: python3 scripts/apple-preflight53.py
+    - name: Check existing signing inputs without exposing credentials
+      if: steps.preflight.outputs.already_uploaded != 'true'
+      env:
+        YOKI_DISTRIBUTION_P12_BASE64: ${{ secrets.YOKI_DISTRIBUTION_P12_BASE64 }}
+        YOKI_DISTRIBUTION_P12_PASSWORD: ${{ secrets.YOKI_DISTRIBUTION_P12_PASSWORD }}
+        YOKI_PROVISIONING_PROFILE_BASE64: ${{ secrets.YOKI_PROVISIONING_PROFILE_BASE64 }}
+      run: |-
+        python3 - <<'PYINPUTS'
+        import os
+        required = ['YOKI_DISTRIBUTION_P12_BASE64','YOKI_DISTRIBUTION_P12_PASSWORD','YOKI_PROVISIONING_PROFILE_BASE64']
+        missing = [name for name in required if not os.environ.get(name)]
+        if missing:
+            raise SystemExit('Distribution signing is not configured: ' + ', '.join(missing) + '. No build or upload was attempted.')
+        print('All three existing signing inputs are available; credential values are not displayed.')
+        PYINPUTS
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+      with:
+        node-version: 22.16.0
+    - name: Install frozen dependencies
+      working-directory: .
+      run: |
+        npm install --global pnpm@10.11.0
+        pnpm install --frozen-lockfile --ignore-scripts
+      if: steps.preflight.outputs.already_uploaded != 'true'
+    - name: Check exact distribution source and generate native project
+      run: |
+        pnpm typecheck
+        node --experimental-strip-types --test tests/roomBoutique.test.mjs tests/roomPurchase.test.mjs tests/homeView.test.mjs tests/homeBattleEntry.test.mjs tests/starterFurnishings.test.mjs tests/firstSteps.test.mjs tests/dailyCheckin.test.mjs tests/costumePurchases.test.mjs tests/residentStartup.test.mjs tests/evolvedVolume.test.mjs tests/recovery42.test.mjs tests/moyamoya.test.mjs tests/moyamoyaVariety.test.mjs tests/odangoGeometry.test.mjs tests/dailyRewardPolicyTransport.test.mjs tests/nativeRewardedLifecycle.test.mjs tests/rewardAvailability.test.mjs tests/dailyRecordTransaction.test.mjs tests/checklistTransaction.test.mjs tests/exchangeDiary.test.mjs tests/companionCollection.test.mjs tests/battleInterstitial.test.mjs tests/commerceNativeAds.test.mjs tests/dailyAdsIntegration.test.mjs tests/dailyAdPlacements.test.mjs
+        node scripts/build-native-resident.mjs --check
+        pnpm exec expo prebuild --platform ios --no-install
+        cd ios
+        pod install
+      if: steps.preflight.outputs.already_uploaded != 'true'
+    - name: Archive and export with existing Apple distribution identity
+      env:
+        YOKI_DISTRIBUTION_P12_BASE64: ${{ secrets.YOKI_DISTRIBUTION_P12_BASE64 }}
+        YOKI_DISTRIBUTION_P12_PASSWORD: ${{ secrets.YOKI_DISTRIBUTION_P12_PASSWORD }}
+        YOKI_PROVISIONING_PROFILE_BASE64: ${{ secrets.YOKI_PROVISIONING_PROFILE_BASE64 }}
+      run: bash scripts/sign-ios-release53.sh
+      if: steps.preflight.outputs.already_uploaded != 'true'
+    - name: Preserve signed IPA and diagnostics only
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: yokiyoki-1.2.6-53-distribution
+        retention-days: 3
+        path: |
+          artifacts/mobile/release53-results/export/*.ipa
+          artifacts/mobile/release53-results/*.log
+          artifacts/mobile/release53-results/*.txt
+          artifacts/mobile/release53-results/entitlements.plist
+    - name: Remove temporary Apple upload key
+      if: always()
+      run: rm -rf -- "$RUNNER_TEMP/yoki-upload53"
+  upload:
+    needs: [simulator, archive]
+    runs-on: macos-26
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Check target build and prepare ephemeral Apple upload key
+      id: preflight
+      env:
+        YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+        YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+        YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+      run: python3 scripts/apple-preflight53.py
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      if: steps.preflight.outputs.already_uploaded != 'true'
+      with:
+        name: yokiyoki-1.2.6-53-distribution
+        path: artifacts/mobile/release53-results
+    - name: Upload verified signed build 53 to Apple
+      if: steps.preflight.outputs.already_uploaded != 'true'
+      env:
+        YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+        YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+      run: |
+        set -euo pipefail
+        work="$RUNNER_TEMP/yoki-upload53"
+        cp release53-results/export/YOKIYOKI.ipa "$work/YOKIYOKI.ipa"
+        cd "$work"
+        key_id="$(printf '%s' "$YOKI_ASC_KEY_ID" | tr -d '[:space:]')"
+        issuer_id="$(printf '%s' "$YOKI_ASC_ISSUER_ID" | tr -d '[:space:]')"
+        xcrun altool --upload-app --file "$PWD/YOKIYOKI.ipa" --type ios --apiKey "$key_id" --apiIssuer "$issuer_id"
+        echo 'Apple upload completed; processing and review submission are separate steps.'
+    - name: Verify processing and existing internal TestFlight distribution
+      env:
+        YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+        YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+        YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+        YOKI_RELEASE_MODE: testflight
+      run: python3 scripts/apple-review53.py
+    - name: Remove temporary Apple upload key
+      if: always()
+      run: rm -rf -- "$RUNNER_TEMP/yoki-upload53"
