@@ -1,0 +1,24 @@
+name: Inspect App Store review target 58
+on:
+  push:
+    branches: [release/appstore58-inspect-20261109]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: macos-26
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Read current App Store review and build metadata
+        env:
+          YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+          YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+          YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+          YOKI_RELEASE_MODE: inspect
+        run: python3 artifacts/mobile/scripts/apple-review58.py
+      - name: Remove ephemeral Apple key
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/yoki-upload58"
