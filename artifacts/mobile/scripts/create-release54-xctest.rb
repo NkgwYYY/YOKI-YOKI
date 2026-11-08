@@ -15,6 +15,8 @@ fixture = File.expand_path('RoomProducts53.storekit', __dir__)
 target.resources_build_phase.add_file_reference(project.main_group.new_file(fixture))
 target.build_configurations.each do |configuration|
   configuration.build_settings.merge!({
+    'PRODUCT_NAME' => target.name,
+    'PRODUCT_MODULE_NAME' => target.name,
     'PRODUCT_BUNDLE_IDENTIFIER' => 'dev.yokiyoki.release-uitests',
     'GENERATE_INFOPLIST_FILE' => 'YES',
     'SWIFT_VERSION' => '5.0',
