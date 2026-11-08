@@ -1,3 +1,4 @@
+import {roomGoodArt} from '@/utils/roomBoutiqueArt';
 import React,{useEffect} from 'react';
 import {Image,Platform,StyleSheet,View} from 'react-native';
 import {Gesture,GestureDetector} from 'react-native-gesture-handler';
@@ -11,23 +12,23 @@ import type {HomeFrame} from '@/utils/homeView';
 import {roomDecorSource,roomFurnitureSource,roomFlowerSource} from './RoomFurnitureArt';
 
 type Bounds={left:number;right:number;bottom:number};
-export type FurnishingSelection={kind:RoomItemKind|'decor';id:string};
-export const FURNISHING_NAMES:Record<string,string>={sofa:'ソファ',vanity:'鏡台',bookshelf:'本棚',pink:'ローズ',violet:'バイオレット',rainbow:'レインボー','catalog-decor-cushion':'クッション','catalog-decor-picture-book':'絵本','catalog-decor-plant':'観葉植物','catalog-decor-plush':'ぬいぐるみ','catalog-decor-small-pet':'小さななかま'};
-export type FurnishingEditor={selected:FurnishingSelection|null;enabled:boolean;camera:SharedValue<{zoom:number;panX:number;panY:number}>;frame:HomeFrame;viewport:{width:number;height:number};safeTop:number;safeBottom:number;onSelect:(kind:RoomItemKind|'decor',id:string)=>void;onDrop:(kind:RoomItemKind|'decor',id:string,position:RoomItemPosition)=>void;onClose:()=>void};
+export type FurnishingSelection={kind:RoomItemKind|'decor'|'roomGood';id:string};
+export const FURNISHING_NAMES:Record<string,string>={'bamboo-cushion':'笹クッション','carrot-bed':'にんじんベッド',sofa:'ソファ',vanity:'鏡台',bookshelf:'本棚',pink:'ローズ',violet:'バイオレット',rainbow:'レインボー','catalog-decor-cushion':'クッション','catalog-decor-picture-book':'絵本','catalog-decor-plant':'観葉植物','catalog-decor-plush':'ぬいぐるみ','catalog-decor-small-pet':'小さななかま'};
+export type FurnishingEditor={selected:FurnishingSelection|null;enabled:boolean;camera:SharedValue<{zoom:number;panX:number;panY:number}>;frame:HomeFrame;viewport:{width:number;height:number};safeTop:number;safeBottom:number;onSelect:(kind:RoomItemKind|'decor'|'roomGood',id:string)=>void;onDrop:(kind:RoomItemKind|'decor'|'roomGood',id:string,position:RoomItemPosition)=>void;onClose:()=>void};
 
 /** Shared artwork/positions for HOME and the shop preview; only HOME enables gestures. */
 export function HomeFurnishings({width,height,customization,decor,night=false,safe,editor}:{width:number;height:number;customization:RoomCustomization;decor?:ResidentItem;night?:boolean;safe?:Bounds;editor?:FurnishingEditor}){
  const bounds=safe??{left:8,right:width-8,bottom:height*(width>height?.83:.89)};
- const object=(kind:'furniture'|'flower'|'decor',id:string,source:ReturnType<typeof roomDecorSource>,placement?:ResidentItem)=>{
+ const object=(kind:'furniture'|'flower'|'decor'|'roomGood',id:string,source:ReturnType<typeof roomDecorSource>,placement?:ResidentItem)=>{
   const position=customization.positions?.[roomPositionKey(kind,id)];
   const frame=homeFurnishingFrame(kind,id,width,height,placement,bounds,position);
   return <Furnishing key={`${kind}:${id}`} kind={kind} id={id} source={source} frame={frame} width={width} height={height} night={night} safe={bounds} editor={editor}/>;
  };
- return <>{customization.furniture!=='none'&&object('furniture',customization.furniture,roomFurnitureSource(customization.furniture))}
+ return <>{customization.boutique?.goods.map(id=>object('roomGood',id,roomGoodArt(id)))}{customization.furniture!=='none'&&object('furniture',customization.furniture,roomFurnitureSource(customization.furniture))}
  {customization.flower!=='none'&&object('flower',customization.flower,roomFlowerSource(customization.flower))}
  {decor&&object('decor',decor.id,roomDecorSource(decor.id,decor.uri),decor)}</>;
 }
-function Furnishing({kind,id,source,frame,width,height,night,safe,editor}:{kind:'furniture'|'flower'|'decor';id:string;source:ReturnType<typeof roomDecorSource>;frame:ReturnType<typeof homeFurnishingFrame>;width:number;height:number;night:boolean;safe:Bounds;editor?:FurnishingEditor}){
+function Furnishing({kind,id,source,frame,width,height,night,safe,editor}:{kind:'furniture'|'flower'|'decor'|'roomGood';id:string;source:ReturnType<typeof roomDecorSource>;frame:ReturnType<typeof homeFurnishingFrame>;width:number;height:number;night:boolean;safe:Bounds;editor?:FurnishingEditor}){
  const selected=editor?.selected?.kind===kind&&editor?.selected?.id===id,enabled=!!editor?.enabled;
  const left=useSharedValue(frame.left),top=useSharedValue(frame.top),startX=useSharedValue(frame.left),startY=useSharedValue(frame.top),dragging=useSharedValue(false);
  useEffect(()=>{if(!dragging.value){left.value=frame.left;top.value=frame.top;}},[frame.left,frame.top,frame.width,frame.height,selected]);
@@ -64,7 +65,7 @@ function Furnishing({kind,id,source,frame,width,height,night,safe,editor}:{kind:
  .onFinalize((_e,success)=>{if(!success){scale.value=startScale.value;left.value=startX.value;top.value=startY.value;}dragging.value=false;});
  const tap=Gesture.Tap().enabled(enabled).maxDistance(10).onEnd((_e,success)=>{if(success)runOnJS(choose)();});
  const position=useAnimatedStyle(()=>({width:baseWidth*scale.value,height:baseHeight*scale.value,transform:[{translateX:left.value},{translateY:top.value}]}));
- const art=<View pointerEvents="none" style={StyleSheet.absoluteFill}><View pointerEvents="none" style={s.shadow}/><Image testID={kind==='flower'?`room-flower-${id}`:undefined} source={source} resizeMode="contain" style={s.art}/>{night&&<Image source={source} resizeMode="contain" tintColor="#6B78A6" style={[s.art,{opacity:.15}]}/>} {selected&&<View testID="furnishing-selection-ring" pointerEvents="none" style={s.outline}/>}</View>;
+ const art=<View pointerEvents="none" style={StyleSheet.absoluteFill}><View pointerEvents="none" style={[s.shadow,kind==='roomGood'&&{bottom:id==='bamboo-cushion'?'18%':'10%'}]}/><Image testID={kind==='flower'?`room-flower-${id}`:undefined} source={source} resizeMode="contain" style={s.art}/>{night&&<Image source={source} resizeMode="contain" tintColor="#6B78A6" style={[s.art,{opacity:.15}]}/>} {selected&&<View testID="furnishing-selection-ring" pointerEvents="none" style={s.outline}/>}</View>;
  return <GestureDetector gesture={Gesture.Race(pinch,pan,tap)} touchAction="none"><Animated.View testID={`home-${kind}-${id}`} pointerEvents={editor?'auto':'none'}
   accessible={!!editor} accessibilityRole={editor?'button':undefined} accessibilityLabel={editor?`${FURNISHING_NAMES[id]}。${selected?'ドラッグで位置を変えられます':'タップして配置を変える'}`:undefined} accessibilityState={{selected:!!selected,disabled:!enabled}}
   accessibilityHint="選んでからドラッグで移動、2本指で大きさを変更。指を離すと保存します" onAccessibilityTap={choose}

@@ -11,8 +11,8 @@ export function costumeForProduct(product:string):CostumeId{
 /** Existing build43 ownership is a point purchase; never remove it on restore. */
 export function reconcileCostumePurchases<T extends {wardrobe?:Wardrobe}>(feed:T,products:string[],now=Date.now()):T{
  const wardrobe=readWardrobe(feed.wardrobe),storeOwned=[...new Set(products.map(costumeForProduct))];
- const pointOwned=wardrobe.pointOwned??wardrobe.owned.filter(id=>!wardrobe.storeOwned?.includes(id));
- const owned=[...new Set([...pointOwned,...storeOwned])];
+ const pointOwned=wardrobe.pointOwned??wardrobe.owned.filter(id=>!wardrobe.storeOwned?.includes(id)&&!wardrobe.bundleOwned?.includes(id));
+ const owned=[...new Set([...pointOwned,...storeOwned,...(wardrobe.bundleOwned??[])])];
  const equipped=wardrobe.equipped&&owned.includes(wardrobe.equipped)?wardrobe.equipped:null;
  return {...feed,wardrobe:{...wardrobe,owned,pointOwned,storeOwned,equipped,changedAt:equipped===wardrobe.equipped?wardrobe.changedAt:Math.max(Math.floor(now),wardrobe.changedAt+1)}};
 }

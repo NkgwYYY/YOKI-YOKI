@@ -1,3 +1,5 @@
+import {roomThemeArt} from './roomBoutiqueArt';
+import type {RoomThemeId} from './roomBoutique';
 import { Image, Platform, type ImageSourcePropType } from 'react-native';
 import { Asset } from 'expo-asset';
 import type { WorldMapId } from './worldMaps';
@@ -18,11 +20,11 @@ export const MERCHANT_ART = {
 export const FORTUNE_CAT_ART = webArt(require('@/assets/images/world/fortune-cat.webp'), require('@/assets/images/world/fortune-cat.png'));
 export const HOME_ART={day:require('@/assets/images/world/nook-overview-day.webp'),night:require('@/assets/images/world/nook-overview-night.webp')};
 const HOME_WIDE_ART={day:require('@/assets/images/world/nook-wide-day.webp'),night:require('@/assets/images/world/nook-wide-night.webp')};
-export function homeOverviewArt(night=false,wide=false){return (wide?HOME_WIDE_ART:HOME_ART)[night?'night':'day'];}
+export function homeOverviewArt(night=false,wide=false,theme?:RoomThemeId|null){if(theme)return roomThemeArt(theme,night,wide);return (wide?HOME_WIDE_ART:HOME_ART)[night?'night':'day'];}
 export function prepareHomeOverviewArt(night=false,wide=false):Promise<void>{return prepareImage(homeOverviewArt(night,wide));}
 export const HOME_EYE_ART={day:require('@/assets/images/world/nook-eye-day.webp'),night:require('@/assets/images/world/nook-eye-night.webp')};
 const HOME_EYE_WIDE_ART={day:require('@/assets/images/world/nook-eye-wide-day.webp'),night:require('@/assets/images/world/nook-eye-wide-night.webp')};
-export function homeEyeArt(night=false,wide=false){return (wide?HOME_EYE_WIDE_ART:HOME_EYE_ART)[night?'night':'day'];}
+export function homeEyeArt(night=false,wide=false,theme?:RoomThemeId|null){if(theme)return roomThemeArt(theme,night,wide,true);return (wide?HOME_EYE_WIDE_ART:HOME_EYE_ART)[night?'night':'day'];}
 export function prepareHomeEyeArt(night=false,wide=false):Promise<void>{return prepareImage(homeEyeArt(night,wide));}
 const EMPTY_HOME_ART={
  overview:{day:require('@/assets/images/world/nook-overview-day-empty.webp'),night:require('@/assets/images/world/nook-overview-night-empty.webp')},
@@ -43,7 +45,8 @@ export function starterRoomArt(night=false,wide=false,eye=false){
  return {perspective,empty:EMPTY_HOME_ART[perspective][night?'night':'day'],noLounge:NO_LOUNGE_HOME_ART[perspective][night?'night':'day'],noCabinet:perspective==='eye'?NO_CABINET_EYE_ART[night?'night':'day']:undefined,closet:CLOSET_INTERIOR_ART[night?'night':'day']} as const;
 }
 /** Decode the saved room composition before a camera or map transition starts. */
-export async function prepareHomeRoomArt(night=false,wide=false,eye=false,settings?:StarterFurnishings){
+export async function prepareHomeRoomArt(night=false,wide=false,eye=false,settings?:StarterFurnishings,theme?:RoomThemeId|null){
+ if(theme){await prepareImage(roomThemeArt(theme,night,wide,eye));return;}
  const art=starterRoomArt(night,wide,eye);
  const hidden=STARTER_FURNISHINGS.filter(item=>!starterIsPlaced(settings,item.id));
  const sources=[eye?homeEyeArt(night,wide):homeOverviewArt(night,wide)];

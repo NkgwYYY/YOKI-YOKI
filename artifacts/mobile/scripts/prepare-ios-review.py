@@ -179,6 +179,19 @@ if os.environ.get('YOKI_QA_MOYAMOYA') == '1':
     for record in synthetic_records[:4]:
         record['moyamoya'] = {'has': True, 'pattern': 'busy', 'memo': '', 'participated': True}
 
+room_capture = os.environ.get('YOKI_QA_ROOMS') == '1'
+raw_flags = {}
+if room_capture:
+    today = datetime.now().astimezone().date().isoformat()
+    feed['points'] = 10000
+    feed['wardrobe'] = {'version':1,'owned':['panda'],'equipped':None,'changedAt':1}
+    fixture['@mentore/profile_v1'] = {'nickname':'Yoki QA','ageRange':'回答しない','gender':'回答しない'}
+    fixture['@mentore/records_v2'] = [{'id':'room-qa','date':today,'mood':3,'fatigue':1,'worry':1,'notes':'','moyamoya':{'has':False}}]
+    progress['lastRecordDate'] = today
+    raw_flags['@yoki/first-steps/v1/guest'] = 'done'
+    for kind in ['daily-letter','scenic-return','daily-check-in']:
+        raw_flags[f'@yoki/{kind}/v1/guest/{today}'] = 'home' if kind == 'scenic-return' else 'seen'
+
 fixture['@mentore/progress_v2'] = progress
 manifest = {}
 for key, value in fixture.items():
@@ -190,14 +203,15 @@ for key, value in fixture.items():
     else:
         (storage / hashlib.md5(key.encode('utf-8')).hexdigest()).write_text(encoded, encoding='utf-8')
         manifest[key] = None
+manifest.update(raw_flags)
 (storage / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False), encoding='utf-8')
 (evidence / 'synthetic-fixture.json').write_text(json.dumps({
-    'scope': 'fresh isolated simulator only', 'wallet_points': 5000, 'legacy_character_level': 1 if egg_capture else 3,
+    'scope': 'fresh isolated simulator only', 'wallet_points': feed['points'], 'legacy_character_level': 1 if egg_capture else 3,
     'purpose': 'Verify native rendering, care and furniture persistence, plus real local insight comparison and saved-hint persistence.',
-    'production_app_modified': False, 'profile_seeded': False,
+    'production_app_modified': False, 'profile_seeded': room_capture,
     'synthetic_pattern_days': len(synthetic_records),
     'pattern_expected': None if egg_capture else {'activity': '外に出た', 'selected_days': 9, 'selected_good_days': 9, 'comparison_days': 9, 'comparison_good_days': 0},
-    'current_day_seeded': False,
+    'current_day_seeded': room_capture,
 }, indent=2))
 with open(os.environ['GITHUB_ENV'], 'a') as handle:
     handle.write('YOKI_SIMULATOR_UDID=' + udid + '\n')

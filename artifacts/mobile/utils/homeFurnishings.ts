@@ -1,3 +1,7 @@
+const ROOM_GOODS={
+ 'bamboo-cushion':{x:.77,y:.76,width:.25,aspect:1.5},
+ 'carrot-bed':{x:.25,y:.78,width:.32,aspect:1.5},
+};
 import {homeArtPoint} from './homeGeometry.ts';
 import type {RoomItemPosition} from './roomPlacement';
 
@@ -15,9 +19,9 @@ const DECOR:Record<string,{x:number;y:number;width:number;aspect:number}>={
 };
 type Placement={x:number;y:number;scale:number};
 /** Feet share the resident's floor projection; stored offsets are preserved. */
-export function homeFurnishingFrame(kind:'furniture'|'flower'|'decor',id:string,width:number,height:number,placement:Placement={x:0,y:0,scale:1},safe={left:8,right:width-8,bottom:height*(width>height?.83:.89)},position?:RoomItemPosition){
+export function homeFurnishingFrame(kind:'furniture'|'flower'|'decor'|'roomGood',id:string,width:number,height:number,placement:Placement={x:0,y:0,scale:1},safe={left:8,right:width-8,bottom:height*(width>height?.83:.89)},position?:RoomItemPosition){
  const wide=width>height;
- const spec=kind==='furniture'?FURNITURE[id as keyof typeof FURNITURE]:kind==='flower'?{x:.80,y:.71,width:.13,aspect:.94}:DECOR[id]??{x:.73,y:.80,width:.15,aspect:1};
+ const spec=kind==='furniture'?FURNITURE[id as keyof typeof FURNITURE]:kind==='roomGood'?ROOM_GOODS[id as keyof typeof ROOM_GOODS]:kind==='flower'?{x:.80,y:.71,width:.13,aspect:.94}:DECOR[id]??{x:.73,y:.80,width:.15,aspect:1};
  const scale=Math.max(.55,Math.min(1.45,position?.scale??placement.scale)),w=width*spec.width*(wide?.62:1)*scale,h=w/spec.aspect;
  const foot=homeArtPoint(position??{x:spec.x,y:spec.y},wide);
  const left=Math.max(safe.left,Math.min(safe.right-w,foot.x*width-w/2+(position?0:placement.x)));

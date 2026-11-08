@@ -1,3 +1,4 @@
+import {useRouter} from 'expo-router';
 import React,{useEffect,useRef,useState} from 'react';
 import {View,Text,Pressable,StyleSheet,Image,Modal,ScrollView} from 'react-native';
 import {useApp} from '@/contexts/AppContext';
@@ -9,6 +10,7 @@ import {WardrobePreview} from './WardrobePreview';
 import {Icon} from '@/components/ui/Icon';
 const ART={dog:require('@/assets/images/costumes/dog.png'),cat:require('@/assets/images/costumes/cat.png'),rabbit:require('@/assets/images/costumes/rabbit.png'),frog:require('@/assets/images/costumes/frog.png'),panda:require('@/assets/images/costumes/panda.png')};
 export function CostumeShop({onWear,closet=false}:{onWear?:()=>void;closet?:boolean}){
+ const router=useRouter();
  const {feedState,runCostume,buyCostume,restoreCostumes}=useApp(),wardrobe=readWardrobe(feedState.wardrobe);
  const [buy,setBuy]=useState<CostumeId|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [products,setProducts]=useState<CostumeProduct[]>([]),[loading,setLoading]=useState(!!costumeStore),[retry,setRetry]=useState(0),[catalogError,setCatalogError]=useState('');
@@ -39,6 +41,7 @@ export function CostumeShop({onWear,closet=false}:{onWear?:()=>void;closet?:bool
  return <View style={s.root}>
   {closet?<>
    <WardrobePreview selected={selected}/>
+   {(selected==='panda'||selected==='rabbit')&&<Pressable testID="wardrobe-matching-preview" accessibilityRole="button" disabled={busy} onPress={()=>router.push({pathname:'/room-shop',params:{product:selected==='panda'?'panda-set':'rabbit-set'}})} style={s.pointsButton}><Text style={s.pointsText}>おそろい家具とあわせて見る　›</Text></Pressable>}
    <View accessibilityRole="tablist" style={s.tabs}>{([['all','すべて'],['owned','もっている'],['shop','おみせ']] as const).map(([id,label])=><Pressable key={id} testID={`wardrobe-tab-${id}`} accessibilityRole="tab" accessibilityState={{selected:filter===id}} disabled={busy} onPress={()=>{setFilter(id);if(id==='owned'&&(!selected||!wardrobe.owned.includes(selected)))setSelected(wardrobe.owned[0]??null);if(id==='shop'&&(!selected||wardrobe.owned.includes(selected)))setSelected(COSTUMES.find(c=>!wardrobe.owned.includes(c.id))?.id??null);setError('');setNotice('');}} style={[s.tab,filter===id&&s.tabSelected]}><Text style={[s.tabText,filter===id&&{color:'#FFFDF8'}]}>{label}</Text></Pressable>)}</View>
    <ScrollView testID="wardrobe-catalog" horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail}>
     {[...filtered].sort((a,b)=>Number(b.id==='panda')-Number(a.id==='panda')).map(c=>{const owned=wardrobe.owned.includes(c.id),product=products.find(p=>p.id===COSTUME_PRODUCTS[c.id]);return <Pressable key={c.id} testID={`wardrobe-preview-${c.id}`} accessibilityRole="button" accessibilityLabel={`${c.name}の着ぐるみを確認`} accessibilityState={{selected:selected===c.id}} disabled={busy} onPress={()=>{setSelected(c.id);setError('');setNotice('');}} style={[s.tile,selected===c.id&&s.tileSelected]}><Image source={ART[c.id]} style={s.art} resizeMode="contain"/><Text style={s.name}>{c.name}</Text><Text style={s.tileNote}>{wardrobe.equipped===c.id?'着用中':owned?'もっている':`${c.cost} pt${product?` / ${product.price}`:''}`}</Text>{selected===c.id&&<View style={s.check}><Icon name="check" size={14} color="#FFF"/></View>}</Pressable>;})}

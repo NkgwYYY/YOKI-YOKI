@@ -1,7 +1,7 @@
 export type RoomItemPosition={x:number;y:number;scale?:number;updatedAt?:number};
 export type RoomItemPositions=Record<string,RoomItemPosition>;
-const KEYS=['furniture:sofa','furniture:vanity','furniture:bookshelf','flower:pink','flower:violet','flower:rainbow',...['cushion','picture-book','plant','plush','small-pet'].map(id=>`decor:catalog-decor-${id}`)];
-export const roomPositionKey=(kind:'furniture'|'flower'|'decor',id:string)=>`${kind}:${id}`;
+const KEYS=['roomGood:bamboo-cushion','roomGood:carrot-bed','furniture:sofa','furniture:vanity','furniture:bookshelf','flower:pink','flower:violet','flower:rainbow',...['cushion','picture-book','plant','plush','small-pet'].map(id=>`decor:catalog-decor-${id}`)];
+export const roomPositionKey=(kind:'furniture'|'flower'|'decor'|'roomGood',id:string)=>`${kind}:${id}`;
 /** Positions use the shared room floor coordinates, independent of device pixels. */
 export function roomItemPosition(value:unknown):RoomItemPosition|null{
  if(!value||typeof value!=='object')return null;

@@ -1,3 +1,5 @@
+import {roomStore} from '@/utils/roomStore';
+import {changeRoomBoutique,readRoomCollection,mergeRoomCollections,syncRoomWardrobe,roomPointQuote,roomProductSku,deliverRoomSnapshot,type RoomCollection,type RoomBoutiqueAction,type RoomProductId} from '@/utils/roomBoutique';
 import {prepareMoyamoya,type MoyamoyaInput,type MoyamoyaRecord,type BattleOperation} from '@/utils/moyamoya';
 import {costumeStore} from '@/utils/costumeStore';
 import {COSTUME_PRODUCTS,reconcileCostumePurchases,deliverCostumeSnapshot} from '@/utils/costumePurchases';
@@ -210,6 +212,7 @@ export type RoomFlower = 'none' | 'pink' | 'violet' | 'rainbow';
 export type RoomItemKind = 'furniture' | 'flower';
 
 export interface RoomCustomization {
+  boutique?:RoomCollection;
   starterFurnishings?:StarterFurnishings;
   positions?:import('@/utils/roomPlacement').RoomItemPositions;
   keepsakes?: KeepsakeId[];
@@ -328,7 +331,10 @@ interface AppContextType {
   runCostume:(action:CostumeAction)=>Promise<void>;
   buyCostume:(id:CostumeId)=>Promise<'purchased'|'cancelled'|'pending'>;
   restoreCostumes:()=>Promise<number>;
-  placeRoomItem:(kind:RoomItemKind|'decor',id:string,position:import('@/utils/roomPlacement').RoomItemPosition)=>Promise<boolean>;
+  runRoomBoutique:(action:RoomBoutiqueAction)=>Promise<number>;
+  buyRoomProduct:(id:RoomProductId)=>Promise<'purchased'|'cancelled'|'pending'>;
+  restoreRoomProducts:()=>Promise<number>;
+  placeRoomItem:(kind:RoomItemKind|'decor'|'roomGood',id:string,position:import('@/utils/roomPlacement').RoomItemPosition)=>Promise<boolean>;
   /** 家具や花をポイントで購入する */
   buyRoomItem: (kind: RoomItemKind, id: RoomFurniture | RoomFlower, cost: number) => Promise<{ success: boolean; reason?: 'already_owned' | 'not_enough' | 'invalid' }>;
   companionState: CompanionState;
@@ -787,6 +793,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const cloud=(cloudData[KEYS.ROOM_CUSTOMIZATION]??{}) as RoomCustomization;
       const local=(localData[KEYS.ROOM_CUSTOMIZATION]??{}) as RoomCustomization;
       merged[KEYS.ROOM_CUSTOMIZATION]={...local,...cloud,
+        boutique:mergeRoomCollections(cloud.boutique,local.boutique),
         positions:mergeRoomPositions(cloud.positions,local.positions),
         starterFurnishings:mergeStarterFurnishings(cloud.starterFurnishings,local.starterFurnishings),
         ownedFurniture:[...new Set([...(local.ownedFurniture??[]),...(cloud.ownedFurniture??[])])],
@@ -804,6 +811,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         placements: { ...(cloud.placements ?? {}), ...(local.placements ?? {}) },
       };
     }
+    if(merged[KEYS.FEED_STATE]&&merged[KEYS.ROOM_CUSTOMIZATION])merged[KEYS.FEED_STATE]=syncRoomWardrobe(merged[KEYS.FEED_STATE] as FeedState,readRoomCollection((merged[KEYS.ROOM_CUSTOMIZATION] as RoomCustomization).boutique));
     return merged;
   }, []);
 
@@ -966,6 +974,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // A single saved sofa/rose may be a legitimate purchase. Without a
         // versioned receipt we cannot infer starter ownership and remove it.
         const resolved: RoomCustomization = {
+          boutique:readRoomCollection(parsed.boutique),
           starterFurnishings:readStarterFurnishings(parsed.starterFurnishings),
           positions:readRoomPositions(parsed.positions),
           keepsakes: collectionIds(parsed.keepsakes),
@@ -1298,7 +1307,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return saved.success;
   }, [runRoomOperation]);
 
-  const placeRoomItem=useCallback(async(kind:RoomItemKind|'decor',id:string,position:import('@/utils/roomPlacement').RoomItemPosition)=>{
+  const placeRoomItem=useCallback(async(kind:RoomItemKind|'decor'|'roomGood',id:string,position:import('@/utils/roomPlacement').RoomItemPosition)=>{
     const saved=await runRoomOperation({kind:'place',category:kind,id,position});
     return saved.success;
   },[runRoomOperation]);
@@ -1403,6 +1412,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const active=AppState.addEventListener('change',state=>{if(state==='active')void recoverCostumes().catch(()=>{});});
     return()=>{sub?.remove();active.remove();};
   },[recoverCostumes]);
+
+  const roomPaymentLock=useRef(false),roomRecoveryQueue=useRef<Promise<unknown>>(Promise.resolve());
+  const runRoomBoutique=useCallback(async(action:RoomBoutiqueAction)=>{
+    const token=rewardSessionToken,owner=user?.id??'guest';
+    const check=()=>{if(isLoading||storageError||(isSignedIn&&(!cloudSynced||!user))||pullingRef.current||rewardSession.current.token!==token||bowlingOwner.current!==owner)throw Error('保存の準備ができていません。');};
+    check();
+    if(action.kind==='buy'&&(roomPaymentLock.current||costumePaymentLock.current))throw Error('購入処理が終わるまでお待ちください。');
+    const saved=await AsyncStorage.transaction(values=>{
+      check();const feed:FeedState=values[KEYS.FEED_STATE]?JSON.parse(values[KEYS.FEED_STATE]!):defaultFeedState;
+      const room:RoomCustomization=values[KEYS.ROOM_CUSTOMIZATION]?JSON.parse(values[KEYS.ROOM_CUSTOMIZATION]!):defaultRoomCustomization;
+      const result=changeRoomBoutique(feed,room,action);
+      return {entries:[[KEYS.FEED_STATE,JSON.stringify(result.feed)],[KEYS.ROOM_CUSTOMIZATION,JSON.stringify(result.room)]] as [string,string][],result};
+    });
+    check();feedStateRef.current=saved.feed;setFeedState(saved.feed);setRoomCustomization(saved.room);void pushDataToCloud().catch(()=>{});
+    return saved.paid;
+  },[rewardSessionToken,user?.id,isLoading,storageError,isSignedIn,cloudSynced,pushDataToCloud]);
+  const recoverRoomProducts=useCallback(()=>{
+    const owner=user?.id??'guest',token=rewardSessionToken,current=()=>rewardSession.current.token===token&&bowlingOwner.current===owner;
+    const work=async()=>{
+      if(!roomStore||isLoading||storageError||(isSignedIn&&!cloudSynced)||!current())throw Error('購入の準備ができていません。');
+      const snapshot=await roomStore.snapshot();
+      await deliverRoomSnapshot(snapshot,current,async products=>{await runRoomBoutique({kind:'restore',products});},id=>roomStore!.finish(id));
+      return snapshot.products.length;
+    };
+    const result=roomRecoveryQueue.current.then(work,work);roomRecoveryQueue.current=result.catch(()=>{});return result;
+  },[user?.id,rewardSessionToken,isLoading,storageError,isSignedIn,cloudSynced,runRoomBoutique]);
+  const buyRoomProduct=useCallback(async(id:RoomProductId)=>{
+    if(!roomStore||roomPaymentLock.current||costumePaymentLock.current||isLoading||storageError||(isSignedIn&&!cloudSynced))throw Error('購入の準備ができていません。');
+    const owner=user?.id??'guest',token=rewardSessionToken;
+    roomPaymentLock.current=true;costumePaymentLock.current=true;
+    try{
+      const state=await AsyncStorage.getItem(KEYS.ROOM_CUSTOMIZATION);
+      if(rewardSession.current.token!==token||bowlingOwner.current!==owner)throw Error('利用者が変わりました。');
+      if(!roomPointQuote(id,readRoomCollection(state?JSON.parse(state).boutique:undefined),readWardrobe(feedStateRef.current.wardrobe)))return 'purchased' as const;
+      const result=await roomStore.purchase(roomProductSku(id));
+      if(rewardSession.current.token!==token||bowlingOwner.current!==owner)throw Error('利用者が変わりました。購入の受け取りは次回に再開します。');
+      if(result.status==='purchased'){
+        await recoverRoomProducts();
+        const saved=await AsyncStorage.getItem(KEYS.ROOM_CUSTOMIZATION);
+        if(rewardSession.current.token!==token||bowlingOwner.current!==owner)throw Error('利用者が変わりました。');
+        if(roomPointQuote(id,readRoomCollection(saved?JSON.parse(saved).boutique:undefined),readWardrobe(feedStateRef.current.wardrobe)))throw Error('購入の反映を確認しています。「購入を復元」をお試しください。');
+      }
+      return result.status;
+    }finally{roomPaymentLock.current=false;costumePaymentLock.current=false;}
+  },[user?.id,rewardSessionToken,isLoading,storageError,isSignedIn,cloudSynced,recoverRoomProducts]);
+  const restoreRoomProducts=useCallback(async()=>{if(!roomStore)throw Error('iPhoneアプリで復元できます。');await roomStore.sync();return recoverRoomProducts();},[recoverRoomProducts]);
+  useEffect(()=>{
+    void recoverRoomProducts().catch(()=>{});
+    const sub=roomStore?.addListener('transactionsChanged',()=>{void recoverRoomProducts().catch(()=>{});});
+    const active=AppState.addEventListener('change',state=>{if(state==='active')void recoverRoomProducts().catch(()=>{});});
+    return()=>{sub?.remove();active.remove();};
+  },[recoverRoomProducts]);
 
   const runEggJob = useCallback(async (operation: EggJobOperation) => {
     if (isLoading || (isSignedIn && (!cloudSynced || !user))) throw new Error('データの準備ができていません');
@@ -1691,7 +1752,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setStarterFurnishing,
         selectKeepsake,
         selectRoomItem,
-        placeRoomItem,runCostume,buyStone,buyCostume,restoreCostumes,
+        placeRoomItem,runCostume,buyStone,buyCostume,restoreCostumes,runRoomBoutique,buyRoomProduct,restoreRoomProducts,
         buyRoomItem,
         companionState,
         buyEggCompanion,

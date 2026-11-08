@@ -1,0 +1,158 @@
+{
+  "identifier": "16BD6606-8FB5-4E43-91C0-89E53B3C0001",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "200",
+      "familyShareable": false,
+      "internalID": "53000",
+      "localizations": [
+        {
+          "description": "パンダの着ぐるみと笹クッションの買い切りセット。",
+          "displayName": "パンダのおそろいセット",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "Panda costume and bamboo cushion.",
+          "displayName": "Panda Matching Set",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.room.panda_set",
+      "referenceName": "Panda Matching Set",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "200",
+      "familyShareable": false,
+      "internalID": "53001",
+      "localizations": [
+        {
+          "description": "うさぎの着ぐるみとにんじんベッドの買い切りセット。",
+          "displayName": "うさぎのおそろいセット",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "Rabbit costume and carrot bed.",
+          "displayName": "Rabbit Matching Set",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.room.rabbit_set",
+      "referenceName": "Rabbit Matching Set",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "500",
+      "familyShareable": false,
+      "internalID": "53002",
+      "localizations": [
+        {
+          "description": "雨空の背景、カフェの家具、あたたかな照明のお部屋セット。",
+          "displayName": "雨の日の喫茶店",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "Rainy cafe room, matching furniture and warm lights.",
+          "displayName": "Rainy Day Cafe",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.room.rain_cafe",
+      "referenceName": "Rainy Day Cafe",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "500",
+      "familyShareable": false,
+      "internalID": "53003",
+      "localizations": [
+        {
+          "description": "星空の背景、星モチーフの家具、月と星の照明のお部屋セット。",
+          "displayName": "星空の部屋",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "Starlit room, matching furniture, moon and star lights.",
+          "displayName": "Starlight Room",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.room.star_room",
+      "referenceName": "Starlight Room",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "500",
+      "familyShareable": false,
+      "internalID": "53004",
+      "localizations": [
+        {
+          "description": "和室の背景と畳、和の家具、やさしい行灯のお部屋セット。",
+          "displayName": "やすらぎの和室",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "Tatami room, Japanese furniture and paper lanterns.",
+          "displayName": "Peaceful Tatami Room",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.room.washitsu",
+      "referenceName": "Peaceful Tatami Room",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "200",
+      "familyShareable": false,
+      "internalID": "53005",
+      "localizations": [
+        {
+          "description": "パンダにぴったりの笹クッション。着ぐるみは含みません。",
+          "displayName": "笹クッション",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "A cozy bamboo leaf cushion. Costume sold separately.",
+          "displayName": "Bamboo Cushion",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.room.panda_furniture",
+      "referenceName": "Bamboo Cushion",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "200",
+      "familyShareable": false,
+      "internalID": "53006",
+      "localizations": [
+        {
+          "description": "うさぎにぴったりのにんじんベッド。着ぐるみは含みません。",
+          "displayName": "にんじんベッド",
+          "locale": "ja_JP"
+        },
+        {
+          "description": "A cozy carrot bed. Costume sold separately.",
+          "displayName": "Carrot Bed",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "yokiyoki.room.rabbit_furniture",
+      "referenceName": "Carrot Bed",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_askToBuyEnabled": false,
+    "_failTransactionsEnabled": false,
+    "_locale": "ja_JP",
+    "_storefront": "JPN",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

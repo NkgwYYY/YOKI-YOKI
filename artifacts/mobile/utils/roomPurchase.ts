@@ -1,3 +1,4 @@
+import {readRoomCollection,ownedRoomGoods,type RoomGoodId} from './roomBoutique.ts';
 import type { CompanionState, FeedState, RoomCustomization } from '../contexts/AppContext';
 import {SHOP_STORAGE_KEY} from './itemPurchase.ts';
 import type { StorageEntry } from './recoverableStorage';
@@ -7,7 +8,7 @@ import {isStarterFurnishing,readStarterFurnishings} from './starterFurnishings.t
 export const ROOM_KEYS = { feed: '@mentore/feed_state_v1', room: '@mentore/room_customization_v1', companions: '@mentore/companions_v1' } as const;
 export const ROOM_PRICES = { furniture: { sofa: 450, vanity: 650, bookshelf: 900 }, flower: { pink: 250, violet: 350, rainbow: 550 } } as const;
 export const COMPANION_PRICE = 1000;
-export type RoomOperation = {kind:'starter';id:string;placed:boolean} | { kind: 'companion' } | { kind: 'buy' | 'select'; category: 'furniture' | 'flower'; id: string; cost?: number } | {kind:'place';category:'furniture'|'flower'|'decor';id:string;position:RoomItemPosition};
+export type RoomOperation = {kind:'starter';id:string;placed:boolean} | { kind: 'companion' } | { kind: 'buy' | 'select'; category: 'furniture' | 'flower'; id: string; cost?: number } | {kind:'place';category:'furniture'|'flower'|'decor'|'roomGood';id:string;position:RoomItemPosition};
 
 /** Ownership is the receipt. Recovery and retries never subtract twice. */
 export function prepareRoomOperation(values: Record<string, string | null>, operation: RoomOperation, defaultFeed: FeedState) {
@@ -37,6 +38,10 @@ export function prepareRoomOperation(values: Record<string, string | null>, oper
     feed = { ...feed, points: feed.points - COMPANION_PRICE };
     companions = { ...companions, extraEggs: 1 };
     newlyPurchased = true; target = ROOM_KEYS.companions;
+  } else if(operation.kind==='place'&&operation.category==='roomGood'){
+    const position=roomItemPosition(operation.position),key=roomPositionKey('roomGood',operation.id);
+    if(!ownedRoomGoods(readRoomCollection(room.boutique)).includes(operation.id as RoomGoodId)||!position)return result(false,'invalid');
+    room={...room,positions:{...readRoomPositions(room.positions),[key]:{...position,updatedAt:Date.now()}}};target=ROOM_KEYS.room;
   } else if(operation.kind==='place'&&operation.category==='decor'){
     const shop=parse<{inventory:string[]}>(SHOP_STORAGE_KEY,{inventory:[]});
     const position=roomItemPosition(operation.position),key=roomPositionKey('decor',operation.id);

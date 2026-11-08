@@ -222,6 +222,7 @@ export default function ShopScreen() {
           : 'ログインなしで購入できます。ログインすると端末データをバックアップできます。'}
       </Text>
     )}
+    <Pressable testID="shop-room-sets" accessibilityRole="button" onPress={()=>router.push('/room-shop')} style={[s.customButton,{borderRadius:20,padding:12,backgroundColor:'#F0E6ED'}]}><Text style={s.customText}>おそろい家具・お部屋セット　›</Text></Pressable>
     <Text style={s.shopHelp}>家具・花・置物は、買ったあと「部屋の模様替え」から飾れるよ。</Text>
     <Pressable testID="shop-open-atelier" accessibilityRole="button" style={s.customButton} onPress={()=>router.replace('/?place=home&atelier=furniture')}><Text style={s.customText}>部屋の模様替えへ　›</Text></Pressable>
     <WorldPill label="ごはんを選ぶ" icon="coffee" onPress={()=>setFoodOpen(true)}/>{foodOpen&&<FeedModal visible onClose={()=>setFoodOpen(false)} onFed={()=>setFoodOpen(false)}/>}

@@ -346,7 +346,7 @@ export function WorldHome(props: Props) {
     pending.current=null;setDestination(null);steering.value={x:0,y:0};setMapMessage('');
     const place=WORLD_MAPS.find(p=>p.id===target)!;
     void transition.run(place.name,()=>setMap(target),()=>target==='home'
-      ?prepareHomeRoomArt(props.period==='night',bounds.width>bounds.height,homeView==='eye',props.customization.starterFurnishings)
+      ?prepareHomeRoomArt(props.period==='night',bounds.width>bounds.height,homeView==='eye',props.customization.starterFurnishings,props.customization.boutique?.theme)
       :prepareWorldArt(target,props.period==='night'));
   };
   const request=(point:{x:number;y:number},action:VillageAction)=>{
@@ -391,8 +391,8 @@ export function WorldHome(props: Props) {
     if (success) runOnJS(groundTap)(event.x, event.y);
   });
   const night = props.period === 'night'||map==='tobacco';
-  const source = props.visitScene?VISIT_ART[props.visitScene]:eyeLevel?homeEyeArt(night,bounds.width>bounds.height):map==='home'?homeOverviewArt(night,bounds.width>bounds.height):worldArt(map,night);
-  const starter=map==='home'&&!scenic?{...starterRoomArt(night,bounds.width>bounds.height,eyeLevel),settings:props.customization.starterFurnishings}:undefined;
+  const source = props.visitScene?VISIT_ART[props.visitScene]:eyeLevel?homeEyeArt(night,bounds.width>bounds.height,props.customization.boutique?.theme):map==='home'?homeOverviewArt(night,bounds.width>bounds.height,props.customization.boutique?.theme):worldArt(map,night);
+  const starter=map==='home'&&!scenic&&!props.customization.boutique?.theme?{...starterRoomArt(night,bounds.width>bounds.height,eyeLevel),settings:props.customization.starterFurnishings}:undefined;
   const chooseHomeView=(nextView:HomeView)=>{
     if(map!=='home'||scenic||!props.active||!homePreference.ready||props.food||cleanTool||riding||transition.busy||homeMotion.busy||holding.value||touching.value)return;
     setViewOpen(false);
@@ -400,7 +400,7 @@ export function WorldHome(props: Props) {
     pending.current=null;setDestination(null);portalTravel.value=false;steering.value={x:0,y:0};setMapMessage('');
     void homeMotion.run(
       async()=>{
-        await prepareHomeRoomArt(night,bounds.width>bounds.height,nextView==='eye',props.customization.starterFurnishings);
+        await prepareHomeRoomArt(night,bounds.width>bounds.height,nextView==='eye',props.customization.starterFurnishings,props.customization.boutique?.theme);
         // Save only after the target image is available. A failed save leaves the current view intact.
         await homePreference.persist(nextView);
       },
@@ -454,11 +454,11 @@ export function WorldHome(props: Props) {
       {props.period === 'dusk' && map!=='tobacco' && map!=='home' && <View pointerEvents="none" style={[StyleSheet.absoluteFill, {backgroundColor: '#B5646028'}]} />}
       <GestureDetector gesture={groundGesture}><View testID="world-ground" accessible={false} style={StyleSheet.absoluteFill}/></GestureDetector>
       <WorldAmbient active={active} reduceMotion={props.reduceMotion} night={night} />
-      {map==='home'&&!eyeLevel&&!homeZoomed&&!scenic&&starterIsPlaced(props.customization.starterFurnishings,'bookcase')&&<HomeCloset width={width} height={height} wide={bounds.width>bounds.height} disabled={!active||!!furnishingSelection||!!props.food||!!cleanTool||riding}/>}
+      {map==='home'&&!eyeLevel&&!homeZoomed&&!scenic&&!props.customization.boutique?.theme&&starterIsPlaced(props.customization.starterFurnishings,'bookcase')&&<HomeCloset width={width} height={height} wide={bounds.width>bounds.height} disabled={!active||!!furnishingSelection||!!props.food||!!cleanTool||riding}/>}
       {map==='home'&&!eyeLevel&&<>{props.background && <View pointerEvents="none" style={{position: 'absolute', left: width * 0.276, top: height * 0.244, width: width * 0.072, height: height * 0.065, borderRadius: 14, opacity: 0.55, overflow: 'hidden'}}><Image source={{uri: props.background}} resizeMode="cover" style={s.art} /></View>}
-      {starterIsPlaced(props.customization.starterFurnishings,'bookcase')&&hotspot('album', '思い出の本棚', .46, bounds.width>bounds.height?.40:.368, props.onAlbum)}
-      {starterIsPlaced(props.customization.starterFurnishings,'bed')&&hotspot('bed', 'ベッドでひと休み', bounds.width>bounds.height?.70:.77, bounds.width>bounds.height?.43:.355, props.onRest)}
-      {starterIsPlaced(props.customization.starterFurnishings,'lounge')&&hotspot('record', '交換日記', bounds.width>bounds.height?.22:.285, bounds.width>bounds.height?.60:.54, props.onRecord)}
+      {(props.customization.boutique?.theme||starterIsPlaced(props.customization.starterFurnishings,'bookcase'))&&hotspot('album', '思い出の本棚', .46, bounds.width>bounds.height?.40:.368, props.onAlbum)}
+      {(props.customization.boutique?.theme||starterIsPlaced(props.customization.starterFurnishings,'bed'))&&hotspot('bed', 'ベッドでひと休み', bounds.width>bounds.height?.70:.77, bounds.width>bounds.height?.43:.355, props.onRest)}
+      {(props.customization.boutique?.theme||starterIsPlaced(props.customization.starterFurnishings,'lounge'))&&hotspot('record', '交換日記', bounds.width>bounds.height?.22:.285, bounds.width>bounds.height?.60:.54, props.onRecord)}
       <HomeFurnishings width={width} height={height} customization={props.customization} decor={props.decor} night={night} safe={{left:Math.max(8,12-frame.left),right:Math.min(width-8,bounds.width-frame.left-12),bottom:Math.min(height*.89,bounds.height-Math.max(12,insets.bottom)-76-frame.top)}}
         editor={{selected:furnishingSelection,enabled:active&&!furnishingSaving&&!furnishingError&&!props.food&&!cleanTool&&!riding,camera:sceneCamera,frame,viewport:bounds,safeTop:insets.top+168,safeBottom:bounds.height-Math.max(12,insets.bottom)-76,
           onSelect:(kind,id)=>{if(furnishingWrite.current||furnishingError)return;pending.current=null;setDestination(null);steering.value={x:0,y:0};portalTravel.value=false;cancelAnimation(footX);cancelAnimation(footY);setFurnishingSelection({kind,id});},
@@ -466,6 +466,7 @@ export function WorldHome(props: Props) {
       {keepsake&&keepsake!=='none'&&<View testID="room-displayed-keepsake" pointerEvents="none" style={{position:'absolute',left:width*WORLD_KEEPSAKE.left,top:height*WORLD_KEEPSAKE.top,width:width*WORLD_KEEPSAKE.scale,height:width*WORLD_KEEPSAKE.scale,zIndex:WORLD_KEEPSAKE.depth}}><KeepsakeArt id={keepsake} size={width*WORLD_KEEPSAKE.scale}/></View>}
       {props.companion && <View pointerEvents="none" style={{position: 'absolute', left: width * 0.62, top: height * 0.75, zIndex: 615}}><StaticMascot stage="egg" mood="happy" size={width * 0.085} /></View>}
       </>}
+      {map==='home'&&eyeLevel&&<HomeFurnishings width={width} height={height} customization={{...props.customization,furniture:'none',flower:'none'}} night={night}/>}
       {map==='home'&&!eyeLevel&&<>
         <RoomKeepsakes width={width} height={height} frameLeft={frame.left} frameTop={frame.top} viewportWidth={bounds.width} viewportHeight={bounds.height} safeTop={insets.top+162} night={night} disabled={!active||!!furnishingSelection||!!props.food||riding||!!cleanTool} onBusy={setKeepsakeOpen}/>
         {housekeeping.house.robotPlaced&&<RobotCleaner width={width} height={height} active={active&&!furnishingSelection&&!cleanTool&&!props.food&&!experience} reduceMotion={reduceMotion} riding={riding} footX={footX} footY={footY} onClean={()=>{}} onRide={(x,y)=>{setDestination(null);pending.current=null;portalTravel.value=false;steering.value={x:0,y:0};cancelAnimation(footX);cancelAnimation(footY);footX.value=x;footY.value=y;setRiding(true);props.onInteract('greet');}}/>}
@@ -513,7 +514,7 @@ export function WorldHome(props: Props) {
       {away&&<WorldPill compact icon="sliders" label="景色の見かた" disabled={!active||bowlingBusy} onPress={()=>setViewOpen(true)} />}</View>
     </View>}
 
-    {map==='home'&&(eyeLevel||homeZoomed||!starterIsPlaced(props.customization.starterFurnishings,'bookcase'))&&!scenic&&<View style={{position:'absolute',top:stageTop+12,left:16}}><HomeCloset compact width={width} height={height} wide={false} disabled={!active||!!props.food||!!furnishingSelection||!!cleanTool||riding}/></View>}
+    {map==='home'&&(eyeLevel||homeZoomed||!!props.customization.boutique?.theme||!starterIsPlaced(props.customization.starterFurnishings,'bookcase'))&&!scenic&&<View style={{position:'absolute',top:stageTop+12,left:16}}><HomeCloset compact width={width} height={height} wide={false} disabled={!active||!!props.food||!!furnishingSelection||!!cleanTool||riding}/></View>}
     {props.visitScene&&<View testID="scenic-visit" pointerEvents="box-none" style={{position:'absolute',top:insets.top+169,left:20,right:20,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={{color:'#FFFDF4',fontWeight:'700',fontSize:15,textShadowColor:'#253E35',textShadowRadius:4}}>{VISIT_NAMES[props.visitScene]}</Text><WorldPill testID="scenic-return-home" label="おうちに帰る" icon="home" onPress={()=>props.onReturnHome?.()} disabled={!active||!!props.food}/></View>}
     {eyeLevel&&closeUp&&<View testID="home-eye-level" pointerEvents="box-none" style={{position:'absolute',top:props.feedAssist?Math.min(closeUp.footY+frame.top-(bounds.width>bounds.height?42:20),bounds.height-dockBottom-182):closeUp.footY+frame.top-(bounds.width>bounds.height?42:20),left:props.feedAssist&&bounds.width>bounds.height?bounds.width*.5:20,right:20,flexDirection:'row',gap:12,justifyContent:bounds.width>bounds.height?'flex-start':'space-between'}}><View>{active&&props.feedAssist&&<View style={{position:'absolute',top:'100%',left:0,width:Math.min(bounds.width-40,280),marginTop:12}}><HomeAssistBubble above assist={props.feedAssist} onPress={()=>props.onFeed()} onDismiss={()=>props.onDismissAssist?.()}/></View>}<WorldPill compact testID="eye-feed" label="ごはんを選ぶ" icon="coffee" disabled={!active||!!props.food} onPress={()=>props.onFeed()}/></View><WorldPill compact testID="eye-rest" label="ひと休み" icon="moon" disabled={!active||!!props.food} onPress={props.onRest}/></View>}
     {map!=='home'&&<View pointerEvents="none" style={[s.sceneTitle,{top:insets.top+(tight?115:165)}]}><Text style={[s.sceneName,{fontSize:13}]}>{WORLD_MAPS.find(p=>p.id===map)?.name}</Text></View>}

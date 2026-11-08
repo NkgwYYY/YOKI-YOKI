@@ -120,11 +120,11 @@ if build['attributes'].get('processingState')!='VALID':raise SystemExit('Apple i
 if build['attributes'].get('usesNonExemptEncryption') is None:
     # app.json / ITSAppUsesNonExemptEncryption is already false in the signed app.
     api('/v1/builds/'+bid,'PATCH',{'data':{'type':'builds','id':bid,'attributes':{'usesNonExemptEncryption':False}}})
-existing_groups=items('/v1/builds/'+bid+'/betaGroups')
 known_group=next((g for g in groups if g['id']=='255b6676-7deb-484a-898e-1ac35e613b5e' and g['attributes'].get('isInternalGroup')),None)
 if not known_group:raise SystemExit('The previously verified internal tester group changed')
-if not any(g['id']==known_group['id'] for g in existing_groups):
+existing_builds=items('/v1/betaGroups/'+known_group['id']+'/builds?limit=200')
+if not any(b['id']==bid for b in existing_builds):
     api('/v1/betaGroups/'+known_group['id']+'/relationships/builds','POST',{'data':[{'type':'builds','id':bid}]})
-verified_groups=items('/v1/builds/'+bid+'/betaGroups')
-if not any(g['id']==known_group['id'] for g in verified_groups):raise SystemExit('TestFlight group attachment not confirmed')
+verified_builds=items('/v1/betaGroups/'+known_group['id']+'/builds?limit=200')
+if not any(b['id']==bid for b in verified_builds):raise SystemExit('TestFlight group attachment not confirmed')
 print('TESTFLIGHT_CONFIRMED',bid,'Team (Expo)')

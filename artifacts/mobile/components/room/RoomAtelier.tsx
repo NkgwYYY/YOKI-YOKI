@@ -1,3 +1,5 @@
+import {readRoomCollection,ownedRoomGoods,roomProduct,ROOM_PRODUCTS} from '@/utils/roomBoutique';
+import {roomGoodArt} from '@/utils/roomBoutiqueArt';
 import {colors} from '@/constants/theme';
 import React, {useRef,useState} from 'react';
 import {Image,StyleSheet,Text,View} from 'react-native';
@@ -16,7 +18,7 @@ export type AtelierCategory='starter'|'furniture'|'flower'|'decor'|'cleaning';
 const sections=[{id:'starter',name:'初期家具'},{id:'furniture',name:'家具'},{id:'flower',name:'花'},{id:'decor',name:'置物'},{id:'cleaning',name:'おもちゃ'}] as const;
 export function RoomAtelier({onClose,initialCategory='furniture'}:{onClose:()=>void;initialCategory?:AtelierCategory}){
  const router=useRouter();
- const {feedState,roomCustomization:room,selectRoomItem,setStarterFurnishing,companionState,buyEggCompanion,cleanRoom}=useApp();
+ const {feedState,roomCustomization:room,selectRoomItem,setStarterFurnishing,companionState,buyEggCompanion,cleanRoom,runRoomBoutique}=useApp();
  const {items,shopState,equipItem,updateItemPlacement}=useItems();
  const [tab,setTab]=useState<AtelierCategory>(initialCategory),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const lock=useRef(false);
@@ -30,7 +32,9 @@ export function RoomAtelier({onClose,initialCategory='furniture'}:{onClose:()=>v
  return <BottomSheet visible onClose={onClose} title="部屋の模様替え" subtitle="持っているものを、お気に入りの場所へ。" contentStyle={{gap:12}}>
    <View style={s.tabs} accessibilityRole="tablist">{sections.map(section=><Pressable key={section.id} testID={`atelier-tab-${section.id}`} accessibilityRole="tab" accessibilityLabel={section.name} accessibilityState={{selected:tab===section.id}} onPress={()=>{setTab(section.id);setMessage('');}} style={[s.tab,tab===section.id&&s.tabOn]}><Text style={[s.tabText,tab===section.id&&s.tabTextOn]}>{section.name}</Text></Pressable>)}</View>
    {!!message&&<Text accessibilityLiveRegion="polite" style={s.message}>{message}</Text>}
-   {tab==='starter'&&<>
+   <Pressable testID="atelier-room-sets" accessibilityRole="button" disabled={busy} onPress={()=>{onClose();router.push('/room-shop');}} style={s.shop}><Text style={s.shopText}>おそろい家具・お部屋セット　›</Text></Pressable>
+   {!!room.boutique?.theme&&<><Text style={s.help}>{roomProduct(room.boutique.theme).name}を使用中です。背景・家具・照明をまとめて飾っています。</Text><Pressable testID="atelier-default-room" accessibilityRole="button" disabled={busy} style={s.shop} onPress={()=>void act(async()=>{await runRoomBoutique({kind:'default'});setMessage('いつものお部屋に戻しました。');})}><Text style={s.shopText}>いつものお部屋に戻す</Text></Pressable></>}
+   {tab==='starter'&&!room.boutique?.theme&&<>
      <Text style={s.help}>最初からある家具も、セットごとにしまえます。いつでも無料で戻せます。</Text>
      {STARTER_FURNISHINGS.map(item=>{
        const placed=starterIsPlaced(room.starterFurnishings,item.id);
@@ -41,6 +45,7 @@ export function RoomAtelier({onClose,initialCategory='furniture'}:{onClose:()=>v
      })}
    </>}
    {(tab==='furniture'||tab==='flower')&&<>
+     {tab==='furniture'&&ownedRoomGoods(readRoomCollection(room.boutique)).map(id=>{const placed=room.boutique?.goods.includes(id)??false;return row(id,ROOM_PRODUCTS.find(p=>p.good===id&&p.kind==='furniture')!.name,placed,<Image source={roomGoodArt(id)} resizeMode="contain" style={{width:60,height:60}}/>,async()=>{await runRoomBoutique({kind:'good',id,placed:!placed});setMessage(placed?'家具をしまいました。':'家具を置きました。');});})}
      {roomOption(tab,'none','置かない')}
      {(tab==='furniture'?ROOM_FURNITURE:ROOM_FLOWERS).filter(item=>(tab==='furniture'?room.ownedFurniture:room.ownedFlowers).some(id=>id===item.id)).map(item=>roomOption(tab,item.id,item.name))}
      {(tab==='furniture'?room.ownedFurniture:room.ownedFlowers).length===0&&<Text style={s.help}>まだ{tab==='furniture'?'家具':'花'}を持っていません。ショップで、お気に入りを探してみよう。</Text>}
