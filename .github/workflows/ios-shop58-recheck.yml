@@ -1,0 +1,154 @@
+name: YOKI YOKI 58 exact-binary native recheck and TestFlight
+on:
+  push:
+    branches: [release/shop58-verified-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: shop58-verified
+  cancel-in-progress: false
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 35
+    env:
+      CI: 'true'
+      YOKI_SIM_SOURCE_COMMIT: 3752a0716090a2e7fd10824ec952c810b23ea661
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - name: Require unchanged purchase, scene and persistence implementation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/verify-shop58-native-reuse.py
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: yokiyoki-shop58-native
+          run-id: 42489081023
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/mobile/prior-native58
+      - name: Restore the verified Release simulator binary
+        run: |
+          test "$(cat prior-native58/source-commit.txt)" = "$YOKI_SIM_SOURCE_COMMIT"
+          mkdir -p "$RUNNER_TEMP/shop58-sim" native58-recheck-results
+          ditto -x -k prior-native58/YOKIYOKI-simulator.zip "$RUNNER_TEMP/shop58-sim"
+          test -f "$RUNNER_TEMP/shop58-sim/YOKIYOKI.app/Info.plist"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$RUNNER_TEMP/shop58-sim/YOKIYOKI.app/Info.plist")" = 58
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$RUNNER_TEMP/shop58-sim/YOKIYOKI.app/Info.plist")" = 1.2.6
+          echo "YOKI_LOCAL_SIM_APP=$RUNNER_TEMP/shop58-sim/YOKIYOKI.app" >> "$GITHUB_ENV"
+          cp prior-native58/source-commit.txt native58-recheck-results/source-commit.txt
+          printf '%s\n' "$GITHUB_SHA" > native58-recheck-results/candidate-source-commit.txt
+          xcodebuild -version > native58-recheck-results/xcode-version.txt
+      - name: Check the public authentication proxy before starting
+        run: |
+          curl --fail --silent --show-error --max-time 30 --retry 2 -o /dev/null -w 'Auth environment HTTP %{http_code}\n' https://yoki-yoki.replit.app/api/__clerk/v1/environment
+          curl --fail --silent --show-error --max-time 30 --retry 2 -o /dev/null -w 'Auth client HTTP %{http_code}\n' https://yoki-yoki.replit.app/api/__clerk/v1/client
+      - name: Install corrected native journey runner
+        run: |
+          gem install xcodeproj --version 1.27.0 --no-document
+          ruby scripts/create-shop58-recheck.rb "$RUNNER_TEMP/yoki-review-xctest"
+      - name: Prepare a compatible isolated StoreKit simulator
+        env:
+          DEVICE_FAMILY: iPhone
+          YOKI_QA_EGG: '0'
+          YOKI_QA_ROOMS: '1'
+          YOKI_QA_STOREKIT: '1'
+        run: python3 scripts/prepare-ios-review.py
+      - name: Build only the UI runner and associate the exact installed app
+        run: |
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -sdk iphonesimulator -destination "platform=iOS Simulator,id=$YOKI_SIMULATOR_UDID" -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build-for-testing > review-results/iPhone/test-build.log 2>&1 || { tail -80 review-results/iPhone/test-build.log; exit 1; }
+          python3 scripts/configure-shop58-xctestrun.py
+      - name: Exercise all product screens, point exchange, native purchase and restore
+        id: journeys
+        continue-on-error: true
+        run: |
+          xcodebuild -xctestrun "$YOKI_XCTESTRUN" -destination "platform=iOS Simulator,id=$YOKI_SIMULATOR_UDID" -destination-timeout 180 -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 '-only-testing:YokiReviewUITests/RoomReleaseJourney58' test-without-building > review-results/iPhone/xctest.log 2>&1 || { tail -100 review-results/iPhone/xctest.log; exit 1; }
+      - name: Export native evidence and preserve the environment
+        if: always()
+        run: |
+          mkdir -p native58-recheck-results
+          if [ -d review-results/iPhone/native.xcresult ]; then
+            xcrun xcresulttool export attachments --path review-results/iPhone/native.xcresult --output-path native58-recheck-results/attachments || true
+            xcrun xcresulttool get test-results summary --path review-results/iPhone/native.xcresult > native58-recheck-results/test-summary.json || true
+          fi
+          cp review-results/iPhone/xctest.log native58-recheck-results/ 2>/dev/null || true
+          cp review-results/iPhone/available-runtimes.json native58-recheck-results/ 2>/dev/null || true
+          cp review-results/iPhone/environment.json native58-recheck-results/ 2>/dev/null || true
+          cp review-results/iPhone/configured.xctestrun native58-recheck-results/ 2>/dev/null || true
+          cp review-results/iPhone/test-build.log native58-recheck-results/ 2>/dev/null || true
+          xcrun simctl spawn "$YOKI_SIMULATOR_UDID" log show --last 20m --style compact --predicate 'process == "YOKIYOKI" AND eventMessage CONTAINS "[yoki-auth]"' > native58-recheck-results/app-runtime.log 2>&1 || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: yokiyoki-shop58-native-verified
+          retention-days: 7
+          path: artifacts/mobile/native58-recheck-results/
+      - name: Require successful native journey
+        if: always()
+        env:
+          OUTCOME: ${{ steps.journeys.outcome }}
+        run: test "$OUTCOME" = success
+
+  upload:
+    needs: [simulator]
+    runs-on: macos-26
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+        fetch-depth: 2
+    - name: Require exact original application source and successful archive
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: python3 scripts/verify-shop58-native-reuse.py
+    - name: Check target build and prepare ephemeral Apple upload key
+      id: preflight
+      env:
+        YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+        YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+        YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+      run: python3 scripts/apple-preflight58.py
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      if: steps.preflight.outputs.already_uploaded != 'true'
+      with:
+        name: yokiyoki-1.2.6-58-distribution
+        run-id: 42489081023
+        github-token: ${{ github.token }}
+        path: artifacts/mobile/release58-results
+    - name: Upload verified signed build 58 to Apple
+      if: steps.preflight.outputs.already_uploaded != 'true'
+      env:
+        YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+        YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+      run: |
+        set -euo pipefail
+        test "$(cat release58-results/source-commit.txt)" = 3752a0716090a2e7fd10824ec952c810b23ea661
+        shasum -a 256 --check release58-results/ipa-sha256.txt
+        work="$RUNNER_TEMP/yoki-upload58"
+        cp release58-results/export/YOKIYOKI.ipa "$work/YOKIYOKI.ipa"
+        cd "$work"
+        key_id="$(printf '%s' "$YOKI_ASC_KEY_ID" | tr -d '[:space:]')"
+        issuer_id="$(printf '%s' "$YOKI_ASC_ISSUER_ID" | tr -d '[:space:]')"
+        xcrun altool --upload-app --file "$PWD/YOKIYOKI.ipa" --type ios --apiKey "$key_id" --apiIssuer "$issuer_id"
+        echo 'Apple upload completed; processing and review submission are separate steps.'
+    - name: Verify processing and existing internal TestFlight distribution
+      env:
+        YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+        YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+        YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+        YOKI_RELEASE_MODE: testflight
+      run: python3 scripts/apple-review58.py
+    - name: Remove temporary Apple upload key
+      if: always()
+      run: rm -rf -- "$RUNNER_TEMP/yoki-upload58"

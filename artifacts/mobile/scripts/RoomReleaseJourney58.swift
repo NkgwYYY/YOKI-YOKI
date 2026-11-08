@@ -109,7 +109,13 @@ final class RoomReleaseJourney58: XCTestCase {
 
     private func home() {
         app.launch()
-        visible(element("home-wardrobe"), timeout: 60)
+        // Preserve the real startup recovery path when the auth service stalls.
+        // This is a single user-visible retry, never an authentication bypass.
+        if !element("home-wardrobe").waitForExistence(timeout: 30) && element("auth-startup-retry").exists {
+            capture("auth-startup-before-retry")
+            tap(element("auth-startup-retry"))
+        }
+        visible(element("home-wardrobe"), timeout: 90)
         visible(element("room-resident"))
     }
     private func openShop() {
