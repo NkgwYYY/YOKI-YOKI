@@ -56,5 +56,11 @@ export function paintCostume(ctx:CanvasRenderingContext2D,form:CostumeForm,id:Co
  }
  const paths=new Map<string,Path2D>();
  for(const h of model.fibres){const n=rot(h.n);if(n[2]<.025)continue;const p=rot(h.root);if(h.ear&&p[2]<depth(p[0],p[1])-.1)continue;const screen=xy(p),gx=Math.floor(screen[0]*grid/100),gy=Math.floor(screen[1]*grid/100);if(gx>=0&&gx<grid&&gy>=0&&gy<grid&&p[2]<depths[gy*grid+gx]-.65)continue;const f=Math.round((shade(n)*(.93+h.variation*.14))*20)/20,c=color(h.material,f);let path=paths.get(c);if(!path){path=new Path2D();paths.set(c,path);}const a=xy(p),b=xy(rot(h.tip));path.moveTo(...a);path.lineTo(...b);}
- ctx.lineCap='round';ctx.lineWidth=.11;for(const [c,path]of paths){ctx.strokeStyle=c;ctx.stroke(path);}ctx.lineWidth=.18;drawTriangles(triangles.filter(t=>t.material>=3));ctx.restore();
+ ctx.lineCap='round';ctx.lineWidth=.11;for(const [c,path]of paths){ctx.strokeStyle=c;ctx.stroke(path);}ctx.lineWidth=.18;drawTriangles(triangles.filter(t=>{
+  if(t.material<3)return false;
+  const center=t.p[0].map((v,k)=>(v+t.p[1][k]+t.p[2][k])/3) as V,at=xy(center),x=Math.floor(at[0]*grid/100),y=Math.floor(at[1]*grid/100);
+  // Embroidery is repainted only where the depth surface exposes it. In
+  // particular the back of a frog's pupil must stay behind its green eye.
+  return x<0||x>=grid||y<0||y>=grid||center[2]>=depths[y*grid+x]-1.2;
+ }));ctx.restore();
 }

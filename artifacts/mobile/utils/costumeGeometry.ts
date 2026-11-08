@@ -55,23 +55,24 @@ export function createCostumeMesh(form:CostumeForm,id:CostumeId):Triangle[]{
   const a=i*Math.PI/64,b=(i+1)*Math.PI/64,u=j*Math.PI/4,v=(j+1)*Math.PI/4;
   mesh.push(triangle([rim(a,u),rim(b,u),rim(a,v)],2,true),triangle([rim(a,v),rim(b,u),rim(b,v)],2,true));
  }
- const ellipsoid=(center:V,size:V,material:number,tilt=0)=>{
+ const ellipsoid=(center:V,size:V,material:number,tilt=0,frontOnly=false)=>{
   const point=(phi:number,a:number):V=>{const x=size[0]*Math.sin(phi)*Math.sin(a),y=-size[1]*Math.cos(phi);return [center[0]+x*Math.cos(tilt)-y*Math.sin(tilt),center[1]+x*Math.sin(tilt)+y*Math.cos(tilt),center[2]+size[2]*Math.sin(phi)*Math.cos(a)];};
   for(let i=0;i<16;i++)for(let j=0;j<32;j++){
    const a=j*Math.PI/16,b=(j+1)*Math.PI/16,u=i*Math.PI/16,v=(i+1)*Math.PI/16;
+   if(frontOnly&&Math.cos((a+b)/2)<0)continue;
    mesh.push(triangle([point(u,a),point(u,b),point(v,a)],material,true),triangle([point(u,b),point(v,b),point(v,a)],material,true));
   }
  };
  for(const side of [-1,1]){
   if(id==='dog')ellipsoid([side*r[0]*.93,-r[1]*.34,5],[7,18,5],1,side*-.30);
   // The approved rabbit is lop-eared, not the short upright-ear substitute.
-  if(id==='rabbit'){ellipsoid([side*r[0]*.94,-r[1]*.32,5],[7,21,5],0,side*-.36);ellipsoid([side*r[0]*.97,-r[1]*.29,9.3],[3.5,16,1.2],1,side*-.36);}
+  if(id==='rabbit'){ellipsoid([side*r[0]*.94,-r[1]*.32,5],[7,21,5],0,side*-.36);ellipsoid([side*r[0]*.97,-r[1]*.29,9.3],[3.5,16,1.2],1,side*-.36,true);}
   if(id==='panda')ellipsoid([side*r[0]*.64,-r[1]*.80,0],[8,8,5],1);
-  if(id==='frog'){ellipsoid([side*r[0]*.55,-r[1]*.82,10],[8,8,6],0);ellipsoid([side*r[0]*.55,-r[1]*.85,15.5],[4.6,4.8,1.6],2);ellipsoid([side*r[0]*.55,-r[1]*.85,17],[2.8,3,1],3);ellipsoid([side*r[0]*.55-1,-r[1]*.85-1.1,18],[.9,1,.5],4);}
+  if(id==='frog'){ellipsoid([side*r[0]*.55,-r[1]*.82,10],[8,8,6],0);ellipsoid([side*r[0]*.55,-r[1]*.85,15.5],[4.6,4.8,1.6],2,0,true);ellipsoid([side*r[0]*.55,-r[1]*.85,17],[2.8,3,1],3,0,true);ellipsoid([side*r[0]*.55-1,-r[1]*.85-1.1,18],[.9,1,.5],4,0,true);}
   if(id==='cat'){
    const a:V=[side*r[0]*.40,-r[1]*.86,4],b:V=[side*r[0]*.79,-r[1]*.62,4],tip:V=[side*r[0]*.70,-r[1]-4,0],back:V=[side*r[0]*.60,-r[1]*.78,-5];
    for(const points of [[a,b,tip],[b,a,back],[tip,b,back],[a,tip,back]] as [V,V,V][]){let t=triangle(points,0,true);if(side<0)t={...t,n:t.n.map(x=>-x) as V};mesh.push(t);}
-   const c:V=[side*r[0]*.60,-r[1]*.82,4.2];ellipsoid(c,[3,5,1],1,side*.3);
+   const c:V=[side*r[0]*.60,-r[1]*.82,4.2];ellipsoid(c,[3,5,1],1,side*.3,true);
   }
  }
  // Sewn features follow the curved hood in model coordinates, including

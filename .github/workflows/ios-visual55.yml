@@ -36,7 +36,7 @@ jobs:
       - name: Check candidate source
         run: |
           pnpm typecheck
-          node --experimental-strip-types --test tests/unifiedShop55.test.mjs tests/roomBoutique.test.mjs tests/roomPurchase.test.mjs tests/costumePurchases.test.mjs tests/residentStartup.test.mjs tests/evolvedVolume.test.mjs tests/recovery42.test.mjs tests/moyamoya.test.mjs tests/conditionTrends.test.mjs tests/lifeTrends.test.mjs tests/personalInsights.test.mjs tests/dailyRecordTransaction.test.mjs tests/checklistTransaction.test.mjs tests/exchangeDiary.test.mjs tests/companionCollection.test.mjs
+          node --experimental-strip-types --test tests/costumeVisibility55.test.mjs tests/unifiedShop55.test.mjs tests/roomBoutique.test.mjs tests/roomPurchase.test.mjs tests/costumePurchases.test.mjs tests/residentStartup.test.mjs tests/evolvedVolume.test.mjs tests/recovery42.test.mjs tests/moyamoya.test.mjs tests/conditionTrends.test.mjs tests/lifeTrends.test.mjs tests/personalInsights.test.mjs tests/dailyRecordTransaction.test.mjs tests/checklistTransaction.test.mjs tests/exchangeDiary.test.mjs tests/companionCollection.test.mjs
           node scripts/build-native-resident.mjs --check
           pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/yoki-ios-export" --max-workers 2
       - name: Generate native project
@@ -174,7 +174,7 @@ jobs:
     - name: Check exact distribution source and generate native project
       run: |
         pnpm typecheck
-        node --experimental-strip-types --test tests/unifiedShop55.test.mjs tests/roomBoutique.test.mjs tests/roomPurchase.test.mjs tests/homeView.test.mjs tests/homeBattleEntry.test.mjs tests/starterFurnishings.test.mjs tests/firstSteps.test.mjs tests/dailyCheckin.test.mjs tests/costumePurchases.test.mjs tests/residentStartup.test.mjs tests/evolvedVolume.test.mjs tests/recovery42.test.mjs tests/moyamoya.test.mjs tests/moyamoyaVariety.test.mjs tests/odangoGeometry.test.mjs tests/dailyRewardPolicyTransport.test.mjs tests/nativeRewardedLifecycle.test.mjs tests/rewardAvailability.test.mjs tests/conditionTrends.test.mjs tests/lifeTrends.test.mjs tests/personalInsights.test.mjs tests/dailyRecordTransaction.test.mjs tests/checklistTransaction.test.mjs tests/exchangeDiary.test.mjs tests/companionCollection.test.mjs tests/battleInterstitial.test.mjs tests/commerceNativeAds.test.mjs tests/dailyAdsIntegration.test.mjs tests/dailyAdPlacements.test.mjs
+        node --experimental-strip-types --test tests/costumeVisibility55.test.mjs tests/unifiedShop55.test.mjs tests/roomBoutique.test.mjs tests/roomPurchase.test.mjs tests/homeView.test.mjs tests/homeBattleEntry.test.mjs tests/starterFurnishings.test.mjs tests/firstSteps.test.mjs tests/dailyCheckin.test.mjs tests/costumePurchases.test.mjs tests/residentStartup.test.mjs tests/evolvedVolume.test.mjs tests/recovery42.test.mjs tests/moyamoya.test.mjs tests/moyamoyaVariety.test.mjs tests/odangoGeometry.test.mjs tests/dailyRewardPolicyTransport.test.mjs tests/nativeRewardedLifecycle.test.mjs tests/rewardAvailability.test.mjs tests/conditionTrends.test.mjs tests/lifeTrends.test.mjs tests/personalInsights.test.mjs tests/dailyRecordTransaction.test.mjs tests/checklistTransaction.test.mjs tests/exchangeDiary.test.mjs tests/companionCollection.test.mjs tests/battleInterstitial.test.mjs tests/commerceNativeAds.test.mjs tests/dailyAdsIntegration.test.mjs tests/dailyAdPlacements.test.mjs
         node scripts/build-native-resident.mjs --check
         pnpm exec expo prebuild --platform ios --no-install
         cd ios
