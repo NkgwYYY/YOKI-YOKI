@@ -73,8 +73,17 @@ final class RoomReleaseJourney58: XCTestCase {
             }
             // A return button can be above the viewport after scrolling a form.
             // Use its native screen frame to reveal it in the correct direction.
-            if target.exists && target.frame.height > 0 &&
-                target.frame.minY < viewport.minY {
+            if let scroll = scroller, viewport.height > 0, target.exists {
+                // Full swipes overshoot the larger room cards and oscillate.
+                // Move toward the card center with a bounded, held drag.
+                let delta = max(-viewport.height * 0.28,
+                                min(viewport.height * 0.28, target.frame.midY - viewport.midY))
+                let startY: CGFloat = delta >= 0 ? 0.66 : 0.34
+                let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+                let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY - delta / viewport.height))
+                start.press(forDuration: 0.1, thenDragTo: end,
+                            withVelocity: .slow, thenHoldForDuration: 0.2)
+            } else if target.exists && target.frame.height > 0 && target.frame.minY < viewport.minY {
                 surface.swipeDown(velocity: .slow)
             } else {
                 surface.swipeUp(velocity: .slow)
