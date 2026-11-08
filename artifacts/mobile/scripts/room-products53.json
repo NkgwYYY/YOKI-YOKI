@@ -1,0 +1,65 @@
+[
+  {
+    "productId": "yokiyoki.room.panda-set",
+    "name": "パンダのおそろいセット",
+    "description": "パンダの着ぐるみと笹クッションの買い切りセット。",
+    "englishName": "Panda Matching Set",
+    "englishDescription": "Panda costume and bamboo cushion.",
+    "yen": 200,
+    "reviewNote": "The bundle includes the costume and matching furniture."
+  },
+  {
+    "productId": "yokiyoki.room.rabbit-set",
+    "name": "うさぎのおそろいセット",
+    "description": "うさぎの着ぐるみとにんじんベッドの買い切りセット。",
+    "englishName": "Rabbit Matching Set",
+    "englishDescription": "Rabbit costume and carrot bed.",
+    "yen": 200,
+    "reviewNote": "The bundle includes the costume and matching furniture."
+  },
+  {
+    "productId": "yokiyoki.room.rain-cafe",
+    "name": "雨の日の喫茶店",
+    "description": "雨空の背景、カフェの家具、あたたかな照明のお部屋セット。",
+    "englishName": "Rainy Day Cafe",
+    "englishDescription": "A rainy cafe room with matching furniture and warm lights.",
+    "yen": 500,
+    "reviewNote": "Background, furniture and lighting are applied together as a complete room theme."
+  },
+  {
+    "productId": "yokiyoki.room.star-room",
+    "name": "星空の部屋",
+    "description": "星空の背景、星モチーフの家具、月と星の照明のお部屋セット。",
+    "englishName": "Starlight Room",
+    "englishDescription": "A starlit room with matching furniture and moon and star lights.",
+    "yen": 500,
+    "reviewNote": "Background, furniture and lighting are applied together as a complete room theme."
+  },
+  {
+    "productId": "yokiyoki.room.washitsu",
+    "name": "やすらぎの和室",
+    "description": "和室の背景と畳、和の家具、やさしい行灯のお部屋セット。",
+    "englishName": "Peaceful Tatami Room",
+    "englishDescription": "A tatami room with Japanese furniture and paper lanterns.",
+    "yen": 500,
+    "reviewNote": "Background, furniture and lighting are applied together as a complete room theme."
+  },
+  {
+    "productId": "yokiyoki.room.panda-furniture",
+    "name": "笹クッション",
+    "description": "パンダにぴったりの笹クッション。着ぐるみは含みません。",
+    "englishName": "Bamboo Cushion",
+    "englishDescription": "A cozy bamboo leaf cushion. Costume sold separately.",
+    "yen": 200,
+    "reviewNote": "Furniture only; costume sold separately."
+  },
+  {
+    "productId": "yokiyoki.room.rabbit-furniture",
+    "name": "にんじんベッド",
+    "description": "うさぎにぴったりのにんじんベッド。着ぐるみは含みません。",
+    "englishName": "Carrot Bed",
+    "englishDescription": "A cozy carrot bed. Costume sold separately.",
+    "yen": 200,
+    "reviewNote": "Furniture only; costume sold separately."
+  }
+]
