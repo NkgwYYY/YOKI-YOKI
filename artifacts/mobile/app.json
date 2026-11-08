@@ -19,7 +19,7 @@
     },
     "ios": {
       "bundleIdentifier": "app.replit.yokiyoki--",
-      "buildNumber": "53",
+      "buildNumber": "54",
       "supportsTablet": false,
       "infoPlist": {
         "CFBundleDevelopmentRegion": "ja",
