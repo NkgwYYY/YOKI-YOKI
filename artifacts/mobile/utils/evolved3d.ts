@@ -1,6 +1,7 @@
 /** Small dependency-free 3D projection renderer. Curved fibres, facial features
  * and leaves share model coordinates; geometry is built once per form. */
-import {projectCostume,type CostumeId} from './costumeGeometry';
+import type {CostumeId} from './costumeGeometry';
+import {paintCostume} from './costumeRenderer';
 import {softContactHeight,softContactSpread} from './softContact';
 import {createOdangoCoat} from './odangoFur';
 export type EvolvedForm = 'odango' | 'stage3' | 'stage4';
@@ -208,10 +209,7 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
       if(pose.mouthOpen>.08){const p=surface(0,shape.mouthY);if(visible(p)){p[2]+=2;ellipse(p,[3.3,3.8*pose.mouthOpen,.5]);ctx.fillStyle='#654442';ctx.fill();}}
       else{ctx.beginPath();let connected=false;for(let i=0;i<=30;i++){const x=mouthHalfWidth*(i/15-1),curve=form==='odango'?(-2.2+3.8*(pose.smile??Number(pose.happy))):(.48+.52*(pose.smile??Number(pose.happy)))*FACE.mouthCurve,y=shape.mouthY+curve*(1-(x/mouthHalfWidth)**2),p=surface(x,y);if(!visible(p)){connected=false;continue;}p[2]+=2.1;const q=rot(p);if(connected)ctx.lineTo(q[0],q[1]);else ctx.moveTo(q[0],q[1]);connected=true;}ctx.lineWidth=form==='odango'?1.45:1.15;ctx.strokeStyle=form==='odango'?'#292D28':'#6B535C';ctx.stroke();}
       drawLeaves(true);
-      if(pose.costume){
-        ctx.save();ctx.setTransform(canvas.width/100,0,0,canvas.height/100,0,0);
-        for(const layer of projectCostume(form,pose.costume,pose.rx,pose.ry,pose.rz,pose.night))if(layer.d){const path=new Path2D(layer.d);ctx.fillStyle=ctx.strokeStyle=layer.fill;ctx.lineWidth=.22;ctx.lineJoin='round';ctx.fill(path);ctx.stroke(path);if(layer.fur){ctx.strokeStyle='rgba(255,250,240,.20)';ctx.lineWidth=.20;ctx.lineCap='round';ctx.stroke(new Path2D(layer.fur));}}ctx.restore();
-      }
+      if(pose.costume)paintCostume(ctx,form,pose.costume,pose.rx,pose.ry,pose.rz,pose.night);
       if(pose.smoking){const p=surface(FACE.mouthHalfWidth,shape.mouthY);if(visible(p)){p[2]+=3;const at=(x:number)=>rot([p[0]+x,p[1]-.04*x,p[2]+.22*x]);for(const [a,b,c] of [[0,5,'#c5a174'],[5,18,'#f3eee1'],[18,19,'#e99461']] as const){const q=at(a),end=at(b);ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(end[0],end[1]);ctx.lineWidth=1.65;ctx.strokeStyle=c;ctx.stroke();}const q=at(19);ctx.beginPath();ctx.moveTo(q[0],q[1]-2);ctx.bezierCurveTo(q[0]+6,q[1]-12,q[0]-4,q[1]-17,q[0]+1,q[1]-25);ctx.strokeStyle='rgba(231,233,225,.65)';ctx.lineWidth=.65;ctx.stroke();}}
       canvas.dataset.renderMs=(performance.now()-started).toFixed(1);
     },

@@ -1,0 +1,8 @@
+// Generated from the exact resident/costume renderer by render-costumes55.cjs.
+import type {CostumeId} from './costumeGeometry';
+import type {MascotStage} from './mascotUtils';
+const ART={egg:{dog:require('@/assets/images/costumes/render55/egg-dog.webp'),cat:require('@/assets/images/costumes/render55/egg-cat.webp'),rabbit:require('@/assets/images/costumes/render55/egg-rabbit.webp'),frog:require('@/assets/images/costumes/render55/egg-frog.webp'),panda:require('@/assets/images/costumes/render55/egg-panda.webp')},
+odango:{dog:require('@/assets/images/costumes/render55/odango-dog.webp'),cat:require('@/assets/images/costumes/render55/odango-cat.webp'),rabbit:require('@/assets/images/costumes/render55/odango-rabbit.webp'),frog:require('@/assets/images/costumes/render55/odango-frog.webp'),panda:require('@/assets/images/costumes/render55/odango-panda.webp')},
+stage3:{dog:require('@/assets/images/costumes/render55/stage3-dog.webp'),cat:require('@/assets/images/costumes/render55/stage3-cat.webp'),rabbit:require('@/assets/images/costumes/render55/stage3-rabbit.webp'),frog:require('@/assets/images/costumes/render55/stage3-frog.webp'),panda:require('@/assets/images/costumes/render55/stage3-panda.webp')},
+stage4:{dog:require('@/assets/images/costumes/render55/stage4-dog.webp'),cat:require('@/assets/images/costumes/render55/stage4-cat.webp'),rabbit:require('@/assets/images/costumes/render55/stage4-rabbit.webp'),frog:require('@/assets/images/costumes/render55/stage4-frog.webp'),panda:require('@/assets/images/costumes/render55/stage4-panda.webp')},};
+export function costumeThumbnail(stage:MascotStage,id:CostumeId){return ART[stage as keyof typeof ART]?.[id]??ART.odango[id];}

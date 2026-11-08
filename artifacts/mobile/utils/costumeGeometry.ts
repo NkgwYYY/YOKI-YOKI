@@ -1,11 +1,13 @@
 import {softContactHeight,softContactSpread} from './softContact';
 export type CostumeId='dog'|'cat'|'rabbit'|'frog'|'panda';
 export type CostumeForm='egg'|'odango'|'stage3'|'stage4';
-type V=[number,number,number];
-type Triangle={p:[V,V,V];n:V;material:number;ear:boolean};
-const radii:Record<CostumeForm,V>={egg:[33,41,27],odango:[41,40,38],stage3:[40,39,37.5],stage4:[40,39,37.5]};
+export type CostumeVector=[number,number,number];
+type V=CostumeVector;
+export type CostumeTriangle={p:[V,V,V];n:V;material:number;ear:boolean};
+type Triangle=CostumeTriangle;
+export const costumeRadii:Record<CostumeForm,V>={egg:[33,41,27],odango:[41,40,38],stage3:[40,39,37.5],stage4:[40,39,37.5]};
 // Garment, ears/lower panel, piping, embroidery, eye whites, button/lining.
-const colors:Record<CostumeId,string[]>={dog:['#D49B64','#CD9057','#F0D4AE','#4F392E','#FFF9ED','#B77840'],cat:['#A2B2CA','#E5A7AC','#AFBFD4','#414852','#FFF9F2','#D9959F'],rabbit:['#F0D8CE','#E9ADB2','#F8E5D9','#9C665E','#FFF8F2','#DC969C'],frog:['#A4B18B','#96A37E','#F9F8EE','#303B2C','#F9F8EE','#7E8B61'],panda:['#F3EADD','#42434A','#F8EEDF','#33343A','#FFFAF1','#73736F']};
+export const costumeColors:Record<CostumeId,string[]>={dog:['#D49B64','#CD9057','#F0D4AE','#4F392E','#FFF9ED','#B77840'],cat:['#A2B2CA','#E5A7AC','#AFBFD4','#414852','#FFF9F2','#D9959F'],rabbit:['#F0D8CE','#E9ADB2','#F8E5D9','#9C665E','#FFF8F2','#DC969C'],frog:['#A4B18B','#96A37E','#F9F8EE','#303B2C','#F9F8EE','#7E8B61'],panda:['#F3EADD','#42434A','#F8EEDF','#33343A','#FFFAF1','#73736F']};
 const SHADES=16;
 export const COSTUME_LAYER_COUNT=6*SHADES;
 const sub=(a:V,b:V):V=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
@@ -16,7 +18,7 @@ function triangle(p:[V,V,V],material:number,ear=false):Triangle{
 /** A thin garment around the original surface, open from forehead to belly.
  * The opening is geometry, never a clipped or independently rotated portrait. */
 export function createCostumeMesh(form:CostumeForm,id:CostumeId):Triangle[]{
- const r=radii[form],mesh:Triangle[]=[];
+ const r=costumeRadii[form],mesh:Triangle[]=[];
  const boundary=(a:number)=>{
   // Leave the original cheeks and most of the torso exposed. The brow has
   // enough cloth for the reference costume's embroidery, above the real eyes.
@@ -27,8 +29,8 @@ export function createCostumeMesh(form:CostumeForm,id:CostumeId):Triangle[]{
   const start=boundary(a),phi=start+(Math.PI-start)*t,y=Math.sin(phi)*Math.sin(a)*r[1],taper=form==='egg'?1+y/300:1;
   return [(r[0]+1.3)*Math.sin(phi)*Math.cos(a)*taper,(r[1]+1.3)*Math.sin(phi)*Math.sin(a),(r[2]+1.3)*Math.cos(phi)*taper];
  };
- for(let lat=0;lat<18;lat++)for(let lon=0;lon<64;lon++){
-  const a=lon*Math.PI/32,b=(lon+1)*Math.PI/32,u=lat/18,v=(lat+1)/18;
+ for(let lat=0;lat<24;lat++)for(let lon=0;lon<80;lon++){
+  const a=lon*Math.PI/40,b=(lon+1)*Math.PI/40,u=lat/24,v=(lat+1)/24;
   const p=surface(u,a),q=surface(v,a),s=surface(u,b),t=surface(v,b);
   const addCloth=(points:[V,V,V])=>{
    if(id!=='panda'){mesh.push(triangle(points,0));return;}
@@ -41,10 +43,22 @@ export function createCostumeMesh(form:CostumeForm,id:CostumeId):Triangle[]{
   };
   addCloth([p,q,s]);addCloth([s,q,t]);
  }
+ // A rounded fabric binding follows the actual opening in model space.
+ // It has no independent face plane and never resizes the underlying resident.
+ const rim=(a:number,t:number):V=>{
+  const center=surface(0,a),length=Math.hypot(...center),out=center.map(v=>v/length) as V;
+  const tangent:V=[-Math.sin(a),Math.cos(a),0];
+  const across:V=[out[1]*tangent[2]-out[2]*tangent[1],out[2]*tangent[0]-out[0]*tangent[2],out[0]*tangent[1]-out[1]*tangent[0]];
+  return center.map((v,k)=>v+.68*(Math.cos(t)*out[k]+Math.sin(t)*across[k])) as V;
+ };
+ for(let i=0;i<128;i++)for(let j=0;j<8;j++){
+  const a=i*Math.PI/64,b=(i+1)*Math.PI/64,u=j*Math.PI/4,v=(j+1)*Math.PI/4;
+  mesh.push(triangle([rim(a,u),rim(b,u),rim(a,v)],2,true),triangle([rim(a,v),rim(b,u),rim(b,v)],2,true));
+ }
  const ellipsoid=(center:V,size:V,material:number,tilt=0)=>{
   const point=(phi:number,a:number):V=>{const x=size[0]*Math.sin(phi)*Math.sin(a),y=-size[1]*Math.cos(phi);return [center[0]+x*Math.cos(tilt)-y*Math.sin(tilt),center[1]+x*Math.sin(tilt)+y*Math.cos(tilt),center[2]+size[2]*Math.sin(phi)*Math.cos(a)];};
-  for(let i=0;i<10;i++)for(let j=0;j<16;j++){
-   const a=j*Math.PI/8,b=(j+1)*Math.PI/8,u=i*Math.PI/10,v=(i+1)*Math.PI/10;
+  for(let i=0;i<16;i++)for(let j=0;j<32;j++){
+   const a=j*Math.PI/16,b=(j+1)*Math.PI/16,u=i*Math.PI/16,v=(i+1)*Math.PI/16;
    mesh.push(triangle([point(u,a),point(u,b),point(v,a)],material,true),triangle([point(u,b),point(v,b),point(v,a)],material,true));
   }
  };
@@ -63,14 +77,23 @@ export function createCostumeMesh(form:CostumeForm,id:CostumeId):Triangle[]{
  // Sewn features follow the curved hood in model coordinates, including
  // during turns and rolls. They never replace the resident's own face.
  const onCloth=(x:number,y:number,lift=.3):V=>[(r[0]+1.3)*x,(r[1]+1.3)*y,(r[2]+1.3)*Math.sqrt(Math.max(.001,1-x*x-y*y))+lift];
+ // Tessellate sewn features along the same curved shell. A large flat
+ // triangle can cut inside the body and vanish at some viewing angles.
+ const sewn=(a:[number,number],b:[number,number],c:[number,number],material:number,lift=.5,steps=4)=>{
+  const at=(i:number,j:number):V=>onCloth(a[0]+(b[0]-a[0])*i/steps+(c[0]-a[0])*j/steps,a[1]+(b[1]-a[1])*i/steps+(c[1]-a[1])*j/steps,lift);
+  for(let i=0;i<steps;i++)for(let j=0;j<steps-i;j++){
+   mesh.push(triangle([at(i,j),at(i+1,j),at(i,j+1)],material,true));
+   if(i+j<steps-1)mesh.push(triangle([at(i+1,j),at(i+1,j+1),at(i,j+1)],material,true));
+  }
+ };
  const patch=(x:number,y:number,w:number,h:number,material:number,tilt=0)=>{
-  const point=(a:number):V=>{const dx=Math.cos(a)*w,dy=Math.sin(a)*h;return onCloth(x+dx*Math.cos(tilt)-dy*Math.sin(tilt),y+dx*Math.sin(tilt)+dy*Math.cos(tilt),.5);};
-  for(let i=0;i<40;i++)mesh.push(triangle([onCloth(x,y,.5),point(i*Math.PI/20),point((i+1)*Math.PI/20)],material,true));
+  const point=(a:number):[number,number]=>{const dx=Math.cos(a)*w,dy=Math.sin(a)*h;return [x+dx*Math.cos(tilt)-dy*Math.sin(tilt),y+dx*Math.sin(tilt)+dy*Math.cos(tilt)];};
+  for(let i=0;i<40;i++)sewn([x,y],point(i*Math.PI/20),point((i+1)*Math.PI/20),material,.55,3);
  };
  const stitch=(points:[number,number][],width:number,material=3)=>{
   for(let i=1;i<points.length;i++){const [x,y]=points[i-1],[u,v]=points[i],len=Math.hypot(u-x,v-y)||1,dx=-(v-y)/len*width,dy=(u-x)/len*width;
-   const a=onCloth(x+dx,y+dy),b=onCloth(x-dx,y-dy),c=onCloth(u+dx,v+dy),d=onCloth(u-dx,v-dy);
-   mesh.push(triangle([a,b,c],material,true),triangle([c,b,d],material,true));
+   const a:[number,number]=[x+dx,y+dy],b:[number,number]=[x-dx,y-dy],c:[number,number]=[u+dx,v+dy],d:[number,number]=[u-dx,v-dy];
+   sewn(a,b,c,material,.7,3);sewn(c,b,d,material,.7,3);
   }
  };
  if(id==='panda')for(const side of [-1,1])patch(side*.31,-.79,.145,.085,3,side*.62);
@@ -78,7 +101,7 @@ export function createCostumeMesh(form:CostumeForm,id:CostumeId):Triangle[]{
  if(id==='panda'||id==='dog'||id==='cat'||id==='rabbit'){
   const material=id==='rabbit'?5:3;
   const nose=[[-.065,-.82],[.065,-.82],[0,-.755]] as [number,number][];
-  mesh.push(triangle(nose.map(([x,y])=>onCloth(x,y,.8)) as [V,V,V],material,true));
+  sewn(nose[0],nose[1],nose[2],material,.85,4);
   stitch([[0,-.77],[0,-.715]],.010,material);
   if(id==='dog')for(const side of [-1,1])stitch([[0,-.74],[side*.045,-.705],[side*.10,-.70]],.012);
  }
@@ -94,10 +117,10 @@ export function createCostumeMesh(form:CostumeForm,id:CostumeId):Triangle[]{
  return mesh;
 }
 const meshes={} as Record<string,Triangle[]>;
-for(const form of Object.keys(radii) as CostumeForm[])for(const id of Object.keys(colors) as CostumeId[])meshes[`${form}:${id}`]=createCostumeMesh(form,id);
+for(const form of Object.keys(costumeRadii) as CostumeForm[])for(const id of Object.keys(costumeColors) as CostumeId[])meshes[`${form}:${id}`]=createCostumeMesh(form,id);
 export function projectCostume(form:CostumeForm,id:CostumeId,rx:number,ry:number,rz:number,night=false){
  'worklet';
- const r=radii[form],cx=Math.cos(rx),sx=Math.sin(rx),cy=Math.cos(ry),sy=Math.sin(ry),cz=Math.cos(rz),sz=Math.sin(rz);
+ const r=costumeRadii[form],cx=Math.cos(rx),sx=Math.sin(rx),cy=Math.cos(ry),sy=Math.sin(ry),cz=Math.cos(rz),sz=Math.sin(rz);
  const m=[cy*cz,cy*sz,-sy,sx*sy*cz-cx*sz,sx*sy*sz+cx*cz,sx*cy,cx*sy*cz+sx*sz,cx*sy*sz-sx*cz,cx*cy];
  const rot=(p:V):V=>{'worklet';return [m[0]*p[0]+m[3]*p[1]+m[6]*p[2],m[1]*p[0]+m[4]*p[1]+m[7]*p[2],m[2]*p[0]+m[5]*p[1]+m[8]*p[2]];};
  const support=Math.hypot(m[1]*r[0],m[4]*r[1],m[7]*r[2]);
@@ -124,7 +147,7 @@ export function projectCostume(form:CostumeForm,id:CostumeId,rx:number,ry:number
   if(t.material<3)fur[group]+=`M${xy(mid)}L${xy(tip)}`;
  }
  return groups.map((d,i)=>{
-  const hex=colors[id][Math.floor(i/SHADES)],shade=.78+(i%SHADES)/(SHADES-1)*.245;
+  const hex=costumeColors[id][Math.floor(i/SHADES)],shade=.78+(i%SHADES)/(SHADES-1)*.245;
   const rgb=[1,3,5].map((at,k)=>Math.round(parseInt(hex.slice(at,at+2),16)*shade*(night?[.91,.94,1][k]:1)));
   return {d,fur:fur[i],fill:`rgb(${rgb.join(',')})`};
  });
