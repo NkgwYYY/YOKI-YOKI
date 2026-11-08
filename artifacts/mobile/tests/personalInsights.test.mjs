@@ -115,3 +115,16 @@ test('building observations does not mutate the source journal or inspect notes'
   assert.equal(JSON.stringify(rows), before);
   assert.equal(JSON.stringify(report).includes('private entry'), false);
 });
+
+test('explicit none answers can be compared, but skipped activities cannot',()=>{
+ const rows=clearPattern().map((r,i)=>({...r,behaviors:i%2?[]:['外に出た'],behaviorsRecorded:true}));
+ assert.equal(buildPersonalInsights(rows,today).insights[0].id,'personal:activity:外に出た');
+ assert.equal(buildPersonalInsights(rows.map((r,i)=>i%2?{...r,behaviorsRecorded:false}:r),today).insights.length,0);
+});
+test('work/rest observations use only explicitly answered day types',()=>{
+ const rows=clearPattern().map((r,i)=>({...r,behaviors:[],dayType:i%2?'work':'rest'}));
+ const report=buildPersonalInsights(rows,today);
+ assert.equal(report.insights.length,1);assert.equal(report.insights[0].id,'personal:day:rest');
+ assert.equal(report.insights[0].evidence.selectedDays,9);
+ assert.equal(buildPersonalInsights(rows.map((r,i)=>i%2?{...r,dayType:undefined}:r),today).insights.length,0);
+});

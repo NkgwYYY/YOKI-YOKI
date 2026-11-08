@@ -116,6 +116,9 @@ export interface DailyRecord {
   /** false for a basic mood-only entry; missing means an existing detailed record. */
   sleepRecorded?: boolean;
   behaviors: string[];
+  /** Explicit empty selection differs from not answering. */
+  behaviorsRecorded?: boolean;
+  dayType?: 'work' | 'rest' | 'other';
   notes: string;
   // Life-condition extras (optional; added later, older records won't have them)
   exercise?: number; // 1=なし 2=軽め 3=しっかり
@@ -140,6 +143,10 @@ export interface UserProfile {
 }
 
 export interface RecordExtras {
+  /** The unified form also updates the detailed fields in this daily transaction. */
+  includeDetails?: boolean;
+  behaviorsRecorded?: boolean;
+  dayType?: 'work' | 'rest' | 'other';
   moyamoya?: MoyamoyaInput;
   /** Merge only mood against the latest committed daily record. */
   moodOnly?: boolean;

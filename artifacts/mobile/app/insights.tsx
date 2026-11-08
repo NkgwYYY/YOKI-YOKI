@@ -41,11 +41,12 @@ function InsightsNotebook({ context }: { context: ReturnType<typeof usePersonalI
   };
   return <View testID="personal-insights-screen" style={s.root}>
     <View style={[s.nav, { paddingTop: (Platform.OS === 'web' ? 16 : insets.top) + 6 }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="戻る" onPress={() => router.navigate('/(tabs)/growth')} style={s.iconButton}><Icon name="chevron-left" size={22} color="#674F70" /></Pressable>
-      <Text style={s.navTitle}>元気な日の傾向</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="戻る" onPress={() => router.navigate('/(tabs)/condition')} style={s.iconButton}><Icon name="chevron-left" size={22} color="#674F70" /></Pressable>
+      <Text style={s.navTitle}>きろく</Text>
       <Pressable accessibilityRole="button" accessibilityLabel="自分のヒント帳を開く" onPress={() => router.push('/hints')} style={s.iconButton}><Icon name="bookmark" size={22} color="#674F70" /></Pressable>
     </View>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 28 }]}>
+      <View style={{flexDirection:'row',gap:6,padding:4,borderRadius:18,backgroundColor:'#E9E1EE'}}><Pressable testID="insights-changes-tab" accessibilityRole="tab" accessibilityState={{selected:false}} onPress={()=>router.replace('/(tabs)/condition')} style={{flex:1,minHeight:44,alignItems:'center',justifyContent:'center'}}><Text style={s.body}>変化</Text></Pressable><View accessibilityRole="tab" accessibilityState={{selected:true}} style={{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:14,backgroundColor:'#FFFCF6'}}><Text style={s.body}>気づき</Text></View></View>
       <View style={s.intro}>
         <View style={s.portrait}><StaticMascot stage={getMascotStage(progress)} mood="happy" size={92} /></View>
         <Text style={s.eyebrow}>{mascotName}と一緒に振り返ろう</Text>
@@ -54,11 +55,6 @@ function InsightsNotebook({ context }: { context: ReturnType<typeof usePersonalI
       </View>
       {!ready ? <ActivityIndicator accessibilityLabel="記録を読み込んでいます" color="#9873AA" /> : <>
         <View style={s.summary}><Icon name="calendar" size={18} color="#9576A2" /><Text style={s.summaryText}>最近30日・{report.recordedDays}日分の気分</Text><Text style={s.range}>{report.windowStart.slice(5).replace('-', '/')} – {report.windowEnd.slice(5).replace('-', '/')}</Text></View>
-        {!!report.moodDays.length && <View style={s.chartCard}>
-          <Text style={s.sectionLabel}>気分の変化</Text>
-          <View style={s.chart}>{report.moodDays.map(day => <View key={day.date} style={s.barColumn} accessible accessibilityLabel={`${day.date}、気分${day.mood}、5段階`}><View style={[s.bar, { height: day.mood * 10 + 5, backgroundColor: day.mood >= 4 ? '#AD91B9' : '#D6CCDD' }]} /></View>)}</View>
-          <View style={s.chartLabels}><Text style={s.small}>{report.moodDays[0].date.slice(5).replace('-', '/')}</Text><Text style={s.small}>記録のある日だけ表示</Text><Text style={s.small}>{report.moodDays[report.moodDays.length - 1].date.slice(5).replace('-', '/')}</Text></View>
-        </View>}
         {report.insights.length ? report.insights.map(insight => <InsightCard key={insight.id} insight={insight} saved={saved.has(savedId(insight))} busy={saving !== null} onSave={() => void keep(insight)} />) : <NotebookPaper style={s.emptyPaper}>
           <Icon name={report.status === 'gathering' ? 'book-open' : 'sunrise'} size={28} color="#9576A2" />
           <Text style={s.emptyTitle}>{report.status === 'gathering' ? '記録がたまると傾向が見えてくるよ' : 'まだ、はっきりした傾向はないよ'}</Text>
@@ -66,7 +62,7 @@ function InsightsNotebook({ context }: { context: ReturnType<typeof usePersonalI
             ? `今は${report.recordedDays}日分の気分が残っているよ。最近30日の中で14日分以上たまったら、過ごし方とのつながりを見ていこう。`
             : '今ある記録では、はっきりした傾向は見つかっていないよ。いつも同じように過ごしていたり、過ごし方の記録が少ないこともあるから、無理に結論を出さずにおこうね。'}</Text>
           <View style={s.emptyNote}><Text style={s.noteTitle}>その日の過ごし方も記録してみよう</Text><Text style={s.body}>「外に出た」「人と話した」「ひとりで休んだ」など、書けそうな日の過ごし方を選ぶだけで大丈夫。</Text></View>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/exchange-diary')} style={s.primary}><Icon name="edit-3" size={18} color="#FFFDF7" /><Text style={s.primaryText}>今日のページへ</Text></Pressable>
+          <Pressable accessibilityRole="button" onPress={() => router.push('/check-in')} style={s.primary}><Icon name="edit-3" size={18} color="#FFFDF7" /><Text style={s.primaryText}>今日の記録をつける</Text></Pressable>
         </NotebookPaper>}
         {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
         <View style={s.explanation}><Text style={s.sectionLabel}>この気づきについて</Text><Text style={s.small}>「元気な日」は、気分を「いい感じ・うれしい」と残した日。気分と過ごし方を両方記録した日を比べています。書いていないことは、していないこととして数えません。</Text><Text style={s.small}>同じ日に複数のことをしていたり、ほかの出来事が関係することもあります。原因や効果を確かめたものではなく、その期間の記録から見えた手がかりです。</Text><Text style={s.small}>この画面の集計は端末の中で行います。日記の本文は使わず、分析のために外部へ送りません。</Text></View>

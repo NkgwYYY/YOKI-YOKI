@@ -127,3 +127,13 @@ test('reply persistence recovers after interrupted storage without changing the 
  const reply={kind:'reply',date:today,id:send.id,revision:1,reply:'帰り道の夕焼けが、今日の思い出になったんだね。'};
  await assert.rejects(f.run(reply),/disk/);const saved=await f.run(reply);assert.equal(saved.page.reply,reply.reply);assert.equal(saved.page.user.text,send.text);assert.equal(saved.feed.points,105);
 });
+
+test('a prose-only diary send preserves the canonical unified life answers',async()=>{
+ const f=fixture();await f.run(open);
+ const source={id:'same-day',date:today,mood:5,sleep:6.5,sleepRecorded:true,behaviors:[],behaviorsRecorded:true,dayType:'work',notes:'暮らしのメモ',fatigue:2,worry:1,moyamoya:{has:false}};
+ f.data.set(k.records,JSON.stringify([source]));
+ const a=await f.run({...send,mood:5});
+ assert.equal(a.record.records.length,1);assert.equal(a.record.records[0].dayType,'work');assert.equal(a.record.records[0].behaviorsRecorded,true);
+ assert.equal(a.record.records[0].sleep,6.5);assert.equal(a.record.records[0].notes,'暮らしのメモ');
+ assert.equal(a.page.user.details.dayType,'work');assert.equal(a.feed.points,100);
+});

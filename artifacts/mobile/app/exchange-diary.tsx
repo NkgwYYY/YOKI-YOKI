@@ -17,8 +17,7 @@ import {getTodayDate,formatDateJP} from '@/utils/dateUtils';
 import {getMascotStage,getCharacter} from '@/utils/mascotUtils';
 import {roomWearableFrame} from '@/utils/roomWearable';
 import {DIARY_TEXT_LIMIT,diaryDetailsFromRecord,type DiaryDetails} from '@/utils/exchangeDiary';
-import {ChecklistSheet} from '@/components/record/ChecklistSheet';
-import {DiaryDetailsEditor,DiaryDetailsSummary,DiaryBehaviorTags,DiaryMoodFace} from '@/components/record/DiaryDetails';
+import {DiaryDetailsSummary} from '@/components/record/DiaryDetails';
 import {DiaryReply} from '@/components/record/DiaryReply';
 import {PersonalInsightPreview} from '@/components/insights/PersonalInsightPreview';
 
@@ -40,7 +39,6 @@ function DiaryNotebook(){
  const [today]=useState(getTodayDate),[date,setDate]=useState(getTodayDate);
  const [side,setSide]=useState<'character'|'user'>('character');
  const [shelf,setShelf]=useState(false),[editing,setEditing]=useState(false),[draft,setDraft]=useState<Draft|null>(null);
- const [detailsOpen,setDetailsOpen]=useState(false),[checklistOpen,setChecklistOpen]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  const [writing,setWriting]=useState(false);
  const pending=useRef(false),alive=useRef(true),scroll=useRef<ScrollView>(null);
@@ -68,26 +66,30 @@ function DiaryNotebook(){
   return()=>{current=false;clearTimeout(timer);};
  },[active,motion.opened,motion.turning,busy,shelf,side,spread,visibleLetter,date,page?.letterReadAt,runDiary]);
  useEffect(()=>{
-  if(page&&mine&&!draft)setDraft({text:page.user?.text??'',mood:page.user?.mood??getTodayRecord()?.mood??null,revision:page.revision,id:'',details:page.user?.details??diaryDetailsFromRecord(getTodayRecord()??undefined),detailsDirty:false});
+  if(page&&mine&&!draft)setDraft({text:page.user?.text??'',mood:getTodayRecord()?.mood??page.user?.mood??null,revision:page.revision,id:'',details:diaryDetailsFromRecord(getTodayRecord()??page.user?.details),detailsDirty:false});
  },[page,mine,draft]);
  const turn=(next:'character'|'user')=>{if(next===side)return;Keyboard.dismiss();motion.turn(()=>{setSide(next);setNotice('');scroll.current?.scrollTo({y:0,animated:false});},next==='user'?1:-1);};
  const chooseDate=(next:string,nextSide:'character'|'user'='character')=>{setShelf(false);Keyboard.dismiss();motion.turn(()=>{setDate(next);setSide(nextSide);setError('');setNotice('');scroll.current?.scrollTo({y:0,animated:false});},next>date?1:-1);};
  const nextPage=()=>{if(busy)return;if(!spread&&side==='character')turn('user');else if(dates[index-1])chooseDate(dates[index-1]);};
  const previousPage=()=>{if(busy)return;if(!spread&&side==='user')turn('character');else if(dates[index+1])chooseDate(dates[index+1],spread?'character':'user');};
  const pageNumber=(Math.max(0,dates.length-1-index)*2)+1;
- const edit=()=>{if(!page)return;setDraft({text:page.user?.text??'',mood:page.user?.mood??getTodayRecord()?.mood??null,revision:page.revision,id:'',details:page.user?.details??diaryDetailsFromRecord(getTodayRecord()??undefined),detailsDirty:false});setEditing(true);};
+ const edit=()=>{if(!page)return;setDraft({text:page.user?.text??'',mood:getTodayRecord()?.mood??page.user?.mood??null,revision:page.revision,id:'',details:diaryDetailsFromRecord(getTodayRecord()??page.user?.details),detailsDirty:false});setEditing(true);};
  const update=(patch:Partial<Draft>)=>setDraft(d=>d?{...d,...patch,id:''}:d);
+ const openRecord=()=>router.push({pathname:'/check-in',params:{returnTo:'diary'}});
+ const currentRecord=getTodayRecord();
  const send=async()=>{
-  if(pending.current||!page||!draft||draft.mood===null||!mine)return;
+  if(pending.current||!page||!draft||!mine)return;
+  const currentMood=getTodayRecord()?.mood;
+  if(!currentMood){openRecord();return;}
   const id=draft.id||`diary-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
   const outgoing={...draft,id};setDraft(outgoing);pending.current=true;setBusy(true);setError('');
   try{
-   const result=await runDiary({kind:'send',date,id,revision:draft.revision,text:draft.text,mood:draft.mood,details:draft.detailsDirty?draft.details:undefined});
+   const result=await runDiary({kind:'send',date,id,revision:draft.revision,text:draft.text,mood:currentMood});
    if(alive.current){setDraft({text:result.page.user!.text,mood:result.page.user!.mood,revision:result.page.revision,id:'',details:result.page.user!.details??draft.details,detailsDirty:false});setEditing(false);setNotice('日記を保存しました。');scroll.current?.scrollTo({y:0,animated:false});}
   }catch(e){if(alive.current)setError(e instanceof Error?e.message:'保存できませんでした。書いた内容はそのままです。もう一度渡してね。');}
   finally{pending.current=false;if(alive.current)setBusy(false);}
  };
- const hasDraft=!!draft&&(draft.detailsDirty||draft.text!==(pages[today]?.user?.text??'')||draft.mood!==(pages[today]?.user?.mood??getTodayRecord()?.mood??null));
+ const hasDraft=!!draft&&(draft.detailsDirty||draft.text!==(pages[today]?.user?.text??''));
  const [leaveOpen,setLeaveOpen]=useState(false);
  const goHome=()=>{if(hasDraft){setLeaveOpen(true);return;}router.navigate('/(tabs)');};
  const dateButton=(direction:'older'|'newer')=>{
@@ -106,7 +108,7 @@ function DiaryNotebook(){
     <Text style={s.footer}>読むだけの日も、大丈夫。日記はいつでも読み返せるよ。</Text></>}
    </View>:null;
  const userPage=page?<View style={s.pageColumn}>{page.user&&(!mine||!editing)?<>
-    <NotebookPaper testID="diary-user-page" style={spread?{flex:1}:undefined}><View style={s.author}><Text style={s.authorName}>あなたの今日</Text><Text style={s.feeling}>{moods.find(m=>m.value===page.user!.mood)?.label}</Text></View><RuledWriting><Text selectable style={s.handwriting}>{page.user.text||'今日は、この気分を届けた。'}</Text></RuledWriting>{page.user.details&&<DiaryDetailsSummary value={page.user.details}/>}<Text style={s.signature}>{name}へ</Text><Text style={s.pageNumber}>{String(pageNumber+1).padStart(2,'0')} · あなた</Text></NotebookPaper>
+    <NotebookPaper testID="diary-user-page" style={spread?{flex:1}:undefined}><View style={s.author}><Text style={s.authorName}>あなたの今日</Text><Text style={s.feeling}>{moods.find(m=>m.value===page.user!.mood)?.label}</Text></View><RuledWriting><Text selectable style={s.handwriting}>{page.user.text||'今日は、この気分を届けた。'}</Text></RuledWriting>{(mine?currentRecord:page.user.details)&&<DiaryDetailsSummary value={mine?diaryDetailsFromRecord(currentRecord):page.user.details!}/>}<Text style={s.signature}>{name}へ</Text><Text style={s.pageNumber}>{String(pageNumber+1).padStart(2,'0')} · あなた</Text></NotebookPaper>
     <DiaryReply key={`${date}:${page.revision}`} page={page}/>
     {mine&&<PersonalInsightPreview compact/>}
     {!!notice&&<Text accessibilityLiveRegion="polite" style={s.footer}>{notice}</Text>}
@@ -115,14 +117,16 @@ function DiaryNotebook(){
     <Text style={s.authorName}>あなたの今日</Text><Text style={s.body}>今日はどんな一日だった？</Text>
     <RuledWriting><TextInput testID="diary-input" accessibilityLabel="今日のできごとを日記に書く" value={draft.text} onChangeText={text=>update({text})} onFocus={()=>setWriting(true)} onBlur={()=>setWriting(false)} editable={!busy} multiline maxLength={DIARY_TEXT_LIMIT} textAlignVertical="top" placeholder="うれしかったこと、もやもやしたこと。まとまらないままでも、ひとことでも。" placeholderTextColor="#9E919D" style={s.input}/></RuledWriting>
     <Text style={s.counter}>{draft.text.length} / {DIARY_TEXT_LIMIT}　「渡す」で保存されます</Text>
-    <Text style={s.authorName}>いまの気分</Text><View style={s.moods}>{moods.map(m=><Pressable key={m.value} testID={`diary-mood-${m.value}`} accessibilityRole="button" accessibilityLabel={`気分：${m.label}`} accessibilityState={{selected:draft.mood===m.value}} disabled={busy} onPress={()=>{Keyboard.dismiss();update({mood:m.value});}} style={[s.mood,draft.mood===m.value&&s.moodSelected]}><DiaryMoodFace value={m.value}/><Text style={s.moodLabel}>{m.label}</Text></Pressable>)}</View>
-    <Text style={s.hint}>文章を書かずに、気分を選ぶだけでも記録できるよ。</Text>
-    <View style={s.quickActivities}><Text style={s.authorName}>今日はどう過ごした？</Text><Text style={s.hint}>当てはまるものを選んでね。あとで気分と一緒に振り返れるよ。</Text><DiaryBehaviorTags compact value={draft.details.behaviors} disabled={busy} onChange={behaviors=>update({details:{...draft.details,behaviors},detailsDirty:true})}/></View>
-    <Pressable testID="diary-details-toggle" accessibilityRole="button" accessibilityState={{expanded:detailsOpen}} disabled={busy} onPress={()=>setDetailsOpen(v=>!v)} style={s.detailsButton}><View style={{flex:1,gap:4}}><Text style={s.secondaryText}>{detailsOpen?'詳しい記録を閉じる':'詳しく記録する'}</Text><Text style={s.hint}>睡眠・食事・できたことなど（任意）</Text></View><Icon name={detailsOpen?'chevron-up':'chevron-down'} size={18} color="#735580"/></Pressable>
-    {detailsOpen&&<><DiaryDetailsEditor value={draft.details} disabled={busy} onChange={details=>update({details,detailsDirty:true})}/><Pressable accessibilityRole="button" disabled={busy} onPress={()=>setChecklistOpen(true)} style={s.secondary}><Text style={s.secondaryText}>いつものチェックリストを開く</Text></Pressable></>}
+    <View testID="diary-record-summary" style={s.quickActivities}>
+     <Text style={s.authorName}>今日のきろく</Text>
+     <Text style={s.body}>{currentRecord?'気分：'+(moods.find(m=>m.value===currentRecord.mood)?.label??'未記録'):'今日の気分は、まだ記録していません。'}</Text>
+     {currentRecord&&<DiaryDetailsSummary value={diaryDetailsFromRecord(currentRecord)}/>}
+     <Text style={s.hint}>気分・モヤモヤ・暮らしの回答は、記録画面でまとめて入力できます。</Text>
+     <Pressable testID="diary-open-record" accessibilityRole="button" disabled={busy} onPress={openRecord} style={s.secondary}><Text style={s.secondaryText}>{currentRecord?'今日の記録を確認・変更する':'今日の記録をつける'}</Text></Pressable>
+    </View>
 
-    <Pressable testID="diary-send" accessibilityRole="button" disabled={busy||draft.mood===null} onPress={()=>{void send();}} style={[s.primary,{opacity:busy||draft.mood===null?.5:1}]}><Icon name="send" size={18} color="#FAF1E2"/><Text style={s.primaryText}>{busy?'日記を届けています…':`${name}に渡す`}</Text></Pressable>
-    {editing&&<Pressable accessibilityRole="button" disabled={busy} onPress={()=>{setEditing(false);setDraft({text:page.user?.text??'',mood:page.user?.mood??null,revision:page.revision,id:'',details:page.user?.details??diaryDetailsFromRecord(getTodayRecord()??undefined),detailsDirty:false});}} style={s.secondary}><Text style={s.secondaryText}>書き直しをやめる</Text></Pressable>}
+    <Pressable testID="diary-send" accessibilityRole="button" disabled={busy} onPress={()=>{void send();}} style={[s.primary,{opacity:busy?.5:1}]}><Icon name="send" size={18} color="#FAF1E2"/><Text style={s.primaryText}>{busy?'日記を届けています…':currentRecord?`${name}に渡す`:'今日の記録をつけて続ける'}</Text></Pressable>
+    {editing&&<Pressable accessibilityRole="button" disabled={busy} onPress={()=>{setEditing(false);setDraft({text:page.user?.text??'',mood:page.user?.mood??null,revision:page.revision,id:'',details:diaryDetailsFromRecord(getTodayRecord()??page.user?.details),detailsDirty:false});}} style={s.secondary}><Text style={s.secondaryText}>書き直しをやめる</Text></Pressable>}
    <Text style={s.pageNumber}>{String(pageNumber+1).padStart(2,'0')} · あなた</Text></NotebookPaper>:<NotebookPaper><Text style={s.body}>この日は、読むだけの日。{name}の一日が、このページに残っているよ。</Text></NotebookPaper>}</View>:null;
  return <KeyboardAvoidingView style={s.root} behavior={Platform.OS==='ios'?'padding':undefined}>
   <View style={[s.top,{paddingTop:Math.max(insets.top,12)}]}><Pressable testID="diary-home" accessibilityRole="button" onPress={goHome} disabled={busy} style={s.topButton}><Icon name="chevron-left" color="#735580" size={18}/><Text style={s.topText}>おうち</Text></Pressable><Pressable testID="diary-close-cover" accessibilityRole="button" accessibilityLabel="日記の表紙に戻る" onPress={motion.close} disabled={!motion.opened||motion.turning} style={s.topButton}><Text style={s.topName}>{motion.opened?'表紙に戻る':'交換日記'}</Text></Pressable>{writing&&Platform.OS!=='web'?<Pressable testID="diary-keyboard-done" accessibilityRole="button" accessibilityLabel="日記の入力を終える" onPress={()=>Keyboard.dismiss()} style={s.topButton}><Text style={s.topText}>入力完了</Text></Pressable>:<Pressable testID="diary-history" accessibilityRole="button" accessibilityLabel="これまでの交換日記を開く" disabled={busy||!motion.opened||motion.turning} onPress={()=>setShelf(true)} style={s.topButton}><Icon name="book-open" color="#735580" size={18}/><Text style={s.topText}>本棚</Text></Pressable>}</View>
@@ -142,13 +146,12 @@ function DiaryNotebook(){
    {page&&<View style={s.pageNav}><Pressable testID="diary-previous-page" accessibilityRole="button" accessibilityLabel="前のページをめくる" disabled={busy||motion.turning||(!dates[index+1]&&(spread||side==='character'))} onPress={previousPage} style={s.iconButton}><Icon name="chevron-left" size={19} color="#735580"/></Pressable><Text style={s.pageHint}>{spread?`${pageNumber} — ${pageNumber+1}`:`${side==='character'?pageNumber:pageNumber+1} / ${dates.length*2}`} · {spread?'日付をめくる':'左右にスワイプしてめくる'}</Text><Pressable testID="diary-next-page" accessibilityRole="button" accessibilityLabel="次のページをめくる" disabled={busy||motion.turning||(!dates[index-1]&&(spread||side==='user'))} onPress={nextPage} style={s.iconButton}><Icon name="chevron-right" size={19} color="#735580"/></Pressable></View>}
    {!!error&&<Text testID="diary-error" accessibilityRole="alert" style={s.error}>{error}</Text>}
    {!hasDraft&&!editing&&<View style={s.reflectionLinks}><Pressable testID="diary-insights" accessibilityRole="button" onPress={()=>router.push('/insights')} style={s.reflectionLink}><Icon name="sunrise" size={18} color="#856592"/><Text style={s.secondaryText}>元気な日の傾向</Text></Pressable><Pressable testID="diary-hints" accessibilityRole="button" onPress={()=>router.push('/hints')} style={s.reflectionLink}><Icon name="bookmark" size={18} color="#856592"/><Text style={s.secondaryText}>ヒント帳</Text></Pressable></View>}
-   <Pressable accessibilityRole="button" disabled={busy} onPress={()=>{if(hasDraft){setLeaveOpen(true);return;}router.push('/monthly-report');}} style={s.simpleLink}><Text style={s.footer}>気分の変化を見る</Text></Pressable>
+   <Pressable accessibilityRole="button" disabled={busy} onPress={()=>{if(hasDraft){setLeaveOpen(true);return;}router.push('/(tabs)/condition');}} style={s.simpleLink}><Text style={s.footer}>回答のグラフを見る</Text></Pressable>
   </ScrollView></View>
   {!motion.opened&&<NotebookCover motion={motion} name={name} days={dates.length}/>}
   </View>
-  {checklistOpen&&<ChecklistSheet visible onClose={()=>setChecklistOpen(false)}/>}
   {shelf&&<BottomSheet visible title="日記の本棚" subtitle={`${dates.length}日分の記録。`} onClose={()=>setShelf(false)}>{dates.map(d=><Pressable key={d} testID={`diary-history-${d}`} accessibilityRole="button" onPress={()=>chooseDate(d)} style={s.historyRow}><View style={{flex:1,gap:5}}><Text style={s.historyDate}>{d.slice(0,4)}年 {formatDateJP(d)}</Text><Text style={s.historyTitle}>{pages[d].letter.title}</Text></View><Text style={s.historyStatus}>{pages[d].user?'交換済み':'この子の日記'}</Text></Pressable>)}</BottomSheet>}
-  {leaveOpen&&<BottomSheet visible title="まだ渡していないページがあるよ" onClose={()=>setLeaveOpen(false)}><Text style={s.historyTitle}>書いた内容を残すには、気分を選んで日記を渡してね。</Text><Pressable accessibilityRole="button" onPress={()=>{setLeaveOpen(false);setDate(today);setSide('user');if(!motion.opened)motion.open();}} style={s.primary}><Text style={s.primaryText}>書いていたページに戻る</Text></Pressable><Pressable accessibilityRole="button" onPress={()=>router.navigate('/(tabs)')} style={s.secondary}><Text style={s.secondaryText}>今回は保存せず、おうちへ</Text></Pressable></BottomSheet>}
+  {leaveOpen&&<BottomSheet visible title="まだ渡していないページがあるよ" onClose={()=>setLeaveOpen(false)}><Text style={s.historyTitle}>書いた内容を残すには、日記を渡してね。</Text><Pressable accessibilityRole="button" onPress={()=>{setLeaveOpen(false);setDate(today);setSide('user');if(!motion.opened)motion.open();}} style={s.primary}><Text style={s.primaryText}>書いていたページに戻る</Text></Pressable><Pressable accessibilityRole="button" onPress={()=>router.navigate('/(tabs)')} style={s.secondary}><Text style={s.secondaryText}>今回は保存せず、おうちへ</Text></Pressable></BottomSheet>}
  </KeyboardAvoidingView>;
 }
 const s=StyleSheet.create({

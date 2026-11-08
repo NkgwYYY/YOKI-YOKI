@@ -1,7 +1,7 @@
 /** Personal observations use structured, on-device records only. No journal text is read. */
 export type PatternRecord = {
   date: string; mood: number; behaviors?: readonly string[];
-  sleep?: number; sleepRecorded?: boolean;
+  sleep?: number; sleepRecorded?: boolean; behaviorsRecorded?: boolean; dayType?: string;
 };
 export type InsightEvidence = {
   selectedLabel: string; selectedDays: number; selectedGoodDays: number;
@@ -59,7 +59,7 @@ type Candidate = { key: string; label: string; selected: PatternRecord[]; compar
 /**
  * First stored record wins when a damaged import contains duplicate dates, matching
  * AppContext's find()/daily transaction behavior. No duplicate adds evidence.
- * Empty behavior lists are unknown, not a day without the activity. Sleep is a
+ * Empty behavior lists are unknown unless explicitly answered with behaviorsRecorded=true. Sleep is a
  * separate comparison and is used only when explicitly recorded or legacy-detailed.
  */
 export function buildPersonalInsights(records: readonly PatternRecord[], today: string): PersonalInsightsReport {
@@ -77,7 +77,7 @@ export function buildPersonalInsights(records: readonly PatternRecord[], today: 
     byDate.set(r.date, r);
   }
   const days = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
-  const behavioralDays = days.filter(r => Array.isArray(r.behaviors) && r.behaviors.some(b => typeof b === 'string' && b.trim()));
+  const behavioralDays = days.filter(r => r.behaviorsRecorded !== false && Array.isArray(r.behaviors) && (r.behaviorsRecorded === true || r.behaviors.some(b => typeof b === 'string' && b.trim())));
   report.recordedDays = days.length;
   report.eligibleDays = behavioralDays.length;
   report.moodDays = days.map(({ date, mood }) => ({ date, mood }));
@@ -97,6 +97,10 @@ export function buildPersonalInsights(records: readonly PatternRecord[], today: 
     consider(`activity:${label}`, `${label === '新しいことに挑戦' ? '新しいことに挑戦した' : label}日`,
       behavioralDays.filter(r => r.behaviors!.includes(label)),
       behavioralDays.filter(r => !r.behaviors!.includes(label)), 'ほかの過ごし方を記録した日');
+  }
+  const dayTypeDays=days.filter(r=>r.dayType==='work'||r.dayType==='rest'||r.dayType==='other');
+  for(const [id,label] of [['work','仕事・学校の日'],['rest','お休みの日']] as const){
+    consider('day:'+id,label,dayTypeDays.filter(r=>r.dayType===id),dayTypeDays.filter(r=>r.dayType!==id),'ほかの生活を記録した日');
   }
   const sleepDays = days.filter(r => r.sleepRecorded !== false && typeof r.sleep === 'number' && Number.isFinite(r.sleep) && r.sleep >= 0 && r.sleep <= 12);
   if (sleepDays.length >= MIN_GROUP * 2) {

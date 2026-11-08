@@ -5,11 +5,12 @@ import {prepareDailyRecord,RECORD_KEYS} from './dailyRecordTransaction';
 
 export const DIARY_TEXT_LIMIT=1600;
 export type DiaryLetter={title:string;body:string;feeling:string;source:string};
-export type DiaryDetails={sleep:number;sleepRecorded:boolean;behaviors:string[];notes:string;exercise?:number;meal?:number;social?:number;win?:string;activities?:Record<string,number>};
+export type DiaryDetails={dayType?:'work'|'rest'|'other';behaviorsRecorded?:boolean;sleep:number;sleepRecorded:boolean;behaviors:string[];notes:string;exercise?:number;meal?:number;social?:number;win?:string;activities?:Record<string,number>};
 export function diaryDetailsFromRecord(record?:Partial<DailyRecord>):DiaryDetails {
- return {sleep:record?.sleep??0,sleepRecorded:record?record.sleepRecorded!==false:false,behaviors:[...(record?.behaviors??[])],notes:record?.notes??'',exercise:record?.exercise,meal:record?.meal,social:record?.social,win:record?.win,activities:record?.activities};
+ return {...(record?.dayType!==undefined?{dayType:record.dayType}:{}),...(record?.behaviorsRecorded!==undefined?{behaviorsRecorded:record.behaviorsRecorded}:{}),sleep:record?.sleep??0,sleepRecorded:record?record.sleepRecorded!==false:false,behaviors:[...(record?.behaviors??[])],notes:record?.notes??'',exercise:record?.exercise,meal:record?.meal,social:record?.social,win:record?.win,activities:record?.activities};
 }
 function validateDetails(d:DiaryDetails){
+ if(d&&(d.dayType!==undefined&&!['work','rest','other'].includes(d.dayType)||d.behaviorsRecorded!==undefined&&typeof d.behaviorsRecorded!=='boolean'))throw Error('暮らしの記録を確認してね');
  if(!d||!Number.isFinite(d.sleep)||d.sleep<0||d.sleep>12||typeof d.sleepRecorded!=='boolean'||!Array.isArray(d.behaviors)||d.behaviors.length>30||d.behaviors.some(v=>typeof v!=='string'||v.length>100)||typeof d.notes!=='string'||d.notes.length>10000||[d.exercise,d.meal,d.social].some(v=>v!==undefined&&(!Number.isInteger(v)||v<1||v>3))||(d.win!==undefined&&(typeof d.win!=='string'||d.win.length>60))||(d.activities!==undefined&&(!d.activities||typeof d.activities!=='object'||Array.isArray(d.activities)||Object.values(d.activities).some(v=>!Number.isFinite(v)||v<0))))throw Error('詳しい記録の内容を確認してね');
 }
 export type DiaryPage={date:string;name:string;stage:MascotStage;letter:DiaryLetter;revision:number;letterReadAt?:number;user?:{text:string;mood:number;savedAt:number;submissionId:string;details?:DiaryDetails};reply?:string;replyKind?:'pending'|'local'|'ai'};

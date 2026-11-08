@@ -1,0 +1,61 @@
+name: Unified daily record and answer trends verification
+on:
+  push:
+    branches: [fix/unified-record-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: unified-record-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      TZ: Asia/Tokyo
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: Install frozen dependencies
+        working-directory: .
+        run: |
+          npm install --global pnpm@10.11.0
+          pnpm install --frozen-lockfile --ignore-scripts
+      - name: Check types and record/battle regressions
+        run: |
+          pnpm typecheck
+          node --test tests/firstSteps.test.mjs tests/dailyCheckin.test.mjs tests/dailyRecordTransaction.test.mjs tests/moyamoya.test.mjs tests/exchangeDiary.test.mjs tests/conditionTrends.test.mjs tests/lifeTrends.test.mjs tests/personalInsights.test.mjs
+      - name: Export the changed app for browser and iOS
+        run: |
+          pnpm exec expo export --platform web --output-dir "$RUNNER_TEMP/checkin-web"
+          pnpm exec expo export --platform ios --output-dir "$RUNNER_TEMP/checkin-ios"
+      - name: Install browser test runner
+        timeout-minutes: 3
+        run: |
+          npm install --prefix "$RUNNER_TEMP/checkin-browser" --no-save --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=30000 playwright@1.62.1
+          TEST_BROWSER=$(command -v google-chrome || command -v chromium || true)
+          if [ -n "$TEST_BROWSER" ]; then
+            echo "YOKI_QA_BROWSER=$TEST_BROWSER" >> "$GITHUB_ENV"
+          else
+            node "$RUNNER_TEMP/checkin-browser/node_modules/playwright/cli.js" install chromium
+          fi
+      - name: Verify one form, startup, battle continuity, saved answers, graphs and repeat prevention
+        run: |
+          YOKI_QA_EXPORT="$RUNNER_TEMP/checkin-web" YOKI_QA_OUTPUT="$RUNNER_TEMP/unified-record-evidence" YOKI_QA_PLAYWRIGHT="$RUNNER_TEMP/checkin-browser/node_modules/playwright" node tests/unifiedRecord.browser.cjs
+      - name: Preserve browser screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: unified-record-browser
+          retention-days: 7
+          path: ${{ runner.temp }}/unified-record-evidence/

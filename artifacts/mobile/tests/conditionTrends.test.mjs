@@ -20,3 +20,8 @@ test('changes compare two recorded observations and never a missing day',()=>{
  assert.equal(conditionChange(days,'worry'),'前回より少ない');
  assert.equal(conditionChange(conditionDays([],'2026-11-01',30),'worry'),'記録が増えると比べられます');
 });
+
+test('duplicate dates use the same first committed record as insights and daily saves',()=>{
+ const days=conditionDays([{date:'2026-11-01',mood:2},{date:'2026-11-01',mood:5}],'2026-11-01',7);
+ assert.equal(days[6].record.mood,2);
+});

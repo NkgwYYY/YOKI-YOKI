@@ -140,3 +140,21 @@ test('new-day check-in advances the source-based battle using prior daily histor
  assert.notEqual(next.scenarioId,battle.scenarioId);assert.equal(next.scenarioIndex,battle.scenarioIndex+1);
  assert.equal(nextDay.feed.points,110);
 });
+
+test('one unified save commits condition and life answers, then editing awards nothing twice',async()=>{
+ const f=fixture(),store=f.open();
+ const extras={conditionOnly:true,includeDetails:true,sleepRecorded:true,behaviorsRecorded:true,dayType:'rest',fatigue:2,worry:1,moyamoya:{has:false},meal:3};
+ const first=await save(store,{sleep:7.5,behaviors:['外に出た'],notes:'元のメモ',extras});
+ assert.equal(first.records[0].sleep,7.5);assert.equal(first.records[0].dayType,'rest');assert.equal(first.records[0].moyamoya.has,false);
+ const second=await save(store,{sleep:0,behaviors:[],notes:'元のメモ',extras:{...extras,sleepRecorded:false,behaviorsRecorded:true,dayType:undefined}});
+ assert.equal(second.records.length,1);assert.equal(second.records[0].sleepRecorded,false);assert.equal(second.records[0].behaviorsRecorded,true);
+ assert.equal(second.records[0].dayType,undefined);assert.equal(second.records[0].meal,3);
+ assert.equal(second.feed.points,first.feed.points);assert.equal(second.progress.totalDays,first.progress.totalDays);
+ const third=await save(store,{mood:2,extras:{moodOnly:true,sleepRecorded:false}});
+ assert.equal(third.records[0].mood,2);assert.equal(third.records[0].behaviorsRecorded,true);assert.equal(third.records[0].notes,'元のメモ');
+});
+test('invalid unified fields cannot mutate the stored record or rewards',async()=>{
+ const f=fixture(),store=f.open();await save(store);const before=new Map(f.data);
+ for(const extras of [{dayType:'vacation'},{behaviorsRecorded:'yes'},{meal:4}])await assert.rejects(save(store,{extras}));
+ assert.deepEqual(f.data,before);
+});
