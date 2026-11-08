@@ -43,10 +43,23 @@ let browser,page;
  for(const [width,height,has]of [[390,844,true],[320,568,false]]){
   const {context,errors}=await open(has?'mood-only':'mood-no-activities',width,height);
   await page.getByTestId('check-in-screen').waitFor();
+  await page.getByTestId('plush-loading').waitFor({state:'hidden'});
+  await page.evaluate(()=>document.fonts.ready);
+  const before=await page.evaluate(()=>localStorage.getItem('@mentore/records_v2'));
+  assert.equal(await page.getByTestId('check-in-fatigue-2').count(),0,'only the current question is rendered');
   await page.getByTestId('check-in-mood-4').click();
+  if(out)await page.screenshot({path:path.join(out,'step-mood-'+width+'.png')});
+  await page.getByTestId('check-in-next').click();
   await page.getByTestId('check-in-fatigue-2').click();
+  await page.getByTestId('check-in-back').click();
+  await page.getByTestId('check-in-step-mood').waitFor();
+  await page.getByTestId('check-in-next').click();
+  if(out)await page.screenshot({path:path.join(out,'step-fatigue-'+width+'.png')});
+  await page.getByTestId('check-in-next').click();
   await page.getByTestId('check-in-worry-3').click();
-  await page.getByTestId('life-day-rest').click();
+  await page.getByTestId('check-in-next').click();
+  await page.getByTestId('check-in-step-behaviors').waitFor();
+  assert.equal(await page.getByTestId('life-sleep-toggle').count(),0,'optional questions are separate');
   assert.equal(await page.getByTestId('life-behavior-categories').count(),0,'extra choices start collapsed');
   if(has){
    assert.equal(await page.getByTestId('diary-quick-behavior-散歩').getAttribute('aria-checked'),'true','existing choices remain visible');
@@ -61,8 +74,27 @@ let browser,page;
    for(const label of ['ご飯をたくさん食べた','恋人と会った','家事をした'])
     assert.equal(await page.getByTestId('diary-quick-behavior-'+label).getAttribute('aria-checked'),'true','selected choices remain visible after closing categories');
   }
+  if(out)await page.screenshot({path:path.join(out,'step-activities-'+width+'.png')});
+  await page.getByTestId('check-in-add-details').click();
+  await page.getByTestId('check-in-step-sleep').waitFor();
+  assert.equal(await page.getByTestId('life-day-rest').count(),0);
+  await page.getByTestId('check-in-next').click();
+  await page.getByTestId('life-day-rest').click();
+  for(const step of ['exercise','meal','social','win','notes']){
+   await page.getByTestId('check-in-next').click();
+   await page.getByTestId('check-in-step-'+step).waitFor();
+  }
+  await page.getByTestId('check-in-next').click();
   await page.getByTestId(has?'moyamoya-yes':'moyamoya-no').click();
-  if(has)await page.getByTestId('moyamoya-pattern-loop').click();
+  assert.equal(await page.evaluate(()=>localStorage.getItem('@mentore/records_v2')),before,'advancing/back does not save a partial record');
+  if(has){
+   assert.equal(await page.getByTestId('moyamoya-pattern-loop').count(),0);
+   await page.getByTestId('check-in-next').click();
+   assert.equal(await page.getByTestId('check-in-next').isDisabled(),true,'pattern required before saving');
+   await page.getByTestId('moyamoya-pattern-loop').click();
+   await page.getByTestId('check-in-back').click();
+   await page.getByTestId('check-in-next').click();
+  }
   assert.equal(await page.getByTestId('check-in-next').count(),1);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width);
   if(out)await page.screenshot({path:path.join(out,'record-'+width+'.png'),fullPage:true});
@@ -114,11 +146,36 @@ let browser,page;
   await page.getByRole('button',{name:'部屋のメニュー',exact:true}).click();await page.getByTestId('home-menu-settings').click();await page.getByRole('button',{name:'今日の便り',exact:true}).click();
   assert.equal(await page.getByTestId('quick-mood-3').count(),0);
   await page.getByTestId('daily-letter-check-in').click();await page.getByTestId('check-in-screen').waitFor();
-  assert.deepEqual(errors,[]);await context.close();console.log(`PASS ${width}x${height}: automatic unified entry, save, home/battle, preserved diary/points, no repeated prompt, manual entry`);
+  assert.deepEqual(errors,[]);await context.close();console.log(`PASS ${width}x${height}: sequential entry, back/draft retention, optional question branch, save, home/battle, preserved diary/points, no repeated prompt, manual entry`);
  }
  {
   const {context,errors}=await open('empty');await page.getByTestId('check-in-skip').click();await homeWithoutPrompt();await page.reload();await homeWithoutPrompt();
   assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/records_v2'))),[]);assert.deepEqual(errors,[]);await context.close();console.log('PASS skip: no invented record and no repeated prompt');
+ }
+ {
+  const {context,errors}=await open('empty',320,568);
+  await page.getByTestId('check-in-step-mood').waitFor();
+  assert.equal(await page.getByTestId('check-in-next').isDisabled(),true);
+  await page.getByTestId('check-in-mood-3').click();
+  for(const step of ['fatigue','worry','behaviors','moyamoya']){
+   await page.getByTestId('check-in-next').click();
+   await page.getByTestId('check-in-step-'+step).waitFor();
+  }
+  await page.getByTestId('moyamoya-yes').click();
+  await page.getByTestId('check-in-next').click();
+  await page.getByTestId('moyamoya-pattern-loop').click();
+  await page.getByTestId('check-in-back').click();
+  await page.getByTestId('moyamoya-no').click();
+  await page.getByTestId('check-in-next').click();
+  await homeWithoutPrompt();
+  const records=await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/records_v2')));
+  assert.equal(records.length,1);const record=records[0];
+  assert.equal(record.mood,3);assert.equal(record.fatigue,undefined);assert.equal(record.worry,undefined);
+  assert.equal(record.moyamoya.has,false);assert.equal(record.sleepRecorded,false);assert.equal(record.behaviorsRecorded,false);assert.deepEqual(record.behaviors,[]);
+  const wallet=await page.evaluate(()=>localStorage.getItem('@mentore/feed_state_v1'));
+  await page.reload();await homeWithoutPrompt();
+  assert.equal(await page.evaluate(()=>localStorage.getItem('@mentore/feed_state_v1')),wallet);
+  assert.deepEqual(errors,[]);await context.close();console.log('PASS short path: optional answers untouched, yes-to-no backtrack, one save, no repeated reward');
  }
  {
   const {context,errors}=await open('complete');await homeWithoutPrompt();assert.deepEqual(errors,[]);await context.close();console.log('PASS completed record: no automatic entry');
