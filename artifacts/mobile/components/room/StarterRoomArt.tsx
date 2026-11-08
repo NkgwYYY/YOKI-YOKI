@@ -4,7 +4,8 @@ import Svg,{Mask,Defs,Image as SvgImage,Path,Rect} from 'react-native-svg';
 import {STARTER_FURNISHINGS,starterIsPlaced,type StarterFurnishings} from '@/utils/starterFurnishings';
 import {STARTER_ROOM_REGIONS,STARTER_ROOM_PROTECTION,type StarterRoomPerspective} from '@/utils/starterRoomRegions';
 import {isWorldArtPrepared,rememberDecodedWorldArt} from '@/utils/worldArt';
-export type StarterRoomShot={empty:ImageSourcePropType;noLounge:ImageSourcePropType;noCabinet?:ImageSourcePropType;perspective:StarterRoomPerspective;settings:StarterFurnishings|undefined};
+import {ClosetInterior} from './ClosetInterior';
+export type StarterRoomShot={empty:ImageSourcePropType;noLounge:ImageSourcePropType;noCabinet?:ImageSourcePropType;closet?:ImageSourcePropType;perspective:StarterRoomPerspective;settings:StarterFurnishings|undefined};
 const fill=StyleSheet.create({art:{position:'absolute',left:0,top:0,width:'100%',height:'100%'}}).art;
 /** Composite restored artwork only for the starter sets the user has put away. */
 export function StarterRoomArt({source,starter,onLoad,testID}:{source:ImageSourcePropType;starter?:StarterRoomShot;onLoad?:()=>void;testID?:string}){
@@ -44,5 +45,6 @@ export function StarterRoomArt({source,starter,onLoad,testID}:{source:ImageSourc
           {groups.map(group=><SvgImage key={group.key} href={group.image} x={0} y={0} width={width} height={height} preserveAspectRatio="none" mask={`url(#${clip}${group.key})`}/>)}
         </Svg>)}
     </>}
+    {starter?.closet&&starterIsPlaced(starter.settings,'bookcase')&&<ClosetInterior source={starter.closet} perspective={starter.perspective}/>}
   </>;
 }

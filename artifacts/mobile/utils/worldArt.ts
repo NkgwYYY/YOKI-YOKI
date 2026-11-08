@@ -37,15 +37,17 @@ const NO_LOUNGE_HOME_ART={
  eyeWide:{day:require('@/assets/images/world/nook-eye-wide-day-no-lounge.webp'),night:require('@/assets/images/world/nook-eye-wide-night-no-lounge.webp')},
 };
 const NO_CABINET_EYE_ART={day:require('@/assets/images/world/nook-eye-day-no-cabinet.webp'),night:require('@/assets/images/world/nook-eye-night-no-cabinet.webp')};
+const CLOSET_INTERIOR_ART={day:require('@/assets/images/world/closet-interior-day-v2.webp'),night:require('@/assets/images/world/closet-interior-night-v2.webp')};
 export function starterRoomArt(night=false,wide=false,eye=false){
  const perspective=eye?(wide?'eyeWide':'eye'):(wide?'wide':'overview');
- return {perspective,empty:EMPTY_HOME_ART[perspective][night?'night':'day'],noLounge:NO_LOUNGE_HOME_ART[perspective][night?'night':'day'],noCabinet:perspective==='eye'?NO_CABINET_EYE_ART[night?'night':'day']:undefined} as const;
+ return {perspective,empty:EMPTY_HOME_ART[perspective][night?'night':'day'],noLounge:NO_LOUNGE_HOME_ART[perspective][night?'night':'day'],noCabinet:perspective==='eye'?NO_CABINET_EYE_ART[night?'night':'day']:undefined,closet:CLOSET_INTERIOR_ART[night?'night':'day']} as const;
 }
 /** Decode the saved room composition before a camera or map transition starts. */
 export async function prepareHomeRoomArt(night=false,wide=false,eye=false,settings?:StarterFurnishings){
  const art=starterRoomArt(night,wide,eye);
  const hidden=STARTER_FURNISHINGS.filter(item=>!starterIsPlaced(settings,item.id));
  const sources=[eye?homeEyeArt(night,wide):homeOverviewArt(night,wide)];
+ if(starterIsPlaced(settings,'bookcase'))sources.push(art.closet);
  if(hidden.length)sources.push(art.empty);
  if(hidden.some(item=>item.id==='lounge'))sources.push(art.noLounge);
  if(art.noCabinet&&hidden.some(item=>item.id==='cabinet')&&starterIsPlaced(settings,'bed'))sources.push(art.noCabinet);
