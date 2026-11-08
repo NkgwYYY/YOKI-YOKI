@@ -1,85 +1,124 @@
-import {DailyLifeCharts} from '@/components/record/DailyLifeCharts';
-import {lifeSummary} from '@/utils/lifeTrends';
-import React,{useCallback,useEffect,useMemo,useState} from 'react';
-import {Platform,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
-import {useFocusEffect,useRouter} from 'expo-router';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import {Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
+import {LinearGradient} from 'expo-linear-gradient';
+import {useFocusEffect, useRouter} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import Svg,{Circle,Line,Path,Text as SvgText} from 'react-native-svg';
 import {useApp} from '@/contexts/AppContext';
 import {useAuth} from '@/contexts/AuthContext';
 import {BottomSheet} from '@/components/ui/BottomSheet';
-import {Icon} from '@/components/ui/Icon';
-import {CONDITION_LABELS,CONDITION_TITLES,conditionDays,conditionValue,conditionLabel,conditionSummary,conditionChange,type ConditionKey} from '@/utils/conditionTrends';
-import {formatDateJP,getTodayDate} from '@/utils/dateUtils';
+import {Icon, iconSize} from '@/components/ui/Icon';
+import {ConditionFace} from '@/components/record/ConditionFace';
+import {DailyLifeCharts} from '@/components/record/DailyLifeCharts';
+import {RecordDayDetails, RecordCalendar} from '@/components/record/RecordDayDetails';
+import {RecordTrend, RecordDayNavigation, RECORD_METRICS, recordValue, recordInk, recordMuted, shortRecordDate, recordWeekday, type RecordMetric} from '@/components/record/RecordTrend';
+import {conditionDays, conditionValue, conditionLabel} from '@/utils/conditionTrends';
+import {lifeLabel} from '@/utils/lifeTrends';
+import {getTodayDate} from '@/utils/dateUtils';
 import {getTabBarHeight} from '@/utils/tabLayout';
 
-const KEYS:ConditionKey[]=['mood','fatigue','worry'];
-const METRIC_STYLE={
- mood:{ink:'#71528D',tint:'#F5EFFB',border:'#DED0EC',icon:'heart'},
- fatigue:{ink:'#327B78',tint:'#ECF6F4',border:'#BEDDD7',icon:'battery'},
- worry:{ink:'#94632E',tint:'#FFF5E7',border:'#E8D2B0',icon:'cloud'},
-} as const;
-export default function ConditionScreen(){const auth=useAuth();return <ConditionNotebook key={auth.user?.id??'guest'}/>;}
-function ConditionNotebook(){
- const {records,isLoading,storageError,cloudSynced}=useApp(),auth=useAuth();
- const router=useRouter(),insets=useSafeAreaInsets();
- const [today,setToday]=useState(getTodayDate),[period,setPeriod]=useState(7),[selected,setSelected]=useState(today);
- const [history,setHistory]=useState(false);
- useFocusEffect(useCallback(()=>{const update=()=>setToday(getTodayDate());update();const timer=setInterval(update,30000);return()=>clearInterval(timer);},[]));
- useEffect(()=>setSelected(today),[today,period]);
- const days=useMemo(()=>conditionDays(records,today,period),[records,today,period]);
- const current=records.find(r=>r.date===today),summary=conditionSummary(current),chosen=days.find(d=>d.date===selected);
- const ready=!isLoading&&!storageError&&!auth.isLoading&&(!auth.isSignedIn||cloudSynced);
- const openEditor=()=>router.push('/check-in');
- const step=(delta:number)=>{const index=days.findIndex(d=>d.date===selected);setSelected(days[Math.max(0,Math.min(days.length-1,index+delta))].date);};
- return <View testID="condition-screen" style={s.root}>
-  <ScrollView contentContainerStyle={[s.content,{paddingTop:(Platform.OS==='web'?18:insets.top)+14,paddingBottom:getTabBarHeight(Platform.OS,insets.bottom)+28}]} showsVerticalScrollIndicator={false}>
-   <View style={s.heading}><View style={{flex:1,gap:8}}><Text style={s.brand}>• YOKI YOKI</Text><Text accessibilityRole="header" style={s.title}>きろく</Text></View><Pressable testID="condition-menu" accessibilityRole="button" accessibilityLabel="メニューを開く" onPress={()=>router.navigate({pathname:'/(tabs)',params:{menu:'1'}})} style={s.iconButton}><Icon name="grid" size={22} color="#514657"/></Pressable></View>
-   <View style={s.segment}><Pressable accessibilityRole="tab" accessibilityState={{selected:true}} style={[s.segmentButton,s.segmentSelected]}><Text style={s.segmentLabel}>変化</Text></Pressable><Pressable testID="condition-insights-tab" accessibilityRole="tab" accessibilityState={{selected:false}} onPress={()=>router.push('/insights')} style={s.segmentButton}><Text style={s.segmentLabel}>気づき</Text></Pressable></View>
-   <View testID="condition-summary" style={s.card}>
-    <Text style={s.small}>{formatDateJP(today)}　あなたのきろく</Text>
-    <View style={{gap:10}}>{KEYS.map(key=><View key={key} testID={`condition-card-${key}`} style={{backgroundColor:METRIC_STYLE[key].tint,borderRadius:18,padding:16,gap:8,borderLeftWidth:5,borderLeftColor:METRIC_STYLE[key].ink}}><Text style={s.small}>{CONDITION_TITLES[key]}</Text><Text testID={`condition-current-${key}`} style={[s.mood,{fontSize:21}]}>{conditionLabel(current,key)}</Text></View>)}</View>
-    <View style={s.summary}><Text style={s.summaryLine}>よいところ　<Text style={s.good}>{summary.good.join('・')||'—'}</Text></Text><Text style={s.summaryLine}>気になるところ　<Text style={s.concern}>{summary.concern.join('・')||'—'}</Text></Text>{!current&&<Text style={s.small}>記録すると、今日の状態をここで確認できます。</Text>}</View>
-   </View>
-   <Pressable testID="condition-edit" disabled={!ready} accessibilityRole="button" onPress={openEditor} style={[s.primary,!ready&&s.disabled]}><Icon name="edit-3" size={20} color="#FFFDF8"/><Text style={s.primaryText}>いまのようすを記録</Text></Pressable>
-   <View style={[s.heading,{marginTop:14}]}><Text accessibilityRole="header" style={s.sectionTitle}>ここまでの変化</Text><Text style={s.small}>自分で残した記録</Text></View>
-   <View style={s.segment}>{[7,30].map(n=><Pressable key={n} testID={`condition-period-${n}`} accessibilityRole="button" accessibilityState={{selected:period===n}} onPress={()=>setPeriod(n)} style={[s.segmentButton,period===n&&s.segmentSelected]}><Text style={s.segmentLabel}>{n===7?'1週間':'1か月'}</Text></Pressable>)}</View>
-   <View style={s.heading}><Text style={s.small}>{shortDate(days[0].date)} – {shortDate(today)}</Text><Text testID="condition-record-count" style={s.small}>{days.filter(d=>conditionValue(d.record,'mood')!==null).length}日分の記録</Text></View>
-   <View testID="condition-week-strip" style={{flexDirection:'row',gap:4}}>{days.slice(-7).map(day=><Pressable key={day.date} accessibilityRole="button" accessibilityLabel={`${formatDateJP(day.date)} ${conditionLabel(day.record,'mood')}`} accessibilityState={{selected:selected===day.date}} onPress={()=>setSelected(day.date)} style={{flex:1,minHeight:54,alignItems:'center',justifyContent:'center',gap:4,borderRadius:12,backgroundColor:selected===day.date?'#76558C':'#FFFFFF',borderWidth:1,borderColor:selected===day.date?'#76558C':'#E1D9EA'}}><Text style={[s.small,selected===day.date&&{color:'#FFFFFF',fontWeight:'700'}]}>{Number(day.date.slice(-2))}</Text><View style={{width:6,height:6,borderRadius:3,backgroundColor:selected===day.date?'#E8D9F3':conditionValue(day.record,'mood')===null?'#DFD8E3':'#8B6B9A'}}/></Pressable>)}</View>
-   {KEYS.map(key=>{const theme=METRIC_STYLE[key];return <View key={key} testID={`condition-trend-card-${key}`} style={[s.chartCard,{borderColor:theme.border}]}>
-    <View style={[s.chartHeading,{backgroundColor:theme.tint}]}><View style={s.chartTitle}><View style={[s.metricIcon,{backgroundColor:'#FFFFFF'}]}><Icon name={theme.icon} size={19} color={theme.ink}/></View><Text style={[s.sectionTitle,{color:theme.ink}]}>{CONDITION_TITLES[key]}</Text></View><Text style={[s.change,{color:theme.ink}]}>{conditionChange(days,key)}</Text></View>
-    <View style={s.plot}><ConditionChart days={days} metric={key} selected={selected} onSelect={setSelected}/></View>
-    <View style={[s.chartFooter,{backgroundColor:theme.tint}]}><Text style={s.selectedDate}>{shortDate(selected)} の記録</Text><Text testID={`condition-selected-${key}`} accessibilityLiveRegion="polite" style={[s.selected,{color:theme.ink}]}>{conditionLabel(chosen?.record,key)}</Text></View>
-   </View>;})}
-   <DailyLifeCharts days={days} selected={selected} onSelect={setSelected}/>
-   <View style={s.dayNav}><Pressable disabled={selected===days[0].date} accessibilityRole="button" accessibilityLabel="前の日の記録" onPress={()=>step(-1)} style={[s.dayButton,selected===days[0].date&&s.disabled]}><Icon name="chevron-left" size={16} color="#675670"/><Text style={s.linkText}>前の日</Text></Pressable><Text style={s.small}>{formatDateJP(selected)}</Text><Pressable disabled={selected===today} accessibilityRole="button" accessibilityLabel="次の日の記録" onPress={()=>step(1)} style={[s.dayButton,selected===today&&s.disabled]}><Text style={s.linkText}>次の日</Text><Icon name="chevron-right" size={16} color="#675670"/></Pressable></View>
-   <Link label="日ごとの記録を見る" testID="condition-history" onPress={()=>setHistory(true)}/>
-   <Link label="元気な日の傾向を見る" testID="condition-insights" onPress={()=>router.push('/insights')}/>
-   <Link label="相棒の成長と思い出" testID="condition-growth" onPress={()=>router.navigate('/(tabs)/growth')}/>
-   <Text style={s.footer}>空白の日・項目は未記録のまま表示します。{ '\n' }よいところ・気になるところは、選んだ回答をもとに表示しています。</Text>
-  </ScrollView>
-  {history&&<BottomSheet visible onClose={()=>setHistory(false)} title="日ごとの記録" subtitle={period===7?'最近1週間':'最近1か月'} maxHeightRatio={.94}>{[...days].reverse().map(day=><View key={day.date} style={s.historyRow}><Text style={s.sectionTitle}>{formatDateJP(day.date)}</Text>{KEYS.map(key=><Text key={key} style={s.historyValue}>{CONDITION_TITLES[key]}：{conditionLabel(day.record,key)}</Text>)}{lifeSummary(day.record).map(line=><Text key={line} style={s.historyValue}>{line}</Text>)}</View>)}</BottomSheet>}
- </View>;
+type Sheet = 'day' | 'calendar' | 'life' | 'menu' | null;
+const CORE_METRICS: RecordMetric[] = ['mood', 'fatigue', 'worry', 'moyamoya'];
+export default function ConditionScreen() {
+  const auth = useAuth();
+  return <ConditionNotebook key={auth.user?.id ?? 'guest'}/>;
 }
-function shortDate(date:string){const [,m,d]=date.split('-');return `${Number(m)}/${Number(d)}`;}
-function Link({label,testID,onPress}:{label:string;testID:string;onPress:()=>void}){return <Pressable testID={testID} accessibilityRole="button" onPress={onPress} style={s.link}><Text style={s.linkText}>{label}</Text><Icon name="chevron-right" size={18} color="#82708D"/></Pressable>;}
-function ConditionChart({days,metric,selected,onSelect}:{days:ReturnType<typeof conditionDays>;metric:ConditionKey;selected:string;onSelect:(date:string)=>void}){
- const theme=METRIC_STYLE[metric];
- const [width,setWidth]=useState(260),left=58,right=12,top=10,bottom=92,max=metric==='mood'?5:3;
- const x=(i:number)=>left+i*(width-left-right)/(days.length-1),y=(v:number)=>bottom-(v-1)/(max-1)*(bottom-top);
- let path='',joined=false;days.forEach((day,i)=>{const v=conditionValue(day.record,metric);if(v===null){joined=false;return;}path+=`${joined?'L':'M'}${x(i)} ${y(v)} `;joined=true;});
- const ticks=metric==='mood'?[5,3,1]:[3,2,1],indexes=[0,Math.floor((days.length-1)/2),days.length-1];
- return <Pressable testID={`condition-chart-${metric}`} accessibilityRole="button" accessibilityLabel={`${CONDITION_TITLES[metric]}の推移。${shortDate(selected)}は${conditionLabel(days.find(d=>d.date===selected)?.record,metric)}。日付は下の前の日・次の日ボタンでも選べます`} onLayout={e=>setWidth(Math.max(180,e.nativeEvent.layout.width))} onPress={e=>{const i=Math.max(0,Math.min(days.length-1,Math.round((e.nativeEvent.locationX-left)/(width-left-right)*(days.length-1))));onSelect(days[i].date);}} style={{height:124}}>
-  <Svg width={width} height={124} accessible={false}>
-   <Line x1={x(days.findIndex(d=>d.date===selected))} x2={x(days.findIndex(d=>d.date===selected))} y1={top} y2={bottom} stroke={theme.border} strokeDasharray="3 4"/>
-   {ticks.map(v=><React.Fragment key={v}><Line x1={left} y1={y(v)} x2={width-right} y2={y(v)} stroke={theme.border} strokeWidth={1}/><SvgText x={left-9} y={y(v)+4} textAnchor="end" fontSize={11} fill="#7F7185">{CONDITION_LABELS[metric][v]}</SvgText></React.Fragment>)}
-   <Path d={path} stroke={theme.ink} strokeWidth={2} fill="none"/>
-   {days.map((day,i)=>{const v=conditionValue(day.record,metric);return v===null?null:<Circle key={day.date} cx={x(i)} cy={y(v)} r={day.date===selected?4.5:2.6} stroke={theme.ink} strokeWidth={day.date===selected?2:0} fill={day.date===selected?'#FFFFFF':theme.ink}/>;})}
-   {indexes.map((i,n)=><SvgText key={i} x={x(i)} y={114} textAnchor={n===0?'start':n===2?'end':'middle'} fontSize={11} fill="#7F7185">{shortDate(days[i].date)}</SvgText>)}
-  </Svg>
- </Pressable>;
+function ConditionNotebook() {
+  const {records, isLoading, storageError, cloudSynced} = useApp(), auth = useAuth();
+  const router = useRouter(), insets = useSafeAreaInsets(), compact = useWindowDimensions().width < 360;
+  const [today, setToday] = useState(getTodayDate), [period, setPeriod] = useState(7);
+  const [selected, setSelected] = useState(today), [metric, setMetric] = useState<RecordMetric>('mood');
+  const [sheet, setSheet] = useState<Sheet>(null);
+  useFocusEffect(useCallback(() => {
+    const update = () => setToday(getTodayDate()); update();
+    const timer = setInterval(update, 30000); return () => clearInterval(timer);
+  }, []));
+  const days = useMemo(() => conditionDays(records, today, period), [records, today, period]);
+  const monthDays = useMemo(() => conditionDays(records, today, 30), [records, today]);
+  // Changing range must not leave the selected day outside the visible graph.
+  useEffect(() => setSelected(day => day < days[0].date || day > today ? today : day), [days[0].date, today]);
+  const current = records.find(r => r.date === today), chosen = days.find(d => d.date === selected)?.record;
+  const count = days.filter(d => recordValue(d.record, metric) !== null).length;
+  const ready = !isLoading && !storageError && !auth.isLoading && (!auth.isSignedIn || cloudSynced);
+  const changePeriod = (length: number) => {
+    const first = conditionDays([], today, length)[0].date;
+    setPeriod(length);
+    setSelected(day => day < first || day > today ? today : day);
+  };
+  const openEditor = () => {setSheet(null); router.push('/check-in');};
+  const route = (destination: '/monthly-report' | '/hints' | '/(tabs)/growth') => {setSheet(null); router.push(destination);};
+  const chooseHistory = (date: string) => {setPeriod(30); setSelected(date); setSheet('day');};
+  const activities = current?.behaviorsRecorded !== false && current?.behaviors?.length ? current.behaviors : [];
+  return <View testID="condition-screen" style={s.root}>
+    <ScrollView testID="record-overview-scroll" contentContainerStyle={[s.content, {paddingTop: (Platform.OS === 'web' ? 18 : insets.top) + 14, paddingBottom: getTabBarHeight(Platform.OS, insets.bottom) + 24}]} showsVerticalScrollIndicator={false}>
+      <View style={s.header}>
+        <View style={s.headingCopy}><Text style={s.brand}>YOKI YOKI</Text><Text accessibilityRole="header" style={s.title}>きろく</Text></View>
+        <Pressable testID="condition-edit" disabled={!ready} accessibilityRole="button" accessibilityLabel="いまのようすを記録" onPress={openEditor} style={({pressed}) => [s.editButton, (!ready || pressed) && s.dim]}><Icon name="edit-3" size={iconSize.sm} color="#7D5E91"/><Text style={s.editText}>記録する</Text></Pressable>
+        <Pressable testID="condition-menu" accessibilityRole="button" accessibilityLabel="記録のメニューを開く" onPress={() => setSheet('menu')} style={s.menuButton}><Icon name="more-horizontal" size={iconSize.lg} color={recordMuted}/></Pressable>
+      </View>
+      <LinearGradient testID="condition-summary" colors={['#F0E8F4', '#F7F0ED']} start={{x: 0, y: 0}} end={{x: 1, y: 1}} style={[s.todayCard, compact && {paddingHorizontal: 14}]}>
+        <View style={s.todayTop}><Text style={s.eyebrow}>今日のようす</Text><Text style={s.todayDate}>{shortRecordDate(today)}（{recordWeekday(today)}）</Text></View>
+        <View style={s.todayMain}>
+          <ConditionFace mood={conditionValue(current, 'mood')} size={compact ? 48 : 60}/>
+          <View style={s.moodCopy}><Text style={s.moodCaption}>気分</Text><Text testID="condition-current-mood" style={[s.moodValue, compact && {fontSize: 20}]}>{conditionLabel(current, 'mood')}</Text></View>
+          <View style={s.todaySupporting}>
+            {(['fatigue', 'worry'] as const).map(key => <View key={key} testID={'condition-card-' + key} style={s.todayMetric}>
+              <Icon name={RECORD_METRICS[key].icon} size={iconSize.xs} color={RECORD_METRICS[key].ink}/><Text style={s.metricName}>{key === 'fatigue' ? '疲れ' : '心配'}</Text><Text testID={'condition-current-' + key} style={s.metricValue}>{conditionLabel(current, key)}</Text>
+            </View>)}
+          </View>
+        </View>
+      </LinearGradient>
+      <View style={s.viewTabs}>
+        <View accessibilityRole="tab" accessibilityState={{selected: true}} style={[s.viewTab, s.viewTabActive]}><Icon name="bar-chart-2" size={iconSize.sm} color="#78568B"/><Text style={s.viewTabText}>変化</Text></View>
+        <Pressable testID="condition-insights-tab" accessibilityRole="tab" accessibilityState={{selected: false}} onPress={() => router.push('/insights')} style={s.viewTab}><Icon name="sunrise" size={iconSize.sm} color={recordMuted}/><Text style={s.inactiveTabText}>気づき</Text><Icon name="chevron-right" size={iconSize.xs} color="#B7A8BD"/></Pressable>
+      </View>
+      <View testID="record-focus-card" style={s.focusCard}>
+        <View style={s.focusHeading}>
+          <View style={s.headingCopy}><Text accessibilityRole="header" style={s.sectionTitle}>ここまでの変化</Text><Text style={s.range}>{shortRecordDate(days[0].date)} — {shortRecordDate(today)}　<Text testID="condition-record-count">{count}日分</Text></Text></View>
+          <View style={s.periodPicker}>{[7, 30].map(n => <Pressable key={n} testID={'condition-period-' + n} accessibilityRole="button" accessibilityLabel={n === 7 ? '最近1週間' : '最近1か月'} accessibilityState={{selected: period === n}} onPress={() => changePeriod(n)} style={[s.periodButton, period === n && s.periodActive]}><Text style={[s.periodText, period === n && s.periodTextActive]}>{n === 7 ? '1週間' : '1か月'}</Text></Pressable>)}</View>
+        </View>
+        <View style={s.metricTabs}>{CORE_METRICS.map(key => {
+          const active = metric === key, item = RECORD_METRICS[key];
+          return <Pressable key={key} testID={'record-metric-' + key} accessibilityRole="tab" accessibilityLabel={item.title + 'のグラフ'} accessibilityState={{selected: active}} onPress={() => setMetric(key)} style={[s.metricTab, active && {backgroundColor: item.tint, borderColor: item.tint}]}><Text style={[s.metricTabText, active && {color: item.ink, fontWeight: '700'}]}>{item.short}</Text></Pressable>;
+        })}</View>
+        <RecordTrend days={days} metric={metric} selected={selected} onSelect={setSelected}/>
+        <RecordDayNavigation days={days} metric={metric} selected={selected} onSelect={setSelected} onDetails={() => setSheet('day')}/>
+        <Text style={s.graphHint}>日付を選ぶと、その日の回答を見られます</Text>
+      </View>
+      <View style={s.secondaryRow}>
+        <Pressable testID="record-life-open" accessibilityRole="button" accessibilityLabel="睡眠と暮らしの変化を見る" onPress={() => setSheet('life')} style={({pressed}) => [s.secondaryCard, {backgroundColor: '#EDF3EF'}, pressed && s.dim]}>
+          <View style={s.secondaryTop}><View style={[s.secondaryIcon, {backgroundColor: '#E0EBE4'}]}><Icon name="moon" size={iconSize.md} color="#638879"/></View><Icon name="arrow-up-right" size={iconSize.sm} color="#88A091"/></View>
+          <Text style={s.secondaryTitle}>眠りと暮らし</Text><Text numberOfLines={1} style={s.secondaryNote}>{lifeLabel(current, 'sleep') === '未記録' ? '睡眠・食事・過ごし方' : '睡眠 ' + lifeLabel(current, 'sleep') + (activities.length ? '・' + activities[0] : '')}</Text>
+        </Pressable>
+        <Pressable testID="condition-history" accessibilityRole="button" accessibilityLabel="日ごとの記録を見る" onPress={() => setSheet('calendar')} style={({pressed}) => [s.secondaryCard, {backgroundColor: '#F5EEE5'}, pressed && s.dim]}>
+          <View style={s.secondaryTop}><View style={[s.secondaryIcon, {backgroundColor: '#EEE2D2'}]}><Icon name="calendar" size={iconSize.md} color="#A18767"/></View><Icon name="arrow-up-right" size={iconSize.sm} color="#B29B80"/></View>
+          <Text style={s.secondaryTitle}>日ごとの記録</Text><Text style={s.secondaryNote}>カレンダーでふりかえる</Text>
+        </Pressable>
+      </View>
+      <Text style={s.footnote}>空白は、未記録の日。自分のペースで大丈夫。</Text>
+    </ScrollView>
+    {sheet && <BottomSheet visible onClose={() => setSheet(null)} title={sheet === 'life' ? '眠りと暮らし' : sheet === 'calendar' ? '日ごとの記録' : sheet === 'day' ? shortRecordDate(selected) + '（' + recordWeekday(selected) + '）の記録' : '記録のメニュー'} subtitle={sheet === 'calendar' ? '最近30日。日付をタップして、回答をひらく。' : sheet === 'life' ? shortRecordDate(days[0].date) + ' — ' + shortRecordDate(today) : undefined} maxHeightRatio={.9} contentStyle={{gap: 18}}>
+      {sheet === 'day' && <RecordDayDetails record={chosen} date={selected} today={today} onEdit={ready ? openEditor : undefined}/>}
+      {sheet === 'calendar' && <RecordCalendar days={monthDays} selected={selected} onSelect={chooseHistory}/>}
+      {sheet === 'life' && <DailyLifeCharts days={days} selected={selected} onSelect={setSelected} onDetails={() => setSheet('day')}/>}
+      {sheet === 'menu' && <View style={{gap: 3}}>
+        <MenuRow icon="file-text" title="月のまとめ" note="ひと月の記録を振り返る・画像で保存" onPress={() => route('/monthly-report')}/>
+        <MenuRow icon="bookmark" title="自分のヒント帳" note="残しておいた気づきと言葉" onPress={() => route('/hints')}/>
+        <MenuRow icon="heart" title="相棒の成長と思い出" note="一緒に過ごした日々を振り返る" onPress={() => route('/(tabs)/growth')}/>
+      </View>}
+    </BottomSheet>}
+  </View>;
 }
-const s=StyleSheet.create({
- root:{flex:1,backgroundColor:'#F1F1F8'},content:{width:'100%',maxWidth:620,alignSelf:'center',paddingHorizontal:20,gap:18},heading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'},brand:{fontSize:11,letterSpacing:2,color:'#8B728C',fontWeight:'700'},title:{fontSize:27,lineHeight:38,fontWeight:'700',color:'#43384D'},iconButton:{width:48,height:48,borderRadius:18,backgroundColor:'#FFFCF6',alignItems:'center',justifyContent:'center',borderWidth:1,borderBottomWidth:4,borderColor:'#DED6E1'},
- card:{backgroundColor:'#FFFFFF',borderWidth:1,borderBottomWidth:5,borderColor:'#E3DDE6',borderRadius:26,padding:20,gap:16},small:{fontSize:12,lineHeight:20,color:'#857188'},hero:{flexDirection:'row',alignItems:'center',gap:14,paddingVertical:7},mood:{fontSize:25,lineHeight:36,fontWeight:'700',color:'#493650'},metric:{flexDirection:'row',alignItems:'center',gap:10,borderTopWidth:1,borderTopColor:'#E3DCE6',paddingTop:14},metricName:{flex:1,fontSize:13,lineHeight:21,color:'#5B4964'},metricValue:{fontSize:14,color:'#765A7E'},summary:{gap:8,borderTopWidth:1,borderTopColor:'#E3DCE6',paddingTop:13},summaryLine:{fontSize:12,lineHeight:21,color:'#857188'},good:{color:'#487D75'},concern:{color:'#9A673E'},primary:{minHeight:54,borderRadius:19,backgroundColor:'#856395',borderBottomWidth:4,borderBottomColor:'#664772',paddingHorizontal:12,paddingVertical:13,flexDirection:'row',justifyContent:'center',alignItems:'center',gap:10},primaryText:{fontSize:16,fontWeight:'600',lineHeight:24,color:'#FFFDF8'},disabled:{opacity:.45},sectionTitle:{fontSize:16,lineHeight:25,fontWeight:'600',color:'#4B3B55'},segment:{flexDirection:'row',gap:4,backgroundColor:'#E9E1EE',padding:4,borderRadius:18},segmentButton:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:14},segmentSelected:{backgroundColor:'#FFFCF6',borderBottomWidth:2,borderBottomColor:'#D9CEE1'},segmentLabel:{fontSize:14,color:'#5B4668'},chartCard:{backgroundColor:'#FFFFFF',borderWidth:1,borderBottomWidth:3,borderRadius:22,overflow:'hidden',shadowColor:'#362348',shadowOffset:{width:0,height:3},shadowOpacity:.05,shadowRadius:10},chartHeading:{padding:14,gap:7},chartTitle:{flexDirection:'row',alignItems:'center',gap:9},metricIcon:{width:34,height:34,borderRadius:12,alignItems:'center',justifyContent:'center'},plot:{paddingHorizontal:12,paddingTop:18,paddingBottom:14},chartFooter:{paddingHorizontal:16,paddingVertical:10,flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:8},change:{fontSize:11,lineHeight:18,marginLeft:43},selectedDate:{fontSize:11,lineHeight:19,color:'#6C6376'},selected:{fontSize:13,lineHeight:21,fontWeight:'600'},dayNav:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:4,backgroundColor:'#FFFFFF',borderRadius:17,paddingHorizontal:10,borderWidth:1,borderColor:'#E1D9EA'},dayButton:{minHeight:44,flexDirection:'row',alignItems:'center',gap:1},link:{minHeight:54,borderBottomWidth:1,borderBottomColor:'#DFD7E3',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:10},linkText:{fontSize:13,lineHeight:22,color:'#574262'},footer:{fontSize:11,lineHeight:20,color:'#8A778D',textAlign:'center',paddingVertical:12},question:{fontSize:16,lineHeight:24,fontWeight:'600',color:'#574262'},options:{flexDirection:'row',gap:6},moodOption:{flex:1,paddingVertical:10,paddingHorizontal:1,minHeight:83,alignItems:'center',justifyContent:'center',gap:8,borderRadius:15,borderWidth:1,borderBottomWidth:3,borderColor:'#E2D8E7',backgroundColor:'#FFFCF6'},optionSelected:{borderColor:'#8A699A',backgroundColor:'#E9DFEE'},optionText:{fontSize:11,lineHeight:18,fontWeight:'600',color:'#5C466A'},scaleOption:{flex:1,minHeight:48,alignItems:'center',justifyContent:'center',paddingHorizontal:6,borderWidth:1,borderBottomWidth:3,borderColor:'#E2D8E7',backgroundColor:'#FFFCF6',borderRadius:15},skip:{minHeight:44,justifyContent:'center',alignSelf:'flex-end'},error:{fontSize:13,lineHeight:22,color:'#A34D58'},historyRow:{borderBottomWidth:1,borderBottomColor:'#E4DCE8',paddingBottom:16,gap:7},historyValue:{fontSize:13,lineHeight:22,color:'#75617D'},
+function MenuRow({icon, title, note, onPress}: {icon: React.ComponentProps<typeof Icon>['name']; title: string; note: string; onPress: () => void}) {
+  return <Pressable accessibilityRole="button" onPress={onPress} style={s.menuRow}><Icon name={icon} size={iconSize.lg} color="#8A6A9E"/><View style={{flex: 1, gap: 4}}><Text style={s.sectionTitle}>{title}</Text><Text style={s.secondaryNote}>{note}</Text></View><Icon name="chevron-right" size={iconSize.sm} color={recordMuted}/></Pressable>;
+}
+const s = StyleSheet.create({
+  root: {flex: 1, backgroundColor: '#FAF8F5'}, content: {width: '100%', maxWidth: 580, alignSelf: 'center', paddingHorizontal: 20, gap: 14},
+  header: {flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2}, headingCopy: {flex: 1, gap: 3}, brand: {fontSize: 9, lineHeight: 15, letterSpacing: 2.6, color: '#9A86A4', fontWeight: '600'},
+  title: {fontSize: 30, lineHeight: 40, fontWeight: '700', letterSpacing: 1, color: recordInk}, editButton: {minHeight: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: '#EEE6F3', flexDirection: 'row', gap: 7, alignItems: 'center'}, editText: {fontSize: 12, fontWeight: '600', color: '#765788'}, menuButton: {width: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center'}, dim: {opacity: .55},
+  todayCard: {borderRadius: 26, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 13, gap: 8, borderWidth: 1, borderColor: '#EBE1ED'}, todayTop: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}, eyebrow: {fontSize: 12, lineHeight: 20, color: '#826B8E', fontWeight: '600'}, todayDate: {fontSize: 11, color: '#948198'},
+  todayMain: {flexDirection: 'row', alignItems: 'center', gap: 5}, moodCopy: {flex: 1, gap: 2}, moodCaption: {fontSize: 10, lineHeight: 18, color: '#9A87A1'}, moodValue: {fontSize: 22, lineHeight: 32, fontWeight: '600', color: '#654A75'}, todaySupporting: {gap: 10, paddingLeft: 10, borderLeftWidth: 1, borderLeftColor: '#E3D7E7'}, todayMetric: {flexDirection: 'row', alignItems: 'center', gap: 5}, metricName: {fontSize: 11, lineHeight: 18, color: '#917C99'}, metricValue: {fontSize: 12, lineHeight: 18, minWidth: 42, color: '#6D5A77', fontWeight: '500'}, todayBottom: {flexDirection: 'row', gap: 6, alignItems: 'center'}, todayNote: {fontSize: 10, lineHeight: 18, color: '#9B86A2'}, smallDot: {width: 5, height: 5, borderRadius: 3},
+  viewTabs: {flexDirection: 'row', gap: 24, alignItems: 'center', marginTop: 2, marginBottom: -9}, viewTab: {minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 4, paddingBottom: 4}, viewTabActive: {borderBottomWidth: 2, borderBottomColor: '#9976AA'}, viewTabText: {fontSize: 14, lineHeight: 22, fontWeight: '700', color: '#78568B'}, inactiveTabText: {fontSize: 14, lineHeight: 22, color: '#87728F'},
+  focusCard: {backgroundColor: '#FFFEFC', borderRadius: 25, borderWidth: 1, borderColor: '#EDE7ED', padding: 14, gap: 9, shadowColor: '#735F7D', shadowOpacity: .035, shadowOffset: {width: 0, height: 4}, shadowRadius: 12}, focusHeading: {flexDirection: 'row', alignItems: 'center', gap: 5}, sectionTitle: {fontSize: 15, lineHeight: 23, fontWeight: '600', color: recordInk}, range: {fontSize: 10, lineHeight: 17, color: '#887891'}, periodPicker: {flexDirection: 'row', borderRadius: 18, padding: 3, backgroundColor: '#F4F0F4'}, periodButton: {paddingHorizontal: 10, minHeight: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 15}, periodActive: {backgroundColor: '#FFFFFF', shadowColor: '#735F7D', shadowOpacity: .07, shadowRadius: 3, shadowOffset: {width: 0, height: 1}}, periodText: {fontSize: 11, color: '#887891'}, periodTextActive: {color: '#795C88', fontWeight: '600'},
+  metricTabs: {flexDirection: 'row', gap: 4}, metricTab: {flex: 1, minHeight: 44, paddingHorizontal: 2, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderRadius: 13, borderWidth: 1, borderColor: '#EEE8EF'}, metricTabText: {fontSize: 12, lineHeight: 19, color: '#84718D'}, graphCaption: {flexDirection: 'row', justifyContent: 'space-between', gap: 8, alignItems: 'center'}, change: {fontSize: 11, lineHeight: 19, flexShrink: 1}, count: {fontSize: 10, lineHeight: 18, color: '#A396A9'}, graphHint: {fontSize: 9, lineHeight: 16, color: '#93829A', textAlign: 'center', marginTop: -5},
+  secondaryRow: {flexDirection: 'row', gap: 12}, secondaryCard: {flex: 1, minWidth: 0, borderRadius: 21, padding: 15, gap: 7}, secondaryTop: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2}, secondaryIcon: {width: 31, height: 31, borderRadius: 11, alignItems: 'center', justifyContent: 'center'}, secondaryTitle: {fontSize: 13, fontWeight: '600', lineHeight: 21, color: '#675D6A'}, secondaryNote: {fontSize: 10, lineHeight: 18, color: '#86758C'}, footnote: {fontSize: 10, lineHeight: 18, textAlign: 'center', color: '#8E7E95', marginTop: -3}, menuRow: {minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 14, borderBottomWidth: 1, borderBottomColor: '#E9E0E9', paddingVertical: 10},
 });

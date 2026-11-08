@@ -74,16 +74,27 @@ let browser,page;
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('@mentore/feed_state_v1')).points),200);
   await page.reload();await homeWithoutPrompt();
   await page.getByTestId('home-condition').click();
-  await page.getByTestId('daily-life-charts').waitFor();
-  assert.equal(await page.getByTestId('life-selected-sleep').innerText(),'7時間');
+  await page.getByTestId('record-metric-moyamoya').click();
   assert.equal(await page.getByTestId('life-selected-moyamoya').innerText(),has?'ある':'ない');
+  await page.getByTestId('record-life-open').click();
+  assert.equal(await page.getByTestId('life-selected-sleep').innerText(),'7時間');
+  await page.getByTestId('life-tab-day-type').click();await page.getByTestId('life-row-day-type-rest').click();
   assert.equal(await page.getByTestId('life-cell-day-type-rest-'+date).getAttribute('aria-label'),date+'、お休み、選択');
-  assert.equal(await page.getByTestId('life-cell-activities-外に出た-'+date).getAttribute('aria-label'),date+'、外に出た、'+(has?'選択なし':'未記録'));
-  if(has)for(const label of ['ご飯をたくさん食べた','恋人と会った','家事をした'])assert.equal(await page.getByTestId('life-cell-activities-'+label+'-'+date).getAttribute('aria-label'),date+'、'+label+'、選択');
+  await page.getByTestId('life-tab-activities').click();
+  if(has){
+   await page.getByTestId('life-categories-more').click();
+   for(const label of ['外に出た','ご飯をたくさん食べた','恋人と会った','家事をした']){
+    await page.getByTestId('life-row-activities-'+label).click();
+    assert.equal(await page.getByTestId('life-cell-activities-'+label+'-'+date).getAttribute('aria-label'),date+'、'+label+'、'+(label==='外に出た'?'選択なし':'選択'));
+   }
+  }else await page.getByText('この期間の回答は、まだありません',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'閉じる',exact:true}).click();
   await page.getByTestId('condition-period-30').click();
   await page.getByRole('button',{name:'前の日の記録',exact:true}).click();
-  assert.equal(await page.getByTestId('life-selected-sleep').innerText(),'未記録');
   assert.equal(await page.getByTestId('life-selected-moyamoya').innerText(),'未記録');
+  await page.getByTestId('record-life-open').click();
+  assert.equal(await page.getByTestId('life-selected-sleep').innerText(),'未記録');
+  await page.getByRole('button',{name:'閉じる',exact:true}).click();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),width);
   if(out)await page.screenshot({path:path.join(out,'trends-'+width+'.png'),fullPage:true});
   await page.getByTestId('condition-insights-tab').click();await page.getByTestId('personal-insights-screen').waitFor();
