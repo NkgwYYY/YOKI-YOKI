@@ -24,3 +24,12 @@ test('matching cash checkout selects only a missing entitlement for either parti
  }
  assert.equal(shop.cashShopProduct(null,room.readRoomCollection(null),wardrobe.readWardrobe(null)),null);
 });
+
+test('shop opens costumes without an all category, and product links open their real category',()=>{
+ for(const tab of [undefined,'all','costumes'])assert.equal(shop.shopEntryCategory(tab),'costumes');
+ assert.equal(shop.shopEntryCategory('sets','panda-furniture'),'furniture');
+ assert.equal(shop.shopEntryCategory(undefined,'rain-cafe'),'sets');
+ assert.equal(shop.shopEntryCategory('sets','costume-cat'),'costumes');
+ assert.equal(shop.shopEntryCategory('owned'),'owned');
+ assert.equal(shop.shopEntryCategory('decor'),'other');
+});

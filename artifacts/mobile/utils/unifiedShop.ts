@@ -10,8 +10,8 @@ export const SHOP_PRODUCTS:ShopProduct[]=[
  ...ROOM_FURNITURE.map(f=>({key:'furniture-'+f.id,name:f.name,points:f.cost,kind:'furniture' as const,furniture:f.id})),
  ...ROOM_FLOWERS.map(f=>({key:'flower-'+f.id,name:f.name,points:f.cost,kind:'flower' as const,flower:f.id})),
 ];
-export type ShopCategory='all'|'costumes'|'furniture'|'sets'|'owned'|'other';
-export function inShopCategory(p:ShopProduct,c:ShopCategory){return c==='all'||c==='owned'||c==='costumes'&&p.kind==='costume'||c==='furniture'&&(p.kind==='furniture'||p.kind==='flower'||p.room?.kind==='furniture')||c==='sets'&&p.room?.kind!=='furniture'&&p.kind==='room';}
+export type ShopCategory='costumes'|'furniture'|'sets'|'owned'|'other';
+export function inShopCategory(p:ShopProduct,c:ShopCategory){return c==='owned'||c==='costumes'&&p.kind==='costume'||c==='furniture'&&(p.kind==='furniture'||p.kind==='flower'||p.room?.kind==='furniture')||c==='sets'&&p.room?.kind!=='furniture'&&p.kind==='room';}
 export function findShopProduct(key?:string){return SHOP_PRODUCTS.find(p=>p.key===key)??SHOP_PRODUCTS[0];}
 
 /** A partially owned matching set buys only its missing entitlement. */
@@ -20,4 +20,12 @@ export function cashShopProduct(product:ShopProduct|null,room:RoomCollection,war
  if(wardrobe.owned.includes(product.room.costume!))return findShopProduct(product.room.costume+'-furniture');
  if(ownedRoomGoods(room).includes(product.room.good!))return findShopProduct('costume-'+product.room.costume);
  return product;
+}
+
+/** Existing links without a category (including old `all` links) open costumes. */
+export function shopEntryCategory(tab?:string,product?:string):ShopCategory {
+ const p=SHOP_PRODUCTS.find(p=>p.key===product);
+ if(p)return p.costume?'costumes':p.kind==='room'&&p.room?.kind!=='furniture'?'sets':'furniture';
+ if(tab==='owned'||tab==='costumes'||tab==='furniture'||tab==='sets')return tab;
+ return tab&&tab!=='all'?'other':'costumes';
 }
