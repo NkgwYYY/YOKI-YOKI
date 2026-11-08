@@ -32,20 +32,41 @@ export function prepareDailyRecord(
   if (!Number.isInteger(input.mood) || input.mood < 1 || input.mood > 5
     || !Number.isFinite(input.sleep) || input.sleep < 0 || input.sleep > 12
     || !Number.isFinite(foodPoints) || foodPoints < 0) throw new Error('記録内容を確認できません');
+  if (!Array.isArray(input.behaviors) || input.behaviors.length > 30 || input.behaviors.some(v => typeof v !== 'string' || v.length > 100)
+    || typeof input.notes !== 'string' || input.notes.length > 10000
+    || (input.extras?.dayType !== undefined && !['work','rest','other'].includes(input.extras.dayType))
+    || (input.extras?.behaviorsRecorded !== undefined && typeof input.extras.behaviorsRecorded !== 'boolean')
+    )
+    throw new Error('暮らしの記録を確認してください');
   const index = records.findIndex(r => r.date === input.today);
   const isNew = index === -1;
+  if(input.extras?.includeDetails && (['exercise','meal','social'] as const).some(key=>{const v=input.extras?.[key];return v!==undefined&&(!Number.isInteger(v)||v<1||v>3)&&(isNew||records[index][key]!==v);}))throw new Error('暮らしの記録を確認してください');
   if ([input.extras?.fatigue, input.extras?.worry].some(v => v !== undefined && (!Number.isInteger(v) || v < 1 || v > 3))) throw new Error('からだの疲れ・心配ごとの記録を確認してください');
   const record: DailyRecord = (input.extras?.moodOnly || input.extras?.conditionOnly) && !isNew ? {...records[index], mood: input.mood} : {
     id: (isNew ? undefined : records[index].id) ?? `r_${now.getTime()}`,
     date: input.today, mood: input.mood, sleep: input.sleep,
     sleepRecorded: input.extras?.sleepRecorded ?? true,
     behaviors: input.behaviors, notes: input.notes,
+    ...(!isNew && records[index].dayType !== undefined ? {dayType: records[index].dayType} : {}),
+    ...(!isNew && records[index].behaviorsRecorded !== undefined ? {behaviorsRecorded: records[index].behaviorsRecorded} : {}),
     exercise: input.extras?.exercise, meal: input.extras?.meal, social: input.extras?.social,
     win: input.extras?.win?.trim() || undefined, activities: input.extras?.activities,
     ...(!isNew && records[index].fatigue !== undefined ? {fatigue: records[index].fatigue} : {}),
     ...(!isNew && records[index].moyamoya ? {moyamoya:records[index].moyamoya} : {}),
     ...(!isNew && records[index].worry !== undefined ? {worry: records[index].worry} : {}),
   };
+  if (input.extras?.includeDetails && !input.extras.moodOnly) {
+    Object.assign(record, {sleep: input.sleep, sleepRecorded: input.extras.sleepRecorded ?? false,
+      behaviors: input.behaviors, notes: input.notes, exercise: input.extras.exercise,
+      meal: input.extras.meal, social: input.extras.social, win: input.extras.win?.trim() || undefined,
+      activities: input.extras.activities});
+  }
+  for (const key of ['dayType','behaviorsRecorded'] as const) {
+    if (input.extras && Object.prototype.hasOwnProperty.call(input.extras,key) && !input.extras.moodOnly) {
+      if (key === 'dayType') record.dayType = input.extras.dayType;
+      else record.behaviorsRecorded = input.extras.behaviorsRecorded;
+    }
+  }
   // Legacy diary saves omit these keys; explicit undefined from the new editor clears them.
   if (input.extras && Object.prototype.hasOwnProperty.call(input.extras, 'fatigue')) record.fatigue = input.extras.fatigue;
   if (input.extras && Object.prototype.hasOwnProperty.call(input.extras, 'worry')) record.worry = input.extras.worry;

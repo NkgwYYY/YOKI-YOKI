@@ -29,7 +29,7 @@ export function DailyLetter({date,onClose,onGrowth}:{date:string;onClose:()=>voi
   <CheckinDashboard data={data}/>
   <Button testID="daily-letter-check-in" label="いまのようすを記録" onPress={()=>{onClose();router.push('/check-in');}} fullWidth/>
   <View style={[cs.card,{backgroundColor:'#EAF4EF',borderColor:'#A7C8BA'}]}><Text style={cs.helper}>今日できること</Text><Text style={cs.heading}>{data.action.title}</Text><Text style={cs.copy}>{data.action.detail}</Text>
-   {data.action.kind==='rest'?<Button label="この子とひと休みする" onPress={onClose}/>:data.action.kind==='sleep'||data.action.kind==='diary'?<Button label={data.action.kind==='sleep'?'睡眠も記録する':'日記を開く'} variant="outline" onPress={()=>{onClose();router.push('/exchange-diary');}}/>:null}
+   {data.action.kind==='rest'?<Button label="この子とひと休みする" onPress={onClose}/>:data.action.kind==='sleep'||data.action.kind==='diary'?<Button label={data.action.kind==='sleep'?'睡眠も記録する':'日記を開く'} variant="outline" onPress={()=>{onClose();router.push(data.action.kind==='sleep'?'/check-in':'/exchange-diary');}}/>:null}
   </View>
   <View style={cs.card}><View style={s.row}><Icon name="star" color="#74566F" size={20}/><Text style={cs.heading}>今日の占い</Text></View><ZodiacFortune/></View>
   <Button label={`これまでの記録を見る · ${data.leaves.length}日分`} variant="outline" onPress={onGrowth}/>

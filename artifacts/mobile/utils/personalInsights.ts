@@ -1,7 +1,8 @@
+import {ACTIVITY_LABELS} from './dailyActivities.ts';
 /** Personal observations use structured, on-device records only. No journal text is read. */
 export type PatternRecord = {
   date: string; mood: number; behaviors?: readonly string[];
-  sleep?: number; sleepRecorded?: boolean;
+  sleep?: number; sleepRecorded?: boolean; behaviorsRecorded?: boolean; dayType?: string;
 };
 export type InsightEvidence = {
   selectedLabel: string; selectedDays: number; selectedGoodDays: number;
@@ -23,12 +24,7 @@ export const PERSONAL_INSIGHT_MIN_DAYS = 14;
 export const PERSONAL_INSIGHT_WINDOW_DAYS = 30;
 const MIN_GROUP = 4;
 // Curated activities only: an arbitrary imported tag must never become advice.
-const ACTIVITIES = [
-  '外に出た', '人と話した', 'ひとりで休んだ', '趣味を楽しんだ',
-  '運動した', '読書した', '瞑想した', '友人と会った', '新しいことに挑戦',
-  'ゆっくり休んだ', '自然を感じた', '好きな音楽を聴いた', '料理をした',
-  '人に感謝された', '人に親切にした',
-] as const;
+const ACTIVITIES = ACTIVITY_LABELS;
 
 function dayNumber(date: string): number | null {
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
@@ -59,7 +55,7 @@ type Candidate = { key: string; label: string; selected: PatternRecord[]; compar
 /**
  * First stored record wins when a damaged import contains duplicate dates, matching
  * AppContext's find()/daily transaction behavior. No duplicate adds evidence.
- * Empty behavior lists are unknown, not a day without the activity. Sleep is a
+ * Empty behavior lists are unknown unless explicitly answered with behaviorsRecorded=true. Sleep is a
  * separate comparison and is used only when explicitly recorded or legacy-detailed.
  */
 export function buildPersonalInsights(records: readonly PatternRecord[], today: string): PersonalInsightsReport {
@@ -77,7 +73,7 @@ export function buildPersonalInsights(records: readonly PatternRecord[], today: 
     byDate.set(r.date, r);
   }
   const days = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
-  const behavioralDays = days.filter(r => Array.isArray(r.behaviors) && r.behaviors.some(b => typeof b === 'string' && b.trim()));
+  const behavioralDays = days.filter(r => r.behaviorsRecorded !== false && Array.isArray(r.behaviors) && (r.behaviorsRecorded === true || r.behaviors.some(b => typeof b === 'string' && b.trim())));
   report.recordedDays = days.length;
   report.eligibleDays = behavioralDays.length;
   report.moodDays = days.map(({ date, mood }) => ({ date, mood }));
@@ -97,6 +93,10 @@ export function buildPersonalInsights(records: readonly PatternRecord[], today: 
     consider(`activity:${label}`, `${label === '新しいことに挑戦' ? '新しいことに挑戦した' : label}日`,
       behavioralDays.filter(r => r.behaviors!.includes(label)),
       behavioralDays.filter(r => !r.behaviors!.includes(label)), 'ほかの過ごし方を記録した日');
+  }
+  const dayTypeDays=days.filter(r=>r.dayType==='work'||r.dayType==='rest'||r.dayType==='other');
+  for(const [id,label] of [['work','仕事・学校の日'],['rest','お休みの日']] as const){
+    consider('day:'+id,label,dayTypeDays.filter(r=>r.dayType===id),dayTypeDays.filter(r=>r.dayType!==id),'ほかの生活を記録した日');
   }
   const sleepDays = days.filter(r => r.sleepRecorded !== false && typeof r.sleep === 'number' && Number.isFinite(r.sleep) && r.sleep >= 0 && r.sleep <= 12);
   if (sleepDays.length >= MIN_GROUP * 2) {
@@ -134,8 +134,8 @@ export function buildPersonalInsights(records: readonly PatternRecord[], today: 
       from: report.windowStart, to: report.windowEnd };
     const isSleep = c.key.startsWith('sleep:');
     return { id: `personal:${c.key}`, title: c.label,
-      body: `最近の記録では、${c.label}は「いい感じ」「うれしい」が多かったよ。自分に合う過ごし方を見つけるヒントになるかもしれないね。`,
-      suggestion: isSleep ? 'この時間を目標にしなくて大丈夫。起きたときの感じも、一緒に振り返ってみよう。' : 'また同じように過ごした日は、そのときの気分も記録してみよう。無理に試さなくても大丈夫だよ。',
+      body: `最近の記録では、${c.label}は「いい感じ」「うれしい」が多かったよ。日による違いを振り返るヒントになるかもしれないね。`,
+      suggestion: isSleep ? 'この時間を目標にしなくて大丈夫。起きたときの感じも、一緒に振り返ってみよう。' : '同じ過ごし方を目標にしなくて大丈夫。その日のほかのできごとも、一緒に振り返ってみよう。',
       evidence,
       evidenceText: `${evidence.from}〜${evidence.to}。${evidence.selectedLabel}：${evidence.selectedDays}日中${evidence.selectedGoodDays}日が元気な日。${evidence.comparisonLabel}：${evidence.comparisonDays}日中${evidence.comparisonGoodDays}日。「いい感じ」「うれしい」を選んだ日を、元気な日としています。原因を示すものではありません。`,
     };

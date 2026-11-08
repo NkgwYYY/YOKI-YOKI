@@ -1,3 +1,5 @@
+import {DailyLifeCharts} from '@/components/record/DailyLifeCharts';
+import {lifeSummary} from '@/utils/lifeTrends';
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Platform,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {useFocusEffect,useRouter} from 'expo-router';
@@ -32,7 +34,8 @@ function ConditionNotebook(){
  const step=(delta:number)=>{const index=days.findIndex(d=>d.date===selected);setSelected(days[Math.max(0,Math.min(days.length-1,index+delta))].date);};
  return <View testID="condition-screen" style={s.root}>
   <ScrollView contentContainerStyle={[s.content,{paddingTop:(Platform.OS==='web'?18:insets.top)+14,paddingBottom:getTabBarHeight(Platform.OS,insets.bottom)+28}]} showsVerticalScrollIndicator={false}>
-   <View style={s.heading}><View style={{flex:1,gap:8}}><Text style={s.brand}>• YOKI YOKI</Text><Text accessibilityRole="header" style={s.title}>いまのようす</Text></View><Pressable testID="condition-menu" accessibilityRole="button" accessibilityLabel="メニューを開く" onPress={()=>router.navigate({pathname:'/(tabs)',params:{menu:'1'}})} style={s.iconButton}><Icon name="grid" size={22} color="#514657"/></Pressable></View>
+   <View style={s.heading}><View style={{flex:1,gap:8}}><Text style={s.brand}>• YOKI YOKI</Text><Text accessibilityRole="header" style={s.title}>きろく</Text></View><Pressable testID="condition-menu" accessibilityRole="button" accessibilityLabel="メニューを開く" onPress={()=>router.navigate({pathname:'/(tabs)',params:{menu:'1'}})} style={s.iconButton}><Icon name="grid" size={22} color="#514657"/></Pressable></View>
+   <View style={s.segment}><Pressable accessibilityRole="tab" accessibilityState={{selected:true}} style={[s.segmentButton,s.segmentSelected]}><Text style={s.segmentLabel}>変化</Text></Pressable><Pressable testID="condition-insights-tab" accessibilityRole="tab" accessibilityState={{selected:false}} onPress={()=>router.push('/insights')} style={s.segmentButton}><Text style={s.segmentLabel}>気づき</Text></Pressable></View>
    <View testID="condition-summary" style={s.card}>
     <Text style={s.small}>{formatDateJP(today)}　あなたのきろく</Text>
     <View style={{gap:10}}>{KEYS.map(key=><View key={key} testID={`condition-card-${key}`} style={{backgroundColor:METRIC_STYLE[key].tint,borderRadius:18,padding:16,gap:8,borderLeftWidth:5,borderLeftColor:METRIC_STYLE[key].ink}}><Text style={s.small}>{CONDITION_TITLES[key]}</Text><Text testID={`condition-current-${key}`} style={[s.mood,{fontSize:21}]}>{conditionLabel(current,key)}</Text></View>)}</View>
@@ -48,13 +51,14 @@ function ConditionNotebook(){
     <View style={s.plot}><ConditionChart days={days} metric={key} selected={selected} onSelect={setSelected}/></View>
     <View style={[s.chartFooter,{backgroundColor:theme.tint}]}><Text style={s.selectedDate}>{shortDate(selected)} の記録</Text><Text testID={`condition-selected-${key}`} accessibilityLiveRegion="polite" style={[s.selected,{color:theme.ink}]}>{conditionLabel(chosen?.record,key)}</Text></View>
    </View>;})}
+   <DailyLifeCharts days={days} selected={selected} onSelect={setSelected}/>
    <View style={s.dayNav}><Pressable disabled={selected===days[0].date} accessibilityRole="button" accessibilityLabel="前の日の記録" onPress={()=>step(-1)} style={[s.dayButton,selected===days[0].date&&s.disabled]}><Icon name="chevron-left" size={16} color="#675670"/><Text style={s.linkText}>前の日</Text></Pressable><Text style={s.small}>{formatDateJP(selected)}</Text><Pressable disabled={selected===today} accessibilityRole="button" accessibilityLabel="次の日の記録" onPress={()=>step(1)} style={[s.dayButton,selected===today&&s.disabled]}><Text style={s.linkText}>次の日</Text><Icon name="chevron-right" size={16} color="#675670"/></Pressable></View>
    <Link label="日ごとの記録を見る" testID="condition-history" onPress={()=>setHistory(true)}/>
    <Link label="元気な日の傾向を見る" testID="condition-insights" onPress={()=>router.push('/insights')}/>
    <Link label="相棒の成長と思い出" testID="condition-growth" onPress={()=>router.navigate('/(tabs)/growth')}/>
    <Text style={s.footer}>空白の日・項目は未記録のまま表示します。{ '\n' }よいところ・気になるところは、選んだ回答をもとに表示しています。</Text>
   </ScrollView>
-  {history&&<BottomSheet visible onClose={()=>setHistory(false)} title="日ごとの記録" subtitle={period===7?'最近1週間':'最近1か月'} maxHeightRatio={.94}>{[...days].reverse().map(day=><View key={day.date} style={s.historyRow}><Text style={s.sectionTitle}>{formatDateJP(day.date)}</Text>{KEYS.map(key=><Text key={key} style={s.historyValue}>{CONDITION_TITLES[key]}：{conditionLabel(day.record,key)}</Text>)}</View>)}</BottomSheet>}
+  {history&&<BottomSheet visible onClose={()=>setHistory(false)} title="日ごとの記録" subtitle={period===7?'最近1週間':'最近1か月'} maxHeightRatio={.94}>{[...days].reverse().map(day=><View key={day.date} style={s.historyRow}><Text style={s.sectionTitle}>{formatDateJP(day.date)}</Text>{KEYS.map(key=><Text key={key} style={s.historyValue}>{CONDITION_TITLES[key]}：{conditionLabel(day.record,key)}</Text>)}{lifeSummary(day.record).map(line=><Text key={line} style={s.historyValue}>{line}</Text>)}</View>)}</BottomSheet>}
  </View>;
 }
 function shortDate(date:string){const [,m,d]=date.split('-');return `${Number(m)}/${Number(d)}`;}

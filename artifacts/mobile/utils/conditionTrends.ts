@@ -13,7 +13,8 @@ export function conditionValue(record:Partial<DailyRecord>|undefined,key:Conditi
 export function conditionLabel(record:Partial<DailyRecord>|undefined,key:ConditionKey){return CONDITION_LABELS[key][conditionValue(record,key)??0];}
 /** Calendar-day spacing, including missing days; no interpolation or filled-in scores. */
 export function conditionDays(records:DailyRecord[],end:string,count:number){
- const map=new Map(records.map(r=>[r.date,r]));
+ const map=new Map<string,DailyRecord>();
+ for(const record of records)if(!map.has(record.date))map.set(record.date,record);
  const anchor=new Date(`${end}T12:00:00Z`);
  return Array.from({length:count},(_,i)=>{
   const d=new Date(anchor);d.setUTCDate(d.getUTCDate()-count+1+i);
