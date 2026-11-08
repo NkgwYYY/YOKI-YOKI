@@ -102,9 +102,7 @@ for product in catalog:
         item=api('/v2/inAppPurchases','POST',{'data':{'type':'inAppPurchases','attributes':{'name':product['name'],'productId':sku,'inAppPurchaseType':'NON_CONSUMABLE'},'relationships':{'app':rel('apps',APP)}}})['data']
     ident=item['id']
     print('ROOM_PRODUCT',sku,ident,item['attributes'].get('state'),flush=True)
-    review_note='YOKI YOKI 1.2.6 (53). Home > Closet > Matching furniture / Room sets. One-time purchase; optional points exchange is separate. Restore Purchases is on the same screen. '+product['reviewNote']
-    if item['attributes'].get('reviewNote')!=review_note:
-        api('/v2/inAppPurchases/'+ident,'PATCH',{'data':{'type':'inAppPurchases','id':ident,'attributes':{'reviewNote':review_note}}})
+    print('ROOM_REVIEW_NOTE_PENDING',sku,'Apple rejects the reviewNote field; prepared text is in room-products53.json',flush=True)
     # Use the current version-based localization API; do not mutate an approved version.
     versions=items('/v2/inAppPurchases/'+ident+'/versions?limit=50')
     draft=next((v for v in versions if v['attributes'].get('state')=='PREPARE_FOR_SUBMISSION'),None)
