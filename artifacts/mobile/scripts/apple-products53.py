@@ -99,9 +99,12 @@ for product in catalog:
         item=matches[0]
         if item['attributes']['inAppPurchaseType']!='NON_CONSUMABLE':raise SystemExit('Existing product has wrong type')
     else:
-        item=api('/v2/inAppPurchases','POST',{'data':{'type':'inAppPurchases','attributes':{'name':product['name'],'productId':sku,'inAppPurchaseType':'NON_CONSUMABLE','reviewNote':'YOKI YOKI 1.2.6 (53). Home > Closet > Matching furniture / Room sets. One-time purchase; optional points exchange is separate. Restore Purchases is on the same screen. '+product['reviewNote']},'relationships':{'app':rel('apps',APP)}}})['data']
+        item=api('/v2/inAppPurchases','POST',{'data':{'type':'inAppPurchases','attributes':{'name':product['name'],'productId':sku,'inAppPurchaseType':'NON_CONSUMABLE'},'relationships':{'app':rel('apps',APP)}}})['data']
     ident=item['id']
     print('ROOM_PRODUCT',sku,ident,item['attributes'].get('state'),flush=True)
+    review_note='YOKI YOKI 1.2.6 (53). Home > Closet > Matching furniture / Room sets. One-time purchase; optional points exchange is separate. Restore Purchases is on the same screen. '+product['reviewNote']
+    if item['attributes'].get('reviewNote')!=review_note:
+        api('/v2/inAppPurchases/'+ident,'PATCH',{'data':{'type':'inAppPurchases','id':ident,'attributes':{'reviewNote':review_note}}})
     # Use the current version-based localization API; do not mutate an approved version.
     versions=items('/v2/inAppPurchases/'+ident+'/versions?limit=50')
     draft=next((v for v in versions if v['attributes'].get('state')=='PREPARE_FOR_SUBMISSION'),None)
