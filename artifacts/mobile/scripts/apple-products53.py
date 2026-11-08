@@ -80,7 +80,7 @@ def api(path,method='GET',body=None,optional=False):
         if optional and exc.code==404:return {'data':None}
         errors=json.loads(exc.read()).get('errors',[])
         # Only error codes and field pointers: never emit request or contact/login data.
-        print('Apple API error:',method,path.split('?')[0],exc.code,[{'code':e.get('code'),'title':e.get('title'),'source':e.get('source')} for e in errors])
+        print('Apple API error:',method,path.split('?')[0],exc.code,[{'code':e.get('code'),'title':e.get('title'),'source':e.get('source'),'detail':str(e.get('detail',''))[:300]} for e in errors])
         raise SystemExit(1)
 
 def rel(kind,ident):return {'data':{'type':kind,'id':ident}}

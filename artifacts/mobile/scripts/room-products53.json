@@ -1,6 +1,6 @@
 [
   {
-    "productId": "yokiyoki.room.panda-set",
+    "productId": "yokiyoki.room.panda_set",
     "name": "パンダのおそろいセット",
     "description": "パンダの着ぐるみと笹クッションの買い切りセット。",
     "englishName": "Panda Matching Set",
@@ -9,7 +9,7 @@
     "reviewNote": "The bundle includes the costume and matching furniture."
   },
   {
-    "productId": "yokiyoki.room.rabbit-set",
+    "productId": "yokiyoki.room.rabbit_set",
     "name": "うさぎのおそろいセット",
     "description": "うさぎの着ぐるみとにんじんベッドの買い切りセット。",
     "englishName": "Rabbit Matching Set",
@@ -18,7 +18,7 @@
     "reviewNote": "The bundle includes the costume and matching furniture."
   },
   {
-    "productId": "yokiyoki.room.rain-cafe",
+    "productId": "yokiyoki.room.rain_cafe",
     "name": "雨の日の喫茶店",
     "description": "雨空の背景、カフェの家具、あたたかな照明のお部屋セット。",
     "englishName": "Rainy Day Cafe",
@@ -27,7 +27,7 @@
     "reviewNote": "Background, furniture and lighting are applied together as a complete room theme."
   },
   {
-    "productId": "yokiyoki.room.star-room",
+    "productId": "yokiyoki.room.star_room",
     "name": "星空の部屋",
     "description": "星空の背景、星モチーフの家具、月と星の照明のお部屋セット。",
     "englishName": "Starlight Room",
@@ -45,7 +45,7 @@
     "reviewNote": "Background, furniture and lighting are applied together as a complete room theme."
   },
   {
-    "productId": "yokiyoki.room.panda-furniture",
+    "productId": "yokiyoki.room.panda_furniture",
     "name": "笹クッション",
     "description": "パンダにぴったりの笹クッション。着ぐるみは含みません。",
     "englishName": "Bamboo Cushion",
@@ -54,7 +54,7 @@
     "reviewNote": "Furniture only; costume sold separately."
   },
   {
-    "productId": "yokiyoki.room.rabbit-furniture",
+    "productId": "yokiyoki.room.rabbit_furniture",
     "name": "にんじんベッド",
     "description": "うさぎにぴったりのにんじんベッド。着ぐるみは含みません。",
     "englishName": "Carrot Bed",
