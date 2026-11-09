@@ -29,6 +29,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Require the same application source as the signed build
+        working-directory: .
         run: |
           git diff --name-only b14a59a670a4fc59aaa9490fa08923a876595176 HEAD -- . ':!.github' ':!artifacts/mobile/tests' > "$RUNNER_TEMP/app-diff.txt"
           test ! -s "$RUNNER_TEMP/app-diff.txt"
