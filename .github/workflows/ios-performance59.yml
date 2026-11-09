@@ -27,7 +27,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@249970729cb0ef3599644e2896645e5dc5ba9c38
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '22.16.0'
       - name: Install frozen workspace dependencies
@@ -149,7 +149,7 @@ jobs:
             raise SystemExit('Distribution signing is not configured: ' + ', '.join(missing) + '. No build or upload was attempted.')
         print('All three existing signing inputs are available; credential values are not displayed.')
         PYINPUTS
-    - uses: actions/setup-node@249970729cb0ef3599644e2896645e5dc5ba9c38
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
       with:
         node-version: 22.16.0
     - name: Install frozen dependencies
