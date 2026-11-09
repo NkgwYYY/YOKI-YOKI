@@ -6,7 +6,7 @@ import {VolumeEvolved} from './VolumeEvolved';
 import type {ResidentRendererState} from './VolumeEvolvedFallback';
 
 export function hasResidentVolume(stage:MascotStage):boolean {return ['egg','odango','stage3','stage4'].includes(stage);}
-export function VolumeResident({stage,displaySize,onRendererStateChange,...props}:ComponentProps<typeof VolumeEgg>&{stage:MascotStage;displaySize?:number;onRendererStateChange?:(state:ResidentRendererState)=>void}) {
+export function VolumeResident({stage,displaySize,onRendererStateChange,...props}:ComponentProps<typeof VolumeEgg>&{stage:MascotStage;displaySize?:number;onRendererStateChange?:(state:ResidentRendererState,diagnostic?:string)=>void}) {
   return stage==='egg'?<VolumeEgg {...props}/>:<VolumeEvolved stage={stage} displaySize={displaySize} onRendererStateChange={onRendererStateChange} {...props}/>;
 }
 

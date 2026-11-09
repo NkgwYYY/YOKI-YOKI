@@ -7,18 +7,20 @@ import {VolumeEvolvedFallback} from './VolumeEvolvedFallback';
 import {nativeResidentDocument} from '@/utils/nativeResidentDocument';
 import {mealSample} from '@/utils/residentMeal';
 import type {EvolvedForm,EvolvedPose} from '@/utils/evolved3d';
+import {createResidentWebViewLifecycle,residentWebViewTimeout,type ResidentWebViewSnapshot} from '@/utils/residentWebViewLifecycle';
 import type {VolumeEvolvedProps} from './VolumeEvolvedFallback';
 
 /** The same renderer and coat as web, isolated in one transparent local surface.
  * Native gestures/transforms stay on the UI thread; pose messages are coalesced
- * to 30 Hz and interpolated at display refresh inside the renderer. */
+ * to 30 Hz and interpolated at up to 30 fps inside the renderer. */
 export function VolumeEvolved(props:VolumeEvolvedProps){
  const smile=useResidentSmile(props.mood,props.reduceMotion);
  const {stage,size,displaySize=size,active=true,reduceMotion=false}=props;
  const ref=useRef<WebView>(null),latest=useRef(props);latest.current=props;
- const [generation,setGeneration]=useState(0);
- const attempts=useRef(0);
- const [ready,setReady]=useState(false),[failed,setFailed]=useState(false);
+ const [lifecycle]=useState(()=>createResidentWebViewLifecycle(stage));
+ const [state,setState]=useState(lifecycle.snapshot);
+ const {generation,token,phase}=state,ready=phase==='ready',failed=phase==='failed';
+ const apply=useCallback((next:ResidentWebViewSnapshot|null)=>{if(next)setState(next);},[]);
  const lastSent=useSharedValue(-1),lastPose=useSharedValue('');
  // Seed the exact coat, costume, expression and resolution in the local document.
  // Keep its identity stable while poses change: replacing source would reload WKWebView.
@@ -29,11 +31,6 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
    active:p.active??true,reduceMotion:!!p.reduceMotion,size:p.displaySize??p.size,
   })};
  },[stage,generation]);
- const recover=useCallback(()=>{
-  setReady(false);lastPose.value='';lastSent.value=-1;
-  if(attempts.current>=1){setFailed(true);return;}
-  attempts.current++;setFailed(false);setGeneration(n=>n+1);
- },[lastPose,lastSent]);
  const send=useCallback((pose:EvolvedPose,confirmReady=false)=>{
   const p=latest.current;
   ref.current?.postMessage(JSON.stringify({type:'pose',pose,confirmReady,active:p.active??true,reduceMotion:!!p.reduceMotion,size:p.displaySize??p.size}));
@@ -55,31 +52,31 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
   if(ready&&!active){const p=latest.current,meal=mealSample(p.mealProgress?.value??0);send({rx:p.rx.value,ry:p.ry.value,rz:p.rz.value,blink:p.blink.value,costume:p.costume,smile:smile.value,happy:p.mood==='happy'||p.mood==='excited',sleepy:p.mood==='sleepy',night:!!p.night,mouthOpen:meal.open,chew:meal.chew,smoking:!!p.smoking});}
   return()=>frames.setActive(false);
  },[ready,failed,active,reduceMotion,frames,send,lastPose]);
- useEffect(()=>{attempts.current=0;setReady(false);setFailed(false);lastSent.value=-1;lastPose.value='';},[stage]);
+ useEffect(()=>{apply(lifecycle.reset(stage));lastSent.value=-1;lastPose.value='';},[stage,lifecycle,apply,lastSent,lastPose]);
  useEffect(()=>{
-  if(ready||failed)return;
-  const timer=setTimeout(recover,5000);
+  const delay=residentWebViewTimeout(phase);if(delay===null)return;
+  const timer=setTimeout(()=>apply(lifecycle.timeout(token,phase)),delay);
   return()=>clearTimeout(timer);
- },[stage,generation,ready,failed,recover]);
+ },[phase,token,lifecycle,apply]);
  useEffect(()=>{
-  const subscription=AppState.addEventListener('change',state=>{
-   if(state!=='active')return;
-   lastPose.value='';
-   if(failed){attempts.current=0;recover();}else sendCurrentPose();
+  const subscription=AppState.addEventListener('change',status=>{
+   if(status!=='active')return;
+   lastPose.value='';apply(lifecycle.resume());sendCurrentPose();
   });
   return()=>subscription.remove();
- },[failed,recover,sendCurrentPose,lastPose]);
- // Report only actual WebView readiness; the static fallback never satisfies it.
- useEffect(()=>{props.onRendererStateChange?.(failed?'failed':ready?'ready':'loading');},[failed,ready,props.onRendererStateChange]);
+ },[lifecycle,apply,sendCurrentPose,lastPose]);
+ // A fallback never satisfies readiness. Diagnostics are only exposed by QA builds.
+ useEffect(()=>{props.onRendererStateChange?.(failed?'failed':ready?'ready':'loading',state.trace);},[failed,ready,state.trace,props.onRendererStateChange]);
  return <View testID={`resident-volume-${stage}`} pointerEvents="none" style={{width:size,height:size}}>
   {/* Keep WKWebView composited during startup; hiding its layer can defer first paint.
       The local canvas stays transparent until the original textured pose is drawn. */}
   {failed&&<VolumeEvolvedFallback {...props}/>}
   {!failed&&<View testID={ready?'resident-renderer-ready':'resident-renderer-loading'} style={StyleSheet.absoluteFill}>
-   <WebView key={`${stage}-${generation}`} ref={ref} source={source} originWhitelist={['about:blank']} onShouldStartLoadWithRequest={request=>request.url==='about:blank'}
-    onMessage={event=>{try{const m=JSON.parse(event.nativeEvent.data);if(m.type==='loaded')sendCurrentPose();if(m.type==='ready')setReady(true);if(m.type==='failed')recover();}catch{}}}
-    onLoadEnd={sendCurrentPose}
-    onError={recover} onContentProcessDidTerminate={recover}
+   <WebView key={token} ref={ref} source={source} originWhitelist={['about:blank']} onShouldStartLoadWithRequest={request=>request.url==='about:blank'}
+    onMessage={event=>{try{const m=JSON.parse(event.nativeEvent.data);if(m.type==='loaded'){apply(lifecycle.loaded(token));sendCurrentPose();}if(m.type==='ready')apply(lifecycle.ready(token));if(m.type==='failed')apply(lifecycle.error(token,'paint-error'));}catch{}}}
+    onLoadStart={()=>apply(lifecycle.note(token,'load-start'))}
+    onLoadEnd={()=>{apply(lifecycle.loaded(token));sendCurrentPose();}}
+    onError={event=>apply(lifecycle.error(token,'load-error:'+event.nativeEvent.code))} onContentProcessDidTerminate={()=>apply(lifecycle.error(token,'process-terminated'))}
     scrollEnabled={false} bounces={false} javaScriptEnabled domStorageEnabled={false} allowFileAccess={false} mixedContentMode="never"
     style={{backgroundColor:'transparent'}} containerStyle={{backgroundColor:'transparent'}}
     accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"/>

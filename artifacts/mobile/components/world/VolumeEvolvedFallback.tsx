@@ -11,7 +11,7 @@ import type {MascotMood} from '@/utils/mascotUtils';
 import {ODANGO_COAT_URI} from '@/utils/odangoCoat';
 const APath=Animated.createAnimatedComponent(Path);
 export type ResidentRendererState='loading'|'ready'|'failed';
-export type VolumeEvolvedProps={costume?:CostumeId|null;size:number;displaySize?:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean;stage:'odango'|'stage3'|'stage4';onRendererStateChange?:(state:ResidentRendererState)=>void};
+export type VolumeEvolvedProps={costume?:CostumeId|null;size:number;displaySize?:number;rx:SharedValue<number>;ry:SharedValue<number>;rz:SharedValue<number>;blink:SharedValue<number>;mood:MascotMood;night?:boolean;mealProgress?:SharedValue<number>;smoking?:boolean;active?:boolean;reduceMotion?:boolean;stage:'odango'|'stage3'|'stage4';onRendererStateChange?:(state:ResidentRendererState,diagnostic?:string)=>void};
 type Projection=ReturnType<typeof projectOdango>;
 function Feature({projection,part,fill,stroke,width,opacity=1}: {projection:SharedValue<Projection>;part:keyof Projection;fill:string;stroke?:string;width?:number;opacity?:number}) {
   const props=useAnimatedProps(()=>({d:projection.value[part]||'M 0 0',opacity:projection.value[part]?opacity:0}));

@@ -74,6 +74,8 @@ export function WorldResident(p: Props) {
     schedule();return()=>clearTimeout(timer);
   },[active,reduceMotion,stage,daySeed]);
   const [rendererState,setRendererState]=useState<ResidentRendererState>('loading');
+  const [rendererDiagnostic,setRendererDiagnostic]=useState('');
+  const rendererChanged=useCallback((state:ResidentRendererState,diagnostic?:string)=>{setRendererState(state);if(RENDERER_DIAGNOSTICS)setRendererDiagnostic(diagnostic??'');},[]);
   const rendererReady=stage==='egg'||!hasResidentVolume(stage)||rendererState!=='loading';
   const welcomeRunning=useSharedValue(0),welcomeStartedAt=useSharedValue(-1);
   const welcomeX=useSharedValue(0),welcomeY=useSharedValue(0);
@@ -471,7 +473,7 @@ export function WorldResident(p: Props) {
       accessibilityValue={RENDERER_DIAGNOSTICS?{text:`renderer:${rendererState}`}:undefined}
       accessibilityElementsHidden={!!experience} importantForAccessibility={experience ? 'no-hide-descendants' : 'auto'} aria-hidden={!!experience}
       accessibilityState={{disabled: !active || !!experience || !!food || p.bowlingBusy}}
-      accessibilityLabel={`${p.mascotName}にふれる。${activity}`} accessibilityHint={p.closeUp?'タップでごあいさつ。なでると喜びます。長押しで抱っこ。':'タップでごあいさつ。なでると喜びます。すばやく払うと、ころころ。長押しで抱っこして、お部屋の好きな場所に置けます。2本指で景色を拡大'}
+      accessibilityLabel={`${p.mascotName}にふれる。${activity}`} accessibilityHint={RENDERER_DIAGNOSTICS?rendererDiagnostic:p.closeUp?'タップでごあいさつ。なでると喜びます。長押しで抱っこ。':'タップでごあいさつ。なでると喜びます。すばやく払うと、ころころ。長押しで抱っこして、お部屋の好きな場所に置けます。2本指で景色を拡大'}
       accessibilityActions={[{name: 'activate', label: 'ごあいさつ'}, {name: 'pet', label: 'なでる'}, {name: 'talk', label: 'お話しする'}, ...(!p.closeUp?[{name:'roll',label:'ころがす'}]:[])]}
       onAccessibilityAction={e => {if(!active || experience || food||p.bowlingBusy)return; e.nativeEvent.actionName === 'roll' ? launchRoll(.6,.3) : e.nativeEvent.actionName === 'talk' ? p.onChat() : acknowledge(e.nativeEvent.actionName === 'pet' ? 'pet' : 'greet');}}
       onAccessibilityTap={() => acknowledge('greet')} tabIndex={active && !experience && !food ? 0 : -1}
@@ -486,7 +488,7 @@ export function WorldResident(p: Props) {
       <Animated.View pointerEvents="none" style={perspective}>
         <Animated.View testID="resident-body" style={body}>
           {p.effect && <Image source={{uri: p.effect.uri}} resizeMode="contain" style={{position: 'absolute', width: size * p.effect.scale * 1.3, height: size * p.effect.scale * 1.3, left: -size * 0.15 + p.effect.x, top: -size * 0.15 + p.effect.y}}/>}
-          {hasResidentVolume(p.stage)?<VolumeResident costume={costume} stage={p.stage} size={size} displaySize={p.viewFlight?Math.max(p.viewFlight.from.size,p.viewFlight.to.size):p.closeUp?.size} rx={displayRx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} smoking={p.smoking} active={active} reduceMotion={reduceMotion} mealProgress={pose==='eating'?mealProgress:undefined} onRendererStateChange={setRendererState}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
+          {hasResidentVolume(p.stage)?<VolumeResident costume={costume} stage={p.stage} size={size} displaySize={p.viewFlight?Math.max(p.viewFlight.from.size,p.viewFlight.to.size):p.closeUp?.size} rx={displayRx} ry={ry} rz={rz} blink={blink} mood={mood} night={p.period==='night'} smoking={p.smoking} active={active} reduceMotion={reduceMotion} mealProgress={pose==='eating'?mealProgress:undefined} onRendererStateChange={rendererChanged}/>:<StaticMascot stage={p.stage} mood={mood} size={size}/>}
           {p.smoking&&!volumetric&&<StaticSmokingAccessory size={size} active={active} reduceMotion={reduceMotion}/>}
           <ResidentDust value={p.cleanliness} size={size}/>
           {!volumetric&&<View style={[StyleSheet.absoluteFill, {opacity: p.period === 'night' ? 0.18 : 0.13}]} >
