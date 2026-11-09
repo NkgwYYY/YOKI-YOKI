@@ -10,11 +10,16 @@ final class RoomReleaseJourney59: XCTestCase {
     private var selectedProduct: String?
     override func setUpWithError() throws {
         continueAfterFailure = false
-        store = try SKTestSession(configurationFileNamed: "VisualProducts55")
-        store.storefront = "JPN"
-        store.locale = Locale(identifier: "ja_JP")
-        store.disableDialogs = true
-        store.clearTransactions()
+        // Rendering-only launches must not leave a second StoreKit test session
+        // alive while the purchase journey opens its own transaction channel.
+        if name.contains("testUnifiedShopPurchasesAndPersistence") {
+            store = try SKTestSession(configurationFileNamed: "VisualProducts55")
+            store.resetToDefaultState()
+            store.storefront = "JPN"
+            store.locale = Locale(identifier: "ja_JP")
+            store.disableDialogs = true
+            store.clearTransactions()
+        }
     }
     override func tearDownWithError() throws {
         capture("room-final-screen")
@@ -22,7 +27,14 @@ final class RoomReleaseJourney59: XCTestCase {
         hierarchy.name = "room-native-accessibility"
         hierarchy.lifetime = .keepAlways
         add(hierarchy)
+        if let store {
+            let details = XCTAttachment(string: "transactions=\(store.allTransactions().count), dialogsDisabled=\(store.disableDialogs), askToBuy=\(store.askToBuyEnabled), interrupted=\(store.interruptedPurchasesEnabled)")
+            details.name = "isolated-storekit-session"
+            details.lifetime = .keepAlways
+            add(details)
+        }
         app.terminate()
+        store = nil
     }
     private func element(_ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch

@@ -1,0 +1,182 @@
+name: Verify recovery 59 with isolated StoreKit sessions and distribute
+on:
+  push:
+    branches: [release/performance59-recovery-verified-20261109]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: recovery59-verified
+  cancel-in-progress: false
+jobs:
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      EXPO_NO_TELEMETRY: '1'
+      EXPO_PUBLIC_RENDERER_DIAGNOSTICS: '1'
+      EXPO_PUBLIC_DOMAIN: yoki-yoki.replit.app
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_live_Y2xlcmsueW9raS15b2tpLnJlcGxpdC5hcHAk
+      EXPO_PUBLIC_CLERK_PROXY_URL: https://yoki-yoki.replit.app/api/__clerk
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require unchanged native code and configuration
+        working-directory: .
+        run: |
+          python3 - <<'PYGATE'
+          import subprocess
+          allowed={'.github/workflows/ios-performance59-recovery.yml','artifacts/mobile/components/world/VolumeEvolved.native.tsx','artifacts/mobile/components/world/VolumeEvolvedFallback.tsx','artifacts/mobile/components/world/VolumeResident.tsx','artifacts/mobile/components/world/WorldResident.tsx','artifacts/mobile/utils/residentWebViewLifecycle.ts','artifacts/mobile/tests/residentWebViewLifecycle.test.mjs','artifacts/mobile/scripts/create-recovery59-xctest.rb','artifacts/mobile/scripts/configure-recovery59-xctestrun.py','artifacts/mobile/scripts/rebundle-recovery59-sim.sh','artifacts/mobile/scripts/RoomReleaseJourney59.swift','.github/workflows/ios-performance59-recovery-verify.yml'}
+          changed=set(subprocess.check_output(['git','diff','--name-only','4d14d1473d3b0e70bac43e7261c60da2c850d8ee','HEAD'],text=True).splitlines())
+          assert changed<=allowed,sorted(changed-allowed)
+          candidate=set(subprocess.check_output(['git','diff','--name-only','7bbab618fc0a1ccac59bd1433b40ddb509360515','HEAD'],text=True).splitlines())
+          assert candidate<={'.github/workflows/ios-performance59-recovery-verify.yml','artifacts/mobile/scripts/RoomReleaseJourney59.swift'},sorted(candidate)
+          print('Native modules, dependencies, assets and app configuration are unchanged; compile the candidate JS using the normal Release bundling phase.')
+          PYGATE
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Install frozen dependencies and check lifecycle recovery
+        working-directory: .
+        run: |
+          npm install --global pnpm@10.11.0
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm --filter @workspace/mobile typecheck
+          node --experimental-strip-types --test artifacts/mobile/tests/residentWebViewLifecycle.test.mjs artifacts/mobile/tests/residentStartup.test.mjs artifacts/mobile/tests/performance59.test.mjs
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: yokiyoki-shop59-native
+          run-id: 42539078278
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: artifacts/mobile/prior-native59
+      - name: Restore the compatible native core
+        run: |
+          test "$(cat prior-native59/source-commit.txt)" = 4d14d1473d3b0e70bac43e7261c60da2c850d8ee
+          mkdir -p "$RUNNER_TEMP/recovery59-sim" native59-recovery-results
+          ditto -x -k prior-native59/YOKIYOKI-simulator.zip "$RUNNER_TEMP/recovery59-sim"
+          app="$RUNNER_TEMP/recovery59-sim/YOKIYOKI.app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$app/Info.plist")" = 59
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Info.plist")" = 1.2.6
+          echo "YOKI_LOCAL_SIM_APP=$app" >> "$GITHUB_ENV"
+          printf '%s\n' "$GITHUB_SHA" > native59-recovery-results/source-commit.txt
+      - name: Compile candidate JavaScript with the normal Release Hermes bundling phase
+        run: |
+          pnpm exec expo prebuild --platform ios --no-install
+          (cd ios && pod install)
+          bash scripts/rebundle-recovery59-sim.sh
+      - name: Install native journey runner
+        run: |
+          gem install xcodeproj --version 1.27.0 --no-document
+          ruby scripts/create-recovery59-xctest.rb "$RUNNER_TEMP/yoki-review-xctest"
+      - name: Prepare a fresh isolated StoreKit simulator
+        env:
+          DEVICE_FAMILY: iPhone
+          YOKI_QA_EGG: '0'
+          YOKI_QA_ROOMS: '1'
+          YOKI_QA_STOREKIT: '1'
+        run: python3 scripts/prepare-ios-review.py
+      - name: Build the UI runner for the candidate app
+        run: |
+          xcodebuild -project "$RUNNER_TEMP/yoki-review-xctest/YokiReview.xcodeproj" -scheme YokiReviewUITests -configuration Release -sdk iphonesimulator -destination "platform=iOS Simulator,id=$YOKI_SIMULATOR_UDID" -destination-timeout 180 -derivedDataPath "$RUNNER_TEMP/yoki-test-derived" ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO build-for-testing > review-results/iPhone/test-build.log 2>&1 || { tail -80 review-results/iPhone/test-build.log; exit 1; }
+          python3 scripts/configure-recovery59-xctestrun.py
+      - name: Require real cold-start and resumed rendering plus complete shop journey
+        id: journeys
+        continue-on-error: true
+        run: |
+          xcodebuild -xctestrun "$YOKI_XCTESTRUN" -destination "platform=iOS Simulator,id=$YOKI_SIMULATOR_UDID" -destination-timeout 180 -resultBundlePath review-results/iPhone/native.xcresult -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1 '-only-testing:YokiReviewUITests/RoomReleaseJourney59' test-without-building > review-results/iPhone/xctest.log 2>&1 || { tail -100 review-results/iPhone/xctest.log; exit 1; }
+      - name: Preserve test evidence
+        if: always()
+        run: |
+          mkdir -p native59-recovery-results
+          if [ -d review-results/iPhone/native.xcresult ]; then
+            xcrun xcresulttool export attachments --path review-results/iPhone/native.xcresult --output-path native59-recovery-results/attachments || true
+            xcrun xcresulttool get test-results summary --path review-results/iPhone/native.xcresult > native59-recovery-results/test-summary.json || true
+          fi
+          cp review-results/iPhone/xctest.log native59-recovery-results/ 2>/dev/null || true
+          cp review-results/iPhone/environment.json native59-recovery-results/ 2>/dev/null || true
+          cp review-results/iPhone/test-build.log native59-recovery-results/ 2>/dev/null || true
+          xcrun simctl spawn "$YOKI_SIMULATOR_UDID" log show --last 10m --style compact --predicate 'subsystem CONTAINS[c] "storekit"' > native59-recovery-results/storekit-runtime.log 2>&1 || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: yokiyoki-native59-isolated
+          retention-days: 7
+          path: artifacts/mobile/native59-recovery-results/
+      - name: Require successful native journey
+        if: always()
+        env:
+          OUTCOME: ${{ steps.journeys.outcome }}
+        run: test "$OUTCOME" = success
+
+  upload:
+    needs: [simulator]
+    runs-on: macos-26
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: artifacts/mobile
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        persist-credentials: false
+    - name: Verify successful signed archive for the exact application source
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        python3 - <<'PYARCHIVE'
+        import json,os,urllib.request
+        def get(path):
+            request=urllib.request.Request('https://api.github.com/repos/NkgwYYY/YOKI-YOKI'+path,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+            with urllib.request.urlopen(request,timeout=30) as response:return json.load(response)
+        run=get('/actions/runs/42543679338')
+        assert run['head_sha']=='7bbab618fc0a1ccac59bd1433b40ddb509360515'
+        archive=get('/actions/jobs/128923967660')
+        assert archive['run_id']==42543679338 and archive['conclusion']=='success'
+        print('Original signed archive succeeded; application source is unchanged.')
+        PYARCHIVE
+    - name: Check target build and prepare ephemeral Apple upload key
+      id: preflight
+      env:
+        YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+        YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+        YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+      run: python3 scripts/apple-preflight59.py
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      if: steps.preflight.outputs.already_uploaded != 'true'
+      with:
+        name: yokiyoki-1.2.6-59-distribution
+        run-id: 42543679338
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        path: artifacts/mobile/release59-results
+    - name: Upload verified signed build 59 to Apple
+      if: steps.preflight.outputs.already_uploaded != 'true'
+      env:
+        YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+        YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+      run: |
+        set -euo pipefail
+        work="$RUNNER_TEMP/yoki-upload59"
+        test "$(cat release59-results/source-commit.txt)" = 7bbab618fc0a1ccac59bd1433b40ddb509360515
+        cp release59-results/export/YOKIYOKI.ipa "$work/YOKIYOKI.ipa"
+        cd "$work"
+        key_id="$(printf '%s' "$YOKI_ASC_KEY_ID" | tr -d '[:space:]')"
+        issuer_id="$(printf '%s' "$YOKI_ASC_ISSUER_ID" | tr -d '[:space:]')"
+        xcrun altool --upload-app --file "$PWD/YOKIYOKI.ipa" --type ios --apiKey "$key_id" --apiIssuer "$issuer_id"
+        echo 'Apple upload completed; processing and review submission are separate steps.'
+    - name: Verify processing and existing internal TestFlight distribution
+      env:
+        YOKI_ASC_PRIVATE_KEY: ${{ secrets.YOKI_ASC_PRIVATE_KEY }}
+        YOKI_ASC_KEY_ID: ${{ secrets.YOKI_ASC_KEY_ID }}
+        YOKI_ASC_ISSUER_ID: ${{ secrets.YOKI_ASC_ISSUER_ID }}
+        YOKI_RELEASE_MODE: testflight
+      run: python3 scripts/apple-review59.py
+    - name: Remove temporary Apple upload key
+      if: always()
+      run: rm -rf -- "$RUNNER_TEMP/yoki-upload59"
