@@ -10,7 +10,7 @@ export function nativeResidentDocument(form:EvolvedForm,initial?:ResidentInitial
  ${NATIVE_RESIDENT_SCRIPT}
  const notify=type=>window.ReactNativeWebView?.postMessage(JSON.stringify({type}));
  const canvas=document.getElementById('resident'),form=${json(form)};
- let renderer,frame=0,lastTime=0,previous='',active=true,detail='room',ready=false,failed=false,hasPose=false;
+ let renderer,frame=0,lastTime=0,lastPaint=0,previous='',active=true,detail='room',ready=false,failed=false,hasPose=false;
  let target={rx:0,ry:0,rz:0,blink:0,smile:0,happy:false,sleepy:false,night:false,mouthOpen:0,chew:0,smoking:false},shown={...target},texture;
  let materialReady=form!=='odango';
  const stop=()=>{if(frame)cancelAnimationFrame(frame);frame=0;};
@@ -25,6 +25,9 @@ export function nativeResidentDocument(form:EvolvedForm,initial?:ResidentInitial
  };
  const paint=now=>{
   frame=0;if(!ready||failed||!active||document.hidden)return;
+  // Limit expensive canvas work to 30 fps; native movement stays on the UI thread.
+  if(now-lastPaint<1000/30){frame=requestAnimationFrame(paint);return;}
+  lastPaint=now;
   const dt=Math.min(64,Math.max(1,now-lastTime||16));lastTime=now;
   let moving=false;const blend=1-Math.exp(-dt/24);
   for(const k of ['rx','ry','rz','mouthOpen','chew','smile']){const next=shown[k]+(target[k]-shown[k])*blend;shown[k]=Math.abs(target[k]-next)<.001?target[k]:next;if(shown[k]!==target[k])moving=true;}

@@ -68,7 +68,15 @@ export function createEvolvedLeafMesh(form:EvolvedForm):Float32Array {
 /** Faces and leaves use the same 3D projection as the shared GPU fur coat.
  * A cached textured silhouette keeps unsupported devices inexpensive too. */
 export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,detail:'room'|'portrait'='portrait'){
-  const ctx=canvas.getContext('2d',{alpha:true});if(!ctx)throw new Error('Canvas unavailable');
+  const targetContext=canvas.getContext('2d',{alpha:true});if(!targetContext)throw new Error('Canvas unavailable');
+  let ctx=targetContext;
+  // Exact raster caches: expression changes never rebuild the unchanged coat or
+  // costume. Rotation, lighting, texture and resolution invalidate the layers.
+  const makeLayer=()=>typeof document==='undefined'?null:document.createElement('canvas');
+  const bodyLayer=makeLayer(),outfitLayer=makeLayer();
+  const bodyContext=bodyLayer?.getContext('2d',{alpha:true}),outfitContext=outfitLayer?.getContext('2d',{alpha:true});
+  let bodyKey='',outfitKey='';
+  const copyLayer=(layer:HTMLCanvasElement)=>{targetContext.save();targetContext.setTransform(1,0,0,1,0,0);targetContext.drawImage(layer,0,0);targetContext.restore();};
   const shape=EVOLVED_SHAPES[form],r=shape.radius;
   const colors:V[]=[[255,237,191],[219,238,205],[199,229,235],[216,207,240],[237,207,230],[207,236,222],[255,215,224],[255,227,210]];
   const coat=(p:V):V=>{
@@ -105,7 +113,7 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
   let disposed=false;
   const mouthHalfWidth=form==='odango'?6.8:FACE.mouthHalfWidth;
   return {
-    setCoatTexture(texture:HTMLImageElement){if(!disposed)odangoCoat?.setTexture(texture);},
+    setCoatTexture(texture:HTMLImageElement){if(!disposed){odangoCoat?.setTexture(texture);bodyKey='';}},
     render(pose:EvolvedPose){
       if(disposed)return;
       const started=performance.now();
@@ -147,6 +155,13 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
         triangles.sort((a,b)=>a.z-b.z);
         for(const t of triangles){ctx.beginPath();ctx.moveTo(t.p[0][0],t.p[0][1]);ctx.lineTo(t.p[1][0],t.p[1][1]);ctx.lineTo(t.p[2][0],t.p[2][1]);ctx.closePath();ctx.fillStyle=color(t.material===8?[211,227,170]:[169,201,126],.92+.08*Math.abs(dot(t.n,light)));ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=.14;ctx.fill();ctx.stroke();}
       };
+      const nextBodyKey=[pose.rx,pose.ry,pose.rz,pose.night,canvas.width,canvas.height].join(',');
+      const reuseBody=!!bodyLayer&&!!bodyContext&&bodyKey===nextBodyKey;
+      if(!reuseBody){
+      if(bodyLayer&&bodyContext){
+        if(bodyLayer.width!==canvas.width||bodyLayer.height!==canvas.height){bodyLayer.width=canvas.width;bodyLayer.height=canvas.height;}
+        ctx=bodyContext;ctx.setTransform(canvas.width/100,0,0,canvas.height/100,0,0);ctx.clearRect(0,0,100,100);ctx.translate(50,origin);ctx.scale(EVOLVED_CAMERA_SCALE,EVOLVED_CAMERA_SCALE);
+      }
       drawLeaves(false);
       if(odangoCoat)odangoCoat.paint(ctx,{rotation:m,support,origin,night:pose.night});
       else{
@@ -184,6 +199,11 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
       for(const [c,path] of groups){ctx.strokeStyle=c;ctx.stroke(path);}
       ctx.globalAlpha=1;
       }
+      bodyKey=nextBodyKey;
+      }
+      ctx=targetContext;
+      if(bodyLayer&&bodyContext)copyLayer(bodyLayer);
+      canvas.dataset.bodyCache=reuseBody?'hit':'miss';
       ctx.lineCap='round';
       const visible=(p:V)=>rotate(normalAt(p))[2]>.04;
       for(const x of [-FACE.cheekX,FACE.cheekX]){
@@ -209,10 +229,19 @@ export function createEvolvedRenderer(canvas:HTMLCanvasElement,form:EvolvedForm,
       if(pose.mouthOpen>.08){const p=surface(0,shape.mouthY);if(visible(p)){p[2]+=2;ellipse(p,[3.3,3.8*pose.mouthOpen,.5]);ctx.fillStyle='#654442';ctx.fill();}}
       else{ctx.beginPath();let connected=false;for(let i=0;i<=30;i++){const x=mouthHalfWidth*(i/15-1),curve=form==='odango'?(-2.2+3.8*(pose.smile??Number(pose.happy))):(.48+.52*(pose.smile??Number(pose.happy)))*FACE.mouthCurve,y=shape.mouthY+curve*(1-(x/mouthHalfWidth)**2),p=surface(x,y);if(!visible(p)){connected=false;continue;}p[2]+=2.1;const q=rot(p);if(connected)ctx.lineTo(q[0],q[1]);else ctx.moveTo(q[0],q[1]);connected=true;}ctx.lineWidth=form==='odango'?1.45:1.15;ctx.strokeStyle=form==='odango'?'#292D28':'#6B535C';ctx.stroke();}
       drawLeaves(true);
-      if(pose.costume)paintCostume(ctx,form,pose.costume,pose.rx,pose.ry,pose.rz,pose.night);
+      if(pose.costume){
+        const nextOutfitKey=nextBodyKey+':'+pose.costume;
+        if(outfitLayer&&outfitContext){
+          if(outfitKey!==nextOutfitKey){
+            outfitLayer.width=canvas.width;outfitLayer.height=canvas.height;
+            paintCostume(outfitContext,form,pose.costume,pose.rx,pose.ry,pose.rz,pose.night);outfitKey=nextOutfitKey;
+          }
+          copyLayer(outfitLayer);
+        }else paintCostume(ctx,form,pose.costume,pose.rx,pose.ry,pose.rz,pose.night);
+      }
       if(pose.smoking){const p=surface(FACE.mouthHalfWidth,shape.mouthY);if(visible(p)){p[2]+=3;const at=(x:number)=>rot([p[0]+x,p[1]-.04*x,p[2]+.22*x]);for(const [a,b,c] of [[0,5,'#c5a174'],[5,18,'#f3eee1'],[18,19,'#e99461']] as const){const q=at(a),end=at(b);ctx.beginPath();ctx.moveTo(q[0],q[1]);ctx.lineTo(end[0],end[1]);ctx.lineWidth=1.65;ctx.strokeStyle=c;ctx.stroke();}const q=at(19);ctx.beginPath();ctx.moveTo(q[0],q[1]-2);ctx.bezierCurveTo(q[0]+6,q[1]-12,q[0]-4,q[1]-17,q[0]+1,q[1]-25);ctx.strokeStyle='rgba(231,233,225,.65)';ctx.lineWidth=.65;ctx.stroke();}}
       canvas.dataset.renderMs=(performance.now()-started).toFixed(1);
     },
-    dispose(){disposed=true;odangoCoat?.dispose();},
+    dispose(){disposed=true;odangoCoat?.dispose();for(const layer of [bodyLayer,outfitLayer])if(layer)layer.width=layer.height=0;},
   };
 }

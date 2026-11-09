@@ -1,6 +1,6 @@
 import {useResidentSmile} from '@/hooks/useResidentSmile';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
-import {StyleSheet,View} from 'react-native';
+import {AppState,StyleSheet,View} from 'react-native';
 import {WebView} from 'react-native-webview';
 import {runOnJS,useFrameCallback,useSharedValue} from 'react-native-reanimated';
 import {VolumeEvolvedFallback} from './VolumeEvolvedFallback';
@@ -16,6 +16,8 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
  const smile=useResidentSmile(props.mood,props.reduceMotion);
  const {stage,size,displaySize=size,active=true,reduceMotion=false}=props;
  const ref=useRef<WebView>(null),latest=useRef(props);latest.current=props;
+ const [generation,setGeneration]=useState(0);
+ const attempts=useRef(0);
  const [ready,setReady]=useState(false),[failed,setFailed]=useState(false);
  const lastSent=useSharedValue(-1),lastPose=useSharedValue('');
  // Seed the exact coat, costume, expression and resolution in the local document.
@@ -26,7 +28,12 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
    pose:{rx:p.rx.value,ry:p.ry.value,rz:p.rz.value,blink:p.blink.value,costume:p.costume,smile:smile.value,happy:p.mood==='happy'||p.mood==='excited',sleepy:p.mood==='sleepy',night:!!p.night,mouthOpen:meal.open,chew:meal.chew,smoking:!!p.smoking},
    active:p.active??true,reduceMotion:!!p.reduceMotion,size:p.displaySize??p.size,
   })};
- },[stage]);
+ },[stage,generation]);
+ const recover=useCallback(()=>{
+  setReady(false);lastPose.value='';lastSent.value=-1;
+  if(attempts.current>=1){setFailed(true);return;}
+  attempts.current++;setFailed(false);setGeneration(n=>n+1);
+ },[lastPose,lastSent]);
  const send=useCallback((pose:EvolvedPose,confirmReady=false)=>{
   const p=latest.current;
   ref.current?.postMessage(JSON.stringify({type:'pose',pose,confirmReady,active:p.active??true,reduceMotion:!!p.reduceMotion,size:p.displaySize??p.size}));
@@ -48,22 +55,31 @@ export function VolumeEvolved(props:VolumeEvolvedProps){
   if(ready&&!active){const p=latest.current,meal=mealSample(p.mealProgress?.value??0);send({rx:p.rx.value,ry:p.ry.value,rz:p.rz.value,blink:p.blink.value,costume:p.costume,smile:smile.value,happy:p.mood==='happy'||p.mood==='excited',sleepy:p.mood==='sleepy',night:!!p.night,mouthOpen:meal.open,chew:meal.chew,smoking:!!p.smoking});}
   return()=>frames.setActive(false);
  },[ready,failed,active,reduceMotion,frames,send,lastPose]);
- useEffect(()=>{setReady(false);setFailed(false);lastSent.value=-1;lastPose.value='';},[stage]);
+ useEffect(()=>{attempts.current=0;setReady(false);setFailed(false);lastSent.value=-1;lastPose.value='';},[stage]);
  useEffect(()=>{
   if(ready||failed)return;
-  const timer=setTimeout(()=>setFailed(true),10000);
+  const timer=setTimeout(recover,5000);
   return()=>clearTimeout(timer);
- },[stage,ready,failed]);
+ },[stage,generation,ready,failed,recover]);
+ useEffect(()=>{
+  const subscription=AppState.addEventListener('change',state=>{
+   if(state!=='active')return;
+   lastPose.value='';
+   if(failed){attempts.current=0;recover();}else sendCurrentPose();
+  });
+  return()=>subscription.remove();
+ },[failed,recover,sendCurrentPose,lastPose]);
  // Report only actual WebView readiness; the static fallback never satisfies it.
  useEffect(()=>{props.onRendererStateChange?.(failed?'failed':ready?'ready':'loading');},[failed,ready,props.onRendererStateChange]);
  return <View testID={`resident-volume-${stage}`} pointerEvents="none" style={{width:size,height:size}}>
-  {/* A different coat must not flash while the real renderer is starting. */}
+  {/* Keep WKWebView composited during startup; hiding its layer can defer first paint.
+      The local canvas stays transparent until the original textured pose is drawn. */}
   {failed&&<VolumeEvolvedFallback {...props}/>}
-  {!failed&&<View testID={ready?'resident-renderer-ready':'resident-renderer-loading'} style={[StyleSheet.absoluteFill,{opacity:ready?1:0}]}>
-   <WebView ref={ref} source={source} originWhitelist={['about:blank']} onShouldStartLoadWithRequest={request=>request.url==='about:blank'}
-    onMessage={event=>{try{const m=JSON.parse(event.nativeEvent.data);if(m.type==='loaded')sendCurrentPose();if(m.type==='ready')setReady(true);if(m.type==='failed')setFailed(true);}catch{}}}
+  {!failed&&<View testID={ready?'resident-renderer-ready':'resident-renderer-loading'} style={StyleSheet.absoluteFill}>
+   <WebView key={`${stage}-${generation}`} ref={ref} source={source} originWhitelist={['about:blank']} onShouldStartLoadWithRequest={request=>request.url==='about:blank'}
+    onMessage={event=>{try{const m=JSON.parse(event.nativeEvent.data);if(m.type==='loaded')sendCurrentPose();if(m.type==='ready')setReady(true);if(m.type==='failed')recover();}catch{}}}
     onLoadEnd={sendCurrentPose}
-    onError={()=>setFailed(true)} onContentProcessDidTerminate={()=>{setReady(false);ref.current?.reload();}}
+    onError={recover} onContentProcessDidTerminate={recover}
     scrollEnabled={false} bounces={false} javaScriptEnabled domStorageEnabled={false} allowFileAccess={false} mixedContentMode="never"
     style={{backgroundColor:'transparent'}} containerStyle={{backgroundColor:'transparent'}}
     accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants"/>
